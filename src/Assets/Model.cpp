@@ -134,7 +134,7 @@ namespace Assets {
 			materials.emplace_back(material);
 
 			// Geometry
-			for (int f = 0; f < scene->mMeshes[m]->mNumFaces; f++) 
+			for (int f = 0; f < scene->mMeshes[m]->mNumFaces; f++)
 			{
 
 				for (int i = 0; i < scene->mMeshes[m]->mFaces[f].mNumIndices; i++)
@@ -223,17 +223,20 @@ namespace Assets {
 	}
 
 
-std::vector<Model> Model::LoadModelGroup(const std::string& filename)
-{
-	std::cout << "- loading '" << filename << "'... " << std::flush;
+	std::vector<Model> Model::LoadModelGroup(const std::string& filename)
+	{
+		std::cout << "- loading '" << filename << "'... " << std::flush;
 
-	const auto timer = std::chrono::high_resolution_clock::now();
-	const std::string materialPath = std::filesystem::path(filename).parent_path().string();
+		const auto timer = std::chrono::high_resolution_clock::now();
+		const std::string materialPath = std::filesystem::path(filename).parent_path().string();
 
-	Assimp::Importer objectImporter;
-	std::vector<Model> models;
+		Assimp::Importer objectImporter;
+		std::vector<Model> models;
 
-	const aiScene* scene = objectImporter.ReadFile(filename, aiProcessPreset_TargetRealtime_MaxQuality); //read file and return an aiScene containing model attributes
+		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | 
+														aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | 
+														aiProcess_Triangulate | aiProcess_GenUVCoords | aiProcess_SortByPType | 
+														aiProcess_FindDegenerates | aiProcess_FindInvalidData | aiProcess_FindInstances | aiProcess_ValidateDataStructure); //read file and return an aiScene containing model attributes
 
 
 	if (scene == nullptr)
