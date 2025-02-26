@@ -300,6 +300,9 @@ void ModelManager::createSponza()
 
 void ModelManager::deleteObject(std::shared_ptr<GameObject> gameObject)
 {
+	if (gameObject->getType() == GameObject::POINT_LIGHT || gameObject->getType() == GameObject::DIRECTIONAL_LIGHT || gameObject->getType() == GameObject::SPOT_LIGHT)
+		this->lightTable.erase(gameObject->getName());
+
 	this->gameObjectMap.erase(gameObject->getName());
 
 	int index = -1;
@@ -313,11 +316,24 @@ void ModelManager::deleteObject(std::shared_ptr<GameObject> gameObject)
 	if (index != -1) {
 		this->gameObjectList.erase(this->gameObjectList.begin() + index);
 	}
+
+	index = -1;
+	for (int i = 0; i < this->lightList.size(); i++) {
+		if (this->lightList[i] == gameObject) {
+			index = i;
+			break;
+		}
+	}
+
+	if (index != -1) {
+		this->lightList.erase(this->lightList.begin() + index);
+	}
 }
 
 void ModelManager::deleteObjectByName(String name)
 {
 	std::shared_ptr<GameObject> object = this->findObjectByName(name);
+
 	if (object != nullptr)
 	{
 		this->deleteObject(object);
@@ -346,4 +362,6 @@ void ModelManager::clearAllObjects()
 	this->gameObjectList.clear();
 	this->gameObjectMap.clear();
 	this->objectGroupList.clear();
+	this->lightList.clear();
+	this->lightTable.clear();
 }

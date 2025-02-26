@@ -14,14 +14,10 @@ namespace Assets
 			SpotLight = 2
 		};
 
-		glm::vec3 LightPos;   // 12 bytes
-		float padding1;       // 4 bytes padding (to align to 16 bytes)
-
-		glm::vec4 AmbientColor;  // 16 bytes
-		glm::vec4 LightColor;    // 16 bytes
-
-		Enum LightType;        // 4 bytes
-		uint32_t padding2[3];  // 12 bytes padding (to align struct to 16 bytes)
+		alignas(16) glm::vec3 LightPos;
+		alignas(16) glm::vec4 AmbientColor;
+		alignas(16) glm::vec4 LightColor;
+		alignas(4) Enum LightType;
 	};
 }
 

@@ -22,11 +22,9 @@ const uint SpotLight = 2;
 struct LightProperties 
 {
 	vec3 LightPos;
-	float padding1;
 	vec4 AmbientColor;
 	vec4 LightColor;
 	uint LightType;
-	uint padding2[3];
 };
 
 LightProperties InitializeTestPLProperties() 
