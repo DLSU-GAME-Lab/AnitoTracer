@@ -1,0 +1,33 @@
+name: Windows CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: windows-2022
+    env:
+      SDK_VERSION: 1.3.268.0
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Download Vulkan SDK
+      run: Invoke-WebRequest "https://sdk.lunarg.com/sdk/download/${env:SDK_VERSION}/windows/vulkan_sdk.exe?Human=true" -OutFile vulkan_sdk.exe -v
+    - name: Install Vulkan SDK
+      run: .\vulkan_sdk.exe --accept-licenses --default-answer --confirm-command install
+      shell: cmd
+    - name: Compile vcpkg dependencies
+      run: vcpkg_windows.bat
+      shell: cmd
+    # This is where GitHub actions on Windows get really nonsensical.
+    # MSBuild is not on the path by default, despite this running on a Windows / Visual Studio 2019 docker image.
+    # We currently use 3rd party action to avoid hard coding the path to MSBuild
+    # (originally at https://github.com/warrenbuckley/Setup-MSBuild, later on adopted by Microsoft themselves).
+    # Comedy bonus: GitHub is now owned by Microsoft.
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1
+    - name: Compile raytracer
+      run: |
+        set VULKAN_SDK=C:\VulkanSDK\%SDK_VERSION%
+        build_windows.bat
+      shell: cmd
