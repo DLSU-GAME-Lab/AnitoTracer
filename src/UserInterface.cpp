@@ -17,8 +17,11 @@
 #include "ImGui/imgui_impl_glfw.h"
 #include "ImGui/imgui_impl_vulkan.h"
 
-#include <array>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include <array>
+#include <glm/gtx/string_cast.hpp>
 
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/EventBroadcaster.h"
@@ -163,27 +166,13 @@ void UserInterface::Render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuf
 		float viewportHeight = swapChain.Extent().height;
 		ImGuizmo::SetRect(viewportX, viewportY, viewportWidth, viewportHeight);
 
-		glm::mat4 viewMatrix = CameraManager::getInstance()->getActiveCamera()->ModelView();
-		glm::mat4 projMatrix = glm::perspective(glm::radians(userSettings_.FieldOfView), viewportWidth / viewportHeight, 0.1f, 10000.0f);
-
-		glm::vec3 translateVec = selectedObject->getWorldPosition();
-		glm::vec3 rotateVec = glm::degrees(selectedObject->getWorldRotation());
-		glm::vec3 scaleVec = selectedObject->getWorldScale();      
-
-		glm::mat4 objectMatrix = glm::mat4(1.0f);
-
-		objectMatrix = glm::translate(objectMatrix, translateVec);
-
-		objectMatrix = glm::rotate(objectMatrix, glm::radians(rotateVec.x), glm::vec3(1, 0, 0));
-		objectMatrix = glm::rotate(objectMatrix, glm::radians(rotateVec.y), glm::vec3(0, 1, 0));
-		objectMatrix = glm::rotate(objectMatrix, glm::radians(rotateVec.z), glm::vec3(0, 0, 1));
-
-		objectMatrix = glm::scale(objectMatrix, scaleVec);
+		glm::mat4 viewMatrix = CameraManager::getInstance()->getActiveCamera()->GetView();
+		glm::mat4 projMatrix = CameraManager::getInstance()->getActiveCamera()->GetProjection();
 
 		if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
-			mCurrentGizmoOperation, ImGuizmo::LOCAL, glm::value_ptr(objectMatrix)))
+			mCurrentGizmoOperation, ImGuizmo::LOCAL, glm::value_ptr(selectedObject->getObjectMatrix())))
 		{
-			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(objectMatrix), translation, rotation, scale);
+			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(selectedObject->getObjectMatrix()), translation, rotation, scale);
 
 			if (mCurrentGizmoOperation == ImGuizmo::TRANSLATE)
 			{
@@ -198,15 +187,14 @@ void UserInterface::Render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuf
 			{
 				isUsingImguizmo = true;
 			}
-
 		}
 
 		if (isUsingImguizmo && !ImGuizmo::IsUsingAny())
 		{
-
 			selectedObject->setLocalPosition(glm::vec3(translation[0], translation[1], translation[2]));
 
-			selectedObject->setLocalRotation(glm::vec3(glm::degrees(rotation[0]), glm::degrees(rotation[1]), glm::degrees(rotation[2])));
+			glm::quat newRotationQuat = glm::quat(glm::radians(glm::vec3(rotation[0], rotation[1], rotation[2])));
+			selectedObject->setLocalRotation(glm::degrees(glm::eulerAngles(newRotationQuat)));
 
 			glm::vec3 newScale(scale[0], scale[1], scale[2]);
 			selectedObject->setLocalScale(newScale);

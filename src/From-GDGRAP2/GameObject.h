@@ -14,7 +14,7 @@ public:
 
     enum PrimitiveType {
         CAMERA, CUBE, OBJECT_GROUP, QUAD, PLANE, CYLINDER, CAPSULE, SPHERE,
-    	POINT_LIGHT, DIRECTIONAL_LIGHT, SPOT_LIGHT, NONE
+        POINT_LIGHT, DIRECTIONAL_LIGHT, SPOT_LIGHT, NONE
     };
 
     typedef glm::vec3 vec3;
@@ -47,6 +47,8 @@ public:
     void setLocalScale(vec3 newScale);
     void setLocalScale(float x, float y, float z);
 
+    glm::mat4& getObjectMatrix();
+
     std::shared_ptr<Assets::Model> getModel();
 
     void addChild(GameObject* child);
@@ -63,6 +65,7 @@ public:
     void setOBB(const BoundingBox& obb);
     std::shared_ptr<BoundingBox> getOBB() const;
 
+    void updateObjectMatrix();
     void updateWorldTransform();
 
 protected:
@@ -71,7 +74,6 @@ protected:
     bool enabled = true;
 
     std::shared_ptr<GameObject> debugCube = nullptr;
-
 
     uint32_t id = 0;
 
@@ -85,6 +87,8 @@ protected:
     vec3 worldPosition = VectorUtils::zeros();
     vec3 worldRotation = VectorUtils::zeros();
     vec3 worldScale = VectorUtils::ones();
+
+    glm::mat4 mat_ = glm::mat4(1.0);
 
     std::shared_ptr<Assets::Model> modelRef;
 
