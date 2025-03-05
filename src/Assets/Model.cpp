@@ -75,12 +75,7 @@ namespace Assets {
 			Throw(std::runtime_error("failed to load model '" + filename + "':\n" + objectImporter.GetErrorString()));
 		}
 		std::string name;
-		name = scene->mName.C_Str();
 		int totalvertices = 0;
-
-		std::vector<Material> materials;
-		aiColor4D diffuse;
-		Material material{};
 
 		for (int i = 0; i < scene->mNumMeshes; i++)
 		{
@@ -91,12 +86,14 @@ namespace Assets {
 		std::unordered_map<Vertex, uint32_t> uniqueVertices(totalvertices);
 		size_t faceId = 0;
 
-		for (int m = 0; m < scene->mNumMeshes; m++)
+		//instantiate all materials 
+		//Materials and Texture
+		std::vector<Material> materials;
+		aiColor4D diffuse;
+		Material material{};
+		for (int i = 0; i < scene->mNumMaterials; i++)
 		{
-
-
-			//Materials and Texture
-			if (AI_SUCCESS != scene->mMaterials[scene->mMeshes[m]->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse))
+			if (AI_SUCCESS != scene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse))
 			{
 
 				material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
@@ -109,12 +106,12 @@ namespace Assets {
 			{
 				material.Diffuse = vec4(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
 
-				int texcount = scene->mMaterials[scene->mMeshes[m]->mMaterialIndex]->GetTextureCount(aiTextureType_DIFFUSE);
+				int texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_DIFFUSE);
 
 				if (texcount > 0) {
 					aiString texture_file;
-					scene->mMaterials[scene->mMeshes[m]->mMaterialIndex]->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0), texture_file);
-					std::string texName = scene->mMaterials[scene->mMeshes[m]->mMaterialIndex]->GetName().C_Str();
+					scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0), texture_file);
+					std::string texName = scene->mMaterials[i]->GetName().C_Str();
 					if (!TextureLibrary::getInstance()->doesTextureExist(texName))
 					{
 						TextureLibrary::getInstance()->addTexture(texName, FileUtils::getAssetsFolderPath().generic_string() + "/models/" + texture_file.C_Str());
@@ -128,14 +125,16 @@ namespace Assets {
 				{
 					//material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
 					material.DiffuseTextureId = -1;
-
-					std::cout << "No Texture in Material: " << scene->mMaterials[scene->mMeshes[m]->mMaterialIndex]->GetName().C_Str() << std::endl;
 				}
 
 
 			}
 
 			materials.emplace_back(material);
+		}
+
+		for (int m = 0; m < scene->mNumMeshes; m++)
+		{
 
 			// Geometry
 			for (int f = 0; f < scene->mMeshes[m]->mNumFaces; f++)
@@ -178,7 +177,7 @@ namespace Assets {
 						vertex.TexCoord =
 						{
 							(float)scene->mMeshes[m]->mTextureCoords[0][v].x,
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].y
+							1 - (float)scene->mMeshes[m]->mTextureCoords[0][v].y
 						};
 					}
 
@@ -194,7 +193,7 @@ namespace Assets {
 				}
 
 			}
-
+			name = scene->mName.C_Str();
 			if (name == "")
 				name = "Imported Object";
 		}
@@ -309,48 +308,6 @@ namespace Assets {
 			std::vector<uint32_t> indices;
 			std::unordered_map<Vertex, uint32_t> uniqueVertices(scene->mMeshes[m]->mNumVertices);
 
-			////Materials and Texture
-			//std::vector<Material> materials;
-			//aiColor4D diffuse;
-			//Material material{};
-			//if (AI_SUCCESS != scene->mMaterials[scene->mMeshes[m]->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse))
-			//{
-
-			//	material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
-			//	material.DiffuseTextureId = -1;
-
-			//	std::cout << "No Texture in Mesh!" << std::endl;
-
-			//}
-			//else
-			//{
-			//	material.Diffuse = vec4(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
-
-			//	int texcount = scene->mMaterials[scene->mMeshes[m]->mMaterialIndex]->GetTextureCount(aiTextureType_DIFFUSE);
-			//	std::string texName = name + std::to_string(scene->mMeshes[m]->mMaterialIndex);
-
-			//	if (texcount > 0) {
-			//		aiString texture_file;
-			//		scene->mMaterials[scene->mMeshes[m]->mMaterialIndex]->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0), texture_file);
-			//		if (!TextureLibrary::getInstance()->doesTextureExist(texName))
-			//		{
-			//			TextureLibrary::getInstance()->addTexture(texName, FileUtils::getAssetsFolderPath().generic_string() + "/models/" + texture_file.C_Str());
-			//			std::cout << "Initialized Texture " << texName << std::endl;
-			//		}
-			//		material.DiffuseTextureId = TextureLibrary::getInstance()->getTextureId(texName);
-			//	}
-			//	else
-			//	{
-			//		material.DiffuseTextureId = -1;
-
-			//		std::cout << "No Texture in Material: " << scene->mMaterials[scene->mMeshes[m]->mMaterialIndex]->GetName().C_Str() << std::endl;
-			//	}
-
-
-			//}
-
-			//materials.emplace_back(material);
-
 			//faces
 			for (int f = 0; f < scene->mMeshes[m]->mNumFaces; f++) {
 
@@ -391,7 +348,7 @@ namespace Assets {
 						vertex.TexCoord =
 						{
 							(float)scene->mMeshes[m]->mTextureCoords[0][v].x,
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].y
+							1 - (float)scene->mMeshes[m]->mTextureCoords[0][v].y
 						};
 					}
 
