@@ -33,6 +33,7 @@ namespace Assets
 		Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural);
 
 		void SetMaterial(const Material& material);
+		void SetMaterialIndex(int index);
 		void Transform(const glm::mat4& transform);
 
 		const std::vector<Vertex>& Vertices() const { return vertices_; }
