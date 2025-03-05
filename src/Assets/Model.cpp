@@ -64,10 +64,9 @@ namespace Assets {
 		const std::string materialPath = std::filesystem::path(filename).parent_path().string();
 
 		Assimp::Importer objectImporter;
-		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
-			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes |
-			aiProcess_Triangulate | aiProcess_GenUVCoords | aiProcess_SortByPType |
-			aiProcess_FindDegenerates | aiProcess_FindInvalidData | aiProcess_FindInstances | aiProcess_ValidateDataStructure);
+		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_LimitBoneWeights |
+			aiProcess_Triangulate | aiProcess_SortByPType |
+			aiProcess_FindDegenerates | aiProcess_ValidateDataStructure);
 		// read file and return an aiScene containing model attributes
 
 		if (scene == nullptr)

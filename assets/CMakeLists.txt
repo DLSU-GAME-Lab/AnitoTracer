@@ -1,5 +1,5 @@
 file(GLOB font_files fonts/*.ttf)
-file(GLOB model_files models/*.obj models/*.mtl models/Sponza/*.png models/Sponza/*.obj models/Sponza/*.mtl)
+file(GLOB model_files models/*.obj models/*.mtl models/Sponza/*.png models/Sponza/*.obj models/Sponza/*.mtl models/Rathalos/*.obj models/Rathalos/*.png models/Rathalos/*.mtl)
 file(GLOB shader_files shaders/*.vert shaders/*.frag shaders/*.rgen shaders/*.rchit shaders/*.rint shaders/*.rmiss)
 file(GLOB texture_files textures/*.jpg textures/*.png textures/*.txt)
 
