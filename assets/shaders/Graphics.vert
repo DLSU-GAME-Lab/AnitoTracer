@@ -22,6 +22,7 @@ out gl_PerVertex
 	vec4 gl_Position;
 };
 
+// THIS SHADER IS FOR RASTERIZED MODE
 void main() 
 {
 	Material m = Materials[InMaterialIndex];
