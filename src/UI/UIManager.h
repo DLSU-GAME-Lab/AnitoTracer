@@ -5,26 +5,12 @@
 #include <unordered_map>
 #include "imgui.h"
 #include "AUIScreen.h"
+#include "UserSettings.hpp"
 #include "Vulkan/Image.hpp"
 #include "Vulkan/ImageView.hpp"
 #include "Vulkan/Sampler.hpp"
 
 typedef std::string String;
-
-class UINames {
-public:
-	const String PROFILER_SCREEN = "PROFILER_SCREEN";
-	const String MENU_SCREEN = "MENU_SCREEN";
-	const String INSPECTOR_SCREEN = "INSPECTOR_SCREEN";
-	const String HIERARCHY_SCREEN = "HIERARCHY_SCREEN";
-	const String PLAYBACK_SCREEN = "PLAYBACK_SCREEN";
-	const String ACTION_SCREEN = "ACTION_SCREEN";
-	const String CONSOLE_SCREEN = "CONSOLE_SCREEN";
-	const String MATERIAL_SCREEN = "MATERIAL_SCREEN";
-	const String VIEWPORT_SCREEN = "VIEWPORT_SCREEN";
-	const String MATERIAL_EDITOR_SCREEN = "MATERIAL_EDITOR_SCREEN";
-	const String ASSET_EXPLORER_SCREEN = "ASSET_EXPLORER_SCREEN";
-};
 
 class Viewport;
 class UIManager
@@ -35,26 +21,34 @@ public:
 	typedef std::unordered_map<String, std::shared_ptr<AUIScreen>> UITable;
 
 	static UIManager* getInstance();
-	static void initialize();
+	static void initialize(UserSettings* userSettings);
 	static void destroy();
 
-	void drawAllUI();
-	bool* getEnabled(const std::string& name);
-	void setEnabled(String uiName, bool flag);
-	std::shared_ptr<AUIScreen> findUIByName(String uiName);
+	void drawAllUI() const;
+	bool getEnabled(const std::string& name);
+	void setEnabled(const String& uiName, bool flag);
+	void toggleEnabled(const String& uiName);
+	std::shared_ptr<AUIScreen> findUIByName(const String& uiName);
 
+	UserSettings* settings() const { return userSettings; }
+	void toggleAllUI() const;
+
+	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;
 	const Vulkan::Device* device = nullptr;
 	Vulkan::Sampler* sampler = nullptr;
 	Vulkan::ImageView* imageView = nullptr;
 	VkDescriptorSet m_Dset;
 	//Vulkan::Image* image = nullptr;
+	// fucky test code above ^^^
 private:
 	UIManager();
 	~UIManager();
 	UIManager(UIManager const&) {};             // copy constructor is private
 	UIManager& operator=(UIManager const&) {};  // assignment operator is private*/
 	static UIManager* sharedInstance;
+
+	UserSettings* userSettings = nullptr;
 
 	UIList uiList;
 	UITable uiTable;

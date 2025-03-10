@@ -279,6 +279,8 @@ set(src_files_ui
 	UI/MaterialEditorScreen.h
 	UI/AssetExplorerScreen.cpp
 	UI/AssetExplorerScreen.h
+	UI/SettingsScreen.cpp
+	UI/SettingsScreen.h
 	UI/UIManager.cpp
 	UI/UIManager.h
 )

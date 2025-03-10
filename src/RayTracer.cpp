@@ -121,7 +121,7 @@ void RayTracer::CreateSwapChain()
 
 	if (!initializedUI)
 	{
-		UIManager::initialize();
+		UIManager::initialize(&userSettings_);
 		UIManager::getInstance()->device = &Device();
 		UIManager::getInstance()->sampler = new Vulkan::Sampler(Device(), Vulkan::SamplerConfig());
 
@@ -241,8 +241,10 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		{
 			switch (key)
 			{
-			case GLFW_KEY_F1: userSettings_.ShowSettings = !userSettings_.ShowSettings; break;
+			case GLFW_KEY_F1: UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN); break;
 			case GLFW_KEY_F2: userSettings_.ShowOverlay = !userSettings_.ShowOverlay; break;
+			case GLFW_KEY_F3: UIManager::getInstance()->toggleAllUI(); break;
+			case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_1: CameraManager::getInstance()->setSceneCameraProjection(0); break;
 			case GLFW_KEY_2: CameraManager::getInstance()->setSceneCameraProjection(1); break;
 			case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; break;

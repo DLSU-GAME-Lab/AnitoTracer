@@ -10,57 +10,75 @@
 #include "MaterialEditorScreen.h"
 #include "PlaybackScreen.h"
 #include "ProfilerScreen.h"
+#include "SettingsScreen.h"
 #include "ViewportScreen.h"
 
-UIManager* UIManager::sharedInstance = NULL;
+UIManager* UIManager::sharedInstance = nullptr;
 
 UIManager* UIManager::getInstance()
 {
-    return sharedInstance;
+	return sharedInstance;
 }
 
-void UIManager::initialize()
+void UIManager::initialize(UserSettings* userSettings)
 {
-    sharedInstance = new UIManager();
+	sharedInstance = new UIManager();
+	sharedInstance->userSettings = userSettings;
 }
 
 void UIManager::destroy()
 {
-    delete sharedInstance;
+	delete sharedInstance;
 }
 
-void UIManager::drawAllUI()
+void UIManager::drawAllUI() const
 {
-	for (int i = 0; i < this->uiList.size(); i++) {
-		this->uiList[i]->drawUI();
+	for (const auto& i : this->uiList)
+	{
+		if (i->enabled)
+			i->drawUI();
 	}
 }
 
-bool* UIManager::getEnabled(const std::string& name)
+bool UIManager::getEnabled(const std::string& name)
 {
 	if (!this->uiTable[name])
-		return nullptr;
+		return false;
 
-	return &this->uiTable[name]->enabled;
+	return this->uiTable[name]->enabled;
 }
 
-void UIManager::setEnabled(String uiName, bool flag)
+void UIManager::setEnabled(const String& uiName, const bool flag)
 {
-	if(this->uiTable[uiName] != nullptr)
+	if (this->uiTable[uiName] != nullptr)
 	{
-		this->uiTable[uiName]->SetEnabled(flag);
+		this->uiTable[uiName]->setEnabled(flag);
 	}
 }
 
-std::shared_ptr<AUIScreen> UIManager::findUIByName(String uiName)
+void UIManager::toggleEnabled(const String& uiName)
 {
-	if(this->uiTable[uiName] != nullptr)
+	if (this->uiTable[uiName] != nullptr)
+	{
+		this->uiTable[uiName]->toggleEnabled();
+	}
+}
+
+std::shared_ptr<AUIScreen> UIManager::findUIByName(const String& uiName)
+{
+	if (this->uiTable[uiName] != nullptr)
 	{
 		return this->uiTable[uiName];
 	}
-	else
+
+	return nullptr;
+}
+
+void UIManager::toggleAllUI() const
+{
+	for (const auto& i : this->uiList)
 	{
-		return nullptr;
+		i->toggleEnabled();
 	}
 }
 
@@ -70,29 +88,28 @@ UIManager::UIManager()
 	ImGui::StyleColorsDark();
 	//ImGui::StyleColorsClassic();
 
-    //populate UI table
+	//populate UI table
 	//UIs that will show during runtime
-	UINames uiNames;
 
-	std::shared_ptr<MenuScreen> menuScreen = std::make_shared<MenuScreen>();
-	this->uiTable[uiNames.MENU_SCREEN] = menuScreen;
+	const std::shared_ptr<MenuScreen> menuScreen = std::make_shared<MenuScreen>();
+	this->uiTable[UINames::MENU_SCREEN] = menuScreen;
 	this->uiList.push_back(menuScreen);
 
-	std::shared_ptr<HierarchyScreen> hierarchyScreen = std::make_shared<HierarchyScreen>();
-	this->uiTable[uiNames.HIERARCHY_SCREEN] = hierarchyScreen;
+	const std::shared_ptr<HierarchyScreen> hierarchyScreen = std::make_shared<HierarchyScreen>();
+	this->uiTable[UINames::HIERARCHY_SCREEN] = hierarchyScreen;
 	this->uiList.push_back(hierarchyScreen);
 
-	std::shared_ptr<InspectorScreen> inspectorScreen = std::make_shared<InspectorScreen>();
-	this->uiTable[uiNames.INSPECTOR_SCREEN] = inspectorScreen;
+	const std::shared_ptr<InspectorScreen> inspectorScreen = std::make_shared<InspectorScreen>();
+	this->uiTable[UINames::INSPECTOR_SCREEN] = inspectorScreen;
 	this->uiList.push_back(inspectorScreen);
 
-	std::shared_ptr<ConsoleScreen> consoleScreen = std::make_shared<ConsoleScreen>();
-	this->uiTable[uiNames.CONSOLE_SCREEN] = consoleScreen;
+	const std::shared_ptr<ConsoleScreen> consoleScreen = std::make_shared<ConsoleScreen>();
+	this->uiTable[UINames::CONSOLE_SCREEN] = consoleScreen;
 	this->uiList.push_back(consoleScreen);
 	Debug::assignConsole(consoleScreen);
 
-	std::shared_ptr<ProfilerScreen> profilerScreen = std::make_shared<ProfilerScreen>();
-	this->uiTable[uiNames.PROFILER_SCREEN] = profilerScreen;
+	const std::shared_ptr<ProfilerScreen> profilerScreen = std::make_shared<ProfilerScreen>();
+	this->uiTable[UINames::PROFILER_SCREEN] = profilerScreen;
 	this->uiList.push_back(profilerScreen);
 
 	//std::shared_ptr<gdeng03::PlaybackScreen> playbackScreen = std::make_shared<gdeng03::PlaybackScreen>();
@@ -100,9 +117,13 @@ UIManager::UIManager()
 	//this->uiList.push_back(playbackScreen);
 
 	// nawt working yet lol!
-	std::shared_ptr<gdeng03::MaterialEditorScreen> materialEditorScreen = std::make_shared<gdeng03::MaterialEditorScreen>();
-	this->uiTable[uiNames.MATERIAL_EDITOR_SCREEN] = materialEditorScreen;
+	const std::shared_ptr<gdeng03::MaterialEditorScreen> materialEditorScreen = std::make_shared<gdeng03::MaterialEditorScreen>();
+	this->uiTable[UINames::MATERIAL_EDITOR_SCREEN] = materialEditorScreen;
 	this->uiList.push_back(materialEditorScreen);
+
+	const std::shared_ptr<SettingsScreen> settingsScreen = std::make_shared<SettingsScreen>();
+	this->uiTable[UINames::SETTINGS_SCREEN] = settingsScreen;
+	this->uiList.push_back(settingsScreen);
 
 	// std::shared_ptr<AssetExplorerScreen> assetExplorerScreen = std::make_shared<AssetExplorerScreen>();
 	// this->uiTable[uiNames.ASSET_EXPLORER_SCREEN] = assetExplorerScreen;
@@ -113,7 +134,6 @@ UIManager::UIManager()
 	// this->uiTable[uiNames.VIEWPORT_SCREEN] = viewportScreen;
 	// this->uiList.push_back(viewportScreen);
 
-	//
 	// MaterialScreen* materialScreen = new MaterialScreen();
 	// this->uiTable[uiNames.MATERIAL_SCREEN] = materialScreen;
 	// this->uiList.push_back(materialScreen);
@@ -123,5 +143,4 @@ UIManager::UIManager()
 }
 
 UIManager::~UIManager()
-{
-}
+= default;

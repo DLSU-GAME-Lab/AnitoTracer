@@ -10,7 +10,7 @@
 
 using namespace gdeng03;
 
-MaterialEditorScreen::MaterialEditorScreen() : AUIScreen("MaterialEditorScreen")
+MaterialEditorScreen::MaterialEditorScreen() : AUIScreen(UINames::MATERIAL_EDITOR_SCREEN)
 {
 	//loadDefaultTextures();
 }
@@ -81,7 +81,7 @@ void MaterialEditorScreen::drawUI()
 {
 	selectedObject = ModelManager::getInstance()->getSelectedObject().get();
 
-	ImGui::Begin("Material Editor", &enabled);
+	ImGui::Begin("Material Editor", &enabled, UISettings::GlobalWindowFlags);
 
 	if (selectedObject != nullptr)
 	{

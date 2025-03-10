@@ -48,7 +48,7 @@ void AssetExplorerScreen::UpdateLayoutSizes(float avail_width)
 void AssetExplorerScreen::drawUI()
 {
     ImGui::SetNextWindowSize(ImVec2(500, 440), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Example: Simple layout", &enabled, ImGuiWindowFlags_MenuBar))
+    if (int flags = UISettings::GlobalWindowFlags; ImGui::Begin("Example: Simple layout", &enabled, flags |= ImGuiWindowFlags_MenuBar))
     {
         if (ImGui::BeginMenuBar())
         {

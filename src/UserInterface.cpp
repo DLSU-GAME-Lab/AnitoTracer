@@ -145,7 +145,8 @@ void UserInterface::Render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuf
 	//ImGui::ShowStyleEditor();
 	// Draw the rest of your UI first.
 	UIManager::getInstance()->drawAllUI();
-
+	//DrawSettings();
+	DrawOverlay(statistics);
 
 	//Start ImGuizmo frame.
 	if (ModelManager::getInstance()->getSelectedObject() != nullptr)
@@ -229,81 +230,6 @@ bool UserInterface::WantsToCaptureMouse() const
 	return ImGui::GetIO().WantCaptureMouse;
 }
 
-void UserInterface::DrawSettings()
-{
-	if (!Settings().ShowSettings)
-	{
-		return;
-	}
-
-	const float distance = 10.0f;
-	const ImVec2 pos = ImVec2(distance, distance);
-	const ImVec2 posPivot = ImVec2(0.0f, 0.0f);
-	ImGui::SetNextWindowPos(pos, ImGuiCond_Always, posPivot);
-
-	const auto flags =
-		ImGuiWindowFlags_AlwaysAutoResize |
-		ImGuiWindowFlags_NoCollapse |
-		ImGuiWindowFlags_NoMove |
-		ImGuiWindowFlags_NoResize |
-		ImGuiWindowFlags_NoSavedSettings;
-
-	if (ImGui::Begin("Settings", &Settings().ShowSettings, flags))
-	{
-		std::vector<const char*> scenes;
-		for (const auto& scene : SceneList::AllScenes)
-		{
-			scenes.push_back(std::get<0>(scene).c_str());
-		}
-
-		const auto& window = descriptorPool_->Device().Surface().Instance().Window();
-
-		ImGui::Text("Help");
-		ImGui::Separator();
-		ImGui::BulletText("F1: toggle Settings.");
-		ImGui::BulletText("F2: toggle Statistics.");
-		ImGui::BulletText(
-			"%c%c%c%c/SHIFT/CTRL: move camera.",
-			std::toupper(window.GetKeyName(GLFW_KEY_W, 0)[0]),
-			std::toupper(window.GetKeyName(GLFW_KEY_A, 0)[0]),
-			std::toupper(window.GetKeyName(GLFW_KEY_S, 0)[0]),
-			std::toupper(window.GetKeyName(GLFW_KEY_D, 0)[0]));
-		ImGui::BulletText("L/R Mouse: rotate camera/scene.");
-		ImGui::NewLine();
-
-		ImGui::Text("Scene");
-		ImGui::Separator();
-		ImGui::PushItemWidth(-1);
-		ImGui::Combo("##SceneList", &Settings().SceneIndex, scenes.data(), static_cast<int>(scenes.size()));
-		ImGui::PopItemWidth();
-		ImGui::NewLine();
-
-		ImGui::Text("Ray Tracing");
-		ImGui::Separator();
-		ImGui::Checkbox("Enable ray tracing", &Settings().IsRayTraced);
-		ImGui::Checkbox("Accumulate rays between frames", &Settings().AccumulateRays);
-		uint32_t min = 1, max = 128;
-		ImGui::SliderScalar("Samples", ImGuiDataType_U32, &Settings().NumberOfSamples, &min, &max);
-		min = 1, max = 32;
-		ImGui::SliderScalar("Bounces", ImGuiDataType_U32, &Settings().NumberOfBounces, &min, &max);
-		ImGui::NewLine();
-
-		ImGui::Text("Camera");
-		ImGui::Separator();
-		ImGui::SliderFloat("FoV", &Settings().FieldOfView, UserSettings::FieldOfViewMinValue, UserSettings::FieldOfViewMaxValue, "%.0f");
-		ImGui::SliderFloat("Aperture", &Settings().Aperture, 0.0f, 1.0f, "%.2f");
-		ImGui::SliderFloat("Focus", &Settings().FocusDistance, 0.1f, 20.0f, "%.1f");
-		ImGui::NewLine();
-
-		ImGui::Text("Profiler");
-		ImGui::Separator();
-		ImGui::Checkbox("Show heatmap", &Settings().ShowHeatmap);
-		ImGui::SliderFloat("Scaling", &Settings().HeatmapScale, 0.10f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
-		ImGui::NewLine();
-	}
-	ImGui::End();
-}
-
 void UserInterface::DrawOverlay(const Statistics& statistics)
 {
 	if (!Settings().ShowOverlay)
@@ -318,15 +244,15 @@ void UserInterface::DrawOverlay(const Statistics& statistics)
 	ImGui::SetNextWindowPos(pos, ImGuiCond_Always, posPivot);
 	ImGui::SetNextWindowBgAlpha(0.3f); // Transparent background
 
-	const auto flags =
-		ImGuiWindowFlags_AlwaysAutoResize |
-		ImGuiWindowFlags_NoDecoration |
-		ImGuiWindowFlags_NoFocusOnAppearing |
-		ImGuiWindowFlags_NoMove |
-		ImGuiWindowFlags_NoNav |
-		ImGuiWindowFlags_NoSavedSettings;
+	//const auto flags =
+	//	ImGuiWindowFlags_AlwaysAutoResize |
+	//	ImGuiWindowFlags_NoDecoration |
+	//	ImGuiWindowFlags_NoFocusOnAppearing |
+	//	ImGuiWindowFlags_NoMove |
+	//	ImGuiWindowFlags_NoNav |
+	//	ImGuiWindowFlags_NoSavedSettings;
 
-	if (ImGui::Begin("Statistics", &Settings().ShowOverlay, flags))
+	if (ImGui::Begin("Statistics", &Settings().ShowOverlay, UISettings::GlobalWindowFlags))
 	{
 		ImGui::Text("Statistics (%dx%d):", statistics.FramebufferSize.width, statistics.FramebufferSize.height);
 		ImGui::Separator();

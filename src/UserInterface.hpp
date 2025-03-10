@@ -47,7 +47,6 @@ public:
 
 private:
 
-	void DrawSettings();
 	void DrawOverlay(const Statistics& statistics);
 
 	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool_;

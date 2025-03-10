@@ -5,16 +5,20 @@ String AUIScreen::getName()
 	return this->name;
 }
 
-void AUIScreen::SetEnabled(bool flag)
+void AUIScreen::setEnabled(const bool flag)
 {
 	this->enabled = flag;
 }
 
-AUIScreen::AUIScreen(String name)
+void AUIScreen::toggleEnabled()
+{
+	this->enabled = !this->enabled;
+}
+
+AUIScreen::AUIScreen(const String& name)
 {
 	this->name = name;
 }
 
 AUIScreen::~AUIScreen()
-{
-}
+= default;

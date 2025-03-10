@@ -7,6 +7,8 @@
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "UIManager.h"
+#include "UserInterface.hpp"
+#include "UserSettings.hpp"
 #include "Utilities/FileUtils.h"
 
 // #include "GameObjectManager.h"
@@ -30,7 +32,6 @@ MenuScreen::~MenuScreen()
 
 void MenuScreen::drawUI()
 {
-
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
 			if (ImGui::MenuItem("Undo", "Ctrl+Z"))
@@ -63,6 +64,7 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Scene"))
 		{
+			if (ImGui::MenuItem("Refresh Scene", "F5")) { EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); }
 			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); }
 			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); }
 			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox(); }
@@ -101,22 +103,31 @@ void MenuScreen::drawUI()
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Windows"))
+		if (ImGui::BeginMenu("Tools"))
 		{
-			if (ImGui::MenuItem("Inspector", nullptr, UIManager::getInstance()->getEnabled("InspectorScreen"))) {
-				UIManager::getInstance()->setEnabled("InspectorScreen", true);
+			if (ImGui::MenuItem("Editor Settings", nullptr, UIManager::getInstance()->getEnabled(UINames::SETTINGS_SCREEN)))
+			{
+				UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN);
 			}
-			if (ImGui::MenuItem("Hierarchy", nullptr, UIManager::getInstance()->getEnabled("HierarchyScreen"))) {
-				UIManager::getInstance()->setEnabled("HierarchyScreen", true);
+			if (ImGui::MenuItem("Inspector", nullptr, UIManager::getInstance()->getEnabled(UINames::INSPECTOR_SCREEN)))
+			{
+				UIManager::getInstance()->toggleEnabled(UINames::INSPECTOR_SCREEN);
 			}
-			if (ImGui::MenuItem("Profiler", nullptr, UIManager::getInstance()->getEnabled("ProfilerScreen"))) {
-				UIManager::getInstance()->setEnabled("ProfilerScreen", true);
+			if (ImGui::MenuItem("Hierarchy", nullptr, UIManager::getInstance()->getEnabled(UINames::HIERARCHY_SCREEN)))
+			{
+				UIManager::getInstance()->toggleEnabled(UINames::HIERARCHY_SCREEN);
 			}
-			if (ImGui::MenuItem("Debug Console", nullptr, UIManager::getInstance()->getEnabled("DebugScreen"))) {
-				UIManager::getInstance()->setEnabled("DebugScreen", true);
+			if (ImGui::MenuItem("Profiler", nullptr, UIManager::getInstance()->getEnabled(UINames::PROFILER_SCREEN)))
+			{
+				UIManager::getInstance()->toggleEnabled(UINames::PROFILER_SCREEN);
 			}
-			if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled("PlaybackScreen"))) {
-				UIManager::getInstance()->setEnabled("PlaybackScreen", true);
+			if (ImGui::MenuItem("Debug Console", nullptr, UIManager::getInstance()->getEnabled(UINames::CONSOLE_SCREEN)))
+			{
+				UIManager::getInstance()->toggleEnabled(UINames::CONSOLE_SCREEN);
+			}
+			if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
+			{
+				UIManager::getInstance()->toggleEnabled(UINames::PLAYBACK_SCREEN);
 			}
 			if (ImGui::BeginMenu("Viewport"))
 			{
@@ -146,9 +157,9 @@ void MenuScreen::drawUI()
 				// }
 				ImGui::EndMenu();
 			}
-			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled("MaterialEditor")))
+			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
 			{
-				UIManager::getInstance()->setEnabled("MaterialEditor", true);
+				UIManager::getInstance()->toggleEnabled(UINames::MATERIAL_EDITOR_SCREEN);
 			}
 
 			if (ImGui::MenuItem("Color Picker", nullptr, isColorPickerOpen))
@@ -156,6 +167,15 @@ void MenuScreen::drawUI()
 				isColorPickerOpen = !isColorPickerOpen;
 			}
 
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Window"))
+		{
+			if (ImGui::MenuItem("Toggle All Tool Windows Visibility", "F3"))
+			{
+				UIManager::getInstance()->toggleAllUI();
+			}
 
 			ImGui::EndMenu();
 		}

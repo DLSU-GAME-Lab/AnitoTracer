@@ -1,6 +1,6 @@
 #include "ProfilerScreen.h"
 
-ProfilerScreen::ProfilerScreen():AUIScreen("ProfilerScreen"), cpuGraph(300), gpuGraph(300)
+ProfilerScreen::ProfilerScreen():AUIScreen(UINames::PLAYBACK_SCREEN), cpuGraph(300), gpuGraph(300)
 {
 	stopProfiling = false;
 	frameOffset = 0;
