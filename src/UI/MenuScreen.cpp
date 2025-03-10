@@ -172,7 +172,7 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Window"))
 		{
-			if (ImGui::MenuItem("Toggle All Tool Windows Visibility", "F3"))
+			if (ImGui::MenuItem("Toggle All Tool Windows", "F3"))
 			{
 				UIManager::getInstance()->toggleAllUI();
 			}

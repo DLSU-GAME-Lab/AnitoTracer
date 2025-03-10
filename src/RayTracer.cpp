@@ -204,26 +204,26 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 	// Render the UI
 	Statistics stats = {};
-	stats.FramebufferSize = Window().FramebufferSize();
-	stats.FrameRate = static_cast<float>(1 / timeDelta);
+	stats.framebufferSize = Window().FramebufferSize();
+	stats.frameRate = static_cast<float>(1 / timeDelta);
 
 	if (userSettings_.IsRayTraced)
 	{
 		const auto extent = SwapChain().Extent();
 
-		stats.RayRate = static_cast<float>(
-			double(extent.width*extent.height)*numberOfSamples_
+		stats.rayRate = static_cast<float>(
+			static_cast<double>(extent.width * extent.height)*numberOfSamples_
 			/ (timeDelta * 1000000000));
 
-		stats.TotalSamples = totalNumberOfSamples_;
+		stats.totalSamples = totalNumberOfSamples_;
 	}
 
-	userInterface_->Render(commandBuffer, SwapChainFrameBuffer(imageIndex), stats);
+	userInterface_->render(commandBuffer, SwapChainFrameBuffer(imageIndex), stats);
 }
 
 void RayTracer::OnKey(int key, int scancode, int action, int mods)
 {
-	if (userInterface_->WantsToCaptureKeyboard())
+	if (userInterface_->wantsToCaptureKeyboard())
 	{
 		return;
 	}
@@ -266,8 +266,8 @@ void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 {
 	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||
-		userInterface_->WantsToCaptureKeyboard() || 
-		userInterface_->WantsToCaptureMouse())
+		userInterface_->wantsToCaptureKeyboard() || 
+		userInterface_->wantsToCaptureMouse())
 	{
 		return;
 	}
@@ -280,7 +280,7 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 {
 	if (!HasSwapChain() || 
 		userSettings_.Benchmark ||
-		userInterface_->WantsToCaptureMouse())
+		userInterface_->wantsToCaptureMouse())
 	{
 		return;
 	}
@@ -293,7 +293,7 @@ void RayTracer::OnScroll(const double xoffset, const double yoffset)
 {
 	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||
-		userInterface_->WantsToCaptureMouse())
+		userInterface_->wantsToCaptureMouse())
 	{
 		return;
 	}

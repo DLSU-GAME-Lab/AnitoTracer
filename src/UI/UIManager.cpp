@@ -74,11 +74,32 @@ std::shared_ptr<AUIScreen> UIManager::findUIByName(const String& uiName)
 	return nullptr;
 }
 
-void UIManager::toggleAllUI() const
+void UIManager::toggleAllUI()
 {
 	for (const auto& i : this->uiList)
 	{
-		i->toggleEnabled();
+		if (i->name != UINames::MENU_SCREEN)
+			i->setEnabled(isHidingUI);
+	}
+
+	isHidingUI = !isHidingUI;
+}
+
+void UIManager::hideAllUI() const
+{
+	for (const auto& i : this->uiList)
+	{
+		if (i->name != UINames::MENU_SCREEN)
+			i->setEnabled(false);
+	}
+}
+
+void UIManager::showAllUI() const
+{
+	for (const auto& i : this->uiList)
+	{
+		if (i->name != UINames::MENU_SCREEN)
+			i->setEnabled(true);
 	}
 }
 

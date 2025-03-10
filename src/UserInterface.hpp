@@ -18,10 +18,10 @@ struct UserSettings;
 
 struct Statistics final
 {
-	VkExtent2D FramebufferSize;
-	float FrameRate;
-	float RayRate;
-	uint32_t TotalSamples;
+	VkExtent2D framebufferSize;
+	float frameRate;
+	float rayRate;
+	uint32_t totalSamples;
 };
 
 
@@ -38,20 +38,20 @@ public:
 		UserSettings& userSettings);
 	~UserInterface();
 
-	void Render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer& frameBuffer, const Statistics& statistics);
+	void render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer& frameBuffer, const Statistics& statistics);
 
-	bool WantsToCaptureKeyboard() const;
-	bool WantsToCaptureMouse() const;
+	static bool wantsToCaptureKeyboard();
+	static bool wantsToCaptureMouse();
 
-	UserSettings& Settings() { return userSettings_; }
+	UserSettings& settings() const { return userSettings; }
 
 private:
+	static void setupImGuiStyle();
+	void drawOverlay(const Statistics& statistics) const;
 
-	void DrawOverlay(const Statistics& statistics);
-
-	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool_;
-	std::unique_ptr<Vulkan::RenderPass> renderPass_;
-	UserSettings& userSettings_;
+	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool;
+	std::unique_ptr<Vulkan::RenderPass> renderPass;
+	UserSettings& userSettings;
 
 	const Vulkan::SwapChain& swapChain;
 

@@ -31,7 +31,10 @@ public:
 	std::shared_ptr<AUIScreen> findUIByName(const String& uiName);
 
 	UserSettings* settings() const { return userSettings; }
-	void toggleAllUI() const;
+
+	void toggleAllUI();
+	void hideAllUI() const;
+	void showAllUI() const;
 
 	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;
@@ -48,6 +51,7 @@ private:
 	UIManager& operator=(UIManager const&) {};  // assignment operator is private*/
 	static UIManager* sharedInstance;
 
+	bool isHidingUI = false;
 	UserSettings* userSettings = nullptr;
 
 	UIList uiList;

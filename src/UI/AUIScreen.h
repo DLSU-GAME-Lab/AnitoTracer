@@ -27,7 +27,9 @@ class UISettings
 public:
 	static constexpr int GlobalWindowFlags =
 		ImGuiWindowFlags_AlwaysAutoResize |
-		ImGuiWindowFlags_NoCollapse;
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoFocusOnAppearing 
+	;
 };
 
 class AUIScreen

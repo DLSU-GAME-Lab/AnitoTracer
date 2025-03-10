@@ -12,10 +12,10 @@ SettingsScreen::~SettingsScreen() = default;
 
 void SettingsScreen::drawUI()
 {
-	constexpr float distance = 10.0f;
+	/*constexpr float distance = 10.0f;
 	constexpr ImVec2 pos = ImVec2(distance, distance);
 	constexpr ImVec2 posPivot = ImVec2(0.0f, 0.0f);
-	ImGui::SetNextWindowPos(pos, ImGuiCond_Always, posPivot);
+	ImGui::SetNextWindowPos(pos, ImGuiCond_Always, posPivot);*/
 
 	if (ImGui::Begin("Settings", &enabled, UISettings::GlobalWindowFlags))
 	{
@@ -47,9 +47,9 @@ void SettingsScreen::drawUI()
 		ImGui::Separator();
 		ImGui::Checkbox("Enable ray tracing", &settings->IsRayTraced);
 		ImGui::Checkbox("Accumulate rays between frames", &settings->AccumulateRays);
-		uint32_t min = 1, max = 128;
-		ImGui::SliderScalar("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, &min, &max);
-		min = 1, max = 32;
+		uint32_t min = 1, max = 512;
+		ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);
+		min = 1; max = 32;
 		ImGui::SliderScalar("Bounces", ImGuiDataType_U32, &settings->NumberOfBounces, &min, &max);
 		ImGui::NewLine();
 
