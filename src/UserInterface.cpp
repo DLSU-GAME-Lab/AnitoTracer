@@ -171,7 +171,7 @@ void UserInterface::Render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuf
 		glm::mat4 projMatrix = CameraManager::getInstance()->getActiveCamera()->GetProjection();
 
 		if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
-			mCurrentGizmoOperation, ImGuizmo::LOCAL, glm::value_ptr(selectedObject->getObjectMatrix())))
+			mCurrentGizmoOperation, ImGuizmo::WORLD, glm::value_ptr(selectedObject->getObjectMatrix())))
 		{
 			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(selectedObject->getObjectMatrix()), translation, rotation, scale);
 
@@ -192,13 +192,36 @@ void UserInterface::Render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuf
 
 		if (isUsingImguizmo && !ImGuizmo::IsUsingAny())
 		{
-			selectedObject->setLocalPosition(glm::vec3(translation[0], translation[1], translation[2]));
+			if (selectedObject->getParent())
+			{
+				glm::vec3 parentWorldPos = selectedObject->getParent()->getWorldPosition();
+				translation[0] -= parentWorldPos.x;
+				translation[1] -= parentWorldPos.y;
+				translation[2] -= parentWorldPos.z;
+			}
+			selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
 
-			glm::quat newRotationQuat = glm::quat(glm::radians(glm::vec3(rotation[0], rotation[1], rotation[2])));
-			selectedObject->setLocalRotation(glm::degrees(glm::eulerAngles(newRotationQuat)));
+			if (selectedObject->getParent())
+			{
+				glm::quat parentRot = glm::quat(glm::radians(selectedObject->getParent()->getWorldRotation()));
+				glm::quat localRot = glm::inverse(parentRot) * glm::quat(glm::radians(glm::vec3(rotation[0], rotation[1], rotation[2])));
+				glm::vec3 eulerLocal = glm::degrees(glm::eulerAngles(localRot));
 
-			glm::vec3 newScale(scale[0], scale[1], scale[2]);
-			selectedObject->setLocalScale(newScale);
+				rotation[0] = eulerLocal.x;
+				rotation[1] = eulerLocal.y;
+				rotation[2] = eulerLocal.z;
+			}
+			selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
+
+			if (selectedObject->getParent())
+			{
+				glm::vec3 parentScale = selectedObject->getParent()->getWorldScale();
+				scale[0] /= parentScale.x;
+				scale[1] /= parentScale.y;
+				scale[2] /= parentScale.z;
+			}
+			selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+
 
 			isUsingImguizmo = false;
 		}

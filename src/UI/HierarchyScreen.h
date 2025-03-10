@@ -11,10 +11,12 @@ public:
 	~HierarchyScreen();
 private:
 	virtual void drawUI() override;
-	void updateObjectList(const char* filter) const;
-	void drawObjectNode(GameObject* obj) const;
+	void updateObjectList(const char* filter);
+	void drawObjectNode(GameObject* obj);
 
 	mutable std::unordered_set<std::string> openNodes;  
+
+	bool isDragging;
 
 	friend class UIManager;
 };
