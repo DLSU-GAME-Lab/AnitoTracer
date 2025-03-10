@@ -512,6 +512,8 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 			Model box = Model::CreateBox(vec3(x0, y0, z0), vec3(x1, y1, z1), *groundMat);
 			std::shared_ptr<GameObject> boxGround = std::make_shared<GameObject>("GroundBox", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box));
 
+			boxGround->setLocalPosition(x0, y0, z0);
+
 			ModelManager::getInstance()->addObject(boxGround);
 
 			if (j % 8 == 0)
