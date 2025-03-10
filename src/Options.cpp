@@ -39,7 +39,7 @@ Options::Options(const int argc, const char* argv[])
 		("width", value<uint32_t>(&Width)->default_value(ApplicationConfig::APP_WINDOW_WIDTH), "The framebuffer width.")
 		("height", value<uint32_t>(&Height)->default_value(ApplicationConfig::APP_WINDOW_HEIGHT), "The framebuffer height.")
 		("present-mode", value<uint32_t>(&PresentMode)->default_value(2), "The present mode (0 = Immediate, 1 = MailBox, 2 = FIFO, 3 = FIFORelaxed).")
-		("fullscreen", bool_switch(&Fullscreen)->default_value(true), "Toggle fullscreen vs windowed (default: fullscreen).")
+		("fullscreen", bool_switch(&Fullscreen)->default_value(false), "Toggle fullscreen vs windowed (default: windowed).")
 		;
 
 	options_description desc("Application options", lineLength);
