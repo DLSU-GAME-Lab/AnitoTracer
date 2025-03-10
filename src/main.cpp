@@ -23,6 +23,12 @@ namespace
 	void SetVulkanDevice(Vulkan::Application& application, const std::vector<uint32_t>& visible_devices);
 }
 
+extern "C"
+{
+	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+	__declspec(dllexport) unsigned int NvOptimusEnablement = 0x00000001;
+}
+
 int main(int argc, const char* argv[]) noexcept
 {
 	try
