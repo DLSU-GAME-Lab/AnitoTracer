@@ -28,7 +28,7 @@ void HierarchyScreen::drawUI()
 	ImGui::End();
 }
 
-void HierarchyScreen::updateObjectList(const char* filter) const
+void HierarchyScreen::updateObjectList(const char* filter)
 {
 	const ModelManager::List objectList = ModelManager::getInstance()->getAllObjects();
 
@@ -45,114 +45,123 @@ void HierarchyScreen::updateObjectList(const char* filter) const
 	}
 }
 
-void HierarchyScreen::drawObjectNode(GameObject* obj) const
+void HierarchyScreen::drawObjectNode(GameObject* obj)
 {
-	if (!obj) return;
+    if (!obj) return;
 
-	String objectName = obj->getName();
-	bool hasChildren = !obj->getChildren().empty();
+    String objectName = obj->getName();
+    bool hasChildren = !obj->getChildren().empty();
 
-	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-	if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
 
-	GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
-	if (selectedObject == obj)
-	{
-		flags |= ImGuiTreeNodeFlags_Selected;
-	}
+    GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+    if (selectedObject == obj)
+    {
+        flags |= ImGuiTreeNodeFlags_Selected;
+    }
 
-	// Keep parent node open if previously opened
-	bool isNodeOpen = openNodes.count(objectName) > 0;
-	if (isNodeOpen) flags |= ImGuiTreeNodeFlags_DefaultOpen;
+    // Keep parent node open if previously opened
+    bool isNodeOpen = openNodes.count(objectName) > 0;
+    if (isNodeOpen) flags |= ImGuiTreeNodeFlags_DefaultOpen;
 
-	bool open = ImGui::TreeNodeEx(objectName.c_str(), flags);
+    bool open = ImGui::TreeNodeEx(objectName.c_str(), flags);
 
-	static bool hasValidDropTarget = false;
+    static bool hasValidDropTarget = false;
+    static bool isDragging = false;
 
-	// Selection Logic
-	if (ImGui::IsItemClicked())
-	{
-		ModelManager::getInstance()->setSelectedObject(objectName);
+    // Selection Logic
+    if (ImGui::IsItemClicked())
+    {
+        ModelManager::getInstance()->setSelectedObject(objectName);
 
-		// If Camera is selected, set main camera. If not, deactivate main camera.
-		if (ModelManager::getInstance()->getSelectedObject()->getType() == GameObject::CAMERA)
-		{
-			const std::shared_ptr<Camera> cam = CameraManager::getInstance()->findCameraByName(objectName);
-			CameraManager::getInstance()->setMainCamera(cam);
-		}
-		else
-		{
-			CameraManager::getInstance()->setMainCamera(nullptr);
-		}
-	}
+        // If Camera is selected, set main camera. If not, deactivate main camera.
+        if (ModelManager::getInstance()->getSelectedObject()->getType() == GameObject::CAMERA)
+        {
+            const std::shared_ptr<Camera> cam = CameraManager::getInstance()->findCameraByName(objectName);
+            CameraManager::getInstance()->setMainCamera(cam);
+        }
+        else
+        {
+            CameraManager::getInstance()->setMainCamera(nullptr);
+        }
+    }
 
-	// Drag Source
-	if (ImGui::BeginDragDropSource())
-	{
-		ImGui::SetDragDropPayload("OBJECT_PARENTING", &obj, sizeof(GameObject*));
+    // Drag Source
+    if (ImGui::BeginDragDropSource())
+    {
+        ImGui::SetDragDropPayload("OBJECT_PARENTING", &obj, sizeof(GameObject*));
 
-		hasValidDropTarget = false;
-		ImGui::Text("Dragging %s", objectName.c_str());
+        hasValidDropTarget = false;
+        isDragging = true;
+        ImGui::Text("Dragging %s", objectName.c_str());
 
-		ImGui::EndDragDropSource();
-	}
+        ImGui::EndDragDropSource();
+    }
 
-	// Drop Target
-	if (ImGui::BeginDragDropTarget())
-	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("OBJECT_PARENTING"))
-		{
-			// Prevent dragging a parent into its own child 
-			if (GameObject* draggedObj = *static_cast<GameObject**>(payload->Data); 
-				draggedObj && draggedObj != obj && !obj->isDescendantOf(draggedObj))
-			{
-				hasValidDropTarget = true;
+    // Drop Target
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("OBJECT_PARENTING"))
+        {
+            // Prevent dragging a parent into its own child 
+            if (GameObject* draggedObj = *static_cast<GameObject**>(payload->Data);
+                draggedObj && draggedObj != obj && !obj->isDescendantOf(draggedObj))
+            {
+                hasValidDropTarget = true;
 
-				// If dragged object had a parent, remove it from old parent
-				if (draggedObj->getParent())
-				{
-					draggedObj->getParent()->removeChild(draggedObj);
-				}
+                // If dragged object had a parent, remove it from old parent
+                if (draggedObj->getParent())
+                {
+                    draggedObj->getParent()->removeChild(draggedObj);
+                }
 
-				// Assign new parent
-				obj->addChild(draggedObj);
+                // Assign new parent
+                obj->addChild(draggedObj);
 
-				// Force the node open when an object is dropped here
-				openNodes.insert(objectName);
-			}
-		}
-		ImGui::EndDragDropTarget();
-	}
+                // Force the node open when an object is dropped here
+                openNodes.insert(objectName);
 
-	// Auto-Expand When Hovered During Drag
-	if (ImGui::IsDragDropActive() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem))
-	{
-		openNodes.insert(objectName);
-		open = true;  // Ensure the node is visually open this frame
-	}
+                isDragging = false; // Reset dragging state after a valid drop
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
 
-	// Handle Unparenting (Dragged to Empty Space)
-	if (ImGui::IsWindowHovered() && ImGui::IsMouseReleased(0) && !ImGui::IsAnyItemHovered())
-	{
-		GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+    // Auto-Expand When Hovered During Drag
+    if (ImGui::IsDragDropActive() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem))
+    {
+        openNodes.insert(objectName);
+        open = true;  // Ensure the node is visually open this frame
+    }
 
-		if (selectedObject)
-		{
-			selectedObject->setParent(nullptr);
-		}
-	}
+    // Handle Unparenting (Dragged to Empty Space)
+    if (isDragging && ImGui::IsMouseReleased(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
+    {
+        GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+        if (selectedObject)
+        {
+            selectedObject->setParent(nullptr);
+        }
+        isDragging = false; // Reset dragging state after unparenting
+    }
 
-	if (open)
-	{
-		for (const auto& child : obj->getChildren())
-		{
-			drawObjectNode(child);
-		}
-		ImGui::TreePop();
-	}
-	else
-	{
-		openNodes.erase(objectName);
-	}
+    if (!ImGui::IsDragDropActive() && ImGui::IsMouseReleased(0))
+    {
+        isDragging = false;
+    }
+
+    if (open)
+    {
+        for (const auto& child : obj->getChildren())
+        {
+            drawObjectNode(child);
+        }
+        ImGui::TreePop();
+    }
+    else
+    {
+        openNodes.erase(objectName);
+    }
 }
 

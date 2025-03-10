@@ -729,6 +729,12 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = Material::Metallic(vec3(0.21f, 0.43f, 0.71f), 0.0f);
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	Model sphere4Model = Model::CreateSphere(vec3(350,200,175), 100.0f, *groundReflectMat, false);
+	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
+	ModelManager::getInstance()->addObject(sphere);
+
 
 	auto rath = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/rathalos.obj");
 
