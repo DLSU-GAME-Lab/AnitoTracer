@@ -80,6 +80,7 @@ void MaterialEditorScreen::unselectMaterial()
 void MaterialEditorScreen::drawUI()
 {
 	selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+	//setWindowAlignment(ScreenAlign::CENTER_RIGHT);
 
 	ImGui::Begin("Material Editor", &enabled, UISettings::GlobalWindowFlags);
 

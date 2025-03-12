@@ -5,17 +5,14 @@
 
 SettingsScreen::SettingsScreen(): AUIScreen(UINames::SETTINGS_SCREEN)
 {
-
+	enabled = false;
 }
 
 SettingsScreen::~SettingsScreen() = default;
 
 void SettingsScreen::drawUI()
 {
-	/*constexpr float distance = 10.0f;
-	constexpr ImVec2 pos = ImVec2(distance, distance);
-	constexpr ImVec2 posPivot = ImVec2(0.0f, 0.0f);
-	ImGui::SetNextWindowPos(pos, ImGuiCond_Always, posPivot);*/
+	//setWindowAlignment(ScreenAlign::TOP_LEFT);
 
 	if (ImGui::Begin("Settings", &enabled, UISettings::GlobalWindowFlags))
 	{

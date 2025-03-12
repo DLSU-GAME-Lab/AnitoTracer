@@ -35,6 +35,19 @@ public:
 class AUIScreen
 {
 protected:
+	enum class ScreenAlign : uint8_t
+	{
+		TOP_LEFT,
+		TOP_RIGHT,
+		TOP_CENTER,
+		CENTER_LEFT,
+		CENTER_RIGHT,
+		CENTER,
+		BOT_LEFT,
+		BOT_RIGHT,
+		BOT_CENTER
+	};
+
 	typedef std::string String;
 
 	AUIScreen(const String& name);
@@ -42,6 +55,8 @@ protected:
 
 	String getName();
 	virtual void drawUI() = 0;
+
+	static void setWindowAlignment(const ScreenAlign& alignment, const ImGuiCond& condition = ImGuiCond_Appearing);
 	void setEnabled(bool flag);
 	void toggleEnabled();
 

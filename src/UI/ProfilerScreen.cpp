@@ -19,6 +19,8 @@ ProfilerScreen::~ProfilerScreen()
 
 void ProfilerScreen::drawUI()
 {
+	setWindowAlignment(ScreenAlign::BOT_CENTER);
+	
 	ImGui::Begin("Profiler");
 	ImGui::Text("Frame rate: %.1f FPS", ImGui::GetIO().Framerate);
 	ImGui::End();

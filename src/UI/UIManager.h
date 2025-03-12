@@ -10,21 +10,49 @@
 #include "Vulkan/ImageView.hpp"
 #include "Vulkan/Sampler.hpp"
 
+#include "Vulkan/Vulkan.hpp"
+#include <memory>
+
 typedef std::string String;
+
+namespace Vulkan
+{
+	class CommandPool;
+	class DepthBuffer;
+	class DescriptorPool;
+	class FrameBuffer;
+	class RenderPass;
+	class SwapChain;
+}
+
+struct UserSettings;
+
+struct Statistics final
+{
+	VkExtent2D framebufferSize;
+	float frameRate;
+	float rayRate;
+	uint32_t totalSamples;
+};
 
 class Viewport;
 class UIManager
 {
-public: 
+public:
 	typedef std::string String;
 	typedef std::vector<std::shared_ptr<AUIScreen>> UIList;
 	typedef std::unordered_map<String, std::shared_ptr<AUIScreen>> UITable;
 
-	static UIManager* getInstance();
-	static void initialize(UserSettings* userSettings);
-	static void destroy();
+	VULKAN_NON_COPIABLE(UIManager)
 
-	void drawAllUI() const;
+	UIManager();
+	~UIManager();
+
+	static UIManager* getInstance();
+	static void initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings);
+	static void reset();
+
+	void initializeUI();
 	bool getEnabled(const std::string& name);
 	void setEnabled(const String& uiName, bool flag);
 	void toggleEnabled(const String& uiName);
@@ -38,21 +66,43 @@ public:
 
 	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;
-	const Vulkan::Device* device = nullptr;
-	Vulkan::Sampler* sampler = nullptr;
-	Vulkan::ImageView* imageView = nullptr;
-	VkDescriptorSet m_Dset;
+	// const Vulkan::Device* device = nullptr;
+	// Vulkan::Sampler* sampler = nullptr;
+	// Vulkan::ImageView* imageView = nullptr;
+	// VkDescriptorSet m_Dset;
 	//Vulkan::Image* image = nullptr;
 	// fucky test code above ^^^
+
+	void render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer& frameBuffer, const Statistics& statistics);
+
+	static bool wantsToCaptureKeyboard();
+	static bool wantsToCaptureMouse();
+
 private:
-	UIManager();
-	~UIManager();
-	UIManager(UIManager const&) {};             // copy constructor is private
-	UIManager& operator=(UIManager const&) {};  // assignment operator is private*/
+	// UserInterface(
+	// 	Vulkan::CommandPool& commandPool,
+	// 	const Vulkan::SwapChain& swapChain,
+	// 	const Vulkan::DepthBuffer& depthBuffer,
+	// 	UserSettings& userSettings);
+	// ~UserInterface();
+
+	static void setupImGuiStyle();
+
+	void drawAllUI() const;
+	void drawOverlay(const Statistics& statistics) const;
+
+	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool;
+	std::unique_ptr<Vulkan::RenderPass> renderPass;
+
+
+	float translation[3] = {}, rotation[3] = {}, scale[3] = {};
+	bool isUsingImguizmo = false;
+
 	static UIManager* sharedInstance;
 
 	bool isHidingUI = false;
 	UserSettings* userSettings = nullptr;
+	const Vulkan::SwapChain* swapChain = nullptr;
 
 	UIList uiList;
 	UITable uiTable;

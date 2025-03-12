@@ -16,6 +16,8 @@ InspectorScreen::~InspectorScreen()
 
 void InspectorScreen::drawUI()
 {
+	//setWindowAlignment(ScreenAlign::TOP_RIGHT);
+
 	ImGui::Begin("Inspector Window", nullptr, UISettings::GlobalWindowFlags);
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
 	if (this->selectedObject != nullptr)

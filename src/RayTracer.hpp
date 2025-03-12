@@ -53,7 +53,7 @@ private:
 	ModelViewController modelViewController_{};
 
 	std::unique_ptr<const Assets::Scene> scene_;
-	std::unique_ptr<class UserInterface> userInterface_;
+	//std::unique_ptr<class UserInterface> userInterface_;
 
 	double time_{};
 

@@ -326,8 +326,6 @@ set(src_files
 	RayTracer.hpp
 	SceneList.cpp
 	SceneList.hpp
-	UserInterface.cpp
-	UserInterface.hpp
 	UserSettings.hpp
 )
 

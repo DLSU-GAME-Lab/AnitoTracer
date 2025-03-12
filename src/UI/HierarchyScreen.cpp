@@ -17,6 +17,8 @@ HierarchyScreen::~HierarchyScreen()
 
 void HierarchyScreen::drawUI()
 {
+    //setWindowAlignment(ScreenAlign::TOP_RIGHT);
+
 	ImGui::Begin("Scene Outline", nullptr, UISettings::GlobalWindowFlags);
 
 	// Search Bar
