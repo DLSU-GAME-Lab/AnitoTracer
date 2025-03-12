@@ -111,7 +111,7 @@ namespace Assets {
 					std::string texName = scene->mMaterials[i]->GetName().C_Str();
 					if (!TextureLibrary::getInstance()->doesTextureExist(texName))
 					{
-						TextureLibrary::getInstance()->addTexture(texName, FileUtils::getAssetsFolderPath().generic_string() + "/models/" + texture_file.C_Str());
+						TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
 						std::cout << "Initialized Texture " << texName << std::endl;
 					}
 
@@ -275,7 +275,7 @@ namespace Assets {
 					std::string texName = scene->mMaterials[i]->GetName().C_Str();
 					if (!TextureLibrary::getInstance()->doesTextureExist(texName))
 					{
-						TextureLibrary::getInstance()->addTexture(texName, FileUtils::getAssetsFolderPath().generic_string() + "/models/" + texture_file.C_Str());
+						TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
 						std::cout << "Initialized Texture " << texName << std::endl;
 					}
 

@@ -74,8 +74,8 @@ GraphicsPipeline::GraphicsPipeline(
 
 	VkPipelineMultisampleStateCreateInfo multisampling = {};
 	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisampling.sampleShadingEnable = VK_FALSE;
-	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampling.sampleShadingEnable = VK_TRUE;
+	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_8_BIT;
 	multisampling.minSampleShading = 1.0f; // Optional
 	multisampling.pSampleMask = nullptr; // Optional
 	multisampling.alphaToCoverageEnable = VK_FALSE; // Optional

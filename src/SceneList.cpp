@@ -736,7 +736,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	ModelManager::getInstance()->addObject(sphere);
 
 
-	auto rath = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/rathalos.obj");
+	/*auto rath = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/Rosa.blend");
 
 	rath.Transform(
 			rotate(
@@ -753,7 +753,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 			rathObj = std::make_shared<GameObject>(rath.GetName(), GameObject::PrimitiveType::CUBE, std::make_shared<Model>(rath));
 
 		ModelManager::getInstance()->addObject(rathObj);
-		rathObj->setLocalPosition(100, 850, 0);
+		rathObj->setLocalPosition(100, 850, 0);*/
 	 
 	 
 	std::vector<Model> sponza = Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/sponza.obj");
