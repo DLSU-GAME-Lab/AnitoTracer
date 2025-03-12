@@ -695,7 +695,7 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 SceneAssets SceneList::Sponza(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(278, 278, 800), vec3(278, 278, 0), vec3(0, 1, 0));
+	camera.ModelView = lookAt(vec3(800, 400, -230), vec3(-350, 200, 65), vec3(0, 1, 0));
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
@@ -715,7 +715,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 
 	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 45.0f, 0);
+	areaLightObject->setLocalRotation(0, 0, 0);
 	ModelManager::getInstance()->addObject(areaLightObject);
 	//std::shared_ptr<GameObject> areaLightObject2 = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel2));
 	//areaLightObject2->setLocalPosition(-1500, 1000, -1500);
@@ -728,15 +728,21 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-	const auto mirror = Material::Metallic(vec3(0.21f, 0.43f, 0.71f), 0.0f);
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
-	Model sphere4Model = Model::CreateSphere(vec3(350,200,175), 100.0f, *groundReflectMat, false);
+	Model sphere4Model = Model::CreateSphere(vec3(0,0,0), 100.0f, *groundReflectMat, false);
 	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
 	ModelManager::getInstance()->addObject(sphere);
+	sphere->setLocalPosition(-350, 200, -45);
+
+	Model sphere2Model = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
+	std::shared_ptr<GameObject> sphere2 = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere2Model));
+	ModelManager::getInstance()->addObject(sphere2);
+	sphere2->setLocalPosition(-500, 500, -45);
 
 
-	auto rath = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/rathalos.obj");
+	/*auto rath = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/Rosa.blend");
 
 	rath.Transform(
 			rotate(
@@ -753,7 +759,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 			rathObj = std::make_shared<GameObject>(rath.GetName(), GameObject::PrimitiveType::CUBE, std::make_shared<Model>(rath));
 
 		ModelManager::getInstance()->addObject(rathObj);
-		rathObj->setLocalPosition(100, 850, 0);
+		rathObj->setLocalPosition(100, 850, 0);*/
 	 
 	 
 	std::vector<Model> sponza = Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/sponza.obj");
@@ -766,8 +772,8 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 			rotate(
 				scale(
 					translate(i, vec3(0, 0, 0)),
-					vec3(0.6f)),
-				radians(75.0f), vec3(0, 1, 0)));
+					vec3(1)),
+				radians(0.0f), vec3(0, 1, 0)));
 
 		std::shared_ptr<GameObject> sponzaObj;
 
@@ -777,7 +783,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 			sponzaObj = std::make_shared<GameObject>(sponza[j].GetName(), GameObject::PrimitiveType::CUBE, std::make_shared<Model>(sponza[j]));
 
 		ModelManager::getInstance()->addObject(sponzaObj);
-		sponzaObj->setLocalPosition(350, 0, 300);
+		sponzaObj->setLocalPosition(0, 0, 0);
 	}
 
 
