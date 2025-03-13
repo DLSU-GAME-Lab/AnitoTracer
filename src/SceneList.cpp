@@ -708,7 +708,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 
 	bool isProcedural = false;
 
-	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.4) * 10.0f);
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 	//std::shared_ptr<Material> areaLight2 = Material::DiffuseLight(vec3(0, 0, 0.80) * 7.0f);
 	//Model areaLightModel2 = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight2);
