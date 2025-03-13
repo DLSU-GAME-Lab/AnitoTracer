@@ -7,7 +7,6 @@
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "UIManager.h"
-#include "UserInterface.hpp"
 #include "UserSettings.hpp"
 #include "Utilities/FileUtils.h"
 
