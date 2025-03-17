@@ -216,7 +216,7 @@ void GameObject::setParent(GameObject* newParent)
 	{
 		this->localPosition = this->worldPosition - newParent->worldPosition;
 		this->localRotation = this->worldRotation - newParent->worldRotation;
-		this->localScale = glm::inverse(glm::scale(glm::mat4(1.0f), newParent->worldScale)) * glm::vec4(this->worldScale, 1.0f);
+		this->localScale = this->worldScale / this->localScale;
 
 	}
 	else

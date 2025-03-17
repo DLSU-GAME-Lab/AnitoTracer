@@ -200,20 +200,20 @@ namespace Assets {
 
 		//// --- Centering the model at (0,0,0) ---
 		//// Compute bounding box (min and max points)
-		//vec3 minPos(FLT_MAX);
-		//vec3 maxPos(-FLT_MAX);
-		//for (const auto& vertex : vertices)
-		//{
-		//	minPos = glm::min(minPos, vertex.Position);
-		//	maxPos = glm::max(maxPos, vertex.Position);
-		//}
-		//vec3 center = (minPos + maxPos) * 0.5f;
+		vec3 minPos(FLT_MAX);
+		vec3 maxPos(-FLT_MAX);
+		for (const auto& vertex : vertices)
+		{
+			minPos = glm::min(minPos, vertex.Position);
+			maxPos = glm::max(maxPos, vertex.Position);
+		}
+		vec3 center = (minPos + maxPos) * 0.5f;
 
-		//// Shift all vertices so that the model is centered at the origin.
-		//for (auto& vertex : vertices)
-		//{
-		//	vertex.Position -= center;
-		//}
+		// Shift all vertices so that the model is centered at the origin.
+		for (auto& vertex : vertices)
+		{
+			vertex.Position -= center;
+		}
 		//// --- End centering ---
 
 		const auto elapsed = std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - timer).count();

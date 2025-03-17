@@ -33,7 +33,6 @@ std::shared_ptr<GameObject> ModelManager::findObjectByName(String name)
 		return this->gameObjectMap[name];
 	}
 	else {
-		std::cout << "Object " << name << " not found!";
 		return nullptr;
 	}
 }
@@ -44,7 +43,6 @@ std::shared_ptr<Light> ModelManager::findLightObjectByName(String name)
 		return this->lightTable[name];
 	}
 	else {
-		std::cout << "Object " << name << " not found!";
 		return nullptr;
 	}
 }
