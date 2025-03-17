@@ -18,8 +18,6 @@ private:
 
 	bool isDragging = false;
 
-	bool isDragging;
-
 	friend class UIManager;
 };
 
