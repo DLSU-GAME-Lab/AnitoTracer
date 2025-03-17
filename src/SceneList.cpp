@@ -677,7 +677,7 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 	teapotObj->setLocalPosition(1000, 0, 0);
 	bunnyObj->setLocalPosition(1750, -10, 0);
 	lucyObj->setLocalPosition(2500, 0, 0);
-	planeObj->setLocalPosition(1000, 2250, 500);
+	planeObj->setLocalPosition(1000, -185, 500);
 
 	capsuleObject->setLocalPosition(2000, 500, 300);
 	cylinderObject->setLocalPosition(2000, 200, 0);
