@@ -74,4 +74,9 @@ protected:
 
 	float windowWidth_{};
 	float windowHeight_{};
+
+	float camSpeed_ = 1.0f;
+	bool camSlowed = false;
+	float camNormalSpeed = 1.0f;
+	float camSlowSpeed = 0.2f;
 };

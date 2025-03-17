@@ -61,6 +61,7 @@ bool Camera::OnKey(const int key, const int scancode, const int action, const in
 	case GLFW_KEY_D: cameraMovingRight_ = action != GLFW_RELEASE; return true;
 	case GLFW_KEY_LEFT_CONTROL: cameraMovingDown_ = action != GLFW_RELEASE; return true;
 	case GLFW_KEY_LEFT_SHIFT: cameraMovingUp_ = action != GLFW_RELEASE; return true;
+	case GLFW_KEY_LEFT_ALT: camSlowed = action != GLFW_RELEASE; return true;
 
 	case GLFW_KEY_F: {
 
@@ -199,7 +200,10 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 
 bool Camera::UpdateCamera(const double speed, const double timeDelta)
 {
-	const auto d = static_cast<float>(speed * timeDelta);
+	if (camSlowed) camSpeed_ = camSlowSpeed;
+	else camSpeed_ = camNormalSpeed;
+
+	const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;
 
 	if (cameraMovingLeft_) MoveRight(-d);
 	if (cameraMovingRight_) MoveRight(d);
