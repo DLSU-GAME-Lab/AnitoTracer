@@ -701,7 +701,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = true;
+	camera.HasSky = false;
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -713,10 +713,16 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	//std::shared_ptr<Material> areaLight2 = Material::DiffuseLight(vec3(0, 0, 0.80) * 7.0f);
 	//Model areaLightModel2 = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight2);
 
+	//std::shared_ptr<Light> dl = std::make_shared<Light>("Light Source", Light::LightType::DirectionalLight);
+	//dl->setLocalPosition(0,10000, 0);
+	//dl->setAmbientColor(1, 1, 1, 0.05);
+	//ModelManager::getInstance()->addLightObject(dl);
+
 	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
 	areaLightObject->setLocalRotation(0, 0, 0);
 	ModelManager::getInstance()->addObject(areaLightObject);
+	 
 	//std::shared_ptr<GameObject> areaLightObject2 = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel2));
 	//areaLightObject2->setLocalPosition(-1500, 1000, -1500);
 	//ModelManager::getInstance()->addObject(areaLightObject2);
@@ -789,7 +795,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 
 
 
-	// Add light objects
+	////Add light objects
 	//std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
 	//ModelManager::getInstance()->addLightObject(pl1);
 

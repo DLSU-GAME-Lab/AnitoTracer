@@ -65,6 +65,7 @@ void MenuScreen::drawUI()
 		{
 			if (ImGui::MenuItem("Refresh Scene", "F5")) { EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); }
 			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); }
+			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); }
 			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); }
 			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox(); }
 			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo(); }
@@ -348,6 +349,18 @@ void MenuScreen::OnLoadSphereWorld()
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 6);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+}
+
+void MenuScreen::OnLoadRTIOW()
+{
+	// GameObjectManager::getInstance()->clearAll();
+	// RayTracingProper::getInstance()->generateSphereWorld();
+	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
+
+	ModelManager::getInstance()->clearAllObjects();
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", 1);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 

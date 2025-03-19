@@ -21,6 +21,7 @@ private:
 	void OnMaterialComponentClicked();
 
 	void OnLoadSphereWorld();
+	void OnLoadRTIOW();
 	void OnLoadBoxWorld();
 	void OnLoadCornellBox();
 	void OnLoadAnitoTracerDemo();
