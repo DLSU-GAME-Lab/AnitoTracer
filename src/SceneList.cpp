@@ -35,9 +35,9 @@ namespace
 
 		models.push_back(Model::CreateSphere(vec3(0, -1000, 0), 1000, *Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)), isProc));
 
-		for (int i = -11; i < 11; ++i)
+		for (int i = -100; i < 100; ++i)
 		{
-			for (int j = -11; j < 11; ++j)
+			for (int j = -100; j < 100; ++j)
 			{
 				const float chooseMat = random();
 				const float center_y = static_cast<float>(j) + 0.9f * random();
@@ -127,8 +127,8 @@ SceneAssets SceneList::RayTracingInOneWeekend(CameraInitialState& camera)
 	// Final scene from Ray Tracing In One Weekend book.
 
 	camera.ModelView = lookAt(vec3(13, 2, 3), vec3(0, 0, 0), vec3(0, 1, 0));
-	camera.FieldOfView = 20;
-	camera.Aperture = 0.1f;
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 5.0f;
 	camera.GammaCorrection = true;
