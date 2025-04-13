@@ -28,6 +28,7 @@
 #include "Capsule.hpp"
 #include "Cylinder.hpp"
 #include "Plane.hpp"
+#include "RayTracer.hpp"
 #include "Sphere.hpp"
 
 using namespace glm;
@@ -502,12 +503,41 @@ void Model::SetMaterialIndex(int index)
 
 void Model::Transform(const mat4& transform)
 {
+	worldMatrix_ = transform * worldMatrix_;
 	const auto transformIT = inverseTranspose(transform);
 
-	for (auto& vertex : vertices_)
+	for (auto& vertex : transformedVertices_)
 	{
 		vertex.Position = transform * vec4(vertex.Position, 1);
 		vertex.Normal = transformIT * vec4(vertex.Normal, 0);
+	}
+
+	if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
+	{
+		for (size_t i = 0; i < vertices_.size(); i++)
+		{
+			vertices_[i].Position = transformedVertices_[i].Position;
+			vertices_[i].Normal = transformedVertices_[i].Normal;
+		}
+	}
+}
+
+void Model::ResetVertices()
+{
+	if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
+	{
+		for (size_t i = 0; i < vertices_.size(); i++)
+		{
+			vertices_[i].Position = transformedVertices_[i].Position;
+			vertices_[i].Normal = transformedVertices_[i].Normal;
+		}
+	}
+	else {
+		for (size_t i = 0; i < vertices_.size(); i++)
+		{
+			vertices_[i].Position = originalVertices_[i].Position;
+			vertices_[i].Normal = originalVertices_[i].Normal;
+		}
 	}
 }
 
@@ -519,6 +549,9 @@ Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint3
 
 {
 	this->name = name;
+	this->originalVertices_ = this->vertices_;
+	this->transformedVertices_ = this->vertices_;
+	this->worldMatrix_ = glm::mat4(1);
 }
 
 }

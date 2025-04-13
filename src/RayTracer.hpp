@@ -12,13 +12,20 @@ public:
 
 	VULKAN_NON_COPIABLE(RayTracer)
 
+
 	RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, VkPresentModeKHR presentMode);
 	~RayTracer();
+
+	static void initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, VkPresentModeKHR presentMode);
+	static RayTracer* getInstance();
+
+	UserSettings getUserSettings() const { return userSettings_; }
 
 protected:
 
 	const Assets::Scene& GetScene() const override { return *scene_; }
 	Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const override;
+	Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const override;
 
 	void SetPhysicalDevice(
 		VkPhysicalDevice physicalDevice, 
@@ -69,4 +76,8 @@ private:
 	bool isSceneDirty = false;
 
 	bool initializedUI = false;
+
+	bool isRenderChanged = false;
+
+	static RayTracer* sharedInstance;
 };

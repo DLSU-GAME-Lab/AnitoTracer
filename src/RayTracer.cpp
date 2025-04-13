@@ -34,6 +34,7 @@ namespace
 #endif
 }
 
+RayTracer* RayTracer::sharedInstance = nullptr;
 RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, const VkPresentModeKHR presentMode) :
 	Application(windowConfig, presentMode, EnableValidationLayers),
 	userSettings_(userSettings)
@@ -42,6 +43,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SCENE_LOADED, this);
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MARK_SCENE_DIRTY, this);
+	EventBroadcaster::getInstance()->addObserver(EventNames::ON_CHANGE_RENDER, this);
 
 	CameraManager::initialize();
 	TextureLibrary::initialize();
@@ -53,6 +55,18 @@ RayTracer::~RayTracer()
 	scene_.reset();
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_CHANGE_RENDER);
+}
+
+void RayTracer::initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig,
+	VkPresentModeKHR presentMode)
+{
+	sharedInstance = new RayTracer(userSettings, windowConfig, presentMode);
+}
+
+RayTracer* RayTracer::getInstance()
+{
+	return sharedInstance;
 }
 
 Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D extent) const
@@ -75,6 +89,14 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.HasSky = init.HasSky;
 	ubo.ShowHeatmap = userSettings_.ShowHeatmap;
 	ubo.HeatmapScale = userSettings_.HeatmapScale;
+
+	return ubo;
+}
+
+Assets::PushConstantModel RayTracer::GetPushConstantModel(const Assets::Model& model) const
+{
+	Assets::PushConstantModel ubo = {};
+	ubo.WorldMatrix = model.GetWorldMatrix();
 
 	return ubo;
 }
@@ -169,6 +191,15 @@ void RayTracer::DrawFrame()
 		return;
 	}
 
+	if (this->isRenderChanged)
+	{
+		this->isRenderChanged = false;
+		for (auto& model : ModelManager::getInstance()->getAllObjectModels())
+		{
+			model.ResetVertices();
+		}
+	}
+
 	// Check if the accumulation buffer needs to be reset.
 	if (resetAccumulation_ ||
 		userSettings_.RequiresAccumulationReset(previousSettings_) ||
@@ -250,7 +281,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 			case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_1: CameraManager::getInstance()->setSceneCameraProjection(0); break;
 			case GLFW_KEY_2: CameraManager::getInstance()->setSceneCameraProjection(1); break;
-			case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; break;
+			case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_CHANGE_RENDER); break;
 			case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; break;
 			case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
@@ -331,6 +362,13 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 		this->isSceneDirty = true;
 		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, true);
 		//Debug::Log("Scene marked as dirty! \n");
+	}
+	else if (eventName == EventNames::ON_CHANGE_RENDER)
+	{
+		this->isRenderChanged = true;
+		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, true);
+		if (userSettings_.IsRayTraced)
+			this->isSceneDirty = true;
 	}
 }
 

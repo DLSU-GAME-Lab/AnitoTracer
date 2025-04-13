@@ -148,7 +148,7 @@ void Application::CreateSwapChain()
 		imageAvailableSemaphores_.emplace_back(*device_);
 		renderFinishedSemaphores_.emplace_back(*device_);
 		inFlightFences_.emplace_back(*device_, true);
-		uniformBuffers_.emplace_back(*device_);
+		uniformBuffers_.emplace_back(*device_, sizeof(Assets::UniformBufferObject));
 	}
 
 	graphicsPipeline_.reset(new class GraphicsPipeline(*swapChain_, *depthBuffer_, uniformBuffers_, GetScene(), isWireFrame_));
@@ -285,6 +285,9 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 
 		for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
 		{
+			Assets::PushConstantModel modelConstant = GetPushConstantModel(model);
+			vkCmdPushConstants(commandBuffer, graphicsPipeline_->PipelineLayout().Handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Assets::PushConstantModel), &modelConstant);
+
 			const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
 			const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
 
