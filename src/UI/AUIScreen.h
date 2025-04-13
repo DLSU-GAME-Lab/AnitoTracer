@@ -20,6 +20,7 @@ public:
 	static constexpr char MATERIAL_EDITOR_SCREEN[] = "MATERIAL_EDITOR_SCREEN";
 	static constexpr char ASSET_EXPLORER_SCREEN[] = "ASSET_EXPLORER_SCREEN";
 	static constexpr char SETTINGS_SCREEN[] = "SETTINGS_SCREEN";
+	static constexpr char FURNITURE_MENU_SCREEN[] = "FURNITURE_MENU_SCREEN";
 };
 
 class UISettings

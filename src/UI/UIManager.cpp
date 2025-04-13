@@ -4,6 +4,8 @@
 
 #include "AssetExplorerScreen.h"
 #include "ConsoleScreen.h"
+#include "FurnitureMenuScreen.h"
+
 #include "From-GDGRAP2/RTConfig.h"
 #include "MenuScreen.h"
 #include "From-GDGRAP2/Debug.h"
@@ -193,6 +195,10 @@ void UIManager::initializeUI()
 	const std::shared_ptr<SettingsScreen> settingsScreen = std::make_shared<SettingsScreen>();
 	this->uiTable[UINames::SETTINGS_SCREEN] = settingsScreen;
 	this->uiList.push_back(settingsScreen);
+
+	const std::shared_ptr<FurnitureMenuScreen> furnitureMenuScreen = std::make_shared<FurnitureMenuScreen>();
+	this->uiTable[UINames::FURNITURE_MENU_SCREEN] = furnitureMenuScreen;
+	this->uiList.push_back(furnitureMenuScreen);
 
 	// std::shared_ptr<AssetExplorerScreen> assetExplorerScreen = std::make_shared<AssetExplorerScreen>();
 	// this->uiTable[uiNames.ASSET_EXPLORER_SCREEN] = assetExplorerScreen;
