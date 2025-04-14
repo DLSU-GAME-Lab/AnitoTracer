@@ -27,6 +27,8 @@ set(src_files_assets
 	Assets/Plane.hpp
 	Assets/Sphere.cpp
 	Assets/Sphere.hpp
+	Scene/SceneRW.cpp
+	Scene/SceneRW.h
 )
 
 set(src_files_obb
@@ -169,6 +171,9 @@ set(src_files_utilities
 	Utilities/StbImage.hpp
 	Utilities/FileUtils.cpp
 	Utilities/FileUtils.h
+	jsoncpp/jsoncpp.cpp
+	jsoncpp/json/json.h
+	jsoncpp/json/json-forwards.h
 )
 
 set(src_files_vulkan
