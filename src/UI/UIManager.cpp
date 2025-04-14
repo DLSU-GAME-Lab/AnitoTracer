@@ -270,7 +270,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			}
 		}
 
-		if (isUsingImguizmo && (RayTracer::getInstance()->getUserSettings().IsRayTraced && !ImGuizmo::IsUsingAny()))
+		if ((isUsingImguizmo && !RayTracer::getInstance()->getUserSettings().IsRayTraced) || (isUsingImguizmo && RayTracer::getInstance()->getUserSettings().IsRayTraced && !ImGuizmo::IsUsingAny()))
 		{
 			if (selectedObject->getParent())
 			{

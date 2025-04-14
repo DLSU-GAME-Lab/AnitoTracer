@@ -30,6 +30,7 @@
 #include "Plane.hpp"
 #include "RayTracer.hpp"
 #include "Sphere.hpp"
+#include "From-GDGRAP2/Debug.h"
 
 using namespace glm;
 
@@ -503,36 +504,29 @@ void Model::SetMaterialIndex(int index)
 
 void Model::Transform(const mat4& transform)
 {
-	worldMatrix_ = transform * worldMatrix_;
-	const auto transformIT = inverseTranspose(transform);
-
-	for (auto& vertex : transformedVertices_)
-	{
-		vertex.Position = transform * vec4(vertex.Position, 1);
-		vertex.Normal = transformIT * vec4(vertex.Normal, 0);
-	}
-
+	worldMatrix_ = transform;
 	if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
 	{
+		const auto transformIT = inverseTranspose(transform);
 		for (size_t i = 0; i < vertices_.size(); i++)
 		{
+			transformedVertices_[i].Position = transform * vec4(originalVertices_[i].Position, 1);
+			transformedVertices_[i].Normal = transformIT * vec4(originalVertices_[i].Normal, 0);
 			vertices_[i].Position = transformedVertices_[i].Position;
 			vertices_[i].Normal = transformedVertices_[i].Normal;
 		}
 	}
+	
 }
 
 void Model::ResetVertices()
 {
 	if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
 	{
-		for (size_t i = 0; i < vertices_.size(); i++)
-		{
-			vertices_[i].Position = transformedVertices_[i].Position;
-			vertices_[i].Normal = transformedVertices_[i].Normal;
-		}
+		this->Transform(this->worldMatrix_);
 	}
-	else {
+	else
+	{
 		for (size_t i = 0; i < vertices_.size(); i++)
 		{
 			vertices_[i].Position = originalVertices_[i].Position;
@@ -551,7 +545,7 @@ Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint3
 	this->name = name;
 	this->originalVertices_ = this->vertices_;
 	this->transformedVertices_ = this->vertices_;
-	this->worldMatrix_ = glm::mat4(1);
+	this->worldMatrix_ = mat4(1.0f);
 }
 
 }

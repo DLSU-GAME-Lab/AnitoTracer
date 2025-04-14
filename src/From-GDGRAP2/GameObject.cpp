@@ -312,16 +312,16 @@ void GameObject::updateWorldTransform()
 
 	if (type != CAMERA)
 	{
-		this->performModelTransform();
-		this->performModelRotate();
-		this->performModelScale();
+		//this->performModelTransform();
+		//this->performModelRotate();
+		//this->performModelScale();
 		/*if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
 			
 		}
-		else
+		else*/
 		{
 			mat4 worldMatrix(1);
-			mat4 translateOp = glm::translate(mat4(1.0), this->worldPosition/* - this->origin);
+			mat4 translateOp = glm::translate(mat4(1.0), this->worldPosition/* - this->origin*/);
 			this->origin = this->worldPosition;
 
 			vec3 scaleOffset = this->worldScale / this->originScale;
@@ -348,7 +348,10 @@ void GameObject::updateWorldTransform()
 
 			if (modelRef)
 				this->modelRef->Transform(worldMatrix);
-		}*/
+
+			if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
+				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		}
 
 		if (this->modelRef && !this->modelRef->Vertices().empty())
 		{
