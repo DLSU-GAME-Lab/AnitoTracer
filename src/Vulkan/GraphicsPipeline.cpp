@@ -119,7 +119,8 @@ namespace Vulkan {
 		{
 			{0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT},
 			{1, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT},
-			{2, static_cast<uint32_t>(scene.TextureSamplers().size()), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
+			{2, static_cast<uint32_t>(scene.TextureSamplers().size()), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT},
+			{ 3, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT }
 		};
 
 		descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -149,11 +150,17 @@ namespace Vulkan {
 				imageInfo.sampler = scene.TextureSamplers()[t];
 			}
 
+			// Lights buffer
+			VkDescriptorBufferInfo lightsBufferInfo = {};
+			lightsBufferInfo.buffer = scene.LightBuffer().Handle();
+			lightsBufferInfo.range = VK_WHOLE_SIZE;
+
 			const std::vector<VkWriteDescriptorSet> descriptorWrites =
 			{
 				descriptorSets.Bind(i, 0, uniformBufferInfo),
 				descriptorSets.Bind(i, 1, materialBufferInfo),
-				descriptorSets.Bind(i, 2, *imageInfos.data(), static_cast<uint32_t>(imageInfos.size()))
+				descriptorSets.Bind(i, 2, *imageInfos.data(), static_cast<uint32_t>(imageInfos.size())),
+				descriptorSets.Bind(i, 3, lightsBufferInfo)
 			};
 
 			descriptorSets.UpdateDescriptors(i, descriptorWrites);

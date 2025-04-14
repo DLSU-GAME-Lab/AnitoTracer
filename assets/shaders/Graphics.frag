@@ -67,22 +67,8 @@ vec3 calculateSpotLight(LightProperties sl, vec3 worldPos, vec3 normal)
 void main() 
 {
 	const int textureId = Materials[FragMaterialIndex].DiffuseTextureId;
-	const int normalTextureId = Materials[FragMaterialIndex].NormalTextureId;
-	const float normalStrength = Materials[FragMaterialIndex].Normal;
-	//const float d = max(dot(dirLightDir, normalize(FragNormal)), 0.2);
-	
-	// Base normal
 	vec3 normal = normalize(FragNormal);
-
-	// Apply normal map if available
-	if (normalTextureId >= 0) {
-		vec3 sampledNormal = texture(TextureSamplers[normalTextureId], FragTexCoord).rgb;
-		sampledNormal = normalize(sampledNormal * 2.0 - 1.0);
-		normal = normalize(mix(normal, FragNormal, 1.0 - normalStrength) * normal); // scale blend
-	}
-
-	// Compute base directional light shading
-	float d = max(dot(dirLightDir, normal), 0.2);  // Soft minimum lighting
+	const float d = max(dot(dirLightDir, normal), 0.2); // Soft minimum lighting
 
 	vec3 c = FragColor * d;
 	if (textureId >= 0)
