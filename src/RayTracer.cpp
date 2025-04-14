@@ -34,6 +34,7 @@ namespace
 #endif
 }
 
+RayTracer* RayTracer::sharedInstance = nullptr;
 RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, const VkPresentModeKHR presentMode) :
 	Application(windowConfig, presentMode, EnableValidationLayers),
 	userSettings_(userSettings)
@@ -53,6 +54,17 @@ RayTracer::~RayTracer()
 	scene_.reset();
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void RayTracer::initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig,
+	VkPresentModeKHR presentMode)
+{
+	sharedInstance = new RayTracer(userSettings, windowConfig, presentMode);
+}
+
+RayTracer* RayTracer::getInstance()
+{
+	return sharedInstance;
 }
 
 Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D extent) const
@@ -75,6 +87,14 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.HasSky = init.HasSky;
 	ubo.ShowHeatmap = userSettings_.ShowHeatmap;
 	ubo.HeatmapScale = userSettings_.HeatmapScale;
+
+	return ubo;
+}
+
+Assets::PushConstantModel RayTracer::GetPushConstantModel(const Assets::Model& model) const
+{
+	Assets::PushConstantModel ubo = {};
+	ubo.WorldMatrix = model.GetWorldMatrix();
 
 	return ubo;
 }
@@ -156,6 +176,7 @@ void RayTracer::DrawFrame()
 		CreateSwapChain();
 		return;
 	}
+
 	//If user edited a certain model
 	if (this->isSceneDirty)
 	{
@@ -168,6 +189,8 @@ void RayTracer::DrawFrame()
 		CreateSwapChain();
 		return;
 	}
+
+	
 
 	// Check if the accumulation buffer needs to be reset.
 	if (resetAccumulation_ ||
@@ -250,7 +273,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 			case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_1: CameraManager::getInstance()->setSceneCameraProjection(0); break;
 			case GLFW_KEY_2: CameraManager::getInstance()->setSceneCameraProjection(1); break;
-			case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; break;
+			case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; break;
 			case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
@@ -371,6 +394,11 @@ void RayTracer::ReloadModifiedScene()
 	std::vector<Assets::Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	for (auto& model : models)
+	{
+		model.ResetVertices();
+	}
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())

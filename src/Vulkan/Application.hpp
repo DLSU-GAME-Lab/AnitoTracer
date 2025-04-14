@@ -9,7 +9,9 @@ namespace Assets
 {
 	class Scene;
 	class UniformBufferObject;
+	class PushConstantModel;
 	class UniformBuffer;
+	class Model;
 }
 
 namespace Vulkan 
@@ -48,6 +50,7 @@ namespace Vulkan
 		
 		virtual const Assets::Scene& GetScene() const = 0;
 		virtual Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const = 0;
+		virtual Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const = 0;
 
 		virtual void SetPhysicalDevice(
 			VkPhysicalDevice physicalDevice, 
