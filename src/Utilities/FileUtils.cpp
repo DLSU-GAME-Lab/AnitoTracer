@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <commdlg.h>
 
+
+
 // #if __cplusplus <= 201402L
 // #define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
 // #include <experimental/filesystem>
@@ -103,3 +105,33 @@ bool FileUtils::getModelFilePath(std::string& filePath, std::string& fileName)
 
 	return false;
 }
+
+bool FileUtils::getScenePath(std::string& filePath, std::string& fileName)
+{
+	wchar_t path[MAX_PATH] = L"";
+
+	constexpr LPCWSTR fileFormats =
+		L"JSON (.level)\0*.level\0"
+		"TXT (.txt)\0*.txt\0"
+		"All Files\0*.*\0";
+
+	OPENFILENAME openFile = OPENFILENAME();
+	openFile.lStructSize = sizeof(OPENFILENAME);
+	openFile.hwndOwner = nullptr;
+	openFile.nMaxFile = MAX_PATH;
+	openFile.lpstrFile = path;
+	openFile.lpstrFilter = fileFormats;
+	openFile.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+	if (GetOpenFileName(&openFile)) {
+		std::wstring ws(path);
+		std::string str(ws.begin(), ws.end());
+		std::ranges::replace(str, '\\', '/');
+		fileName = std::filesystem::path(str).stem().generic_string();
+		filePath = str;
+		return true;
+	}
+
+	return false;
+}
+
