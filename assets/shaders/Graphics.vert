@@ -16,13 +16,13 @@ layout(location = 0) out vec3 FragColor;
 layout(location = 1) out vec3 FragNormal;
 layout(location = 2) out vec2 FragTexCoord;
 layout(location = 3) out flat int FragMaterialIndex;
+layout(location = 4) out vec3 worldPos;
 
 out gl_PerVertex
 {
 	vec4 gl_Position;
 };
 
-// THIS SHADER IS FOR RASTERIZED MODE
 void main() 
 {
 	Material m = Materials[InMaterialIndex];
@@ -32,4 +32,5 @@ void main()
 	FragNormal = vec3(Camera.ModelView * vec4(InNormal, 0.0)); // technically not correct, should be ModelInverseTranspose
 	FragTexCoord = InTexCoord;
 	FragMaterialIndex = InMaterialIndex;
+	worldPos = gl_Position.xyz;
 }

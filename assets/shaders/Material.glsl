@@ -30,7 +30,7 @@ struct LightProperties
 LightProperties InitializeTestPLProperties() 
 {
 	LightProperties pl;
-	pl.LightPos = vec3(2600, 20.0, 0);
+	pl.LightPos = vec3(100, 200.0, 0);
 	pl.AmbientColor = vec4(1.0, 1.0, 1.0, 0.02);
 	pl.LightColor = vec4(1.0, 0.4, 0.5, 1000000.0f);
 	pl.LightType = PointLight;
