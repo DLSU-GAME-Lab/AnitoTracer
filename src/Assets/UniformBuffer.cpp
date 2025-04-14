@@ -4,10 +4,8 @@
 
 namespace Assets {
 
-UniformBuffer::UniformBuffer(const Vulkan::Device& device)
+UniformBuffer::UniformBuffer(const Vulkan::Device& device, const size_t bufferSize)
 {
-	const auto bufferSize = sizeof(UniformBufferObject);
-
 	buffer_.reset(new Vulkan::Buffer(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT));
 	memory_.reset(new Vulkan::DeviceMemory(buffer_->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)));
 }
@@ -27,6 +25,13 @@ UniformBuffer::~UniformBuffer()
 void UniformBuffer::SetValue(const UniformBufferObject& ubo)
 {
 	const auto data = memory_->Map(0, sizeof(UniformBufferObject));
+	std::memcpy(data, &ubo, sizeof(ubo));
+	memory_->Unmap();
+}
+
+void UniformBuffer::SetValue(const PushConstantModel& ubo)
+{
+	const auto data = memory_->Map(0, sizeof(PushConstantModel));
 	std::memcpy(data, &ubo, sizeof(ubo));
 	memory_->Unmap();
 }

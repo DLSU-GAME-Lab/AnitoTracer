@@ -15,3 +15,7 @@ struct UniformBufferObject
 	bool HasSky;
 	bool ShowHeatmap;
 };
+
+struct PushConstantModel {
+	mat4 WorldMatrix;
+};

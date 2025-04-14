@@ -12,6 +12,7 @@
 #include "MaterialEditorScreen.h"
 #include "PlaybackScreen.h"
 #include "ProfilerScreen.h"
+#include "RayTracer.hpp"
 #include "SettingsScreen.h"
 #include "ViewportScreen.h"
 #include "Engine/CameraSystem/CameraManager.h"
@@ -269,7 +270,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			}
 		}
 
-		if (isUsingImguizmo && !ImGuizmo::IsUsingAny())
+		if ((isUsingImguizmo && !RayTracer::getInstance()->getUserSettings().IsRayTraced) || (isUsingImguizmo && RayTracer::getInstance()->getUserSettings().IsRayTraced && !ImGuizmo::IsUsingAny()))
 		{
 			if (selectedObject->getParent())
 			{
