@@ -7,118 +7,94 @@
 #include "From-GDGRAP2/GameObject.h"
 #include "From-GDGRAP2/ModelManager.h"
 
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 #include "Utilities/Glm.hpp"
 
 using namespace glm;
 
-SceneRW::SceneRW()
-{
-}
-
-SceneRW::~SceneRW()
-{
-}
-
 void SceneRW::exportScene()
 {
-	//std::string fileDirectory;
-	//std::string fileName;
- //
-	//FileUtils::getScenePath(fileDirectory, fileName);
+	std::filesystem::path path = FileUtils::getSceneSavePath();
+	std::string fileDirectory = path.string();
+	fileDirectory.append("/scene.level");
 
-	//if (fileDirectory.find(".level") != std::string::npos) //check if .level or .txt
-	//{
 
-	//}
+	if (fileDirectory.find(".level") != std::string::npos) //check if .level or .txt
+	{
 
-	//std::fstream sceneFile;
-	//sceneFile.open(fileDirectory, std::ios::out);
+	}
+
+	std::fstream sceneFile;
+	sceneFile.open(fileDirectory, std::ios::out);
 
 	//Logger::log("Selected File Name : " + fileDirectory);
 
-	//Json::Value root;
+	Json::Value root;
 
-	//GameObjectManager::GameObjectList objectList = GameObjectManager::getInstance()->getAllObjects();
+	ModelManager::List objectList = ModelManager::getInstance()->getAllObjects();
 
-	//for (AGameObject* gameObject : objectList)
-	//{
-	//	std::string guid = gameObject->getGuidString();
+	for (int i = 0; i < objectList.size(); i++)
+	{
+		std::shared_ptr<GameObject> gameObject = objectList[i];
 
-	//	root[guid];
-	//	root[guid]["name"] = gameObject->getName();
-	//	root[guid]["type"] = gameObject->getType();
+		std::string guid = gameObject->getName();
 
-	//	Vector3D position = gameObject->getLocalPosition();
-	//	Vector3D rotation = gameObject->getLocalRotation();
-	//	Vector3D scale = gameObject->getLocalScale();
+		root[guid];
+		root[guid]["name"] = gameObject->getName();
 
-	//	root[guid]["position"]["x"] = position.x;
-	//	root[guid]["position"]["y"] = position.y;
-	//	root[guid]["position"]["z"] = position.z;
+		GameObject::PrimitiveType ptype = GameObject::PrimitiveType::NONE;
+		ptype = gameObject->getType();
+		std::string type = "";
 
-	//	root[guid]["rotation"]["x"] = rotation.x;
-	//	root[guid]["rotation"]["y"] = rotation.y;
-	//	root[guid]["rotation"]["z"] = rotation.z;
+		if (ptype == GameObject::PrimitiveType::CUBE)
+			type = "Cube";
+		else if (ptype == GameObject::PrimitiveType::SPHERE)
+			type = "Sphere";
+		else if (ptype == GameObject::PrimitiveType::CAPSULE)
+			type = "Capsule";
+		else if (ptype == GameObject::PrimitiveType::CAMERA)
+			type = "Camera";
+		else if (ptype == GameObject::PrimitiveType::CYLINDER)
+			type = "Cylinder";
+		else if (ptype == GameObject::PrimitiveType::PLANE)
+			type = "Plane";
+		else if (ptype == GameObject::PrimitiveType::POINT_LIGHT)
+			type = "PointLight";
+		else if (ptype == GameObject::PrimitiveType::DIRECTIONAL_LIGHT)
+			type = "DirectionalLight";
+		else if (ptype == GameObject::PrimitiveType::QUAD)
+			type = "Quad";
+		else
+			type = "Cube";
 
-	//	root[guid]["scale"]["x"] = scale.x;
-	//	root[guid]["scale"]["y"] = scale.y;
-	//	root[guid]["scale"]["z"] = scale.z;
+		root[guid]["type"] = type;
 
-	//	AGameObject::ComponentList physicsList = gameObject->getComponentsOfType(AComponent::ComponentType::Physics);
-	//	for (AComponent* component : physicsList)
-	//	{
-	//		PhysicsComponent* physicsComponent = dynamic_cast<PhysicsComponent*>(component);
-	//		std::string componentGuid = component->getGuidString();
+		vec3 position = gameObject->getLocalPosition();
+		vec3 rotation = gameObject->getLocalRotation();
+		vec3 scale = gameObject->getLocalScale();
 
-	//		root[guid]["components"][componentGuid];
-	//		root[guid]["components"][componentGuid]["name"] = physicsComponent->getName();
-	//		root[guid]["components"][componentGuid]["class"] = physicsComponent->getClassType();
-	//		root[guid]["components"][componentGuid]["type"] = physicsComponent->getType();
+		root[guid]["position"]["x"] = position.x;
+		root[guid]["position"]["y"] = position.y;
+		root[guid]["position"]["z"] = position.z;
 
-	//		root[guid]["components"][componentGuid]["mass"] = physicsComponent->getMass();
-	//		root[guid]["components"][componentGuid]["gravity"] = physicsComponent->getUseGravity();
-	//		root[guid]["components"][componentGuid]["body_type"] = static_cast<int>(physicsComponent->getBodyType());
-	//		root[guid]["components"][componentGuid]["linear_drag"] = physicsComponent->getLinearDrag();
-	//		root[guid]["components"][componentGuid]["angular_drag"] = physicsComponent->getAngularDrag();
-	//		root[guid]["components"][componentGuid]["constraints"] = physicsComponent->getConstraints();
-	//	}
-	//	AGameObject::ComponentList texList = gameObject->getComponentsOfType(AComponent::ComponentType::Tex);
-	//	for (AComponent* component : texList)
-	//	{
-	//		std::string componentGuid = component->getGuidString();
-	//		root[guid]["components"][componentGuid];
-	//		root[guid]["components"][componentGuid]["name"] = component->getName();
-	//		root[guid]["components"][componentGuid]["class"] = component->getClassType();
-	//		root[guid]["components"][componentGuid]["type"] = component->getType();
-	//		if (component->getClassType() == typeid(TextureComponent).raw_name())
-	//		{
-	//			TextureComponent* textureComponent = dynamic_cast<TextureComponent*>(component);
-	//			root[guid]["components"][componentGuid]["texture_name"] = textureComponent->getTexName();
-	//		}
-	//	}
+		root[guid]["rotation"]["x"] = rotation.x;
+		root[guid]["rotation"]["y"] = rotation.y;
+		root[guid]["rotation"]["z"] = rotation.z;
 
-	//	AGameObject::ComponentList rendererList = gameObject->getComponentsOfType(AComponent::ComponentType::Renderer);
-	//	for (AComponent* component : rendererList)
-	//	{
-	//		std::string componentGuid = component->getGuidString();
-	//		root[guid]["components"][componentGuid];
-	//		root[guid]["components"][componentGuid]["name"] = component->getName();
-	//		root[guid]["components"][componentGuid]["class"] = component->getClassType();
-	//		root[guid]["components"][componentGuid]["type"] = component->getType();
+		root[guid]["scale"]["x"] = scale.x;
+		root[guid]["scale"]["y"] = scale.y;
+		root[guid]["scale"]["z"] = scale.z;
+	}
 
-	//		if (component->getClassType() == typeid(MeshRenderer).raw_name())
-	//		{
-	//			MeshRenderer* meshRenderer = dynamic_cast<MeshRenderer*>(component);
-	//			root[guid]["components"][componentGuid]["file_path"] = meshRenderer->getMesh()->getFilePath();
-	//		}
-	//	}
-	//}
+	std::cout << root << "\n";
 
-	//std::cout << root << "\n";
-
-	//Json::StyledWriter styledWriter;
-	//sceneFile << styledWriter.write(root);
-	//sceneFile.close();
+	Json::StyledWriter styledWriter;
+	sceneFile << styledWriter.write(root);
+	sceneFile.close();
 }
 
 bool SceneRW::loadScene()
@@ -130,7 +106,7 @@ bool SceneRW::loadScene()
 
 	if (fileDirectory.find(".level") != std::string::npos)
 	{
-
+		ModelManager::getInstance()->clearAllObjects();
 	}
 	else
 	{
@@ -158,12 +134,20 @@ bool SceneRW::loadScene()
 			ptype = GameObject::PrimitiveType::CUBE;
 		else if (type == "Sphere")
 			ptype = GameObject::PrimitiveType::SPHERE;
+		else if (type == "Capsule")
+			ptype = GameObject::PrimitiveType::CAPSULE;
 		else if (type == "Cylinder")
 			ptype = GameObject::PrimitiveType::CYLINDER;
+		else if (type == "Camera")
+			ptype = GameObject::PrimitiveType::CAMERA;
 		else if (type == "Plane")
 			ptype = GameObject::PrimitiveType::PLANE;
-		else if (type == "Model")
-			ptype = GameObject::PrimitiveType::NONE; //need to make separate type for models
+		else if (type == "PointLight")
+			ptype = GameObject::PrimitiveType::POINT_LIGHT;
+		else if (type == "DirectionalLight")
+			ptype = GameObject::PrimitiveType::DIRECTIONAL_LIGHT;
+		else if (type == "Quad")
+			ptype = GameObject::PrimitiveType::QUAD;
 		else
 			ptype = GameObject::PrimitiveType::NONE;
 
@@ -182,7 +166,7 @@ bool SceneRW::loadScene()
 		scale.y = scene[guid]["scale"]["y"].asFloat();
 		scale.z = scene[guid]["scale"]["z"].asFloat();
 
-		ModelManager::getInstance()->createObjectFromFile(name, ptype, position, rotation, scale);
+		ModelManager::getInstance()->createObject(name, ptype, position, rotation, scale);
 
 	}
 	

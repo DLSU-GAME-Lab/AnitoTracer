@@ -20,6 +20,8 @@ private:
 	void ShowLoadObjMenu();
 	void OnMaterialComponentClicked();
 
+	void OnLoadSceneFile();
+
 	void OnLoadSphereWorld();
 	void OnLoadRTIOW();
 	void OnLoadBoxWorld();

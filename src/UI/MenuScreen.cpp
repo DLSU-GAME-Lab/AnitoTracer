@@ -10,6 +10,7 @@
 #include "UserSettings.hpp"
 #include "Utilities/FileUtils.h"
 
+#include "Scene/SceneRW.h"
 // #include "GameObjectManager.h"
 
 MenuScreen::MenuScreen() : AUIScreen("MenuScreen")
@@ -45,12 +46,14 @@ void MenuScreen::drawUI()
 				//this->openSceneDialog->Open();
 			}
 			if (ImGui::MenuItem("Save", "Ctrl+S")) {
-				//this->saveSceneDialog->Open();
+				SceneRW::exportScene();
 			}
 			if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {
 				//this->saveSceneDialog->Open();
 			}
-
+			if (ImGui::MenuItem("Load", "Ctrl+L")) {
+				this->OnLoadSceneFile();
+			}
 			ImGui::Separator();
 
 			if (ImGui::MenuItem("Exit Editor", "Ctrl+W"))
@@ -338,6 +341,11 @@ void MenuScreen::OnCreateLightClicked(Light::LightType type)
 void MenuScreen::OnMaterialComponentClicked()
 {
 	// Debug::Log("Creating material placeholder.");
+}
+
+void MenuScreen::OnLoadSceneFile()
+{
+	SceneRW::loadScene();
 }
 
 void MenuScreen::OnLoadSphereWorld()

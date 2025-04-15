@@ -41,7 +41,9 @@ public:
 	void addObject(std::shared_ptr<GameObject> gameObject);
 	void addObject(std::shared_ptr<ObjectGroup> objectGroup);
 	void createObject(GameObject::PrimitiveType type);
-	void createObjectFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale); 
+	void createObjectFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale);
+	void createObject(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale);
+
 	void createObjectGroupFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale);
 	void createSponza();
 	void deleteObject(std::shared_ptr<GameObject> gameObject);

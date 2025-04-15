@@ -4,10 +4,7 @@
 class SceneRW
 {
 public:
-	SceneRW();
-	~SceneRW();
-
-	void exportScene();
-	bool loadScene();
+	static void exportScene();
+	static bool loadScene();
 };
 

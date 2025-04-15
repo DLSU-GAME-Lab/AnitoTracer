@@ -9,6 +9,7 @@ class FileUtils
 {
 public:
 	static std::filesystem::path getAssetsFolderPath();
+	static std::filesystem::path getSceneSavePath();
 	static std::filesystem::path getExecutablePath();
 
 	static bool getModelFilePath(std::string& filePath, std::string& fileName);

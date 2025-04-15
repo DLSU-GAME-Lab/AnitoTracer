@@ -19,6 +19,15 @@ std::filesystem::path FileUtils::getAssetsFolderPath()
 	return p;
 }
 
+std::filesystem::path FileUtils::getSceneSavePath()
+{
+
+	std::filesystem::path p = getExecutablePath().parent_path().parent_path().append("assets/scenes");
+	//std::cout << "Assets folder: " << p << '\n';
+	return p;
+
+}
+
 std::filesystem::path FileUtils::getExecutablePath()
 {
 	//return std::filesystem::current_path();
