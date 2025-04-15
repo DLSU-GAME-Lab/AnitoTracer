@@ -32,19 +32,26 @@ void HierarchyScreen::drawUI()
 
 void HierarchyScreen::updateObjectList(const char* filter)
 {
-	const ModelManager::List objectList = ModelManager::getInstance()->getAllObjects();
+    const ModelManager::List objectList = ModelManager::getInstance()->getAllObjects();
+    std::string activeCamName = CameraManager::getInstance()->getActiveCamera()->getName();
+    ImGui::Text("Active Camera: %s", activeCamName.c_str());
 
-	std::string activeCamName = CameraManager::getInstance()->getActiveCamera()->getName();
-	ImGui::Text("Active Camera: %s", activeCamName.c_str());
+    std::string filterStr(filter);
+    std::transform(filterStr.begin(), filterStr.end(), filterStr.begin(), ::tolower);
 
-	for (const auto& obj : objectList)
-	{
-		// Only draw root objects and apply search filter
-		if (!obj->getParent() && (strlen(filter) == 0 || obj->getName().find(filter) != String::npos))
-		{
-			drawObjectNode(obj.get());
-		}
-	}
+    for (const auto& obj : objectList)
+    {
+        if (!obj->getParent())
+        {
+            std::string objName = obj->getName();
+            std::transform(objName.begin(), objName.end(), objName.begin(), ::tolower);
+
+            if (filterStr.empty() || objName.find(filterStr) != std::string::npos)
+            {
+                drawObjectNode(obj.get());
+            }
+        }
+    }
 }
 
 void HierarchyScreen::drawObjectNode(GameObject* obj)
