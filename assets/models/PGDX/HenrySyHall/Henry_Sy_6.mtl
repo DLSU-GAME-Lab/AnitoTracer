@@ -1,0 +1,171 @@
+# Blender 4.3.2 MTL File: 'Henry_Sy_6.blend'
+# www.blender.org
+
+newmtl Facades_09
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+Pr 0.400000
+Pm 0.000000
+
+newmtl Facades_09.001
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+Pr 0.500000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Pm textures/Facades_09_metallic.jpg
+
+newmtl Material
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.500000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd Wall Texture 3-20250226T053750Z-001/wall_texture_diffuseOriginal.png
+map_Bump -bm 1.000000 Wall Texture 3-20250226T053750Z-001/wall_texture_normal.png
+
+newmtl Material.001
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.500000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+
+newmtl Material.002
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 1
+Pr 0.161017
+Ps 0.302260
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd thumbprint_texture/Thumbprint_texture_diffuseOriginal.png
+map_Pm thumbprint_texture/Thumbprint_texture_metallic.png
+map_Bump -bm 1.000000 thumbprint_texture/Thumbprint_texture_normal.png
+
+newmtl Material.004
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.500000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd Reference images/Tiles_white/Tiles_white_diffuseOriginal.png
+map_Bump -bm 1.000000 Reference images/Tiles_white/Tiles_white_normal.png
+
+newmtl Material.006
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.500000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd Reference images/Grass/Grass_diffuseOriginal.png
+map_Bump -bm 1.000000 Reference images/Grass/Grass_normal.png
+
+newmtl Windows
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.800000
+d 1.000000
+illum 2
+Pr 0.197443
+Ps 0.000000
+Pc 0.000000
+Pcr 0.098246
+aniso 0.000000
+anisor 0.000000
+Tf 1.000000 1.000000 1.000000
+map_Kd window_texture/Window_diffuseOriginal.png
+map_Pm window_texture/Window_metallic.png
+map_Bump -bm 1.000000 window_texture/Window_normal.png
+
+newmtl Windows_grills
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.500000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd window_grills/window_grills_diffuseOriginal.png
+map_Pm window_grills/window_grills_metallic.png
+map_Bump -bm 1.000000 window_grills/window_grills_normal.png
+
+newmtl grass
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.500000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd Reference images/Grass/Grass_diffuseOriginal.png
+map_Bump -bm 1.000000 Reference images/Grass/Grass_normal.png
+
+newmtl logo
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.500000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd lasalle logo/logo_texture_diffuseOriginal.png
+map_Bump -bm 1.000000 lasalle logo/logo_texture_normal.png

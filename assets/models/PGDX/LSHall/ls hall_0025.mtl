@@ -1,0 +1,98 @@
+# Blender 4.4.1 MTL File: 'ls hall_0025.blend'
+# www.blender.org
+
+newmtl [Bake]Detailed_Patterns
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Detailed_Patterns_Base_Color.png
+map_Pr I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Detailed_Patterns_Roughness.png
+map_d I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Detailed_Patterns_Base_Color.png
+map_Bump -bm 5.900000 I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Detailed_Patterns_Normal.png
+
+newmtl [Bake]Main_Block_Part_1
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Main_Block_Part_1_Base_Color.png
+map_Pr I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Main_Block_Part_1_Roughness.png
+map_Bump -bm 1.000000 I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Main_Block_Part_1_Normal.png
+
+newmtl [Bake]Main_Block_Part_2
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Main_Block_Part_2_Base_Color.png
+map_Pr I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Main_Block_Part_2_Roughness.png
+map_Bump -bm 1.000000 I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Main_Block_Part_2_Normal.png
+
+newmtl [Bake]Others
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.200000
+d 1.000000
+illum 2
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Others_Base_Color.png
+map_Pm I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Others_Metallic.png
+map_Pr I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Others_Roughness.png
+map_Bump -bm 1.000000 I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Others_Normal.png
+
+newmtl [Bake]Roof
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.200000
+d 1.000000
+illum 2
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Pm I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Roof_Metallic.png
+map_Pr I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Roof_Roughness.png
+map_Bump -bm 2.500000 I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Roof_Normal.png
+
+newmtl [Bake]Windows
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Window_Base_Color.png
+map_Pr I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Window_Roughness.png
+map_Bump -bm 1.000000 I:/My Drive/CAPIET/lance shit/CAPIET/LS HALL/textures/[BAKE] Window_Normal.png
