@@ -8,7 +8,7 @@ layout(binding = 1) readonly buffer MaterialArray { Material[] Materials; };
 layout(binding = 2) uniform sampler2D[] TextureSamplers;
 layout(binding = 3) readonly buffer LightsArray { LightProperties[] Lights; }; 
 
-layout(location = 0) in vec3 FragColor;
+layout(location = 0) in vec4 FragColor;
 layout(location = 1) in vec3 FragNormal;
 layout(location = 2) in vec2 FragTexCoord;
 layout(location = 3) in flat int FragMaterialIndex;
@@ -70,10 +70,10 @@ void main()
 	vec3 normal = normalize(FragNormal);
 	const float d = max(dot(dirLightDir, normal), 0.2); // Soft minimum lighting
 
-	vec3 c = FragColor * d;
+	vec4 c = FragColor * d;
 	if (textureId >= 0)
 	{
-		c *= texture(TextureSamplers[textureId], FragTexCoord).rgb;
+		c *= texture(TextureSamplers[textureId], FragTexCoord);
 	}
 	
 	vec3 lighting = vec3(0.0);
@@ -97,7 +97,10 @@ void main()
 	LightProperties pl = InitializeTestPLProperties(); // Adding point light.
 	lighting += calculatePointLight(pl, worldPos, normal);
 
-	OutColor = vec4(lighting,1) + vec4(c, 1);
-	
+	if (c.a <= 0.0) {
+        discard;
+    } else {
+        OutColor = vec4(lighting, 1) + c;
+    }
     //OutColor = dirLightColor * vec4(c, 1);
 }
