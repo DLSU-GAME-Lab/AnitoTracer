@@ -270,6 +270,8 @@ set(src_files_ui
 	UI/AUIScreen.h
 	UI/ConsoleScreen.cpp
 	UI/ConsoleScreen.h
+	UI/FurnitureMenuScreen.cpp
+	UI/FurnitureMenuScreen.h
 	UI/HierarchyScreen.cpp
 	UI/HierarchyScreen.h
 	UI/InspectorScreen.cpp
