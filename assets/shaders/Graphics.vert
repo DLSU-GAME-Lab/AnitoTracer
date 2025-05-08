@@ -4,7 +4,7 @@
 #include "Material.glsl"
 #include "UniformBufferObject.glsl"
 
-layout(push_constant) readonly uniform PushConstantModelStruct { PushConstantModel Object; };
+layout(push_constant) uniform PushConstantModelStruct { PushConstantModel Object; };
 
 layout(binding = 0) readonly uniform UniformBufferObjectStruct { UniformBufferObject Camera; };
 layout(binding = 1) readonly buffer MaterialArray { Material[] Materials; };
