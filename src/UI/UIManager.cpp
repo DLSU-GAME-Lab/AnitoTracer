@@ -197,9 +197,9 @@ void UIManager::initializeUI()
 	this->uiTable[UINames::SETTINGS_SCREEN] = settingsScreen;
 	this->uiList.push_back(settingsScreen);
 
-	//const std::shared_ptr<FurnitureMenuScreen> furnitureMenuScreen = std::make_shared<FurnitureMenuScreen>();
-	//this->uiTable[UINames::FURNITURE_MENU_SCREEN] = furnitureMenuScreen;
-	//this->uiList.push_back(furnitureMenuScreen);
+	const std::shared_ptr<FurnitureMenuScreen> furnitureMenuScreen = std::make_shared<FurnitureMenuScreen>();
+	this->uiTable[UINames::FURNITURE_MENU_SCREEN] = furnitureMenuScreen;
+	this->uiList.push_back(furnitureMenuScreen);
 
 	// std::shared_ptr<AssetExplorerScreen> assetExplorerScreen = std::make_shared<AssetExplorerScreen>();
 	// this->uiTable[uiNames.ASSET_EXPLORER_SCREEN] = assetExplorerScreen;
