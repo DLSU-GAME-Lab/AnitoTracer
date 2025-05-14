@@ -88,6 +88,7 @@ private:
 
 	static void setupImGuiStyle();
 
+	void drawDockspace() const;
 	void drawAllUI() const;
 	void drawOverlay(const Statistics& statistics) const;
 

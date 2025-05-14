@@ -224,6 +224,8 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	//ImGui::ShowStyleEditor();
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
+	
+	drawDockspace();
 	drawAllUI();
 	//DrawSettings();
 	drawOverlay(statistics);
@@ -362,6 +364,35 @@ void UIManager::reset()
 {
 	ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 	delete sharedInstance;
+}
+
+void UIManager::drawDockspace() const
+{
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+	ImGui::SetNextWindowPos(viewport->WorkPos);
+	ImGui::SetNextWindowSize(viewport->WorkSize);
+	ImGui::SetNextWindowViewport(viewport->ID);
+
+	ImGuiWindowFlags host_window_flags = 0;
+	host_window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking;
+	host_window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+	ImGui::Begin("Main Window", NULL, host_window_flags);
+	ImGui::PopStyleVar(3);
+
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+
+	ImGui::PopStyleVar();
+
+	ImGuiID id = ImGui::GetID("Main Window");
+	ImGui::DockSpace(id);
+
+	ImGui::End();
 }
 
 void UIManager::drawAllUI() const
