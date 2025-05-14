@@ -686,6 +686,12 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 	std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(pl1);
 
+	Model lshall = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lshall.obj");
+	std::shared_ptr<GameObject> lsObj = std::make_shared<GameObject>("LS Hall", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(lshall));
+	ModelManager::getInstance()->addObject(lsObj);
+	lsObj->setLocalScale(5, 5, 5);
+	lsObj->setLocalPosition(0, 0, 0);
+
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
