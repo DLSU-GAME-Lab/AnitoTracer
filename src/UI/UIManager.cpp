@@ -48,7 +48,7 @@ namespace
 
 UIManager::UIManager()
 {
-	
+
 }
 
 UIManager::~UIManager()
@@ -156,8 +156,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 void UIManager::initializeUI()
 {
-
-	ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
+	//loadLayout();q
 
 	//populate UI table
 	//UIs that will show during runtime
@@ -212,9 +211,36 @@ void UIManager::initializeUI()
 	Debug::Log("Initialized UIs!");
 }
 
+void UIManager::saveLayout()
+{
+	ImGui::SaveIniSettingsToDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+}
+
+void UIManager::loadLayout()
+{
+	isLoadingLayout = true;
+}
+
+void UIManager::resetLayout()
+{
+	isResettingLayout = true;
+}
+
 void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer& frameBuffer,
 	const Statistics& statistics)
 {
+	if (isLoadingLayout)
+	{
+		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+		isLoadingLayout = false;
+	}
+
+	if (isResettingLayout)
+	{
+		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
+		isResettingLayout = false;
+	}
+
 	ImGui_ImplGlfw_NewFrame();
 	ImGui_ImplVulkan_NewFrame();
 	ImGui::NewFrame();
@@ -360,7 +386,7 @@ void UIManager::drawOverlay(const Statistics& statistics) const
 
 void UIManager::reset()
 {
-	ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
+	//ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 	delete sharedInstance;
 }
 

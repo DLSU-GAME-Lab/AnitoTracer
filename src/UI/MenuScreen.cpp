@@ -172,6 +172,21 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Window"))
 		{
+			if (ImGui::MenuItem("Save Window Layout"))
+			{
+				UIManager::saveLayout();
+			}
+
+			if (ImGui::MenuItem("Load Window Layout"))
+			{
+				UIManager::getInstance()->loadLayout();
+			}
+			
+			if (ImGui::MenuItem("Reset Window Layout"))
+			{
+				UIManager::getInstance()->resetLayout();
+			}
+
 			if (ImGui::MenuItem("Toggle All Tool Windows", "F3"))
 			{
 				UIManager::getInstance()->toggleAllUI();

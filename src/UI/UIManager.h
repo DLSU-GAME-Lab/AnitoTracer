@@ -53,6 +53,10 @@ public:
 	static void reset();
 
 	void initializeUI();
+	static void saveLayout();
+	void loadLayout();
+	void resetLayout();
+
 	bool getEnabled(const std::string& name);
 	void setEnabled(const String& uiName, bool flag);
 	void toggleEnabled(const String& uiName);
@@ -101,6 +105,8 @@ private:
 	static UIManager* sharedInstance;
 
 	bool isHidingUI = false;
+	bool isLoadingLayout = false;
+	bool isResettingLayout = false;
 	UserSettings* userSettings = nullptr;
 	const Vulkan::SwapChain* swapChain = nullptr;
 
