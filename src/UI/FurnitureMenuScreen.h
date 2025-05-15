@@ -31,10 +31,10 @@ public:
 	//void SetDefaultFileIcon(const sf::Texture& icon) { mDefaultFileIcon = icon; }
 
 	// Starts picking a folder
-	void PickFolder(const std::filesystem::path& startingPath, const OnPicked& onPicked);
+	void pickFolder(const std::filesystem::path& startingPath, const OnPicked& onPicked);
 	// Starts picking a file
-	void PickFile(const std::filesystem::path& startingPath, const OnPicked& onPicked, const std::vector<std::string>& extensionFilters = std::vector<std::string>());
-	void StartPicking(const std::filesystem::path& startingPath, const OnPicked& onPicked, const Settings& settings = Settings());
+	void pickFile(const std::filesystem::path& startingPath, const OnPicked& onPicked, const std::vector<std::string>& extensionFilters = std::vector<std::string>());
+	void startPicking(const std::filesystem::path& startingPath, const OnPicked& onPicked, const Settings& settings = Settings());
 
 	inline void Show() { mVisible = true; }
 	inline void Hide() { mVisible = false; }
@@ -42,7 +42,7 @@ public:
 
 private:
 	//const sf::Texture& GetFileIcon(const std::string& extension) const;
-	void SetPath(const std::filesystem::path& path);
+	void setPath(const std::filesystem::path& path);
 
 private:
 	// sf::Texture mFolderIcon;

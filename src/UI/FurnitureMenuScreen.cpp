@@ -1,11 +1,17 @@
 #include "FurnitureMenuScreen.h"
 
 #include <sstream>
+#include <glm/vec3.hpp>
+
+#include "From-GDGRAP2/GameObject.h"
+#include "From-GDGRAP2/ModelManager.h"
+#include "From-GDGRAP2/TextureLibrary.h"
+#include "Utilities/FileUtils.h"
 
 FurnitureMenuScreen::FurnitureMenuScreen() : AUIScreen(UINames::FURNITURE_MENU_SCREEN)
 {
-	mPath = std::filesystem::absolute(std::filesystem::current_path());
-
+	mPath = FileUtils::getAssetsFolderPath();
+	mSettings.extensionsFilter = { ".fbx", ".obj", ".gltf", ".glb", ".dae", ".3mf", ".stl" };
 }
 
 void FurnitureMenuScreen::drawUI()
@@ -40,8 +46,19 @@ void FurnitureMenuScreen::drawUI()
 	// }
 
 	namespace ImGui = ::ImGui;
-	if (ImGui::Begin("Assets", &mVisible))
+	if (ImGui::Begin("Assets", &enabled))
 	{
+		static float padding = 16.0f;
+		static float thumbnailSize = 128.0f;
+		const float cellSize = thumbnailSize + padding;
+
+		const float panelWidth = ImGui::GetContentRegionAvail().x;
+		int columnCount = static_cast<int>(panelWidth / cellSize);
+		if (columnCount < 1)
+			columnCount = 1;
+
+		ImGui::Columns(1, nullptr, false);
+
 		// Show the current path with clickable button for each folder to travel through
 		ImGui::Text("Current path : ");
 		std::filesystem::path fullpath;
@@ -51,32 +68,43 @@ void FurnitureMenuScreen::drawUI()
 			ImGui::SameLine();
 			if (ImGui::Button(path.string().c_str()))
 			{
-				SetPath(fullpath);
+				setPath(fullpath);
 				break;
 			}
 		}
 
-		auto ButtonWithIcon = [](const std::string& name)
+		ImGui::Separator();
+
+		ImGui::Columns(columnCount, nullptr, false);
+
+		auto buttonWithIcon = [](const std::string& name)
 			{
 				ImGui::PushID(name.c_str());
 				bool clicked = false;
-				const ImTextureID imTex = nullptr;
-				clicked |= ImGui::ImageButton(imTex, ImVec2(16, 16));
-				ImGui::SameLine();
+				//const ImTextureID imTex = ;
+				clicked |= ImGui::ImageButton(reinterpret_cast<ImTextureID>(2), ImVec2(thumbnailSize, thumbnailSize));
 				clicked |= ImGui::Button(name.c_str());
+				ImGui::NextColumn();
 				ImGui::PopID();
 				return clicked;
 			};
-		auto ButtonFile = [&, this](const std::string& name) { return ButtonWithIcon(name); };
-		auto ButtonFolder = [&, this](const std::string& name) { return ButtonWithIcon(name); };
-		auto IsMatchingFilter = [this](const std::string& extension) { return mSettings.extensionsFilter.empty() || std::any_of(mSettings.extensionsFilter.begin(), mSettings.extensionsFilter.end(), [&](const std::string& ext) { return ext == extension; }); };
+		auto buttonFile = [&, this](const std::string& name) { return buttonWithIcon(name); };
+		auto buttonFolder = [&, this](const std::string& name) { return buttonWithIcon(name); };
+		auto isMatchingFilter = [this](const std::string& extension)
+			{
+				return mSettings.extensionsFilter.empty() || std::ranges::any_of(mSettings.extensionsFilter,
+					[&](const std::string& ext)
+					{
+						return ext == extension;
+					});
+			};
 
 		if (mPath.has_parent_path())
 		{
 			const std::filesystem::path parent = mPath.parent_path();
-			if (ButtonFolder(".."))
+			if (buttonFolder(".."))
 			{
-				SetPath(parent);
+				setPath(parent);
 			}
 		}
 
@@ -89,9 +117,9 @@ void FurnitureMenuScreen::drawUI()
 			const std::string entryName = std::filesystem::relative(path, mPath).string();
 			if (entry.is_directory())
 			{
-				if (ButtonFolder(entryName))
+				if (buttonFolder(entryName))
 				{
-					SetPath(path);
+					setPath(path);
 					break;
 				}
 			}
@@ -99,13 +127,20 @@ void FurnitureMenuScreen::drawUI()
 			{
 				if (!mSettings.foldersOnly)
 				{
-					if (IsMatchingFilter(path.filename().extension().string()))
+					if (isMatchingFilter(path.filename().extension().string()))
 					{
-						if (ButtonFile(entryName.c_str()))
+						if (buttonFile(entryName))
 						{
-							if (mOnPicked)
-								mOnPicked(path);
-							Hide();
+							static std::string name = "GameObject";
+							GameObject::PrimitiveType type = GameObject::CUBE;
+
+							auto model = Assets::Model::LoadModel(path.generic_string());
+							std::shared_ptr<GameObject> gameObject = std::make_shared<GameObject>(name, type, std::make_shared<Assets::Model>(model));
+
+							ModelManager::getInstance()->addObject(gameObject);
+							// if (mOnPicked)
+							// 	mOnPicked(path);
+							//Hide();
 						}
 					}
 				}
@@ -115,20 +150,20 @@ void FurnitureMenuScreen::drawUI()
 				ImGui::Text(entryName.c_str());
 			}
 		}
-		if (mSettings.foldersOnly)
-		{
-			if (ImGui::Button("Select this folder"))
-			{
-				if (mOnPicked)
-					mOnPicked(mPath);
-				Hide();
-			}
-		}
+		// if (mSettings.foldersOnly)
+		// {
+		// 	if (ImGui::Button("Select this folder"))
+		// 	{
+		// 		if (mOnPicked)
+		// 			mOnPicked(mPath);
+		// 		Hide();
+		// 	}
+		// }
 	}
 	ImGui::End();
 }
 
-void FurnitureMenuScreen::SetPath(const std::filesystem::path& path)
+void FurnitureMenuScreen::setPath(const std::filesystem::path& path)
 {
 	mPath = path;
 	// Remove ending / if any
@@ -142,21 +177,21 @@ void FurnitureMenuScreen::SetPath(const std::filesystem::path& path)
 // 	return it != mFileIconPerExtension.cend() ? it->second : mDefaultFileIcon;
 // }
 
-void FurnitureMenuScreen::PickFolder(const std::filesystem::path& startingPath, const OnPicked& onPicked)
+void FurnitureMenuScreen::pickFolder(const std::filesystem::path& startingPath, const OnPicked& onPicked)
 {
 	Settings settings;
 	settings.foldersOnly = true;
-	StartPicking(startingPath, onPicked, settings);
+	startPicking(startingPath, onPicked, settings);
 }
-void FurnitureMenuScreen::PickFile(const std::filesystem::path& startingPath, const OnPicked& onPicked, const std::vector<std::string>& extensionFilters/* = std::vector<std::string>()*/)
+void FurnitureMenuScreen::pickFile(const std::filesystem::path& startingPath, const OnPicked& onPicked, const std::vector<std::string>& extensionFilters/* = std::vector<std::string>()*/)
 {
 	Settings settings;
 	settings.extensionsFilter = extensionFilters;
-	StartPicking(startingPath, onPicked, settings);
+	startPicking(startingPath, onPicked, settings);
 }
-void FurnitureMenuScreen::StartPicking(const std::filesystem::path& startingPath, const OnPicked& onPicked, const Settings& settings/* = Settings()*/)
+void FurnitureMenuScreen::startPicking(const std::filesystem::path& startingPath, const OnPicked& onPicked, const Settings& settings/* = Settings()*/)
 {
-	SetPath(startingPath);
+	setPath(startingPath);
 	Show();
 	mOnPicked = onPicked;
 	mSettings = settings;

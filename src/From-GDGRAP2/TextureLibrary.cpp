@@ -91,6 +91,10 @@ TextureLibrary::TextureLibrary()
 	this->addTexture("land_ocean_ice_cloud_2048", FileUtils::getAssetsFolderPath().generic_string() + "/textures/land_ocean_ice_cloud_2048.png");
 	this->addTexture("checker", FileUtils::getAssetsFolderPath().generic_string() + "/textures/checker.jpg");
 	this->addTexture("earthmap", FileUtils::getAssetsFolderPath().generic_string() + "/textures/earthmap.jpg");
+	this->addTexture("file", FileUtils::getAssetsFolderPath().generic_string() + "/textures/file.png");
+	this->addTexture("folder", FileUtils::getAssetsFolderPath().generic_string() + "/textures/folder.png");
+	this->addTexture("ini", FileUtils::getAssetsFolderPath().generic_string() + "/textures/ini.png");
+
 }
 
 TextureLibrary::~TextureLibrary()
