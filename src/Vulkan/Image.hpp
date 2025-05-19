@@ -19,6 +19,7 @@ namespace Vulkan
 
 		Image(const Device& device, VkExtent2D extent, VkFormat format);
 		Image(const Device& device, VkExtent2D extent, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage);
+		Image(const Device& device, VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, uint32_t arrayLayers, VkImageCreateFlags createFlags);
 		Image(Image&& other) noexcept;
 		~Image();
 
@@ -29,8 +30,8 @@ namespace Vulkan
 		DeviceMemory AllocateMemory(VkMemoryPropertyFlags properties) const;
 		VkMemoryRequirements GetMemoryRequirements() const;
 
-		void TransitionImageLayout(CommandPool& commandPool, VkImageLayout newLayout);
-		void CopyFrom(CommandPool& commandPool, const Buffer& buffer);
+		void TransitionImageLayout(CommandPool& commandPool, VkImageLayout newLayout, uint32_t layerCount = 1);
+		void CopyFrom(CommandPool& commandPool, const Buffer& buffer, uint32_t layerCount = 1, VkDeviceSize layerSize = 0);
 
 	private:
 

@@ -12,6 +12,7 @@ set(src_files_assets
 	Assets/SphereProc.hpp
 	Assets/Texture.cpp
 	Assets/Texture.hpp
+	Assets/CubeMapTexture.hpp
 	Assets/TextureImage.cpp
 	Assets/TextureImage.hpp
 	Assets/UniformBuffer.cpp

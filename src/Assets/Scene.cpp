@@ -94,6 +94,12 @@ Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models, std:
 	}
 }
 
+void Scene::SetSkybox(VkImageView imageView, VkSampler sampler) 
+{
+	skyboxImageView_ = imageView;
+	skyboxSampler_ = sampler;
+}
+
 Scene::~Scene()
 {
 	textureSamplerHandles_.clear();

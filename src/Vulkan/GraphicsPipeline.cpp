@@ -194,6 +194,94 @@ GraphicsPipeline::GraphicsPipeline(
 
 	Check(vkCreateGraphicsPipelines(device.Handle(), nullptr, 1, &pipelineInfo, nullptr, &pipeline_),
 		"create graphics pipeline");
+
+	const ShaderModule skyboxVertShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/Skybox.vert.spv");
+	const ShaderModule skyboxFragShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/Skybox.frag.spv");
+
+	std::vector<DescriptorBinding> skyboxDescriptorBindings =
+	{
+		{0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT},
+		{1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
+	};
+
+	skyboxDescriptorSetManager_.reset(new DescriptorSetManager(device, skyboxDescriptorBindings, uniformBuffers.size()));
+
+	auto& skyboxDescriptorSets = skyboxDescriptorSetManager_->DescriptorSets();
+
+	for (uint32_t i = 0; i < swapChain.Images().size(); ++i)
+	{
+		VkDescriptorBufferInfo uniformBufferInfo = {};
+		uniformBufferInfo.buffer = uniformBuffers[i].Buffer().Handle();
+		uniformBufferInfo.range = VK_WHOLE_SIZE;
+
+		VkDescriptorImageInfo imageInfo = {};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = scene.SkyboxImageView(); 
+		imageInfo.sampler = scene.SkyboxSampler();     
+
+		std::cout << "Frame " << i << ": SkyboxImageView = " << scene.SkyboxImageView()
+			<< ", SkyboxSampler = " << scene.SkyboxSampler() << std::endl;
+
+		std::vector<VkWriteDescriptorSet> descriptorWrites =
+		{
+			skyboxDescriptorSets.Bind(i, 0, uniformBufferInfo),
+			skyboxDescriptorSets.Bind(i, 1, imageInfo)
+		};
+
+		skyboxDescriptorSets.UpdateDescriptors(i, descriptorWrites);
+	}
+
+	skyboxPipelineLayout_.reset(new class PipelineLayout(device, skyboxDescriptorSetManager_->DescriptorSetLayout()));
+
+	VkPipelineShaderStageCreateInfo skyboxShaderStages[] =
+	{
+		skyboxVertShader.CreateShaderStage(VK_SHADER_STAGE_VERTEX_BIT),
+		skyboxFragShader.CreateShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT)
+	};
+
+	struct SkyboxVertex {
+		glm::vec3 InPosition;
+	};
+
+	VkVertexInputBindingDescription skyboxBindingDescription = {};
+	skyboxBindingDescription.binding = 0;
+	skyboxBindingDescription.stride = sizeof(SkyboxVertex);
+	skyboxBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	std::array<VkVertexInputAttributeDescription, 1> skyboxAttributeDescriptions = {};
+	skyboxAttributeDescriptions[0].binding = 0;
+	skyboxAttributeDescriptions[0].location = 0;
+	skyboxAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	skyboxAttributeDescriptions[0].offset = offsetof(SkyboxVertex, InPosition);
+
+	VkPipelineVertexInputStateCreateInfo skyboxVertexInputInfo = {};
+	skyboxVertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	skyboxVertexInputInfo.vertexBindingDescriptionCount = 1;
+	skyboxVertexInputInfo.pVertexBindingDescriptions = &skyboxBindingDescription;
+	skyboxVertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(skyboxAttributeDescriptions.size());
+	skyboxVertexInputInfo.pVertexAttributeDescriptions = skyboxAttributeDescriptions.data();
+
+	VkPipelineDepthStencilStateCreateInfo skyboxDepthStencil = depthStencil;
+	skyboxDepthStencil.depthWriteEnable = VK_FALSE;
+	skyboxDepthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+
+	VkGraphicsPipelineCreateInfo skyboxPipelineInfo = {};
+	skyboxPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	skyboxPipelineInfo.stageCount = 2;
+	skyboxPipelineInfo.pStages = skyboxShaderStages;
+	skyboxPipelineInfo.pVertexInputState = &skyboxVertexInputInfo;
+	skyboxPipelineInfo.pInputAssemblyState = &inputAssembly;
+	skyboxPipelineInfo.pViewportState = &viewportState;
+	skyboxPipelineInfo.pRasterizationState = &rasterizer;
+	skyboxPipelineInfo.pMultisampleState = &multisampling;
+	skyboxPipelineInfo.pDepthStencilState = &skyboxDepthStencil;
+	skyboxPipelineInfo.pColorBlendState = &colorBlending;
+	skyboxPipelineInfo.layout = skyboxPipelineLayout_->Handle();
+	skyboxPipelineInfo.renderPass = renderPass_->Handle();
+	skyboxPipelineInfo.subpass = 0;
+
+	Check(vkCreateGraphicsPipelines(device.Handle(), nullptr, 1, &skyboxPipelineInfo, nullptr, &skyboxPipeline_),
+		"create skybox pipeline");
 }
 
 GraphicsPipeline::~GraphicsPipeline()
@@ -207,11 +295,25 @@ GraphicsPipeline::~GraphicsPipeline()
 	renderPass_.reset();
 	pipelineLayout_.reset();
 	descriptorSetManager_.reset();
+
+	if (skyboxPipeline_ != nullptr)
+	{
+		vkDestroyPipeline(swapChain_.Device().Handle(), skyboxPipeline_, nullptr);
+		skyboxPipeline_ = nullptr;
+	}
+
+	skyboxPipelineLayout_.reset();
+	skyboxDescriptorSetManager_.reset();
 }
 
 VkDescriptorSet GraphicsPipeline::DescriptorSet(const uint32_t index) const
 {
 	return descriptorSetManager_->DescriptorSets().Handle(index);
+}
+
+VkDescriptorSet Vulkan::GraphicsPipeline::SkyboxDescriptorSet(uint32_t index) const
+{
+	return skyboxDescriptorSetManager_->DescriptorSets().Handle(index);
 }
 
 }

@@ -5,6 +5,7 @@
 #include "UserSettings.hpp"
 #include "Vulkan/RayTracing/Application.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
+#include "Assets/TextureImage.hpp"
 
 class RayTracer final : public Vulkan::RayTracing::Application, public Observer
 {
@@ -59,7 +60,8 @@ private:
 	SceneList::CameraInitialState cameraInitialSate_{};
 	ModelViewController modelViewController_{};
 
-	std::unique_ptr<const Assets::Scene> scene_;
+	std::unique_ptr<Assets::Scene> scene_;
+	std::unique_ptr<Assets::TextureImage> skyboxTextureImage_;
 	//std::unique_ptr<class UserInterface> userInterface_;
 
 	double time_{};
