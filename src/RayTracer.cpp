@@ -140,6 +140,7 @@ void RayTracer::CreateSwapChain()
 	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
 	//UIManager::reset();
 	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_);
+	UIManager::getInstance()->SetProfiler(profiler_.get());
 
 	if (!initializedUI)
 	{

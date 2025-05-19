@@ -146,6 +146,10 @@ set(src_files_lightsystem
 	Engine/LightSystem/Light.h
 )
 
+set(src_files_profiler
+	Engine/Profiler/Profiler.cpp
+	Engine/Profiler/Profiler.h
+)
 
 set(src_files_imgui
 	ImGui/imgui_freetype.cpp
@@ -335,6 +339,7 @@ source_group("Assimp" FILES ${src_files_assimp})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
 source_group("Tracy" FILES ${src_files_tracy})
 source_group("LightSystem" FILES ${src_files_lightsystem})
+source_group("Profiler" FILES ${src_files_profiler})
 source_group("ImGui" FILES ${src_files_imgui})
 source_group("Utilities" FILES ${src_files_utilities})
 source_group("UI" FILES ${src_files_ui})
@@ -349,6 +354,7 @@ add_executable(${exe_name}
 	${src_files_assimp}
 	${src_files_camerasystem} 
 	${src_files_lightsystem} 
+	${src_files_profiler} 
 	${src_files_tracy} 
 	${src_files_imgui} 
 	${src_files_utilities}

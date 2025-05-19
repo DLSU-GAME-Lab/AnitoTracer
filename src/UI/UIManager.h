@@ -13,6 +13,8 @@
 #include "Vulkan/Vulkan.hpp"
 #include <memory>
 
+#include "Engine/Profiler/Profiler.h"
+
 typedef std::string String;
 
 namespace Vulkan
@@ -67,6 +69,9 @@ public:
 	void toggleAllUI();
 	void hideAllUI() const;
 	void showAllUI() const;
+
+	GpuCpuProfiler* profiler;
+	void SetProfiler(GpuCpuProfiler* profiler) { this->profiler = profiler; }
 
 	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;
