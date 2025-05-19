@@ -67,8 +67,8 @@ namespace Assets {
 
 		Assimp::Importer objectImporter;
 		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
-			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_Triangulate |
-			aiProcess_GenUVCoords | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs);
+			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_GenUVCoords | aiProcess_SortByPType |
+			aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs | aiProcess_Triangulate | 0);
 		// read file and return an aiScene containing model attributes
 
 		if (scene == nullptr)
@@ -238,8 +238,8 @@ namespace Assets {
 		std::vector<Model> models;
 
 		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
-			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_Triangulate | 
-			aiProcess_GenUVCoords | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs); //read file and return an aiScene containing model attributes
+			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_GenUVCoords | aiProcess_SortByPType |
+			aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs | aiProcess_Triangulate | 0); //read file and return an aiScene containing model attributes
 
 
 		if (scene == nullptr)
