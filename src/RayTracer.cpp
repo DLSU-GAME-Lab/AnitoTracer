@@ -17,6 +17,7 @@
 #include "From-GDGRAP2/GlobalConfig.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "UI/UIManager.h"
+#include "UI/ViewportManager.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
 #include "ImGui/imgui_impl_vulkan.h"
@@ -47,6 +48,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
+	
 }
 
 RayTracer::~RayTracer()
@@ -140,6 +142,8 @@ void RayTracer::CreateSwapChain()
 	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
 	//UIManager::reset();
 	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_);
+	ViewportManager::initialize();
+	ViewportManager::getInstance()->createViewport(SwapChain(), GetScene());
 
 	if (!initializedUI)
 	{
@@ -223,10 +227,12 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	// Check the current state of the benchmark, update it for the new frame.
 	CheckAndUpdateBenchmarkState(prevTime);
 
+	ViewportManager::getInstance()->renderScenes(commandBuffer, imageIndex);
 	// Render the scene
-	userSettings_.IsRayTraced
+	/*userSettings_.IsRayTraced
 		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
 		: Vulkan::Application::Render(commandBuffer, imageIndex);
+		*/
 
 	// Render the UI
 	Statistics stats = {};

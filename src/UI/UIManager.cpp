@@ -32,6 +32,7 @@
 #include "Vulkan/Surface.hpp"
 #include "Vulkan/SwapChain.hpp"
 #include "Vulkan/Window.hpp"
+#include "ViewportManager.h"
 
 UIManager* UIManager::sharedInstance = nullptr;
 
@@ -150,6 +151,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
+	ImGui_ImplVulkan_SetMinImageCount(2);
 
 	sharedInstance->initializeUI();
 }
@@ -402,6 +404,8 @@ void UIManager::drawAllUI() const
 		if (i->enabled)
 			i->drawUI();
 	}
+
+	ViewportManager::getInstance()->drawUI();
 }
 
 bool UIManager::getEnabled(const std::string& name)
