@@ -10,7 +10,13 @@
 #include "UserSettings.hpp"
 #include "Utilities/FileUtils.h"
 
+#include "Assets/Material.hpp"
+#include "Assets/Model.hpp"
+
 // #include "GameObjectManager.h"
+
+using namespace Assets;
+using namespace glm;
 
 MenuScreen::MenuScreen() : AUIScreen("MenuScreen")
 {
@@ -81,6 +87,7 @@ void MenuScreen::drawUI()
 			if (ImGui::MenuItem("Create Cylinder")) { onCreateCylinderClicked(); }
 			//if (ImGui::MenuItem("Create Textured Cube")) { this->OnCreateTexturedCubeClicked(); } // add texture component
 			if (ImGui::MenuItem("Create Plane")) { this->OnCreatePlaneClicked(); }
+			if (ImGui::MenuItem("Create Reflection Probe")) { this->OnCreateProbe(); }
 			if (ImGui::MenuItem("Create Game Object From File...", nullptr, isLoadObjOpen))
 			{
 				isLoadObjOpen = !isLoadObjOpen;
@@ -349,6 +356,16 @@ void MenuScreen::OnCreateLightClicked(Light::LightType type)
 		ModelManager::getInstance()->createObject(GameObject::SPOT_LIGHT);
 		break;
 	}
+}
+
+void MenuScreen::OnCreateProbe()
+{
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	Model sphere2Model = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
+	std::shared_ptr<GameObject> sphere2 = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere2Model));
+	ModelManager::getInstance()->addObject(sphere2);
+	sphere2->setLocalPosition(0, 0, 0);
 }
 
 void MenuScreen::OnMaterialComponentClicked()

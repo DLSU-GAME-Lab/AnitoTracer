@@ -17,6 +17,7 @@ private:
 	void onCreateCylinderClicked();
 	void OnCreatePlaneClicked();
 	void OnCreateLightClicked(Light::LightType type);
+	void OnCreateProbe();
 	void ShowLoadObjMenu();
 	void OnMaterialComponentClicked();
 
