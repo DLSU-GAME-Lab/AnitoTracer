@@ -86,6 +86,7 @@ const std::vector<std::tuple<std::string, std::function<SceneAssets(SceneList::C
 	{"GRGRAP2 - Cornell Box", GDGRAP2_CornellBox},
 	{"GDGRAP2 - Box World", GDGRAP2_BoxWorld},
 	{"AnitoTracer - Demo Scene", AnitoTracer_DemoScene},
+	{"Model Showcase - Blank", Model_Showcase},
 	{"Sponza", Sponza},
 	{"Empty", Empty},
 };
@@ -681,6 +682,48 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 	capsuleObject->setLocalPosition(2000, 500, 300);
 	cylinderObject->setLocalPosition(2000, 200, 0);
+
+	// Add light objects
+	std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(pl1);
+
+	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+}
+
+SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
+{
+	camera.ModelView = lookAt(vec3(0, 0, 800), vec3(0, 0, 0), vec3(0, 1, 0));
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	std::mt19937 engine(1);
+	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
+
+	bool isProcedural = false;
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
+	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1000.0f, 500.0f);
+	ModelManager::getInstance()->addObject(areaLightObject);
+
+	std::shared_ptr<Camera> camObj = std::make_shared<Camera>("Camera");
+	ModelManager::getInstance()->addObject(camObj);
+	CameraManager::getInstance()->addCamera(camObj);
+	camObj->setLocalPosition(0, 100, 5);
+
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	const auto mirror = MaterialLibrary::getInstance()->getMaterial(L"Mirror");
+	//const auto mirror = Material::Dielectric(1.6f, 0.0f); 
 
 	// Add light objects
 	std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);

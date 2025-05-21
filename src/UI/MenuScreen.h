@@ -25,6 +25,7 @@ private:
 	void OnLoadBoxWorld();
 	void OnLoadCornellBox();
 	void OnLoadAnitoTracerDemo();
+	void OnLoadShowcase();
 	void OnLoadSponza();
 	void OnLoadEmpty();
 	void ShowColorPickerWindow();

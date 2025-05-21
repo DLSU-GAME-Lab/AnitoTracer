@@ -69,6 +69,7 @@ void MenuScreen::drawUI()
 			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); }
 			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox(); }
 			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo(); }
+			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase(); }
 			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); }
 			if (ImGui::MenuItem("Delete All Objects in Current Scene")) { this->OnLoadEmpty(); }
 			ImGui::EndMenu();
@@ -408,11 +409,19 @@ void MenuScreen::OnLoadAnitoTracerDemo()
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 
-void MenuScreen::OnLoadSponza()
+void MenuScreen::OnLoadShowcase()
 {
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 10);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+}
+
+void MenuScreen::OnLoadSponza()
+{
+	ModelManager::getInstance()->clearAllObjects();
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", 11);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 
