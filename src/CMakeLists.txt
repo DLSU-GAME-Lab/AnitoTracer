@@ -138,10 +138,6 @@ set(src_files_camerasystem
 	Engine/CameraSystem/SceneCamera.h
 )
 
-set(src_files_tracy
-	tracy-0.11.1/public/TracyClient.cpp
-)
-
 set(src_files_lightsystem
 	Engine/LightSystem/Light.cpp
 	Engine/LightSystem/Light.h
@@ -338,7 +334,6 @@ source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
 source_group("Assimp" FILES ${src_files_assimp})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
-source_group("Tracy" FILES ${src_files_tracy})
 source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("Profiler" FILES ${src_files_profiler})
 source_group("ImGui" FILES ${src_files_imgui})
@@ -355,8 +350,7 @@ add_executable(${exe_name}
 	${src_files_assimp}
 	${src_files_camerasystem} 
 	${src_files_lightsystem} 
-	${src_files_profiler} 
-	${src_files_tracy} 
+	${src_files_profiler}
 	${src_files_imgui} 
 	${src_files_utilities}
 	${src_files_ui}
