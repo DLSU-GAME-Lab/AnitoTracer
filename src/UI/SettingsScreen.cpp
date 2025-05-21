@@ -29,8 +29,7 @@ void SettingsScreen::drawUI()
 		ImGui::Separator();
 		ImGui::BulletText("F1: toggle Settings.");
 		ImGui::BulletText("F2: toggle Statistics.");
-		ImGui::BulletText("WASD/SHIFT/CTRL: move camera.");
-		ImGui::BulletText("R Mouse: rotate camera/scene.");
+		ImGui::BulletText("WASD/Q/E: move camera.");
 		ImGui::NewLine();
 
 		ImGui::Text("Scene");
