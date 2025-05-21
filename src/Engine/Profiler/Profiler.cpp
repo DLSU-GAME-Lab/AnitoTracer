@@ -1,10 +1,9 @@
 #include "Profiler.h"
 #include <imgui.h>
 #include <algorithm>
-#include <cstdio> // For printf debug (optional)
 
-GpuCpuProfiler::GpuCpuProfiler(VkDevice device, float timestampPeriod, int maxSections)
-    : device(device), timestampPeriod(timestampPeriod), maxSections(maxSections)
+GpuCpuProfiler::GpuCpuProfiler(VkDevice device, VkPhysicalDevice physicalDevice, float timestampPeriod, int maxSections)
+    : device(device), physicalDevice(physicalDevice), timestampPeriod(timestampPeriod), maxSections(maxSections)
 {
     VkQueryPoolCreateInfo qpi{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
     qpi.queryType = VK_QUERY_TYPE_TIMESTAMP;
@@ -95,6 +94,18 @@ void GpuCpuProfiler::DrawImGui() {
     for (int i = 0; i < currentSection; ++i) {
         const char* label = sections[i].name;
 
+        const auto& mem = GetMemoryStats();
+        ImGui::Separator();
+        if (vramStats.totalBudget > 0) {
+            float usageRatio = static_cast<float>(vramStats.totalUsage) / static_cast<float>(vramStats.totalBudget);
+            std::string label = "VRAM Usage: " +
+                std::to_string(vramStats.totalUsage / (1024 * 1024)) + " MB / " +
+                std::to_string(vramStats.totalBudget / (1024 * 1024)) + " MB";
+
+            ImGui::ProgressBar(usageRatio, ImVec2(0.0f, 20.0f), label.c_str());
+        }
+
+        ImGui::Separator();
         ImGui::Text("%s", label);
 
         if (!gpuHistory[i].empty()) {
@@ -109,6 +120,28 @@ void GpuCpuProfiler::DrawImGui() {
 
             ImGui::PlotLines(gpuLabel.c_str(), gpuHistory[i].data(), gpuHistory[i].size(), 0, nullptr, minGpu, maxGpu, ImVec2(0, 50));
             ImGui::PlotLines(cpuLabel.c_str(), cpuHistory[i].data(), cpuHistory[i].size(), 0, nullptr, minCpu, maxCpu, ImVec2(0, 50));
+        }
+    }
+}
+
+void GpuCpuProfiler::UpdateMemoryStats() {
+    VkPhysicalDeviceMemoryBudgetPropertiesEXT budgetProps{};
+    budgetProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
+
+    VkPhysicalDeviceMemoryProperties2 props{};
+    props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+    props.pNext = &budgetProps;
+
+    vkGetPhysicalDeviceMemoryProperties2(physicalDevice, &props);
+
+    // For simplicity, sum up all heaps marked DEVICE_LOCAL
+    vramStats.totalBudget = 0;
+    vramStats.totalUsage = 0;
+
+    for (uint32_t i = 0; i < props.memoryProperties.memoryHeapCount; ++i) {
+        if (props.memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+            vramStats.totalBudget += budgetProps.heapBudget[i];
+            vramStats.totalUsage += budgetProps.heapUsage[i];
         }
     }
 }

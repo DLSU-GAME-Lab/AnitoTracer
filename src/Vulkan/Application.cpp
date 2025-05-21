@@ -185,7 +185,7 @@ void Application::CreateProfiler()
 	vkGetPhysicalDeviceProperties(device_->PhysicalDevice(), &properties); // Make sure you expose this method
 
 	profiler_ = std::make_unique<GpuCpuProfiler>(
-		device_->Handle(),
+		device_->Handle(), device_->PhysicalDevice(),
 		properties.limits.timestampPeriod,
 		/* maxSections = */ 16
 	);
@@ -272,6 +272,10 @@ void Application::DrawFrame()
 
 	profiler_->EndFrame(commandBuffer);
 	profiler_->FetchResults();
+
+	if (profiler_) {
+		profiler_->UpdateMemoryStats();
+	}
 
 	currentFrame_ = (currentFrame_ + 1) % inFlightFences_.size();
 }

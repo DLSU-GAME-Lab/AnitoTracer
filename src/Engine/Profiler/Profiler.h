@@ -12,10 +12,14 @@ struct ProfilerSection {
     std::chrono::high_resolution_clock::time_point cpuStart;
     std::chrono::high_resolution_clock::time_point cpuEnd;
 };
+struct MemoryUsageStats {
+    uint64_t totalBudget = 0;
+    uint64_t totalUsage = 0;
+};
 
 class GpuCpuProfiler {
 public:
-    GpuCpuProfiler(VkDevice device, float timestampPeriod, int maxSections);
+    GpuCpuProfiler(VkDevice device, VkPhysicalDevice physicalDevice, float timestampPeriod, int maxSections);
     ~GpuCpuProfiler();
 
     void BeginFrame(VkCommandBuffer cmd);
@@ -25,8 +29,6 @@ public:
 
     void FetchResults();
     void DrawImGui();
-
-	void SetDevice(VkDevice device) { this->device = device; }
 
 private:
     VkDevice device;
@@ -38,4 +40,11 @@ private:
     std::vector<ProfilerSection> sections;
     std::vector<std::vector<float>> cpuHistory;
     std::vector<std::vector<float>> gpuHistory;
+
+	MemoryUsageStats vramStats;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE; // Add this if needed
+
+public:
+    void UpdateMemoryStats();
+    const MemoryUsageStats& GetMemoryStats() const { return vramStats; }
 };
