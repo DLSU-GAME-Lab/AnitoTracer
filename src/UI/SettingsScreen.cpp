@@ -5,7 +5,7 @@
 
 SettingsScreen::SettingsScreen(): AUIScreen(UINames::SETTINGS_SCREEN)
 {
-	enabled = false;
+	enabled = true;
 }
 
 SettingsScreen::~SettingsScreen() = default;
@@ -41,7 +41,8 @@ void SettingsScreen::drawUI()
 
 		ImGui::Text("Ray Tracing");
 		ImGui::Separator();
-		ImGui::Checkbox("Enable ray tracing", &settings->IsRayTraced);
+		/*ImGui::Checkbox("Enable ray tracing", &settings->IsRayTraced);*/
+		ImGui::Text("Press T to enable/disable ray tracing");
 		ImGui::Checkbox("Accumulate rays between frames", &settings->AccumulateRays);
 		uint32_t min = 1, max = 512;
 		ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);
