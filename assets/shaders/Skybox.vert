@@ -12,21 +12,22 @@ vec3 positions[36] = vec3[](
     vec3( 1,  1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
 
     // Left face
-    vec3(-1,  1,  1), vec3(-1,  1, -1), vec3(-1, -1, -1),
-    vec3(-1, -1, -1), vec3(-1, -1,  1), vec3(-1,  1,  1),
+    vec3(-1,  1, -1), vec3(-1, -1, -1), vec3(-1,  1,  1),
+    vec3(-1, -1,  1), vec3(-1,  1,  1), vec3(-1, -1, -1),
 
     // Right face
     vec3( 1,  1,  1), vec3( 1, -1, -1), vec3( 1,  1, -1),
     vec3( 1, -1, -1), vec3( 1,  1,  1), vec3( 1, -1,  1),
 
-    // Top face
-    vec3(-1,  1, -1), vec3( 1,  1, -1), vec3( 1,  1,  1),
-    vec3( 1,  1,  1), vec3(-1,  1,  1), vec3(-1,  1, -1),
+    // Top face 
+    vec3(-1,  1, -1), vec3( 1,  1,  1), vec3( 1,  1, -1),
+    vec3( 1,  1,  1), vec3(-1,  1, -1), vec3(-1,  1,  1),
 
-    // Bottom face
-    vec3(-1, -1, -1), vec3( 1, -1,  1), vec3( 1, -1, -1),
-    vec3( 1, -1,  1), vec3(-1, -1, -1), vec3(-1, -1,  1)
+    // Bottom face 
+    vec3(-1, -1, -1), vec3( 1, -1, -1), vec3( 1, -1,  1),
+    vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1, -1, -1)
 );
+
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
@@ -36,7 +37,6 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
 void main() {
     vec3 pos = positions[gl_VertexIndex];
     
-    // Remove translation from view matrix (keep rotation only)
     mat4 rotView = mat4(mat3(ubo.view));
     
     vec4 worldPos = rotView * vec4(pos, 0.0);

@@ -374,8 +374,8 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	skyboxCubeMap.faces[5] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_back.png";
 	
 	skyboxTextureImage_ = std::make_unique<Assets::TextureImage>(commandPool, skyboxCubeMap);
-	std::cout << "TextureImage ImageView handle: " << skyboxTextureImage_->ImageView().Handle() << std::endl;
-	std::cout << "TextureImage Sampler handle: " << skyboxTextureImage_->Sampler().Handle() << std::endl;
+	/*std::cout << "TextureImage ImageView handle: " << skyboxTextureImage_->ImageView().Handle() << std::endl;
+	std::cout << "TextureImage Sampler handle: " << skyboxTextureImage_->Sampler().Handle() << std::endl;*/
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())
@@ -393,8 +393,8 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
 	);
-	std::cout << "Skybox ImageView: " << scene_->SkyboxImageView() << std::endl;
-	std::cout << "Skybox Sampler: " << scene_->SkyboxSampler() << std::endl;
+	//std::cout << "Skybox ImageView: " << scene_->SkyboxImageView() << std::endl;
+	//std::cout << "Skybox Sampler: " << scene_->SkyboxSampler() << std::endl;
 
 	sceneIndex_ = sceneIndex;
 

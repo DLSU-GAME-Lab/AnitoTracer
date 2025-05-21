@@ -219,9 +219,6 @@ GraphicsPipeline::GraphicsPipeline(
 		imageInfo.imageView = scene.SkyboxImageView(); 
 		imageInfo.sampler = scene.SkyboxSampler();     
 
-		std::cout << "Frame " << i << ": SkyboxImageView = " << scene.SkyboxImageView()
-			<< ", SkyboxSampler = " << scene.SkyboxSampler() << std::endl;
-
 		std::vector<VkWriteDescriptorSet> descriptorWrites =
 		{
 			skyboxDescriptorSets.Bind(i, 0, uniformBufferInfo),
@@ -256,10 +253,10 @@ GraphicsPipeline::GraphicsPipeline(
 
 	VkPipelineVertexInputStateCreateInfo skyboxVertexInputInfo = {};
 	skyboxVertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	skyboxVertexInputInfo.vertexBindingDescriptionCount = 1;
-	skyboxVertexInputInfo.pVertexBindingDescriptions = &skyboxBindingDescription;
-	skyboxVertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(skyboxAttributeDescriptions.size());
-	skyboxVertexInputInfo.pVertexAttributeDescriptions = skyboxAttributeDescriptions.data();
+	skyboxVertexInputInfo.vertexBindingDescriptionCount = 0;
+	skyboxVertexInputInfo.pVertexBindingDescriptions = nullptr;
+	skyboxVertexInputInfo.vertexAttributeDescriptionCount = 0;
+	skyboxVertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
 	VkPipelineDepthStencilStateCreateInfo skyboxDepthStencil = depthStencil;
 	skyboxDepthStencil.depthWriteEnable = VK_FALSE;
@@ -272,6 +269,9 @@ GraphicsPipeline::GraphicsPipeline(
 	skyboxPipelineInfo.pVertexInputState = &skyboxVertexInputInfo;
 	skyboxPipelineInfo.pInputAssemblyState = &inputAssembly;
 	skyboxPipelineInfo.pViewportState = &viewportState;
+
+	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 	skyboxPipelineInfo.pRasterizationState = &rasterizer;
 	skyboxPipelineInfo.pMultisampleState = &multisampling;
 	skyboxPipelineInfo.pDepthStencilState = &skyboxDepthStencil;
