@@ -6,6 +6,9 @@
 #include "Vulkan/RayTracing/Application.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
 
+namespace Vulkan {
+	class RayVisualizationPipeline;
+}
 class RayTracer final : public Vulkan::RayTracing::Application, public Observer
 {
 public:
@@ -80,4 +83,6 @@ private:
 	bool isRenderChanged = false;
 
 	static RayTracer* sharedInstance;
+
+	std::unique_ptr<class Vulkan::RayVisualizationPipeline> rayVisualizationPipeline_;
 };
