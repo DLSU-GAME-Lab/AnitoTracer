@@ -5,6 +5,7 @@
 #include "Assets/Scene.hpp"
 #include "Assets/Texture.hpp"
 #include "Assets/UniformBuffer.hpp"
+#include "Assets/CubeMapTexture.hpp"
 #include "Utilities/Exception.hpp"
 #include "Utilities/Glm.hpp"
 #include "Vulkan/Device.hpp"
@@ -360,7 +361,22 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 
 void RayTracer::LoadScene(const uint32_t sceneIndex)
 {
+	auto& commandPool = CommandPool();
+
 	auto [models, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
+
+	Assets::CubeMapTexture skyboxCubeMap;
+
+	skyboxCubeMap.faces[0] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_right.png";
+	skyboxCubeMap.faces[1] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_left.png";
+	skyboxCubeMap.faces[2] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_top.png";
+	skyboxCubeMap.faces[3] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_bottom.png";
+	skyboxCubeMap.faces[4] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_front.png";
+	skyboxCubeMap.faces[5] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_back.png";
+	
+	skyboxTextureImage_ = std::make_unique<Assets::TextureImage>(commandPool, skyboxCubeMap);
+	/*std::cout << "TextureImage ImageView handle: " << skyboxTextureImage_->ImageView().Handle() << std::endl;
+	std::cout << "TextureImage Sampler handle: " << skyboxTextureImage_->Sampler().Handle() << std::endl;*/
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())
@@ -374,6 +390,13 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	}
 
 	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_->SetSkybox(
+		skyboxTextureImage_->ImageView().Handle(),
+		skyboxTextureImage_->Sampler().Handle()
+	);
+	//std::cout << "Skybox ImageView: " << scene_->SkyboxImageView() << std::endl;
+	//std::cout << "Skybox Sampler: " << scene_->SkyboxSampler() << std::endl;
+
 	sceneIndex_ = sceneIndex;
 
 	userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
@@ -413,6 +436,10 @@ void RayTracer::ReloadModifiedScene()
 	}
 
 	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_->SetSkybox(
+		skyboxTextureImage_->ImageView().Handle(),
+		skyboxTextureImage_->Sampler().Handle()
+	);
 
 	// userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
 	// userSettings_.Aperture = cameraInitialSate_.Aperture;

@@ -6,6 +6,7 @@
 
 namespace Assets
 {
+
 	class Texture final
 	{
 	public:
