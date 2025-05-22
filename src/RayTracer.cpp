@@ -56,6 +56,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 RayTracer::~RayTracer()
 {
 	scene_.reset();
+	rayScene_.reset();
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
 }
@@ -247,7 +248,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
-			const auto& scene = GetScene();
+			const auto& scene = GetRayScene();
 
 			VkDescriptorSet descriptorSets[] = { rayVisualizationPipeline_->DescriptorSet(imageIndex) };
 			VkBuffer vertexBuffers[] = { scene.VertexBuffer().Handle() };
@@ -256,10 +257,12 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->Handle());
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
-			/*vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+			vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 			vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-			uint32_t vertexOffset = 0;
+			vkCmdDrawIndexed(commandBuffer, 2, 1, 0, 0, 0);
+
+			/*uint32_t vertexOffset = 0;
 			uint32_t indexOffset = 0;*/
 
 			/*for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
@@ -425,6 +428,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	}
 
 	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
 	sceneIndex_ = sceneIndex;
 
 	userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
@@ -464,6 +468,7 @@ void RayTracer::ReloadModifiedScene()
 	}
 
 	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
 
 	// userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
 	// userSettings_.Aperture = cameraInitialSate_.Aperture;

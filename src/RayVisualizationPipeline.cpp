@@ -28,10 +28,10 @@ namespace Vulkan {
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		//vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
-		//vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.vertexAttributeDescriptionCount = 1;
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -62,8 +62,8 @@ namespace Vulkan {
 		rasterizer.depthClampEnable = VK_FALSE;
 		rasterizer.rasterizerDiscardEnable = VK_FALSE;
 		rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
-		rasterizer.lineWidth = 1.0f;
-		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+		rasterizer.lineWidth = 2.0f;
+		rasterizer.cullMode = VK_CULL_MODE_NONE;
 		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 		rasterizer.depthBiasConstantFactor = 0.0f; // Optional
@@ -146,16 +146,16 @@ namespace Vulkan {
 				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				imageInfo.imageView = scene.TextureImageViews()[t];
 				imageInfo.sampler = scene.TextureSamplers()[t];
-			}
+			}*/
 
 			const std::vector<VkWriteDescriptorSet> descriptorWrites =
 			{
 				descriptorSets.Bind(i, 0, uniformBufferInfo),
-				descriptorSets.Bind(i, 1, materialBufferInfo),
-				descriptorSets.Bind(i, 2, *imageInfos.data(), static_cast<uint32_t>(imageInfos.size()))
+				//descriptorSets.Bind(i, 1, materialBufferInfo),
+				//descriptorSets.Bind(i, 2, *imageInfos.data(), static_cast<uint32_t>(imageInfos.size()))
 			};
 
-			descriptorSets.UpdateDescriptors(i, descriptorWrites);*/
+			descriptorSets.UpdateDescriptors(i, descriptorWrites);
 		}
 
 		// Create pipeline layout and render pass.
@@ -172,6 +172,16 @@ namespace Vulkan {
 			fragShader.CreateShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT)
 		};
 
+		std::vector<VkDynamicState> dynamicStateEnables = {
+		VK_DYNAMIC_STATE_LINE_WIDTH };
+
+		VkPipelineDynamicStateCreateInfo dynamicState = {};
+		dynamicState.dynamicStateCount = 1;
+		dynamicState.flags = 0;
+		dynamicState.pDynamicStates = dynamicStateEnables.data();
+		dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		dynamicState.pNext = nullptr;
+
 		// Create graphic pipeline
 		VkGraphicsPipelineCreateInfo pipelineInfo = {};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -182,9 +192,9 @@ namespace Vulkan {
 		pipelineInfo.pViewportState = &viewportState;
 		pipelineInfo.pRasterizationState = &rasterizer;
 		pipelineInfo.pMultisampleState = &multisampling;
-		pipelineInfo.pDepthStencilState = nullptr;
+		pipelineInfo.pDepthStencilState = &depthStencil;
 		pipelineInfo.pColorBlendState = &colorBlending;
-		pipelineInfo.pDynamicState = nullptr; // Optional
+		pipelineInfo.pDynamicState = &dynamicState; // Optional
 		pipelineInfo.basePipelineHandle = nullptr; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
 		pipelineInfo.layout = pipelineLayout_->Handle();
