@@ -20,7 +20,7 @@
 #include "UI/UIManager.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
-#include "ImGui/imgui_impl_vulkan.h"
+#include "imgui_impl_vulkan.h"
 
 #include "Engine/CameraSystem/CameraManager.h"
 #include "Utilities/FileUtils.h"

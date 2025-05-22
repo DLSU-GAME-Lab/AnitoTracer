@@ -10,7 +10,6 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/hash.hpp>
 
-#include <tiny_obj_loader.h>
 #include <chrono>
 #include <filesystem>
 #include <iostream>

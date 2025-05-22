@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(RayTracingInVulkan)
+project(AnitoTracer)
 
 set(CMAKE_DEBUG_POSTFIX d)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
@@ -47,13 +47,23 @@ if (UNIX)
 
 endif ()
 
+SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "build/vcpkg.windows/installed/x64-windows-static/include")
+SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "build/vcpkg.windows/installed/x64-windows-static/lib")
+SET(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "build/vcpkg.windows/installed/x64-windows-static/share")
+# Stb is weird idk why!!!
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/build/vcpkg.windows/installed/x64-windows-static/share/stb")
+
+add_compile_definitions(GLM_ENABLE_EXPERIMENTAL)
+
 find_package(Boost REQUIRED COMPONENTS exception program_options) 
 find_package(freetype CONFIG REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(assimp CONFIG REQUIRED)
+find_package(imguizmo CONFIG REQUIRED)
 find_package(Stb REQUIRED)
-find_package(tinyobjloader CONFIG REQUIRED)
+find_package(Assimp REQUIRED)
 find_package(Vulkan REQUIRED)
 
 # add_definitions(-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS)
@@ -73,7 +83,7 @@ if (NOT Vulkan_GLSLANG_VALIDATOR)
     message(FATAL_ERROR "glslangValidator not found!")
 endif()
 
-set(MAIN_PROJECT "RayTracer")
+set(MAIN_PROJECT "AnitoTracer")
 add_subdirectory(assets)
 
 add_definitions(-DSOLUTION_DIR="${CMAKE_SOURCE_DIR}")
