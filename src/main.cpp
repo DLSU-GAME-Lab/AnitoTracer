@@ -23,6 +23,12 @@ namespace
 	void SetVulkanDevice(Vulkan::Application& application, const std::vector<uint32_t>& visible_devices);
 }
 
+extern "C"
+{
+	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+	__declspec(dllexport) unsigned int NvOptimusEnablement = 0x00000001;
+}
+
 int main(int argc, const char* argv[]) noexcept
 {
 	try
@@ -39,18 +45,20 @@ int main(int argc, const char* argv[]) noexcept
 			!options.Fullscreen
 		};
 
-		RayTracer application(userSettings, windowConfig, static_cast<VkPresentModeKHR>(options.PresentMode));
+		RayTracer::initialize(userSettings, windowConfig, static_cast<VkPresentModeKHR>(options.PresentMode));
+		RayTracer* application = RayTracer::getInstance();
+		//RayTracer application(userSettings, windowConfig, static_cast<VkPresentModeKHR>(options.PresentMode));
 
 		PrintVulkanSdkInformation();
-		PrintVulkanInstanceInformation(application, options.Benchmark);
-		PrintVulkanLayersInformation(application, options.Benchmark);
-		PrintVulkanDevices(application, options.VisibleDevices);
+		PrintVulkanInstanceInformation(*application, options.Benchmark);
+		PrintVulkanLayersInformation(*application, options.Benchmark);
+		PrintVulkanDevices(*application, options.VisibleDevices);
 
-		SetVulkanDevice(application, options.VisibleDevices);
+		SetVulkanDevice(*application, options.VisibleDevices);
 
-		PrintVulkanSwapChainInformation(application, options.Benchmark);
+		PrintVulkanSwapChainInformation(*application, options.Benchmark);
 
-		application.Run();
+		application->Run();
 
 		return EXIT_SUCCESS;
 	}

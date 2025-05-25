@@ -5,6 +5,7 @@
 #include "UserSettings.hpp"
 #include "Vulkan/RayTracing/Application.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
+#include "Assets/TextureImage.hpp"
 
 class RayTracer final : public Vulkan::RayTracing::Application, public Observer
 {
@@ -12,13 +13,20 @@ public:
 
 	VULKAN_NON_COPIABLE(RayTracer)
 
+
 	RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, VkPresentModeKHR presentMode);
 	~RayTracer();
+
+	static void initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, VkPresentModeKHR presentMode);
+	static RayTracer* getInstance();
+
+	UserSettings getUserSettings() const { return userSettings_; }
 
 protected:
 
 	const Assets::Scene& GetScene() const override { return *scene_; }
 	Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const override;
+	Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const override;
 
 	void SetPhysicalDevice(
 		VkPhysicalDevice physicalDevice, 
@@ -52,8 +60,9 @@ private:
 	SceneList::CameraInitialState cameraInitialSate_{};
 	ModelViewController modelViewController_{};
 
-	std::unique_ptr<const Assets::Scene> scene_;
-	std::unique_ptr<class UserInterface> userInterface_;
+	std::unique_ptr<Assets::Scene> scene_;
+	std::unique_ptr<Assets::TextureImage> skyboxTextureImage_;
+	//std::unique_ptr<class UserInterface> userInterface_;
 
 	double time_{};
 
@@ -69,4 +78,8 @@ private:
 	bool isSceneDirty = false;
 
 	bool initializedUI = false;
+
+	bool isRenderChanged = false;
+
+	static RayTracer* sharedInstance;
 };

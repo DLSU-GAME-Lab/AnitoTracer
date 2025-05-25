@@ -31,6 +31,13 @@ namespace Assets
 		uint32_t ShowHeatmap; // bool
 	};
 
+	// might move to a push constant class
+	class PushConstantModel
+	{
+	public:
+		glm::mat4 WorldMatrix;
+	};
+
 	class UniformBuffer
 	{
 	public:
@@ -39,13 +46,14 @@ namespace Assets
 		UniformBuffer& operator = (const UniformBuffer&) = delete;
 		UniformBuffer& operator = (UniformBuffer&&) = delete;
 
-		explicit UniformBuffer(const Vulkan::Device& device);
+		explicit UniformBuffer(const Vulkan::Device& device, const size_t bufferSize);
 		UniformBuffer(UniformBuffer&& other) noexcept;
 		~UniformBuffer();
 
 		const Vulkan::Buffer& Buffer() const { return *buffer_; }
 
 		void SetValue(const UniformBufferObject& ubo);
+		void SetValue(const PushConstantModel& ubo);
 
 	private:
 

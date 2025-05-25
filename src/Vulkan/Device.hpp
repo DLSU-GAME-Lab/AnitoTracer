@@ -20,7 +20,9 @@ namespace Vulkan
 			const std::vector<const char*>& requiredExtensionsconst,
 			const VkPhysicalDeviceFeatures& deviceFeatures,
 			const void* nextDeviceFeatures);
-		
+		bool IsMemoryBudgetSupported(VkPhysicalDevice physicalDevice);
+		void QueryMemoryBudget(VkPhysicalDevice physicalDevice, VkDeviceSize& budget, VkDeviceSize& usage);
+
 		~Device();
 
 		VkPhysicalDevice PhysicalDevice() const { return physicalDevice_; }

@@ -4,12 +4,15 @@
 #include "WindowConfig.hpp"
 #include <vector>
 #include <memory>
+#include "Engine/Profiler/Profiler.h"
 
 namespace Assets
 {
 	class Scene;
 	class UniformBufferObject;
+	class PushConstantModel;
 	class UniformBuffer;
+	class Model;
 }
 
 namespace Vulkan 
@@ -48,6 +51,7 @@ namespace Vulkan
 		
 		virtual const Assets::Scene& GetScene() const = 0;
 		virtual Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const = 0;
+		virtual Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const = 0;
 
 		virtual void SetPhysicalDevice(
 			VkPhysicalDevice physicalDevice, 
@@ -58,6 +62,7 @@ namespace Vulkan
 		virtual void OnDeviceSet();
 		virtual void CreateSwapChain();
 		virtual void DeleteSwapChain();
+		virtual void CreateProfiler();
 		virtual void DrawFrame();
 		virtual void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
@@ -67,6 +72,7 @@ namespace Vulkan
 		virtual void OnScroll(double xoffset, double yoffset) { }
 
 		bool isWireFrame_{};
+		std::unique_ptr<GpuCpuProfiler> profiler_;
 
 	private:
 
@@ -90,7 +96,6 @@ namespace Vulkan
 		std::vector<class Semaphore> imageAvailableSemaphores_;
 		std::vector<class Semaphore> renderFinishedSemaphores_;
 		std::vector<class Fence> inFlightFences_;
-
 		size_t currentFrame_{};
 	};
 

@@ -21,7 +21,6 @@ std::shared_ptr<Camera> CameraManager::findCameraByName(std::string name)
 		return this->cameraTable[name];
 	}
 	else {
-		std::cout << "Object " << name << " not found!";
 		return nullptr;
 	}
 }

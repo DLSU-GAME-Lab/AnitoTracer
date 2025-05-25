@@ -4,6 +4,8 @@
 #include "Material.glsl"
 #include "UniformBufferObject.glsl"
 
+layout(push_constant) uniform PushConstantModelStruct { PushConstantModel Object; };
+
 layout(binding = 0) readonly uniform UniformBufferObjectStruct { UniformBufferObject Camera; };
 layout(binding = 1) readonly buffer MaterialArray { Material[] Materials; };
 
@@ -22,11 +24,12 @@ out gl_PerVertex
 	vec4 gl_Position;
 };
 
+// THIS SHADER IS FOR RASTERIZED MODE
 void main() 
 {
 	Material m = Materials[InMaterialIndex];
 
-    gl_Position = Camera.Projection * Camera.ModelView * vec4(InPosition, 1.0);
+    gl_Position = Camera.Projection * Camera.ModelView *  Object.WorldMatrix * vec4(InPosition, 1.0);
     FragColor = m.Diffuse.xyz;
 	FragNormal = vec3(Camera.ModelView * vec4(InNormal, 0.0)); // technically not correct, should be ModelInverseTranspose
 	FragTexCoord = InTexCoord;

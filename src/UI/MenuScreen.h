@@ -17,13 +17,16 @@ private:
 	void onCreateCylinderClicked();
 	void OnCreatePlaneClicked();
 	void OnCreateLightClicked(Light::LightType type);
+	void OnCreateProbe();
 	void ShowLoadObjMenu();
 	void OnMaterialComponentClicked();
 
 	void OnLoadSphereWorld();
+	void OnLoadRTIOW();
 	void OnLoadBoxWorld();
 	void OnLoadCornellBox();
 	void OnLoadAnitoTracerDemo();
+	void OnLoadShowcase();
 	void OnLoadSponza();
 	void OnLoadEmpty();
 	void ShowColorPickerWindow();

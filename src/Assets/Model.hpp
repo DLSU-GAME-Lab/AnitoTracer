@@ -16,6 +16,9 @@ namespace Assets
 		static Model LoadModel(const std::string& filename);
 		static std::vector<Model> LoadModelGroup(const std::string& filename);
 
+		//static Model LoadModelFromFile(const std::string& filename);
+		//static std::vector<Model> LoadModelGroupFromFile(const std::string& filename);
+
 		static Model CreateCornellBox(const float scale);
 		static Model CreateBox(const glm::vec3& p0, const glm::vec3& p1, const Material& material);
 		static Model CreatePlane(const glm::vec3& p0, const glm::vec3& p1, const Material& material);
@@ -33,7 +36,9 @@ namespace Assets
 		Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural);
 
 		void SetMaterial(const Material& material);
+		void SetMaterialIndex(int index);
 		void Transform(const glm::mat4& transform);
+		void ResetVertices();
 
 		const std::vector<Vertex>& Vertices() const { return vertices_; }
 		const std::vector<uint32_t>& Indices() const { return indices_; }
@@ -53,14 +58,18 @@ namespace Assets
 		uint32_t NumberOfIndices() const { return static_cast<uint32_t>(indices_.size()); }
 		uint32_t NumberOfMaterials() const { return static_cast<uint32_t>(materials_.size()); }
 		std::string GetName() const { return name; }
+		glm::mat4 GetWorldMatrix() const { return worldMatrix_; };
 
 	public:
 
 		std::string name;
+		std::vector<Vertex> originalVertices_;
+		std::vector<Vertex> transformedVertices_;
 		std::vector<Vertex> vertices_;
 		std::vector<uint32_t> indices_;
 		std::vector<Material> materials_;
 		std::shared_ptr<const class Procedural> procedural_;
+		glm::mat4 worldMatrix_;
 	};
 
 }

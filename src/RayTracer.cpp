@@ -1,10 +1,11 @@
 #include "RayTracer.hpp"
-#include "UserInterface.hpp"
+//#include "UserInterface.hpp"
 #include "UserSettings.hpp"
 #include "Assets/Model.hpp"
 #include "Assets/Scene.hpp"
 #include "Assets/Texture.hpp"
 #include "Assets/UniformBuffer.hpp"
+#include "Assets/CubeMapTexture.hpp"
 #include "Utilities/Exception.hpp"
 #include "Utilities/Glm.hpp"
 #include "Vulkan/Device.hpp"
@@ -34,6 +35,7 @@ namespace
 #endif
 }
 
+RayTracer* RayTracer::sharedInstance = nullptr;
 RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, const VkPresentModeKHR presentMode) :
 	Application(windowConfig, presentMode, EnableValidationLayers),
 	userSettings_(userSettings)
@@ -53,6 +55,17 @@ RayTracer::~RayTracer()
 	scene_.reset();
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void RayTracer::initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig,
+	VkPresentModeKHR presentMode)
+{
+	sharedInstance = new RayTracer(userSettings, windowConfig, presentMode);
+}
+
+RayTracer* RayTracer::getInstance()
+{
+	return sharedInstance;
 }
 
 Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D extent) const
@@ -79,10 +92,18 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	return ubo;
 }
 
+Assets::PushConstantModel RayTracer::GetPushConstantModel(const Assets::Model& model) const
+{
+	Assets::PushConstantModel ubo = {};
+	ubo.WorldMatrix = model.GetWorldMatrix();
+
+	return ubo;
+}
+
 void RayTracer::SetPhysicalDevice(
-	VkPhysicalDevice physicalDevice, 
+	VkPhysicalDevice physicalDevice,
 	std::vector<const char*>& requiredExtensions,
-	VkPhysicalDeviceFeatures& deviceFeatures, 
+	VkPhysicalDeviceFeatures& deviceFeatures,
 	void* nextDeviceFeatures)
 {
 	// Required extensions.
@@ -91,13 +112,13 @@ void RayTracer::SetPhysicalDevice(
 			// VK_KHR_SHADER_CLOCK is required for heatmap
 			VK_KHR_SHADER_CLOCK_EXTENSION_NAME
 		});
-	
+
 	// Opt-in into mandatory device features.
 	VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures = {};
 	shaderClockFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
 	shaderClockFeatures.pNext = nextDeviceFeatures;
 	shaderClockFeatures.shaderSubgroupClock = true;
-	
+
 	deviceFeatures.fillModeNonSolid = true;
 	deviceFeatures.samplerAnisotropy = true;
 	deviceFeatures.shaderInt64 = true;
@@ -117,14 +138,17 @@ void RayTracer::CreateSwapChain()
 {
 	Application::CreateSwapChain();
 
-	userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
+	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
+	//UIManager::reset();
+	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_);
+	UIManager::getInstance()->SetProfiler(profiler_.get());
 
 	if (!initializedUI)
 	{
-		UIManager::initialize();
-		UIManager::getInstance()->device = &Device();
-		UIManager::getInstance()->sampler = new Vulkan::Sampler(Device(), Vulkan::SamplerConfig());
-
+		UIManager::getInstance()->initializeUI();
+		// UIManager::getInstance()->device = &Device();
+		// UIManager::getInstance()->sampler = new Vulkan::Sampler(Device(), Vulkan::SamplerConfig());
+	
 		initializedUI = true;
 	}
 
@@ -135,7 +159,8 @@ void RayTracer::CreateSwapChain()
 
 void RayTracer::DeleteSwapChain()
 {
-	userInterface_.reset();
+	//userInterface_.reset();
+	UIManager::reset();
 
 	Application::DeleteSwapChain();
 }
@@ -153,8 +178,9 @@ void RayTracer::DrawFrame()
 		CreateSwapChain();
 		return;
 	}
+
 	//If user edited a certain model
-	if(this->isSceneDirty)
+	if (this->isSceneDirty)
 	{
 		this->isSceneDirty = false;
 		Device().WaitIdle();
@@ -166,9 +192,11 @@ void RayTracer::DrawFrame()
 		return;
 	}
 
+	
+
 	// Check if the accumulation buffer needs to be reset.
-	if (resetAccumulation_ || 
-		userSettings_.RequiresAccumulationReset(previousSettings_) || 
+	if (resetAccumulation_ ||
+		userSettings_.RequiresAccumulationReset(previousSettings_) ||
 		!userSettings_.AccumulateRays)
 	{
 		totalNumberOfSamples_ = 0;
@@ -204,32 +232,32 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 	// Render the UI
 	Statistics stats = {};
-	stats.FramebufferSize = Window().FramebufferSize();
-	stats.FrameRate = static_cast<float>(1 / timeDelta);
+	stats.framebufferSize = Window().FramebufferSize();
+	stats.frameRate = static_cast<float>(1 / timeDelta);
 
 	if (userSettings_.IsRayTraced)
 	{
 		const auto extent = SwapChain().Extent();
 
-		stats.RayRate = static_cast<float>(
-			double(extent.width*extent.height)*numberOfSamples_
+		stats.rayRate = static_cast<float>(
+			static_cast<double>(extent.width * extent.height) * numberOfSamples_
 			/ (timeDelta * 1000000000));
 
-		stats.TotalSamples = totalNumberOfSamples_;
+		stats.totalSamples = totalNumberOfSamples_;
 	}
 
-	userInterface_->Render(commandBuffer, SwapChainFrameBuffer(imageIndex), stats);
+	UIManager::getInstance()->render(commandBuffer, SwapChainFrameBuffer(imageIndex), stats);
 }
 
 void RayTracer::OnKey(int key, int scancode, int action, int mods)
 {
-	if (userInterface_->WantsToCaptureKeyboard())
+	if (UIManager::wantsToCaptureKeyboard())
 	{
 		return;
 	}
 
 	if (action == GLFW_PRESS)
-	{		
+	{
 		switch (key)
 		{
 		case GLFW_KEY_ESCAPE: Window().Close(); break;
@@ -241,13 +269,16 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		{
 			switch (key)
 			{
-			case GLFW_KEY_F1: userSettings_.ShowSettings = !userSettings_.ShowSettings; break;
+			case GLFW_KEY_F1: UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN); break;
 			case GLFW_KEY_F2: userSettings_.ShowOverlay = !userSettings_.ShowOverlay; break;
+			case GLFW_KEY_F3: UIManager::getInstance()->toggleAllUI(); break;
+			case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_1: CameraManager::getInstance()->setSceneCameraProjection(0); break;
 			case GLFW_KEY_2: CameraManager::getInstance()->setSceneCameraProjection(1); break;
-			case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; break;
+			case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; break;
-			case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; break;
+			case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
+			case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			default: break;
 			}
 		}
@@ -264,8 +295,8 @@ void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 {
 	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||
-		userInterface_->WantsToCaptureKeyboard() || 
-		userInterface_->WantsToCaptureMouse())
+		UIManager::wantsToCaptureKeyboard() ||
+		UIManager::wantsToCaptureMouse())
 	{
 		return;
 	}
@@ -276,9 +307,9 @@ void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 
 void RayTracer::OnMouseButton(const int button, const int action, const int mods)
 {
-	if (!HasSwapChain() || 
+	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||
-		userInterface_->WantsToCaptureMouse())
+		UIManager::wantsToCaptureMouse())
 	{
 		return;
 	}
@@ -291,7 +322,7 @@ void RayTracer::OnScroll(const double xoffset, const double yoffset)
 {
 	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||
-		userInterface_->WantsToCaptureMouse())
+		UIManager::wantsToCaptureMouse())
 	{
 		return;
 	}
@@ -320,7 +351,7 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 		userSettings_.SceneIndex = sceneIndex;
 		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, false);
 	}
-	else if(eventName == EventNames::ON_MARK_SCENE_DIRTY)
+	else if (eventName == EventNames::ON_MARK_SCENE_DIRTY)
 	{
 		this->isSceneDirty = true;
 		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, true);
@@ -330,7 +361,22 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 
 void RayTracer::LoadScene(const uint32_t sceneIndex)
 {
+	auto& commandPool = CommandPool();
+
 	auto [models, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
+
+	Assets::CubeMapTexture skyboxCubeMap;
+
+	skyboxCubeMap.faces[0] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_right.png";
+	skyboxCubeMap.faces[1] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_left.png";
+	skyboxCubeMap.faces[2] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_top.png";
+	skyboxCubeMap.faces[3] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_bottom.png";
+	skyboxCubeMap.faces[4] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_front.png";
+	skyboxCubeMap.faces[5] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_back.png";
+	
+	skyboxTextureImage_ = std::make_unique<Assets::TextureImage>(commandPool, skyboxCubeMap);
+	/*std::cout << "TextureImage ImageView handle: " << skyboxTextureImage_->ImageView().Handle() << std::endl;
+	std::cout << "TextureImage Sampler handle: " << skyboxTextureImage_->Sampler().Handle() << std::endl;*/
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())
@@ -340,10 +386,17 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	// If there are no lights, add a dummy one. It makes the pipeline setup a lot easier.
 	if (lights.empty())
 	{
-		lights.push_back(Assets::LightProperties(glm::vec3(2600, 20, 0), glm::vec4(1.0,1.0,1.0,0.02), glm::vec4(1.0,0.4,0.5,1000000.0f), Assets::LightProperties::Enum::PointLight));
+		lights.push_back(Assets::LightProperties(glm::vec3(2600, 20, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 0.4, 0.5, 1000000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
 	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_->SetSkybox(
+		skyboxTextureImage_->ImageView().Handle(),
+		skyboxTextureImage_->Sampler().Handle()
+	);
+	//std::cout << "Skybox ImageView: " << scene_->SkyboxImageView() << std::endl;
+	//std::cout << "Skybox Sampler: " << scene_->SkyboxSampler() << std::endl;
+
 	sceneIndex_ = sceneIndex;
 
 	userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
@@ -358,13 +411,18 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 
 /**
  * \brief Loads the modified scene but using the model manager as reference.
- * \param sceneIndex 
+ * \param sceneIndex
  */
 void RayTracer::ReloadModifiedScene()
 {
 	std::vector<Assets::Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	for (auto& model : models)
+	{
+		model.ResetVertices();
+	}
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())
@@ -378,6 +436,10 @@ void RayTracer::ReloadModifiedScene()
 	}
 
 	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_->SetSkybox(
+		skyboxTextureImage_->ImageView().Handle(),
+		skyboxTextureImage_->Sampler().Handle()
+	);
 
 	// userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
 	// userSettings_.Aperture = cameraInitialSate_.Aperture;
@@ -395,7 +457,7 @@ void RayTracer::CheckAndUpdateBenchmarkState(double prevTime)
 	{
 		return;
 	}
-	
+
 	// Initialise scene benchmark timers
 	if (periodTotalFrames_ == 0)
 	{
@@ -444,7 +506,7 @@ void RayTracer::CheckFramebufferSize() const
 	// Check the framebuffer size when requesting a fullscreen window, as it's not guaranteed to match.
 	const auto& cfg = Window().Config();
 	const auto fbSize = Window().FramebufferSize();
-	
+
 	if (userSettings_.Benchmark && cfg.Fullscreen && (fbSize.width != cfg.Width || fbSize.height != cfg.Height))
 	{
 		std::ostringstream out;
@@ -452,7 +514,7 @@ void RayTracer::CheckFramebufferSize() const
 		out << cfg.Width << "x" << cfg.Height;
 		out << ", got: ";
 		out << fbSize.width << "x" << fbSize.height << ")";
-		
+
 		Throw(std::runtime_error(out.str()));
 	}
 }

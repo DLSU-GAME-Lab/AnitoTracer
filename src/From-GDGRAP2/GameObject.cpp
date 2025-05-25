@@ -5,6 +5,7 @@
 
 #include "EventBroadcaster.h"
 #include "ModelManager.h"
+#include "RayTracer.hpp"
 
 GameObject::GameObject()
 {
@@ -121,13 +122,13 @@ void GameObject::setLocalRotation(float x, float y, float z)
 
 	newRot.x = fmod(newRot.x + 180.0f, 360.0f);
 
-	if (newRot.x < 0) 
+	if (newRot.x < 0)
 		newRot.x += 360.0f;
 	newRot.x -= 180.0f;
 
 	newRot.y = fmod(newRot.y + 180.0f, 360.0f);
 
-	if (newRot.y < 0) 
+	if (newRot.y < 0)
 		newRot.y += 360.0f;
 	newRot.y -= 180.0f;
 
@@ -151,6 +152,11 @@ void GameObject::setLocalScale(float x, float y, float z)
 {
 	this->localScale = vec3(x, y, z);
 	this->updateWorldTransform();
+}
+
+glm::mat4& GameObject::getObjectMatrix()
+{
+	return this->mat_;
 }
 
 std::shared_ptr<Assets::Model> GameObject::getModel()
@@ -211,7 +217,7 @@ void GameObject::setParent(GameObject* newParent)
 	{
 		this->localPosition = this->worldPosition - newParent->worldPosition;
 		this->localRotation = this->worldRotation - newParent->worldRotation;
-		this->localScale = glm::inverse(glm::scale(glm::mat4(1.0f), newParent->worldScale)) * glm::vec4(this->worldScale, 1.0f);
+		this->localScale = this->worldScale / this->localScale;
 
 	}
 	else
@@ -263,6 +269,20 @@ std::shared_ptr<BoundingBox> GameObject::getOBB() const
 	return this->obb;
 }
 
+void GameObject::updateObjectMatrix()
+{
+	this->mat_ = glm::translate(glm::mat4(1.0f), this->worldPosition);
+
+	glm::mat4 rotateZ = glm::rotate(glm::mat4(1.0f), glm::radians(this->worldRotation.z), glm::vec3(0, 0, 1));
+	glm::mat4 rotateY = glm::rotate(glm::mat4(1.0f), glm::radians(this->worldRotation.y), glm::vec3(0, 1, 0));
+	glm::mat4 rotateX = glm::rotate(glm::mat4(1.0f), glm::radians(this->worldRotation.x), glm::vec3(1, 0, 0));
+
+	this->mat_ *= rotateZ * rotateY * rotateX;
+
+	this->mat_ = glm::scale(this->mat_, this->worldScale);
+}
+
+
 void GameObject::updateWorldTransform()
 {
 
@@ -288,13 +308,50 @@ void GameObject::updateWorldTransform()
 		}
 	}
 
+	updateObjectMatrix();
 
 	if (type != CAMERA)
 	{
-		
-		this->performModelTransform();
-		this->performModelRotate();
-		this->performModelScale();
+		//this->performModelTransform();
+		//this->performModelRotate();
+		//this->performModelScale();
+		/*if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
+			
+		}
+		else*/
+		{
+			mat4 worldMatrix(1);
+			mat4 translateOp = glm::translate(mat4(1.0), this->worldPosition/* - this->origin*/);
+			this->origin = this->worldPosition;
+
+			vec3 scaleOffset = this->worldScale / this->originScale;
+
+			mat4 scaleOp = glm::scale(mat4(1), this->worldScale);
+	
+			this->originScale = this->worldScale;
+
+			vec3 rotOffset = this->worldRotation - this->originRot;
+
+			mat4 translateToOrigin = glm::translate(mat4(1.0f), -this->worldPosition);
+
+			mat4 rotateXOp = glm::rotate(mat4(1), glm::radians(this->worldRotation.x), vec3(1, 0, 0));
+			mat4 rotateYOp = glm::rotate(mat4(1), glm::radians(this->worldRotation.y), vec3(0, 1, 0));
+			mat4 rotateZOp = glm::rotate(mat4(1), glm::radians(this->worldRotation.z), vec3(0, 0, 1));
+
+			mat4 translateBack = glm::translate(mat4(1.0f), this->worldPosition);
+
+			mat4 finalRotation = translateBack * rotateZOp * rotateYOp * rotateXOp * translateToOrigin;
+
+			this->originRot = this->worldRotation;
+
+			worldMatrix = scaleOp * finalRotation * translateOp;
+
+			if (modelRef)
+				this->modelRef->Transform(worldMatrix);
+
+			if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
+				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		}
 
 		if (this->modelRef && !this->modelRef->Vertices().empty())
 		{
@@ -345,7 +402,6 @@ void GameObject::updateWorldTransform()
  */
 void GameObject::performModelTransform()
 {
-
 	mat4 translateOp = glm::translate(mat4(1), this->worldPosition - this->origin);
 	this->origin = this->worldPosition;
 	if (modelRef)
@@ -356,32 +412,37 @@ void GameObject::performModelTransform()
 
 void GameObject::performModelRotate()
 {
-    vec3 rotOffset = this->worldRotation - this->originRot;
+	vec3 rotOffset = this->worldRotation - this->originRot;
 
-    mat4 translateToOrigin = glm::translate(mat4(1.0f), -this->worldPosition);
+	mat4 translateToOrigin = glm::translate(mat4(1.0f), -this->worldPosition);
 
-    mat4 rotateXOp = glm::rotate(mat4(1), glm::radians(rotOffset.x), vec3(1, 0, 0));
-    mat4 rotateYOp = glm::rotate(mat4(1), glm::radians(rotOffset.y), vec3(0, 1, 0));
-    mat4 rotateZOp = glm::rotate(mat4(1), glm::radians(rotOffset.z), vec3(0, 0, 1));
+	mat4 rotateXOp = glm::rotate(mat4(1), glm::radians(rotOffset.x), vec3(1, 0, 0));
+	mat4 rotateYOp = glm::rotate(mat4(1), glm::radians(rotOffset.y), vec3(0, 1, 0));
+	mat4 rotateZOp = glm::rotate(mat4(1), glm::radians(rotOffset.z), vec3(0, 0, 1));
 
-    mat4 translateBack = glm::translate(mat4(1.0f), this->worldPosition);
+	mat4 translateBack = glm::translate(mat4(1.0f), this->worldPosition);
 
-    mat4 finalRotation = translateBack * rotateZOp * rotateYOp * rotateXOp * translateToOrigin;
+	mat4 finalRotation = translateBack * rotateZOp * rotateYOp * rotateXOp * translateToOrigin;
 
-    if (modelRef)
-        this->modelRef->Transform(finalRotation);
+	if (modelRef)
+		this->modelRef->Transform(finalRotation);
 
-    this->originRot = this->worldRotation;
-    EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	this->originRot = this->worldRotation;
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void GameObject::performModelScale()
 {
 	vec3 scaleOffset = this->worldScale / this->originScale;
 
-	mat4 scaleOp = glm::scale(mat4(1), scaleOffset);
+	mat4 translateToOrigin = glm::translate(mat4(1.0f), -this->worldPosition);
+	mat4 scaleOp = glm::scale(mat4(1.0f), scaleOffset);
+	mat4 translateBack = glm::translate(mat4(1.0f), this->worldPosition);
+
+	mat4 finalScale = translateBack * scaleOp * translateToOrigin;
+
 	if (modelRef)
-		this->modelRef->Transform(scaleOp);
+		this->modelRef->Transform(finalScale);
 
 	this->originScale = this->worldScale;
 

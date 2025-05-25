@@ -1,4 +1,6 @@
 #include "ConsoleScreen.h"
+
+#include <imgui_internal.h>
 #include <sstream>
 void ConsoleScreen::appendText(String text)
 {
@@ -9,7 +11,7 @@ void ConsoleScreen::appendText(String text)
 	this->lineCount++;
 }
 
-ConsoleScreen::ConsoleScreen(): AUIScreen("ConsoleScreen")
+ConsoleScreen::ConsoleScreen(): AUIScreen(UINames::CONSOLE_SCREEN)
 {
 	this->textLog = new ImGuiTextBuffer();
 }
@@ -21,7 +23,9 @@ ConsoleScreen::~ConsoleScreen()
 
 void ConsoleScreen::drawUI()
 {
-	ImGui::Begin("Console", 0, ImGuiWindowFlags_NoResize);
+	//setWindowAlignment(ScreenAlign::BOT_CENTER);
+
+	ImGui::Begin("Console", 0, UISettings::GlobalWindowFlags);
 	ImGui::SetWindowSize(ImVec2(1200, 300));
 	if (ImGui::Button("Clear")) { this->textLog->clear(); this->lineCount = 0; }
 	ImGui::TextUnformatted(this->textLog->begin(), this->textLog->end());

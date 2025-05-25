@@ -7,7 +7,7 @@
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
 
-HierarchyScreen::HierarchyScreen() : AUIScreen("HierarchyScreen")
+HierarchyScreen::HierarchyScreen() : AUIScreen(UINames::HIERARCHY_SCREEN)
 {
 }
 
@@ -17,35 +17,44 @@ HierarchyScreen::~HierarchyScreen()
 
 void HierarchyScreen::drawUI()
 {
-    ImGui::Begin("Scene Outline");
+    //setWindowAlignment(ScreenAlign::TOP_RIGHT);
 
-    // Search Bar
-    static char searchBuffer[128] = "";
-    ImGui::InputTextWithHint("##Search", "Search objects...", searchBuffer, IM_ARRAYSIZE(searchBuffer));
+	ImGui::Begin("Scene Outline", nullptr, UISettings::GlobalWindowFlags);
 
-    this->updateObjectList(searchBuffer);
+	// Search Bar
+	static char searchBuffer[128] = "";
+	ImGui::InputTextWithHint("##Search", "Search objects...", searchBuffer, IM_ARRAYSIZE(searchBuffer));
 
-    ImGui::End();
+	this->updateObjectList(searchBuffer);
+
+	ImGui::End();
 }
 
-void HierarchyScreen::updateObjectList(const char* filter) const
+void HierarchyScreen::updateObjectList(const char* filter)
 {
     const ModelManager::List objectList = ModelManager::getInstance()->getAllObjects();
-
     std::string activeCamName = CameraManager::getInstance()->getActiveCamera()->getName();
     ImGui::Text("Active Camera: %s", activeCamName.c_str());
 
+    std::string filterStr(filter);
+    std::transform(filterStr.begin(), filterStr.end(), filterStr.begin(), ::tolower);
+
     for (const auto& obj : objectList)
     {
-        // Only draw root objects and apply search filter
-        if (!obj->getParent() && (strlen(filter) == 0 || obj->getName().find(filter) != String::npos))
+        if (!obj->getParent())
         {
-            drawObjectNode(obj.get());
+            std::string objName = obj->getName();
+            std::transform(objName.begin(), objName.end(), objName.begin(), ::tolower);
+
+            if (filterStr.empty() || objName.find(filterStr) != std::string::npos)
+            {
+                drawObjectNode(obj.get());
+            }
         }
     }
 }
 
-void HierarchyScreen::drawObjectNode(GameObject* obj) const
+void HierarchyScreen::drawObjectNode(GameObject* obj)
 {
     if (!obj) return;
 
@@ -68,6 +77,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj) const
     bool open = ImGui::TreeNodeEx(objectName.c_str(), flags);
 
     static bool hasValidDropTarget = false;
+    static bool isDragging = false;
 
     // Selection Logic
     if (ImGui::IsItemClicked())
@@ -77,9 +87,10 @@ void HierarchyScreen::drawObjectNode(GameObject* obj) const
         // If Camera is selected, set main camera. If not, deactivate main camera.
         if (ModelManager::getInstance()->getSelectedObject()->getType() == GameObject::CAMERA)
         {
-            std::shared_ptr<Camera> cam = CameraManager::getInstance()->findCameraByName(objectName);
+            const std::shared_ptr<Camera> cam = CameraManager::getInstance()->findCameraByName(objectName);
             CameraManager::getInstance()->setMainCamera(cam);
-        } else
+        }
+        else
         {
             CameraManager::getInstance()->setMainCamera(nullptr);
         }
@@ -91,6 +102,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj) const
         ImGui::SetDragDropPayload("OBJECT_PARENTING", &obj, sizeof(GameObject*));
 
         hasValidDropTarget = false;
+        isDragging = true;
         ImGui::Text("Dragging %s", objectName.c_str());
 
         ImGui::EndDragDropSource();
@@ -101,10 +113,9 @@ void HierarchyScreen::drawObjectNode(GameObject* obj) const
     {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("OBJECT_PARENTING"))
         {
-            GameObject* draggedObj = *(GameObject**)payload->Data;
-
             // Prevent dragging a parent into its own child 
-            if (draggedObj && draggedObj != obj && !obj->isDescendantOf(draggedObj))
+            if (GameObject* draggedObj = *static_cast<GameObject**>(payload->Data);
+                draggedObj && draggedObj != obj && !obj->isDescendantOf(draggedObj))
             {
                 hasValidDropTarget = true;
 
@@ -119,6 +130,8 @@ void HierarchyScreen::drawObjectNode(GameObject* obj) const
 
                 // Force the node open when an object is dropped here
                 openNodes.insert(objectName);
+
+                isDragging = false; // Reset dragging state after a valid drop
             }
         }
         ImGui::EndDragDropTarget();
@@ -132,14 +145,19 @@ void HierarchyScreen::drawObjectNode(GameObject* obj) const
     }
 
     // Handle Unparenting (Dragged to Empty Space)
-    if (ImGui::IsWindowHovered() && ImGui::IsMouseReleased(0) && !ImGui::IsAnyItemHovered())
+    if (isDragging && ImGui::IsMouseReleased(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
     {
         GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
-
         if (selectedObject)
         {
             selectedObject->setParent(nullptr);
         }
+        isDragging = false; // Reset dragging state after unparenting
+    }
+
+    if (!ImGui::IsDragDropActive() && ImGui::IsMouseReleased(0))
+    {
+        isDragging = false;
     }
 
     if (open)

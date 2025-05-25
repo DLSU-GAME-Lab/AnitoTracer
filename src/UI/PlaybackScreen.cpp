@@ -6,7 +6,7 @@
 
 namespace gdeng03
 {
-	PlaybackScreen::PlaybackScreen() : AUIScreen("PlaybackScreen")
+	PlaybackScreen::PlaybackScreen() : AUIScreen(UINames::PLAYBACK_SCREEN)
 	{
 		//LogUtils::log(this, "Initialized");
 	}

@@ -35,16 +35,18 @@ void Camera::Reset(const glm::mat4& modelView)
 	UpdateVectors();
 }
 
-glm::mat4 Camera::ModelView() const
+glm::mat4 Camera::ModelView()
 {
-	const auto cameraRotX = static_cast<float>(modelRotY_ / 300.0);
-	const auto cameraRotY = static_cast<float>(modelRotX_ / 300.0);
+	auto cameraRotX = static_cast<float>(modelRotY_ / 300.0);
+	auto cameraRotY = static_cast<float>(modelRotX_ / 300.0);
 
-	const auto model =
+	auto model =
 		glm::rotate(glm::mat4(1.0f), cameraRotY * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
 		glm::rotate(glm::mat4(1.0f), cameraRotX * glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
-	const auto view = orientation_ * glm::translate(glm::mat4(1), -glm::vec3(position_));
+	auto view = orientation_ * glm::translate(glm::mat4(1), -glm::vec3(position_));
+
+	view_ = view;
 
 	return view * model;
 }
@@ -57,8 +59,9 @@ bool Camera::OnKey(const int key, const int scancode, const int action, const in
 	case GLFW_KEY_W: cameraMovingForward_ = action != GLFW_RELEASE; return true;
 	case GLFW_KEY_A: cameraMovingLeft_ = action != GLFW_RELEASE; return true;
 	case GLFW_KEY_D: cameraMovingRight_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_LEFT_CONTROL: cameraMovingDown_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_LEFT_SHIFT: cameraMovingUp_ = action != GLFW_RELEASE; return true;
+	case GLFW_KEY_Q: cameraMovingDown_ = action != GLFW_RELEASE; return true;
+	case GLFW_KEY_E: cameraMovingUp_ = action != GLFW_RELEASE; return true;
+	case GLFW_KEY_LEFT_ALT: camSlowed = action != GLFW_RELEASE; return true;
 
 	case GLFW_KEY_F: {
 
@@ -78,7 +81,7 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 	const auto deltaX = static_cast<float>(xpos - mousePosX_);
 	const auto deltaY = static_cast<float>(ypos - mousePosY_);
 
-	const auto limit = 360*2;
+	const auto limit = 360 * 2;
 	if (mouseRightPressed_)
 	{
 		cameraRotX_ += deltaX;
@@ -90,7 +93,7 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 		if (localRotation.y < -limit) { cameraRotY_ = 0; this->localRotation.y -= deltaY; }
 
 		this->setLocalRotation(glm::vec3(localRotation));
-	} 
+	}
 	//if (mouseRightPressed_)
 	//{
 	//	modelRotX_ += deltaX;
@@ -112,7 +115,7 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 		glm::vec2 mouseNDC(ndcX, ndcY);
 
 		glm::mat4 view = orientation_ * glm::translate(glm::mat4(1), -glm::vec3(position_));
-;
+		;
 		glm::mat4 proj = projection_;
 		proj[1][1] *= -1;
 
@@ -132,8 +135,8 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 
 		Ray pickingRay(rayOrigin, rayDirection);
 
-		std::cout << "Ray Origin: " << glm::to_string(rayOrigin) << std::endl;
-		std::cout << "Ray Direction: " << glm::to_string(rayDirection) << std::endl;
+		//std::cout << "Ray Origin: " << glm::to_string(rayOrigin) << std::endl;
+		//std::cout << "Ray Direction: " << glm::to_string(rayDirection) << std::endl;
 
 		auto objects = ModelManager::getInstance()->getAllObjects();
 		float closestT = std::numeric_limits<float>::max();
@@ -185,7 +188,7 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 	{
 		mouseLeftPressed_ = action == GLFW_PRESS;
 	}
-		
+
 
 	if (button == GLFW_MOUSE_BUTTON_RIGHT)
 	{
@@ -197,7 +200,10 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 
 bool Camera::UpdateCamera(const double speed, const double timeDelta)
 {
-	const auto d = static_cast<float>(speed * timeDelta);
+	if (camSlowed) camSpeed_ = camSlowSpeed;
+	else camSpeed_ = camNormalSpeed;
+
+	const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;
 
 	if (cameraMovingLeft_) MoveRight(-d);
 	if (cameraMovingRight_) MoveRight(d);
@@ -244,15 +250,25 @@ glm::mat4 Camera::GetProjection(UserSettings settings, const VkExtent2D extent)
 	return projection_;
 }
 
+glm::mat4 Camera::GetProjection()
+{
+	return this->projection_;
+}
+
 void Camera::SetProjectionType(ProjectionMode type)
 {
 	this->projMode = type;
 }
 
+glm::mat4 Camera::GetView()
+{
+	return this->view_;
+}
+
 void Camera::setLocalPosition(float x, float y, float z)
 {
 	this->position_ = glm::vec4(x, y, z, 1.0);
-	GameObject::setLocalPosition(x,y,z);
+	GameObject::setLocalPosition(x, y, z);
 }
 
 void Camera::setLocalPosition(glm::vec3 pos)

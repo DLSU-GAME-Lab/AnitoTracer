@@ -1,7 +1,8 @@
 #pragma once
 
 #include <memory>
-
+#include <stb_image.h>
+#include "CubeMapTexture.hpp"
 namespace Vulkan
 {
 	class CommandPool;
@@ -25,6 +26,7 @@ namespace Assets
 		TextureImage& operator = (TextureImage&&) = delete;
 
 		TextureImage(Vulkan::CommandPool& commandPool, const Texture& texture);
+		TextureImage(Vulkan::CommandPool& commandPool, const CubeMapTexture& cubeMap);
 		~TextureImage();
 
 		const Vulkan::ImageView& ImageView() const { return *imageView_; }

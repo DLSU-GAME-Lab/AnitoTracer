@@ -7,18 +7,18 @@
 #include "UIManager.h"
 #include "From-GDGRAP2/GameObject.h"
 
-InspectorScreen::InspectorScreen() : AUIScreen("InspectorScreen")
+InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
 }
 
 InspectorScreen::~InspectorScreen()
-{
-
-}
+= default;
 
 void InspectorScreen::drawUI()
 {
-	ImGui::Begin("Inspector Window", 0, ImGuiWindowFlags_NoResize);
+	//setWindowAlignment(ScreenAlign::TOP_RIGHT);
+
+	ImGui::Begin("Inspector Window", nullptr, UISettings::GlobalWindowFlags);
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
 	if (this->selectedObject != nullptr)
 	{
