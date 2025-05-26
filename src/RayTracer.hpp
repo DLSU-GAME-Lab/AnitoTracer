@@ -81,5 +81,7 @@ private:
 
 	bool isRenderChanged = false;
 
+	bool renderUI_ = true;
+
 	static RayTracer* sharedInstance;
 };
