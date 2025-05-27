@@ -80,24 +80,31 @@ void MenuScreen::drawUI()
 			if (ImGui::MenuItem("Delete All Objects in Current Scene")) { this->OnLoadEmpty(); }
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Game Object")) {
-			if (ImGui::MenuItem("Create Sphere")) { this->OnCreateSphereClicked(); }
-			if (ImGui::MenuItem("Create Cube")) { this->OnCreateCubeClicked(); }
-			if (ImGui::MenuItem("Create Capsule")) { onCreateCapsuleClicked(); }
-			if (ImGui::MenuItem("Create Cylinder")) { onCreateCylinderClicked(); }
-			//if (ImGui::MenuItem("Create Textured Cube")) { this->OnCreateTexturedCubeClicked(); } // add texture component
-			if (ImGui::MenuItem("Create Plane")) { this->OnCreatePlaneClicked(); }
-			if (ImGui::MenuItem("Create Reflection Probe")) { this->OnCreateProbe(); }
-			if (ImGui::MenuItem("Create Game Object From File...", nullptr, isLoadObjOpen))
-			{
-				isLoadObjOpen = !isLoadObjOpen;
+		if (ImGui::BeginMenu("Objects")) {
+			if (ImGui::BeginMenu("Primitives")) {
+				if (ImGui::MenuItem("Create Sphere")) { this->OnCreateSphereClicked(); }
+				if (ImGui::MenuItem("Create Cube")) { this->OnCreateCubeClicked(); }
+				if (ImGui::MenuItem("Create Capsule")) { onCreateCapsuleClicked(); }
+				if (ImGui::MenuItem("Create Cylinder")) { onCreateCylinderClicked(); }
+				if (ImGui::MenuItem("Create Plane")) { this->OnCreatePlaneClicked(); }
+				if (ImGui::BeginMenu("Probes")) {
+					if (ImGui::MenuItem("Create Reflection Probe")) { this->OnCreateProbe(); } // todo: add transparent/glass probe & metallic/shiny probe
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenu();
+			} 
+			if (ImGui::BeginMenu("Meshes")) {													// todo: add benchmark/basic meshes
+				if (ImGui::MenuItem("Import Mesh From File...", nullptr, isLoadObjOpen))
+				{
+					isLoadObjOpen = !isLoadObjOpen;
+				}
+				if (ImGui::MenuItem("Import Separated Mesh From File...", nullptr, isLoadSceneOpen))
+				{
+					isLoadSceneOpen = !isLoadSceneOpen;
+				}
+				ImGui::EndMenu();
 			}
-			if (ImGui::MenuItem("Create Game Object Group From File...", nullptr, isLoadSceneOpen))
-			{
-				isLoadSceneOpen = !isLoadSceneOpen;
-			}
-
-			if (ImGui::BeginMenu("Light")) {
+			if (ImGui::BeginMenu("Lights")) {
 				if (ImGui::MenuItem("Point Light")) { OnCreateLightClicked(Light::PointLight); }
 				if (ImGui::MenuItem("Directional Light")) { OnCreateLightClicked(Light::DirectionalLight); }
 				if (ImGui::MenuItem("Spot Light")) { OnCreateLightClicked(Light::SpotLight); }
