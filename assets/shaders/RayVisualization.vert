@@ -18,7 +18,7 @@ out gl_PerVertex
 
 void main() 
 {
-    //gl_Position = Camera.Projection * Camera.ModelView * vec4(InPosition, 1.0);
-    gl_Position = vec4(InPosition, 1.0);
-    FragColor = vec3(1.0f, 0.0f, 0.0f);
+    gl_Position = Camera.Projection * Camera.ModelView * vec4(InPosition, 1.0);
+    //gl_Position = vec4(InPosition, 1.0);
+    FragColor = vec3(0.5f, 1.0f, 0.0f);
 }

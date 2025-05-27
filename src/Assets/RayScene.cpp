@@ -18,8 +18,8 @@ RayScene::RayScene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models
 	std::vector<uint32_t> indices;
 	std::vector<glm::uvec2> offsets;
 
-	Vertex vertex1{ vec3(-0.5f,-0.5f,0.0f), vec3(0,0,0), vec2(0,0), -1 };
-	Vertex vertex2{ vec3(0.5f,0.5f,0.0f), vec3(0,0,0), vec2(0,0), -1 };
+	Vertex vertex1{ vec3(-100.0f,-100.0f,0.0f), vec3(0,0,0), vec2(0,0), -1 };
+	Vertex vertex2{ vec3(100.0f,100.0f,0.0f), vec3(0,0,0), vec2(0,0), -1 };
 
 	// Remember the index, vertex offsets.
 	const auto indexOffset = static_cast<uint32_t>(indices.size());
