@@ -237,14 +237,17 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 		: Vulkan::Application::Render(commandBuffer, imageIndex);
 
 	{
+		std::array<VkClearValue, 2> clearValues = {};
+		clearValues[1].depthStencil = { 1.0f, 0 };
+
 		VkRenderPassBeginInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = rayVisualizationPipeline_->RenderPass().Handle();
 		renderPassInfo.framebuffer = SwapChainFrameBuffer(imageIndex).Handle();
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = SwapChain().Extent();
-		renderPassInfo.clearValueCount = 0;
-		renderPassInfo.pClearValues = nullptr;
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
 
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
@@ -259,7 +262,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
 			vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 			vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdSetLineWidth(commandBuffer, 10);
+			vkCmdSetLineWidth(commandBuffer, 5);
 			vkCmdDrawIndexed(commandBuffer, 2, 1, 0, 0, 0);
 
 			/*uint32_t vertexOffset = 0;
