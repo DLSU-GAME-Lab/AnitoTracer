@@ -6,6 +6,7 @@
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/ModelManager.h"
+#include "From-GDGRAP2/MaterialLibrary.h"
 #include "UIManager.h"
 #include "UserSettings.hpp"
 #include "Utilities/FileUtils.h"
@@ -82,18 +83,25 @@ void MenuScreen::drawUI()
 		}
 		if (ImGui::BeginMenu("Objects")) {
 			if (ImGui::BeginMenu("Primitives")) {
-				if (ImGui::MenuItem("Create Sphere")) { this->OnCreateSphereClicked(); }
-				if (ImGui::MenuItem("Create Cube")) { this->OnCreateCubeClicked(); }
-				if (ImGui::MenuItem("Create Capsule")) { onCreateCapsuleClicked(); }
-				if (ImGui::MenuItem("Create Cylinder")) { onCreateCylinderClicked(); }
-				if (ImGui::MenuItem("Create Plane")) { this->OnCreatePlaneClicked(); }
+				if (ImGui::MenuItem("Sphere")) { this->OnCreateSphereClicked(); }
+				if (ImGui::MenuItem("Cube")) { this->OnCreateCubeClicked(); }
+				if (ImGui::MenuItem("Capsule")) { onCreateCapsuleClicked(); }
+				if (ImGui::MenuItem("Cylinder")) { onCreateCylinderClicked(); }
+				if (ImGui::MenuItem("Plane")) { this->OnCreatePlaneClicked(); }
 				if (ImGui::BeginMenu("Probes")) {
-					if (ImGui::MenuItem("Create Reflection Probe")) { this->OnCreateProbe(); } // todo: add transparent/glass probe & metallic/shiny probe
+					if (ImGui::MenuItem("Reflection Probe")) { this->OnCreateRProbe(); } // todo: fix transparent probe to be transparent instead of reflective
+					//if (ImGui::MenuItem("Create Transparent Probe")) { this->OnCreateTProbe(); }
+					if (ImGui::MenuItem("Metallic Probe")) { this->OnCreateMProbe(); }
 					ImGui::EndMenu();
 				}
 				ImGui::EndMenu();
 			} 
 			if (ImGui::BeginMenu("Meshes")) {													// todo: add benchmark/basic meshes
+				if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
+				if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
+				if (ImGui::MenuItem("Lucy")) { onCreateLucyClicked(); }
+				//if (ImGui::MenuItem("CornellBox")) { onCreateCornellClicked(); }
+
 				if (ImGui::MenuItem("Import Mesh From File...", nullptr, isLoadObjOpen))
 				{
 					isLoadObjOpen = !isLoadObjOpen;
@@ -365,14 +373,92 @@ void MenuScreen::OnCreateLightClicked(Light::LightType type)
 	}
 }
 
-void MenuScreen::OnCreateProbe()
+void MenuScreen::OnCreateRProbe()
 {
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 
-	Model sphere2Model = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
-	std::shared_ptr<GameObject> sphere2 = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere2Model));
-	ModelManager::getInstance()->addObject(sphere2);
-	sphere2->setLocalPosition(0, 0, 0);
+	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
+	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	ModelManager::getInstance()->addObject(sphere);
+	sphere->setLocalPosition(0, 0, 0);
+}
+
+void MenuScreen::OnCreateTProbe()
+{
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(-360.0f);
+
+
+	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
+	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	ModelManager::getInstance()->addObject(sphere);
+	sphere->setLocalPosition(0, 0, 0);
+}
+
+void MenuScreen::OnCreateMProbe()
+{
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+
+	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
+	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	ModelManager::getInstance()->addObject(sphere);
+	sphere->setLocalPosition(0, 0, 0);
+}
+
+void MenuScreen::onCreateBunnyClicked()
+{
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	Model bunny = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/bunny.obj");
+	bunny.SetMaterial(*white);
+	bunny.Transform(
+		rotate(
+			scale(
+				translate(i, vec3(1)),
+				vec3(1500.0f)),
+			radians(0.0f), vec3(0, 1, 0)));
+	std::shared_ptr<GameObject> bunnyObj = std::make_shared<GameObject>("Bunny", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(bunny));
+	bunnyObj->setLocalScale(1000.0f, 1000.0f, 1000.0f);
+	ModelManager::getInstance()->addObject(bunnyObj);
+}
+
+void MenuScreen::onCreateTeapotClicked()
+{
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	auto teapot = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/teapot.obj");
+
+	teapot.Transform(
+		rotate(
+			scale(
+				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
+				vec3(0.6f)),
+			radians(75.0f), vec3(0, 1, 0)));
+
+	std::shared_ptr<GameObject> teapotObj = std::make_shared<GameObject>("Teapot", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(teapot));
+	teapotObj->setLocalScale(100.0f, 100.0f, 100.0f);
+	ModelManager::getInstance()->addObject(teapotObj);
+}
+
+void MenuScreen::onCreateLucyClicked()
+{
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	auto lucy0 = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
+
+	lucy0.Transform(
+		rotate(
+			scale(
+				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
+				vec3(0.6f)),
+			radians(75.0f), vec3(0, 1, 0)));
+
+	std::shared_ptr<GameObject> lucyObj = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(lucy0));
+	ModelManager::getInstance()->addObject(lucyObj);
+}
+
+void MenuScreen::onCreateCornellClicked()
+{
 }
 
 void MenuScreen::OnMaterialComponentClicked()
