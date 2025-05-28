@@ -2,7 +2,6 @@ mkdir build
 cd build || goto :error
 git clone https://github.com/Microsoft/vcpkg.git vcpkg.windows || goto :error
 cd vcpkg.windows || goto :error
-git checkout 2023.12.12 || goto :error
 call bootstrap-vcpkg.bat || goto :error
 
 vcpkg.exe install ^
@@ -13,8 +12,10 @@ vcpkg.exe install ^
 	glfw3:x64-windows-static ^
 	glm:x64-windows-static ^
 	imgui[core,freetype,glfw-binding,vulkan-binding,docking-experimental]:x64-windows-static ^
+	imguizmo:x64-windows-static ^
 	stb:x64-windows-static ^
-	tinyobjloader:x64-windows-static ^
+	assimp:x64-windows-static ^
+	nlohmann-json:x64-windows-static ^
 	|| goto :error
 
 cd ..
