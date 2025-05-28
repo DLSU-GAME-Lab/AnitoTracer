@@ -95,6 +95,7 @@ void Application::SetPhysicalDevice(VkPhysicalDevice physicalDevice)
 
 	VkPhysicalDeviceFeatures deviceFeatures = {};
 	deviceFeatures.sampleRateShading = VK_TRUE;
+	deviceFeatures.wideLines = VK_TRUE;
 	
 	SetPhysicalDevice(physicalDevice, requiredExtensions, deviceFeatures, nullptr);
 	OnDeviceSet();
