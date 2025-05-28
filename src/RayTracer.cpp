@@ -25,6 +25,10 @@
 #include "Engine/CameraSystem/CameraManager.h"
 #include "Utilities/FileUtils.h"
 
+#include "RayVisualization/RayVisualizationPipeline.h"
+#include "Vulkan/Buffer.hpp"
+#include "Vulkan/RenderPass.hpp"
+#include "Vulkan/PipelineLayout.hpp"
 namespace
 {
 	const bool EnableValidationLayers =
@@ -53,6 +57,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 RayTracer::~RayTracer()
 {
 	scene_.reset();
+	rayScene_.reset();
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
 }
@@ -138,6 +143,7 @@ void RayTracer::CreateSwapChain()
 {
 	Application::CreateSwapChain();
 
+	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
 	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
 	//UIManager::reset();
 	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_);
@@ -160,6 +166,7 @@ void RayTracer::CreateSwapChain()
 void RayTracer::DeleteSwapChain()
 {
 	//userInterface_.reset();
+	rayVisualizationPipeline_.reset();
 	UIManager::reset();
 
 	Application::DeleteSwapChain();
@@ -230,6 +237,57 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
 		: Vulkan::Application::Render(commandBuffer, imageIndex);
 
+	if (isVisualizeRays_)
+	{
+		std::array<VkClearValue, 2> clearValues = {};
+		clearValues[1].depthStencil = { 1.0f, 0 };
+
+		VkRenderPassBeginInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = rayVisualizationPipeline_->RenderPass().Handle();
+		renderPassInfo.framebuffer = SwapChainFrameBuffer(imageIndex).Handle();
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = SwapChain().Extent();
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
+
+		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		{
+			const auto& scene = GetRayScene();
+
+			VkDescriptorSet descriptorSets[] = { rayVisualizationPipeline_->DescriptorSet(imageIndex) };
+			VkBuffer vertexBuffers[] = { scene.VertexBuffer().Handle() };
+			const VkBuffer indexBuffer = scene.IndexBuffer().Handle();
+			VkDeviceSize offsets[] = { 0 };
+
+			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->Handle());
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
+			vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdSetLineWidth(commandBuffer, 5);
+			vkCmdDrawIndexed(commandBuffer, 2, 1, 0, 0, 0);
+
+			/*uint32_t vertexOffset = 0;
+			uint32_t indexOffset = 0;*/
+
+			/*for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
+			{
+				Assets::PushConstantModel modelConstant = GetPushConstantModel(model);
+				vkCmdPushConstants(commandBuffer, rayVisualizationPipeline_->PipelineLayout().Handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Assets::PushConstantModel), &modelConstant);
+
+				const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
+				const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
+
+				vkCmdDrawIndexed(commandBuffer, indexCount, 1, indexOffset, vertexOffset, 0);
+
+				vertexOffset += vertexCount;
+				indexOffset += indexCount;
+			}*/
+		}
+
+		vkCmdEndRenderPass(commandBuffer);
+	}
+
 	// Render the UI
 	Statistics stats = {};
 	stats.framebufferSize = Window().FramebufferSize();
@@ -281,6 +339,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 			case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
+			case GLFW_KEY_R: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			default: break;
 			}
 		}
@@ -399,6 +458,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	//std::cout << "Skybox ImageView: " << scene_->SkyboxImageView() << std::endl;
 	//std::cout << "Skybox Sampler: " << scene_->SkyboxSampler() << std::endl;
 
+	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
 	sceneIndex_ = sceneIndex;
 
 	userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
@@ -442,6 +502,7 @@ void RayTracer::ReloadModifiedScene()
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
 	);
+	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
 
 	// userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
 	// userSettings_.Aperture = cameraInitialSate_.Aperture;

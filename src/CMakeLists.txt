@@ -7,6 +7,8 @@ set(src_files_assets
 	Assets/Model.cpp
 	Assets/Model.hpp
 	Assets/Procedural.hpp
+	Assets/RayScene.cpp
+	Assets/RayScene.hpp
 	Assets/Scene.cpp
 	Assets/Scene.hpp
 	Assets/SphereProc.hpp
@@ -54,6 +56,24 @@ set(src_files_lightsystem
 set(src_files_profiler
 	Engine/Profiler/Profiler.cpp
 	Engine/Profiler/Profiler.h
+)
+
+set(src_files_ray_visualization
+	RayVisualization/RayVisualizationPipeline.cpp
+	RayVisualization/RayVisualizationPipeline.h
+)
+
+set(src_files_imgui
+	ImGui/imgui_freetype.cpp
+	ImGui/imgui_freetype.h
+	ImGui/imgui_impl_glfw.cpp
+	ImGui/imgui_impl_glfw.h
+	ImGui/imgui_impl_vulkan.cpp
+	ImGui/imgui_impl_vulkan.h
+	ImGui/imgui_stdlib.cpp
+	ImGui/imgui_stdlib.h
+	ImGui/ImGuizmo.cpp
+	ImGui/ImGuizmo.h
 )
 
 set(src_files_utilities
@@ -231,7 +251,7 @@ source_group("OBB" FILES ${src_files_obb})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("Profiler" FILES ${src_files_profiler})
-
+source_group("RayVisualization" FILES ${src_files_ray_visualization})
 source_group("Utilities" FILES ${src_files_utilities})
 source_group("UI" FILES ${src_files_ui})
 source_group("From-GDGRAP2" FILES ${src_files_from_gdgrap2})
@@ -246,7 +266,7 @@ add_executable(${exe_name}
 	${src_files_camerasystem} 
 	${src_files_lightsystem} 
 	${src_files_profiler}
-
+	${src_files_ray_visualization} 
 	${src_files_utilities}
 	${src_files_ui}
 	${src_files_from_gdgrap2}

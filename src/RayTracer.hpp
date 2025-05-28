@@ -6,7 +6,11 @@
 #include "Vulkan/RayTracing/Application.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "Assets/TextureImage.hpp"
+#include "Assets/RayScene.hpp"
 
+namespace Vulkan {
+	class RayVisualizationPipeline;
+}
 class RayTracer final : public Vulkan::RayTracing::Application, public Observer
 {
 public:
@@ -25,6 +29,7 @@ public:
 protected:
 
 	const Assets::Scene& GetScene() const override { return *scene_; }
+	const Assets::RayScene& GetRayScene() const { return *rayScene_; }
 	Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const override;
 	Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const override;
 
@@ -62,6 +67,7 @@ private:
 
 	std::unique_ptr<Assets::Scene> scene_;
 	std::unique_ptr<Assets::TextureImage> skyboxTextureImage_;
+	std::unique_ptr<const Assets::RayScene> rayScene_;
 	//std::unique_ptr<class UserInterface> userInterface_;
 
 	double time_{};
@@ -82,6 +88,9 @@ private:
 	bool isRenderChanged = false;
 
 	bool renderUI_ = true;
+	bool isVisualizeRays_ = false;
 
 	static RayTracer* sharedInstance;
+
+	std::unique_ptr<class Vulkan::RayVisualizationPipeline> rayVisualizationPipeline_;
 };
