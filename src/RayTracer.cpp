@@ -24,7 +24,7 @@
 #include "Engine/CameraSystem/CameraManager.h"
 #include "Utilities/FileUtils.h"
 
-#include "RayVisualizationPipeline.h"
+#include "RayVisualization/RayVisualizationPipeline.h"
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
@@ -236,6 +236,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
 		: Vulkan::Application::Render(commandBuffer, imageIndex);
 
+	if (isVisualizeRays_)
 	{
 		std::array<VkClearValue, 2> clearValues = {};
 		clearValues[1].depthStencil = { 1.0f, 0 };
@@ -335,6 +336,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 			case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; break;
 			case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
+			case GLFW_KEY_R: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			default: break;
 			}
 		}

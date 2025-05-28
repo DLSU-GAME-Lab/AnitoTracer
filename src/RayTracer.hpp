@@ -85,6 +85,8 @@ private:
 
 	bool isRenderChanged = false;
 
+	bool isVisualizeRays_ = false;
+
 	static RayTracer* sharedInstance;
 
 	std::unique_ptr<class Vulkan::RayVisualizationPipeline> rayVisualizationPipeline_;
