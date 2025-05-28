@@ -10,7 +10,6 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/hash.hpp>
 
-#include <tiny_obj_loader.h>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -66,9 +65,7 @@ namespace Assets {
 		const std::string materialPath = std::filesystem::path(filename).parent_path().string();
 
 		Assimp::Importer objectImporter;
-		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
-			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_Triangulate |
-			aiProcess_GenUVCoords | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs);
+		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_FlipUVs | aiProcess_Triangulate | 0);
 		// read file and return an aiScene containing model attributes
 
 		if (scene == nullptr)
@@ -237,9 +234,7 @@ namespace Assets {
 		Assimp::Importer objectImporter;
 		std::vector<Model> models;
 
-		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
-			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_Triangulate | 
-			aiProcess_GenUVCoords | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs); //read file and return an aiScene containing model attributes
+		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_FlipUVs | aiProcess_Triangulate | 0); //read file and return an aiScene containing model attributes
 
 
 		if (scene == nullptr)

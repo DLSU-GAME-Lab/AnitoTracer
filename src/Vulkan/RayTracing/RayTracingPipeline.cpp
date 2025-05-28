@@ -52,7 +52,10 @@ RayTracingPipeline::RayTracingPipeline(
 		{9, static_cast<uint32_t>(scene.TextureSamplers().size()), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
 
 		// The Procedural buffer.
-		{10, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR}
+		{10, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR},
+
+		// Skybox
+		{11, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR}
 	};
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -112,6 +115,12 @@ RayTracingPipeline::RayTracingPipeline(
 		// Image and texture samplers.
 		std::vector<VkDescriptorImageInfo> imageInfos(scene.TextureSamplers().size());
 
+		// Skybox
+		VkDescriptorImageInfo skyboxImageInfo = {};
+		skyboxImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		skyboxImageInfo.imageView = scene.SkyboxImageView();   
+		skyboxImageInfo.sampler = scene.SkyboxSampler();      
+
 		for (size_t t = 0; t != imageInfos.size(); ++t)
 		{
 			auto& imageInfo = imageInfos[t];
@@ -145,6 +154,8 @@ RayTracingPipeline::RayTracingPipeline(
 			descriptorWrites.push_back(descriptorSets.Bind(i, 10, proceduralBufferInfo));
 		}
 
+		descriptorWrites.push_back(descriptorSets.Bind(i, 11, skyboxImageInfo));
+		
 		descriptorSets.UpdateDescriptors(i, descriptorWrites);
 	}
 

@@ -13,6 +13,8 @@
 #include "Vulkan/Vulkan.hpp"
 #include <memory>
 
+#include "Engine/Profiler/Profiler.h"
+
 typedef std::string String;
 
 namespace Vulkan
@@ -53,6 +55,10 @@ public:
 	static void reset();
 
 	void initializeUI();
+	static void saveLayout();
+	void loadLayout();
+	void resetLayout();
+
 	bool getEnabled(const std::string& name);
 	void setEnabled(const String& uiName, bool flag);
 	void toggleEnabled(const String& uiName);
@@ -63,6 +69,9 @@ public:
 	void toggleAllUI();
 	void hideAllUI() const;
 	void showAllUI() const;
+
+	GpuCpuProfiler* profiler;
+	void SetProfiler(GpuCpuProfiler* profiler) { this->profiler = profiler; }
 
 	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;
@@ -102,6 +111,8 @@ private:
 	static UIManager* sharedInstance;
 
 	bool isHidingUI = false;
+	bool isLoadingLayout = false;
+	bool isResettingLayout = false;
 	UserSettings* userSettings = nullptr;
 	const Vulkan::SwapChain* swapChain = nullptr;
 

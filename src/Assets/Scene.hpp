@@ -45,6 +45,11 @@ namespace Assets
 		const std::vector<VkImageView> TextureImageViews() const { return textureImageViewHandles_; }
 		const std::vector<VkSampler> TextureSamplers() const { return textureSamplerHandles_; }
 
+		void SetSkybox(VkImageView imageView, VkSampler sampler);
+
+		VkImageView SkyboxImageView() const { return skyboxImageView_; }
+		VkSampler SkyboxSampler() const { return skyboxSampler_; }
+
 	private:
 
 		const std::vector<Model> models_;
@@ -75,6 +80,10 @@ namespace Assets
 		std::vector<std::unique_ptr<TextureImage>> textureImages_;
 		std::vector<VkImageView> textureImageViewHandles_;
 		std::vector<VkSampler> textureSamplerHandles_;
+
+		std::unique_ptr<TextureImage> skyboxTexture_;
+		VkImageView skyboxImageView_ = VK_NULL_HANDLE;
+		VkSampler skyboxSampler_ = VK_NULL_HANDLE;
 	};
 
 }

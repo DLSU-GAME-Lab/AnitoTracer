@@ -17,10 +17,10 @@
 #include "ViewportScreen.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/ModelManager.h"
-#include "ImGui/ImGuizmo.h"
-#include "ImGui/imgui_freetype.h"
-#include "ImGui/imgui_impl_glfw.h"
-#include "ImGui/imgui_impl_vulkan.h"
+#include "ImGuizmo.h"
+#include "imgui_freetype.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 #include "Vulkan/DescriptorPool.hpp"
@@ -49,7 +49,7 @@ namespace
 
 UIManager::UIManager()
 {
-	
+
 }
 
 UIManager::~UIManager()
@@ -105,13 +105,14 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	vulkanInit.QueueFamily = device.GraphicsFamilyIndex();
 	vulkanInit.Queue = device.GraphicsQueue();
 	vulkanInit.PipelineCache = nullptr;
+	vulkanInit.RenderPass = sharedInstance->renderPass->Handle();
 	vulkanInit.DescriptorPool = sharedInstance->descriptorPool->Handle();
 	vulkanInit.MinImageCount = swapChain->MinImageCount();
 	vulkanInit.ImageCount = static_cast<uint32_t>(swapChain->Images().size());
 	vulkanInit.Allocator = nullptr;
 	vulkanInit.CheckVkResultFn = CheckVulkanResultCallback;
 
-	if (!ImGui_ImplVulkan_Init(&vulkanInit, sharedInstance->renderPass->Handle()))
+	if (!ImGui_ImplVulkan_Init(&vulkanInit))
 	{
 		Throw(std::runtime_error("failed to initialise ImGui vulkan adapter"));
 	}
@@ -143,23 +144,21 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 	Vulkan::SingleTimeCommands::Submit(*commandPool, [](VkCommandBuffer commandBuffer)
 		{
-			if (!ImGui_ImplVulkan_CreateFontsTexture(commandBuffer))
+			if (!ImGui_ImplVulkan_CreateFontsTexture())
 			{
 				Throw(std::runtime_error("failed to create ImGui font textures"));
 			}
 		});
 
 
-	ImGui_ImplVulkan_DestroyFontUploadObjects();
-	ImGui_ImplVulkan_SetMinImageCount(2);
+	//ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 	sharedInstance->initializeUI();
 }
 
 void UIManager::initializeUI()
 {
-
-	ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
+	//loadLayout();q
 
 	//populate UI table
 	//UIs that will show during runtime
@@ -214,9 +213,36 @@ void UIManager::initializeUI()
 	Debug::Log("Initialized UIs!");
 }
 
+void UIManager::saveLayout()
+{
+	ImGui::SaveIniSettingsToDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+}
+
+void UIManager::loadLayout()
+{
+	isLoadingLayout = true;
+}
+
+void UIManager::resetLayout()
+{
+	isResettingLayout = true;
+}
+
 void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer& frameBuffer,
 	const Statistics& statistics)
 {
+	if (isLoadingLayout)
+	{
+		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+		isLoadingLayout = false;
+	}
+
+	if (isResettingLayout)
+	{
+		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
+		isResettingLayout = false;
+	}
+
 	ImGui_ImplGlfw_NewFrame();
 	ImGui_ImplVulkan_NewFrame();
 	ImGui::NewFrame();
@@ -326,6 +352,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 	vkCmdEndRenderPass(commandBuffer);
+	ImGui::UpdatePlatformWindows();
 }
 
 void UIManager::drawOverlay(const Statistics& statistics) const
@@ -364,7 +391,7 @@ void UIManager::drawOverlay(const Statistics& statistics) const
 
 void UIManager::reset()
 {
-	ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
+	//ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 	delete sharedInstance;
 }
 
@@ -512,7 +539,7 @@ void UIManager::setupImGuiStyle()
 	style.GrabRounding = 10.0f;
 	style.TabRounding = 4.0f;
 	style.TabBorderSize = 0.0f;
-	style.TabMinWidthForCloseButton = 0.0f;
+	//style.TabMinWidthForCloseButton = 0.0f;
 	style.ColorButtonPosition = ImGuiDir_Left;
 	style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
 	style.SelectableTextAlign = ImVec2(0.0f, 0.0f);

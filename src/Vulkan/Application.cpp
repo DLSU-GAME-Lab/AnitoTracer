@@ -39,6 +39,8 @@ Application::Application(const WindowConfig& windowConfig, const VkPresentModeKH
 	debugUtilsMessenger_.reset(enableValidationLayers ? new DebugUtilsMessenger(*instance_, VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) : nullptr);
 	surface_.reset(new Surface(*instance_));
 
+	//Application::CreateProfiler();
+
 	//initialize libs
 	Debug::initialize();
 	GlobalConfig::initialize();
@@ -93,6 +95,7 @@ void Application::SetPhysicalDevice(VkPhysicalDevice physicalDevice)
 
 	VkPhysicalDeviceFeatures deviceFeatures = {};
 	deviceFeatures.sampleRateShading = VK_TRUE;
+	deviceFeatures.wideLines = VK_TRUE;
 	
 	SetPhysicalDevice(physicalDevice, requiredExtensions, deviceFeatures, nullptr);
 	OnDeviceSet();
@@ -127,6 +130,8 @@ void Application::SetPhysicalDevice(
 {
 	device_.reset(new class Device(physicalDevice, *surface_, requiredExtensions, deviceFeatures, nextDeviceFeatures));
 	commandPool_.reset(new class CommandPool(*device_, device_->GraphicsFamilyIndex(), true));
+
+	Application::CreateProfiler();
 }
 
 void Application::OnDeviceSet()
@@ -175,6 +180,18 @@ void Application::DeleteSwapChain()
 	swapChain_.reset();
 }
 
+void Application::CreateProfiler()
+{
+	VkPhysicalDeviceProperties properties;
+	vkGetPhysicalDeviceProperties(device_->PhysicalDevice(), &properties); // Make sure you expose this method
+
+	profiler_ = std::make_unique<GpuCpuProfiler>(
+		device_->Handle(), device_->PhysicalDevice(),
+		properties.limits.timestampPeriod,
+		/* maxSections = */ 16
+	);
+}
+
 void Application::DrawFrame()
 {
 	const auto noTimeout = std::numeric_limits<uint64_t>::max();
@@ -200,7 +217,12 @@ void Application::DrawFrame()
 	}
 
 	const auto commandBuffer = commandBuffers_->Begin(imageIndex);
+	profiler_->BeginFrame(commandBuffer);
+	profiler_->BeginSection("RenderScene", commandBuffer);
+
 	Render(commandBuffer, imageIndex);
+
+	profiler_->EndSection(commandBuffer);
 	commandBuffers_->End(imageIndex);
 
 	UpdateUniformBuffer(imageIndex);
@@ -249,6 +271,13 @@ void Application::DrawFrame()
 		Throw(std::runtime_error(std::string("failed to present next image (") + ToString(result) + ")"));
 	}
 
+	profiler_->EndFrame(commandBuffer);
+	profiler_->FetchResults();
+
+	if (profiler_) {
+		profiler_->UpdateMemoryStats();
+	}
+
 	currentFrame_ = (currentFrame_ + 1) % inFlightFences_.size();
 }
 
@@ -271,13 +300,24 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	{
 		const auto& scene = GetScene();
 
-		VkDescriptorSet descriptorSets[] = { graphicsPipeline_->DescriptorSet(imageIndex) };
-		VkBuffer vertexBuffers[] = { scene.VertexBuffer().Handle() };
-		const VkBuffer indexBuffer = scene.IndexBuffer().Handle();
-		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->SkyboxPipeline());
+
+		VkDescriptorSet skyboxDescriptorSet = graphicsPipeline_->SkyboxDescriptorSet(imageIndex);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			graphicsPipeline_->SkyboxPipelineLayout().Handle(),
+			0, 1, &skyboxDescriptorSet, 0, nullptr);
+
+		vkCmdDraw(commandBuffer, 36, 1, 0, 0);
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->Handle());
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
+		VkDescriptorSet descriptorSet = graphicsPipeline_->DescriptorSet(imageIndex);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			graphicsPipeline_->PipelineLayout().Handle(),
+			0, 1, &descriptorSet, 0, nullptr);
+
+		VkBuffer vertexBuffers[] = { scene.VertexBuffer().Handle() };
+		VkBuffer indexBuffer = scene.IndexBuffer().Handle();
+		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -286,11 +326,12 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 
 		for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
 		{
-			Assets::PushConstantModel modelConstant = GetPushConstantModel(model);
-			vkCmdPushConstants(commandBuffer, graphicsPipeline_->PipelineLayout().Handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Assets::PushConstantModel), &modelConstant);
+			auto pushConstantModel = GetPushConstantModel(model);
+			vkCmdPushConstants(commandBuffer, graphicsPipeline_->PipelineLayout().Handle(),
+				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantModel), &pushConstantModel);
 
-			const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-			const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
+			uint32_t vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
+			uint32_t indexCount = static_cast<uint32_t>(model.NumberOfIndices());
 
 			vkCmdDrawIndexed(commandBuffer, indexCount, 1, indexOffset, vertexOffset, 0);
 
@@ -298,6 +339,7 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 			indexOffset += indexCount;
 		}
 	}
+
 	vkCmdEndRenderPass(commandBuffer);
 }
 
