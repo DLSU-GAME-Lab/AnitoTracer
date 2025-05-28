@@ -811,7 +811,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 		rathObj->setLocalPosition(100, 850, 0);*/
 	 
 	 
-	std::vector<Model> sponza = Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/sponza.obj");
+	std::vector<Model> sponza = Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj");
 	//sponza.SetMaterial(white);
 
 	for (int j = 0; j < sponza.size(); j++) 
