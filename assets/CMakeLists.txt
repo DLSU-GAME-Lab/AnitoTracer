@@ -1,6 +1,19 @@
 file(GLOB font_files fonts/*.ttf)
 
-file(GLOB model_files models/*.obj models/*.mtl models/Sponza/*.png models/Sponza/*.obj models/Sponza/*.mtl models/Rathalos/*.obj models/Rathalos/*.png models/Rathalos/*.mtl)
+file(GLOB_RECURSE model_files
+"models/*.obj"
+"models/*.fbx"
+"models/*.mtl"
+"models/*/*.obj"
+"models/*/*.fbx"
+"models/*/*.mtl"
+)
+
+file(GLOB_RECURSE model_texture_files
+"models/*/*.png"
+"models/*/*.PNG"
+"models/*/*.jpg"
+)
 
 file(GLOB shader_files
     shaders/*.vert 
@@ -69,6 +82,7 @@ endmacro()
 
 copy_assets(font_files fonts copied_fonts)
 copy_assets(model_files models copied_models)
+copy_assets(model_texture_files models/textures copied_model_textures)
 copy_assets(texture_files textures copied_textures)
 	
 source_group("Fonts" FILES ${font_files})
@@ -78,5 +92,5 @@ source_group("Textures" FILES ${texture_files})
 
 add_custom_target(
 	Assets 
-	DEPENDS ${copied_fonts} ${copied_models} ${compiled_shaders} ${copied_textures} 
-	SOURCES ${font_files} ${model_files} ${shader_files} ${shader_extra_files} ${texture_files})
+	DEPENDS ${copied_fonts} ${copied_models} ${copied_model_textures} ${compiled_shaders} ${copied_textures} 
+	SOURCES ${font_files} ${model_files} ${model_texture_files} ${shader_files} ${shader_extra_files} ${texture_files})
