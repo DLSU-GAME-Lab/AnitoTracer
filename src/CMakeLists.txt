@@ -63,19 +63,6 @@ set(src_files_ray_visualization
 	RayVisualization/RayVisualizationPipeline.h
 )
 
-set(src_files_imgui
-	ImGui/imgui_freetype.cpp
-	ImGui/imgui_freetype.h
-	ImGui/imgui_impl_glfw.cpp
-	ImGui/imgui_impl_glfw.h
-	ImGui/imgui_impl_vulkan.cpp
-	ImGui/imgui_impl_vulkan.h
-	ImGui/imgui_stdlib.cpp
-	ImGui/imgui_stdlib.h
-	ImGui/ImGuizmo.cpp
-	ImGui/ImGuizmo.h
-)
-
 set(src_files_utilities
 	Utilities/Console.cpp
 	Utilities/Console.hpp
@@ -153,6 +140,8 @@ set(src_files_vulkan
 	Vulkan/Window.cpp
 	Vulkan/Window.hpp
 	Vulkan/WindowConfig.hpp
+	Vulkan/Viewport.cpp
+	Vulkan/Viewport.h
 )
 
 set(src_files_vulkan_raytracing
@@ -199,6 +188,10 @@ set(src_files_ui
 	UI/SettingsScreen.h
 	UI/UIManager.cpp
 	UI/UIManager.h
+	UI/ViewportManager.cpp
+	UI/ViewportManager.h
+	UI/ViewportScreen.cpp
+	UI/ViewportScreen.h
 )
 
 set(src_files_from_gdgrap2

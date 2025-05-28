@@ -25,8 +25,6 @@
 
 #include <imgui.h>
 
-#include "ImGui/imgui_impl_vulkan.h"
-
 #include <array>
 #include <iostream>
 namespace Vulkan {

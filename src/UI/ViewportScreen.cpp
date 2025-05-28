@@ -4,7 +4,6 @@
 
 #include "UIManager.h"
 #include "From-GDGRAP2/RTConfig.h"
-#include "ImGui/imgui_impl_vulkan.h"
 
 ViewportScreen::ViewportScreen() : AUIScreen("ViewportScreen")
 {
@@ -12,7 +11,7 @@ ViewportScreen::ViewportScreen() : AUIScreen("ViewportScreen")
 
 void ViewportScreen::drawUI()
 {
-	VkDescriptorSet m_Dset = UIManager::getInstance()->m_Dset;
+	//VkDescriptorSet m_Dset = UIManager::getInstance()->m_Dset;
 	//const RenderSystem* renderSystem = GraphicsEngine::get()->getRenderSystem();
 
 	//renderSystem->getImmediateDeviceContext()->clearRenderTargetColor(this->renderTexture, 0.3, 0.3, 0.3, 1);
@@ -25,7 +24,7 @@ void ViewportScreen::drawUI()
 
 	ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
 
-	ImGui::Image(m_Dset, ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
+	//ImGui::Image(m_Dset, ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
 
 	// renderSystem->getImmediateDeviceContext()->setViewportSize(viewportPanelSize.x, viewportPanelSize.y);
 	//
