@@ -15,6 +15,7 @@ vcpkg.exe install ^
 	imguizmo:x64-windows-static ^
 	stb:x64-windows-static ^
 	assimp:x64-windows-static ^
+	nlohmann-json:x64-windows-static ^
 	|| goto :error
 
 cd ..
