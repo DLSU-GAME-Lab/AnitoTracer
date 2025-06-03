@@ -30,6 +30,8 @@ set(src_files_assets
 	Assets/Plane.hpp
 	Assets/Sphere.cpp
 	Assets/Sphere.hpp
+	Assets/Ray.cpp
+	Assets/Ray.hpp
 )
 
 set(src_files_obb
