@@ -10,16 +10,6 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/hash.hpp>
 
-#include <chrono>
-#include <filesystem>
-#include <iostream>
-#include <unordered_map>
-#include <vector>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <Assimp/postprocess.h>
-#include <Assimp/texture.h>
-
 #include "From-GDGRAP2/TextureLibrary.h"
 #include "Utilities/FileUtils.h"
 #include "Texture.hpp"
@@ -83,6 +73,7 @@ namespace Assets {
 		std::vector<uint32_t> indices;
 		std::unordered_map<Vertex, uint32_t> uniqueVertices(totalvertices);
 		size_t faceId = 0;
+		std::mutex vGuard;
 
 		//instantiate all materials 
 		//Materials and Texture
@@ -133,69 +124,13 @@ namespace Assets {
 
 		for (int m = 0; m < scene->mNumMeshes; m++)
 		{
-
-			// Geometry
-			for (int f = 0; f < scene->mMeshes[m]->mNumFaces; f++)
-			{
-
-				for (int i = 0; i < scene->mMeshes[m]->mFaces[f].mNumIndices; i++)
-				{
-
-					Vertex vertex = {};
-					int v = scene->mMeshes[m]->mFaces[f].mIndices[i];
-
-					vertex.Position =
-					{
-						scene->mMeshes[m]->mVertices[v].x,
-						scene->mMeshes[m]->mVertices[v].y,
-						scene->mMeshes[m]->mVertices[v].z,
-					};
-
-					if (scene->mMeshes[m]->HasNormals())
-					{
-						vertex.Normal =
-						{
-							scene->mMeshes[m]->mNormals[v].x,
-							scene->mMeshes[m]->mNormals[v].y,
-							scene->mMeshes[m]->mNormals[v].z,
-						};
-					}
-					else
-					{
-						vertex.Normal =
-						{
-							scene->mMeshes[m]->mVertices[v].Normalize().x,
-							scene->mMeshes[m]->mVertices[v].Normalize().y,
-							scene->mMeshes[m]->mVertices[v].Normalize().z,
-						};
-					}
-
-					if (scene->mMeshes[m]->HasTextureCoords(0))
-					{
-						vertex.TexCoord =
-						{
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].x,
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].y
-						};
-					}
-
-					//vertex.MaterialIndex = std::max(0, mesh.material_ids[faceId++ / 3]);
-
-					vertex.MaterialIndex = scene->mMeshes[m]->mMaterialIndex;
-
-					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-					vertices.push_back(vertex);
-
-
-					indices.push_back(uniqueVertices[vertex]);
-				}
-
-			}
-			name = scene->mName.C_Str();
-			if (name == "")
-				name = "Imported Object";
+			std::thread meshThread(&Model::LoadMesh, scene->mMeshes[m], &vertices, &indices, &uniqueVertices, &vGuard);
+			meshThread.detach();
 		}
 
+		name = scene->mName.C_Str();
+		if (name == "")
+			name = "Imported Object";
 
 		//// --- Centering the model at (0,0,0) ---
 		//// Compute bounding box (min and max points)
@@ -393,6 +328,67 @@ namespace Assets {
 
 		objectImporter.FreeScene();
 		return models;
+}
+
+void Model::LoadMesh(aiMesh mesh, std::vector<Vertex>* vertices, std::vector<uint32_t>* indices, std::unordered_map<Vertex, uint32_t>* uniqueVertices, std::mutex* guard)
+{
+	//faces
+	for (int f = 0; f < mesh.mNumFaces; f++) {
+
+		for (int i = 0; i < mesh.mFaces[f].mNumIndices; i++)
+		{
+
+			Vertex vertex = {};
+			int v = mesh.mFaces[f].mIndices[i];
+
+			vertex.Position =
+			{
+				mesh.mVertices[v].x,
+				mesh.mVertices[v].y,
+				mesh.mVertices[v].z,
+			};
+
+			if (mesh.HasNormals())
+			{
+				vertex.Normal =
+				{
+					mesh.mNormals[v].x,
+					mesh.mNormals[v].y,
+					mesh.mNormals[v].z,
+				};
+			}
+			else
+			{
+				vertex.Normal =
+				{
+					mesh.mVertices[v].Normalize().x,
+					mesh.mVertices[v].Normalize().y,
+					mesh.mVertices[v].Normalize().z,
+				};
+			}
+
+			if (mesh.HasTextureCoords(0))
+			{
+				vertex.TexCoord =
+				{
+					(float)mesh.mTextureCoords[0][v].x,
+					(float)mesh.mTextureCoords[0][v].y
+				};
+			}
+
+			//vertex.MaterialIndex = std::max(0, mesh.material_ids[faceId++ / 3]);
+
+			guard->lock();
+
+			vertex.MaterialIndex = mesh.mMaterialIndex;
+			uniqueVertices->at(vertex) = static_cast<uint32_t>(vertices->size());
+			vertices->push_back(vertex);
+			indices->push_back(uniqueVertices->at(vertex));
+
+			guard->unlock();
+		}
+
+	}
 }
 
 

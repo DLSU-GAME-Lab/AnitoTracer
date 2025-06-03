@@ -8,6 +8,20 @@
 #include <string>
 #include <vector>
 
+#include <chrono>
+#include <filesystem>
+#include <iostream>
+#include <unordered_map>
+#include <vector>
+
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <Assimp/postprocess.h>
+#include <Assimp/texture.h>
+
+#include "thread"
+#include "mutex"
+
 namespace Assets
 {
 	class Model final
@@ -15,6 +29,9 @@ namespace Assets
 	public:
 		static Model LoadModel(const std::string& filename);
 		static std::vector<Model> LoadModelGroup(const std::string& filename);
+
+		void LoadMesh(aiMesh mesh, std::vector<Vertex>* vertices, std::vector<uint32_t>* indices, std::unordered_map<Vertex, uint32_t>* uniqueVertices, std::mutex* guard);
+		void LoadSeparatedMesh(aiMesh mesh, std::vector<Vertex>* vertices, std::vector<uint32_t>* indices, std::unordered_map<Vertex, uint32_t>* uniqueVertices, std::mutex* guard);
 
 		//static Model LoadModelFromFile(const std::string& filename);
 		//static std::vector<Model> LoadModelGroupFromFile(const std::string& filename);
