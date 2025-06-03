@@ -1,15 +1,47 @@
 ﻿{
-    "configurations": [
+  "configurations": [
+    {
+      "name": "x64-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "variables": [
         {
-            "name": "x64-Debug",
-            "generator": "Ninja",
-            "configurationType": "Debug",
-            "inheritEnvironments": [ "msvc_x64_x64" ],
-            "buildRoot": "${projectDir}\\out\\build\\${name}",
-            "installRoot": "${projectDir}\\out\\install\\${name}",
-            "cmakeCommandArgs": "",
-            "buildCommandArgs": "",
-            "ctestCommandArgs": ""
+          "name": "freetype_DIR",
+          "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/freetype",
+          "type": "PATH"
+        },
+        {
+          "name": "glm_DIR",
+          "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/glm",
+          "type": "PATH"
+        },
+        {
+          "name": "glfw3_DIR",
+          "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/glfw3",
+          "type": "PATH"
+        },
+        {
+          "name": "imgui_DIR",
+          "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/imgui",
+          "type": "PATH"
+        },
+        {
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/",
+          "type": "PATH"
+        },
+        {
+          "name": "_VCPKG_INSTALLED_DIR",
+          "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed",
+          "type": "PATH"
         }
-    ]
+      ]
+    }
+  ]
 }

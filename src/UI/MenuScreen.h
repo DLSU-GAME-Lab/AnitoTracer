@@ -25,7 +25,8 @@ private:
 	void onCreateBunnyClicked();
 	void onCreateTeapotClicked(); 
 	void onCreateLucyClicked(); 
-	void onCreateCornellClicked(); 
+	void onCreateCornellClicked();
+	void ShowSaveSceneAsMenu();
 
 	void ShowLoadObjMenu();
 	void OnMaterialComponentClicked();
@@ -46,6 +47,7 @@ private:
 	bool isLoadSceneOpen = false;
 	bool isColorPickerOpen = false;
 	bool isOpen = false;
+	bool isSaveSceneAsOpen = false;
 
 	bool openSceneSelected = false;
 

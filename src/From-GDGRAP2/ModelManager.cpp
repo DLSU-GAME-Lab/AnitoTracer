@@ -225,8 +225,103 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 	}
 }
 
-void ModelManager::createObjectFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation,
+void ModelManager::createObjectFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation,
 	vec3 scale)
+{
+	std::shared_ptr<GameObject> obj = nullptr;
+
+	switch (type) {
+	case GameObject::CAMERA:
+	case GameObject::OBJECT_GROUP:
+	case GameObject::QUAD:
+	case GameObject::NONE:
+		break;
+	case GameObject::CUBE:
+	{
+		Assets::Model cubeModel = Assets::Model::CreateBox(vec3(0, 0, -50), 
+															vec3(50, 50, 0), 
+															*Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
+		obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(cubeModel));
+		addObject(obj);
+
+		break;
+	}
+	case GameObject::SPHERE:
+	{
+		Assets::Model sphereModel = Assets::Model::CreateSphere(vec3(0), 50, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)), false);
+		obj = std::make_shared<GameObject>("Sphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(sphereModel));
+		addObject(obj);
+	}
+	break;
+	case GameObject::PLANE:
+	{
+		Assets::Model planeModel = Assets::Model::CreatePlane(vec3(0, 0, -100), vec3(100, -100, 0), *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
+		obj = std::make_shared<GameObject>("Plane", GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(planeModel));
+		addObject(obj);
+	}
+	break;
+	case GameObject::CYLINDER:
+	{
+		Assets::Model cylinderModel = Assets::Model::CreateCylinder(25, 50, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
+		obj = std::make_shared<GameObject>("Cylinder", GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(cylinderModel));
+		addObject(obj);
+
+	}
+	break;
+	case GameObject::CAPSULE:
+	{
+		Assets::Model capsuleModel = Assets::Model::CreateCapsule(25, 100, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
+		obj = std::make_shared<GameObject>("Capsule", GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(capsuleModel));
+		addObject(obj);
+	}
+	break;
+	case GameObject::POINT_LIGHT:
+	{
+		std::shared_ptr<Light> pl = std::make_shared<Light>(name.c_str(), Light::LightType::PointLight);
+		pl->setName(name);
+		pl->setLocalPosition(position);
+		pl->setLocalRotation(rotation);
+		pl->setLocalScale(scale);
+		pl->setEnabled(active);
+		addLightObject(pl);
+	}
+	break;
+	case GameObject::DIRECTIONAL_LIGHT:
+	{
+		std::shared_ptr<Light> dl = std::make_shared<Light>(name.c_str(), Light::LightType::DirectionalLight);
+		dl->setName(name);
+		dl->setLocalPosition(position);
+		dl->setLocalRotation(rotation);
+		dl->setLocalScale(scale);
+		dl->setEnabled(active);
+			addLightObject(dl);
+	}
+	break;
+	case GameObject::SPOT_LIGHT:
+	{
+		std::shared_ptr<Light> sl = std::make_shared<Light>(name.c_str(), Light::LightType::SpotLight);
+		sl->setName(name);
+		sl->setLocalPosition(position);
+		sl->setLocalRotation(rotation);
+		sl->setLocalScale(scale);
+		sl->setEnabled(active);
+		addLightObject(sl);
+	}
+	break;
+	}
+
+	if (obj != nullptr)
+	{
+		obj->setName(name);
+		obj->setLocalPosition(position);
+		obj->setLocalRotation(rotation);
+		obj->setLocalScale(scale);
+		obj->setEnabled(active);
+	}
+}
+
+void ModelManager::createObjectFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation,
+                                        vec3 scale)
 {
 	std::string meshFilePath;
 	std::string fileName;

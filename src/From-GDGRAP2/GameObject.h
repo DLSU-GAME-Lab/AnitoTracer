@@ -40,6 +40,7 @@ public:
     vec3 getLocalScale() const;
     vec3 getWorldScale() const;
 
+    void setName(std::string name);
     virtual void setLocalPosition(vec3 newPos);
     virtual void setLocalPosition(float x, float y, float z);
     void setLocalRotation(vec3 newRot);
