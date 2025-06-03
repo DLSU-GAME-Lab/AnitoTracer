@@ -56,6 +56,7 @@ public:
 
 	void initializeUI();
 	static void saveLayout();
+	static void saveDefaultLayout();
 	void loadLayout();
 	void resetLayout();
 

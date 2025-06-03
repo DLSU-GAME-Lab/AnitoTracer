@@ -209,6 +209,10 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Window"))
 		{
+			if (ImGui::MenuItem("[DEBUG] Save Default Layout"))
+			{
+				UIManager::saveDefaultLayout();
+			}
 			if (ImGui::MenuItem("Save Window Layout"))
 			{
 				UIManager::saveLayout();

@@ -209,12 +209,18 @@ void UIManager::initializeUI()
 	// this->uiList.push_back(materialScreen);
 	// materialScreen->SetEnabled(false);
 
+	loadLayout();
 	Debug::Log("Initialized UIs!");
 }
 
 void UIManager::saveLayout()
 {
 	ImGui::SaveIniSettingsToDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+}
+
+void UIManager::saveDefaultLayout()
+{
+	ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 }
 
 void UIManager::loadLayout()
