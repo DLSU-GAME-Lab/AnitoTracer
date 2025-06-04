@@ -116,8 +116,4 @@ void main()
         texColor = texture(TextureSamplers[material.DiffuseTextureId], texCoord);
 
     Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, lighting, Ray.anyHitTriggered);
-
-    if (Ray.anyHitTriggered == 1) {
-        Ray.ColorAndDistance = vec4(1.0, 0.0, 0.0, 1.0);
-    }
 }

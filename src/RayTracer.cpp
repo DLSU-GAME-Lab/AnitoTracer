@@ -199,8 +199,6 @@ void RayTracer::DrawFrame()
 		return;
 	}
 
-	
-
 	// Check if the accumulation buffer needs to be reset.
 	if (resetAccumulation_ ||
 		userSettings_.RequiresAccumulationReset(previousSettings_) ||
