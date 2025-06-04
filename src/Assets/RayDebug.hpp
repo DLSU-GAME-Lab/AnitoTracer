@@ -2,10 +2,8 @@
 
 namespace Assets
 {
-	struct alignas(16) RayDebug final
+	struct alignas(16) RayPoints final
 	{
-        glm::vec3 Origin;
-        glm::vec3 Direction;
-        glm::vec3 HitPosition;
+		glm::vec3 Vertex;
 	};
 }

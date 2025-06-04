@@ -42,9 +42,12 @@ RayScene::RayScene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models
 
 	rays_.push_back(new Ray(commandPool, vertices));
 
-	//constexpr auto flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+	constexpr auto flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
 	//Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Vertices", VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | flags, vertices, vertexBuffer_, vertexBufferMemory_);
+
+	rayDebugBuffer_.reset(new Vulkan::Buffer(commandPool.Device(), 64 * 16, flags | VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+	rayDebugBufferMemory_.reset(new Vulkan::DeviceMemory(rayDebugBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
 }
 
 RayScene::~RayScene()

@@ -29,7 +29,7 @@ public:
 protected:
 
 	const Assets::Scene& GetScene() const override { return *scene_; }
-	const Assets::RayScene& GetRayScene() const { return *rayScene_; }
+	const Assets::RayScene& GetRayScene() const override { return *rayScene_; }
 	Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const override;
 	Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const override;
 

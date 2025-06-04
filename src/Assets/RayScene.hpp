@@ -37,7 +37,7 @@ namespace Assets
 
 		const std::vector<Model>& Models() const { return models_; }
 		const std::vector<Ray*>& Rays() const { return rays_; }
-
+		const Vulkan::Buffer& RayDebugBuffer() const { return *rayDebugBuffer_; }
 		/*const Vulkan::Buffer& VertexBuffer() const { return *vertexBuffer_; }
 		const Vulkan::Buffer& IndexBuffer() const { return *indexBuffer_; }
 		const Vulkan::Buffer& OffsetsBuffer() const { return *offsetBuffer_; }*/
@@ -46,6 +46,9 @@ namespace Assets
 
 		const std::vector<Model> models_;
 		std::vector<Ray*> rays_;
+
+		std::unique_ptr<Vulkan::Buffer> rayDebugBuffer_;
+		std::unique_ptr<Vulkan::DeviceMemory> rayDebugBufferMemory_;
 
 		/*std::unique_ptr<Vulkan::Buffer> vertexBuffer_;
 		std::unique_ptr<Vulkan::DeviceMemory> vertexBufferMemory_;

@@ -14,6 +14,8 @@ layout(binding = 1, rgba32f) uniform image2D AccumulationImage;
 layout(binding = 2, rgba8) uniform image2D OutputImage;
 layout(binding = 3) readonly uniform UniformBufferObjectStruct { UniformBufferObject Camera; };
 
+//layout(binding = 12) buffer RayArray { RayInfo ray; };
+
 layout(location = 0) rayPayloadEXT RayPayload Ray;
 
 
