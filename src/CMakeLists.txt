@@ -58,6 +58,11 @@ set(src_files_profiler
 	Engine/Profiler/Profiler.h
 )
 
+set(src_files_sceneio
+	Engine/Scene/SceneIO.cpp
+	Engine/Scene/SceneIO.hpp
+)
+
 set(src_files_ray_visualization
 	RayVisualization/RayVisualizationPipeline.cpp
 	RayVisualization/RayVisualizationPipeline.h
@@ -244,6 +249,7 @@ source_group("OBB" FILES ${src_files_obb})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("Profiler" FILES ${src_files_profiler})
+source_group("Scene IO" FILES ${src_files_sceneio})
 source_group("RayVisualization" FILES ${src_files_ray_visualization})
 source_group("Utilities" FILES ${src_files_utilities})
 source_group("UI" FILES ${src_files_ui})
@@ -259,6 +265,7 @@ add_executable(${exe_name}
 	${src_files_camerasystem} 
 	${src_files_lightsystem} 
 	${src_files_profiler}
+	${src_files_sceneio}
 	${src_files_ray_visualization} 
 	${src_files_utilities}
 	${src_files_ui}
@@ -266,7 +273,7 @@ add_executable(${exe_name}
 	${src_files_vulkan} 
 	${src_files_vulkan_raytracing} 
 	${src_files}
-)
+ "Engine/Scene/SceneIO.cpp")
 
 if (UNIX)
 	# GCC8 needs an extra lib for <filesystem>.

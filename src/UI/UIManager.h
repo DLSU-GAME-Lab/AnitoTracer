@@ -56,6 +56,9 @@ public:
 
 	void initializeUI();
 	static void saveLayout();
+	static void saveDefaultLayout();
+	static void saveDynamicLayout();
+	void loadDynamicLayout();
 	void loadLayout();
 	void resetLayout();
 
@@ -86,6 +89,7 @@ public:
 
 	static bool wantsToCaptureKeyboard();
 	static bool wantsToCaptureMouse();
+	static bool isStartup; // ui manager already created ?
 
 private:
 	// UserInterface(
@@ -112,6 +116,7 @@ private:
 
 	bool isHidingUI = false;
 	bool isLoadingLayout = false;
+	bool isLoadingDynamicLayout = false;
 	bool isResettingLayout = false;
 	UserSettings* userSettings = nullptr;
 	const Vulkan::SwapChain* swapChain = nullptr;

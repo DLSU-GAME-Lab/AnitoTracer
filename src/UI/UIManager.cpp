@@ -34,6 +34,8 @@
 #include "Vulkan/Window.hpp"
 #include "ViewportManager.h"
 
+bool UIManager::isStartup = true;
+
 UIManager* UIManager::sharedInstance = nullptr;
 
 namespace
@@ -54,6 +56,8 @@ UIManager::UIManager()
 
 UIManager::~UIManager()
 {
+	saveDynamicLayout();
+
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
@@ -123,7 +127,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
 	// Loads Default UI Layout (from imgui_default_layout.ini)
 	//ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
@@ -150,10 +154,10 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 			}
 		});
 
-
 	//ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 	sharedInstance->initializeUI();
+
 }
 
 void UIManager::initializeUI()
@@ -210,12 +214,41 @@ void UIManager::initializeUI()
 	// this->uiList.push_back(materialScreen);
 	// materialScreen->SetEnabled(false);
 
+	// save and load the current layout to avoid resetting randomly
+
+	Debug::Log("Startup is " + (isStartup ? std::string("true") : std::string("false")));
+
+	if (isStartup)
+	{
+		Debug::Log("UI first startup");
+		loadLayout();
+		isStartup = false;
+	}
+	else
+		loadDynamicLayout();
+
 	Debug::Log("Initialized UIs!");
 }
 
 void UIManager::saveLayout()
 {
 	ImGui::SaveIniSettingsToDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+}
+
+void UIManager::saveDefaultLayout()
+{
+	ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
+}
+
+void UIManager::saveDynamicLayout()
+{
+	Debug::Log("Saving dynamic layout to " + ApplicationConfig::IMGUI_DYNAMIC_INI_PATH);
+	ImGui::SaveIniSettingsToDisk(ApplicationConfig::IMGUI_DYNAMIC_INI_PATH.c_str());
+}
+
+void UIManager::loadDynamicLayout()
+{
+	isLoadingDynamicLayout = true;
 }
 
 void UIManager::loadLayout()
@@ -236,11 +269,16 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
 		isLoadingLayout = false;
 	}
-
-	if (isResettingLayout)
+	else if (isResettingLayout)
 	{
 		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 		isResettingLayout = false;
+	}
+	else if (isLoadingDynamicLayout)
+	{
+		Debug::Log("Loading dynamic layout");
+		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::IMGUI_DYNAMIC_INI_PATH.c_str());
+		isLoadingDynamicLayout = false;
 	}
 
 	ImGui_ImplGlfw_NewFrame();
@@ -352,8 +390,16 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 	vkCmdEndRenderPass(commandBuffer);
-	ImGui::UpdatePlatformWindows();
-	ImGui::RenderPlatformWindowsDefault();
+
+	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		GLFWwindow* backup_current_context = glfwGetCurrentContext();
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+		glfwMakeContextCurrent(backup_current_context);
+	}
+	//ImGui::UpdatePlatformWindows();
+	//ImGui::RenderPlatformWindowsDefault();
 }
 
 void UIManager::drawOverlay(const Statistics& statistics) const

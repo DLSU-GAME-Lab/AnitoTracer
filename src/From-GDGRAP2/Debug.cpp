@@ -16,6 +16,8 @@ void Debug::destroy()
 
 void Debug::Log(String msg)
 {
+	msg += "\n";
+
 	sharedInstance->mutex->acquire();
 	if (sharedInstance->console != nullptr) {
 		sharedInstance->console->appendText(msg);

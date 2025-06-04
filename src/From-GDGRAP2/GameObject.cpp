@@ -80,6 +80,11 @@ GameObject::vec3 GameObject::getWorldScale() const
 	return this->worldScale;
 }
 
+void GameObject::setName(std::string name)
+{
+	this->name = name;
+}
+
 void GameObject::setLocalPosition(vec3 newPos)
 {
 	this->localPosition = newPos;

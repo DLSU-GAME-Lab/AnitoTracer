@@ -14,6 +14,7 @@
 #include "Assets/Material.hpp"
 #include "Assets/Model.hpp"
 
+#include "Engine/Scene/SceneIO.hpp"
 // #include "GameObjectManager.h"
 
 using namespace Assets;
@@ -78,7 +79,20 @@ void MenuScreen::drawUI()
 			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo(); }
 			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase(); }
 			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); }
+			if (ImGui::BeginMenu("Custom Scenes"))
+			{
+				this->OnLoadEmpty();
+				for (std::string name : SceneIO::getInstance()->getSceneNames())
+				{
+					if (ImGui::MenuItem(name.c_str())) { SceneIO::getInstance()->LoadScene(name); }
+				}
+				ImGui::EndMenu();
+			}
 			if (ImGui::MenuItem("Delete All Objects in Current Scene")) { this->OnLoadEmpty(); }
+
+			// Scene IO
+			ImGui::Separator();
+			if (ImGui::MenuItem("Save Scene As", nullptr, isSaveSceneAsOpen)) { isSaveSceneAsOpen = !isSaveSceneAsOpen; }
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Objects")) {
@@ -195,6 +209,10 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Window"))
 		{
+			if (ImGui::MenuItem("[DEBUG] Save Default Layout"))
+			{
+				UIManager::saveDefaultLayout();
+			}
 			if (ImGui::MenuItem("Save Window Layout"))
 			{
 				UIManager::saveLayout();
@@ -224,6 +242,8 @@ void MenuScreen::drawUI()
 			ShowLoadObjMenu();
 		if (isColorPickerOpen)
 			ShowColorPickerWindow();
+		if (isSaveSceneAsOpen)
+			ShowSaveSceneAsMenu();
 
 		ImGui::EndMainMenuBar();
 	}
@@ -459,6 +479,26 @@ void MenuScreen::onCreateLucyClicked()
 
 void MenuScreen::onCreateCornellClicked()
 {
+}
+
+void MenuScreen::ShowSaveSceneAsMenu()
+{
+	ImGui::SetNextWindowSize(ImVec2(500, 100));
+
+	if (ImGui::Begin("Save Scene As", &isSaveSceneAsOpen))
+	{
+		static std::string name = "New Scene";
+
+		ImGui::Text("Save the current scene as:");
+		ImGui::InputTextWithHint("Scene Name", name.c_str(), &name);
+
+		if (ImGui::Button("Save", ImVec2(150, 25)))
+		{
+			SceneIO::getInstance()->SaveCurrentScene(name);
+			isSaveSceneAsOpen = false;
+		}
+	}
+	ImGui::End();
 }
 
 void MenuScreen::OnMaterialComponentClicked()
