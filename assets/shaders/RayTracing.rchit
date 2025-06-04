@@ -77,45 +77,47 @@ vec3 calculateSpotLight(LightProperties sl, vec3 worldPos, vec3 normal)
 
 void main()
 {
-	// Get the material.
-	const uvec2 offsets = Offsets[gl_InstanceCustomIndexEXT];
-	const uint indexOffset = offsets.x;
-	const uint vertexOffset = offsets.y;
-	const Vertex v0 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 0]);
-	const Vertex v1 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 1]);
-	const Vertex v2 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 2]);
-	const Material material = Materials[v0.MaterialIndex];
-	  
-	// Compute the ray hit point properties.	
-	const vec3 barycentrics = vec3(1.0 - HitAttributes.x - HitAttributes.y, HitAttributes.x, HitAttributes.y);
-	const vec3 normal = normalize(Mix(v0.Normal, v1.Normal, v2.Normal, barycentrics));
-	const vec2 texCoord = Mix(v0.TexCoord, v1.TexCoord, v2.TexCoord, barycentrics);
+    // Get the material.
+    const uvec2 offsets = Offsets[gl_InstanceCustomIndexEXT];
+    const uint indexOffset = offsets.x;
+    const uint vertexOffset = offsets.y;
+    const Vertex v0 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 0]);
+    const Vertex v1 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 1]);
+    const Vertex v2 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 2]);
+    const Material material = Materials[v0.MaterialIndex];
 
-	// For lighting computations.
-	const vec3 pos = Mix(v0.Position, v1.Position, v2.Position, barycentrics);
-	const vec3 worldPos = vec3(gl_ObjectToWorldEXT * vec4(pos, 1.0));  // Transforming the position to world space
-	 
-	vec3 lighting = vec3(0);
-	 
-	if (Lights.length() == 0) { // Pink light if buffer is empty
-		//LightProperties dl = InitializeTestDLProperties(); // Adding directional light.
-		//lighting += calculateDirectionalLight(dl, worldPos, normal);
-		//LightProperties pl = InitializeTestPLProperties(); // Adding point light.
-		//lighting += calculatePointLight(pl, worldPos, normal);
-		//LightProperties sl = InitializeTestSLProperties(); // Adding spot light.
-		//lighting += calculateSpotLight(sl, worldPos, normal);
-	} else {
-		for (int i = 0; i < Lights.length(); i++) {
-			if (Lights[i].LightType == PointLight) { // Point Light
-				lighting += calculatePointLight(Lights[i], worldPos, normal);
-			} else if (Lights[i].LightType == DirectionalLight) { // Directional Light
-				lighting += calculateDirectionalLight(Lights[i], worldPos, normal);
-			} else if (Lights[i].LightType == SpotLight) { // Spot Light
-				//lighting += calculateSpotLight(Lights[i], worldPos, normal);
-			}
-		}
-	}
-	
-	Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, lighting);
+    // Compute the ray hit point properties.    
+    const vec3 barycentrics = vec3(1.0 - HitAttributes.x - HitAttributes.y, HitAttributes.x, HitAttributes.y);
+    const vec3 normal = normalize(Mix(v0.Normal, v1.Normal, v2.Normal, barycentrics));
+    const vec2 texCoord = Mix(v0.TexCoord, v1.TexCoord, v2.TexCoord, barycentrics);
+
+    // For lighting computations.
+    const vec3 pos = Mix(v0.Position, v1.Position, v2.Position, barycentrics);
+    const vec3 worldPos = vec3(gl_ObjectToWorldEXT * vec4(pos, 1.0));  // Transforming the position to world space
+
+    vec3 lighting = vec3(0);
+
+    if (Lights.length() == 0) {
+        // fallback lighting if needed
+    } else {
+        for (int i = 0; i < Lights.length(); i++) {
+            if (Lights[i].LightType == PointLight) {
+                lighting += calculatePointLight(Lights[i], worldPos, normal);
+            } else if (Lights[i].LightType == DirectionalLight) {
+                lighting += calculateDirectionalLight(Lights[i], worldPos, normal);
+            } else if (Lights[i].LightType == SpotLight) {
+                //lighting += calculateSpotLight(Lights[i], worldPos, normal);
+            }
+        }
+    }
+
+    vec4 texColor = vec4(1.0);
+    if (material.DiffuseTextureId >= 0)
+        texColor = texture(TextureSamplers[material.DiffuseTextureId], texCoord);
+
+    Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, lighting, Ray.anyHitTriggered);
+
+    if (Ray.anyHitTriggered == 1) {
+        Ray.ColorAndDistance = vec4(1.0, 0.0, 0.0, 1.0);
+    }
 }
-	

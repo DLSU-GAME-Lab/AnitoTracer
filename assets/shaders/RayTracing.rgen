@@ -57,7 +57,7 @@ void main()
 			}
 
 			traceRayEXT(
-				Scene, gl_RayFlagsOpaqueEXT, 0xff, 
+				Scene, gl_RayFlagsNoneEXT, 0xff, 
 				0 /*sbtRecordOffset*/, 0 /*sbtRecordStride*/, 0 /*missIndex*/, 
 				origin.xyz, tMin, direction.xyz, tMax, 0 /*payload*/);
 			
