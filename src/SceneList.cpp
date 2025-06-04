@@ -272,7 +272,7 @@ SceneAssets SceneList::CornellBox(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -305,7 +305,7 @@ SceneAssets SceneList::CornellBoxLucy(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	const auto i = mat4(1);
 	const auto sphere = Model::CreateSphere(vec3(555 - 130, 165.0f, -165.0f / 2 - 65), 80.0f, *Material::Dielectric(1.5f), true);
@@ -443,7 +443,7 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -488,7 +488,7 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
@@ -744,7 +744,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
