@@ -1,18 +1,7 @@
 file(GLOB font_files fonts/*.ttf)
 
 file(GLOB_RECURSE model_files
-"models/*.obj"
-"models/*.fbx"
-"models/*.mtl"
-"models/*/*.obj"
-"models/*/*.fbx"
-"models/*/*.mtl"
-)
-
-file(GLOB_RECURSE model_texture_files
-"models/*/*.png"
-"models/*/*.PNG"
-"models/*/*.jpg"
+"models/*"
 )
 
 file(GLOB shader_files
@@ -58,8 +47,15 @@ macro(copy_assets asset_files dir_name copied_files)
 		#message("asset: ${asset}")
 		get_filename_component(file_name ${asset} NAME)
 		get_filename_component(full_path ${asset} ABSOLUTE)
+		
+		file(RELATIVE_PATH
+		ITEM_PATH_REL # Output variable
+		${CMAKE_CURRENT_SOURCE_DIR} # Base directory
+		${full_path} # Absolute path to the file
+		)
+
 		set(output_dir ${CMAKE_CURRENT_BINARY_DIR}/${dir_name})
-		set(output_file ${output_dir}/${file_name})
+		set(output_file ${CMAKE_CURRENT_BINARY_DIR}/${ITEM_PATH_REL})
 		set(${copied_files} ${${copied_files}} ${output_file})
 		set(${copied_files} ${${copied_files}} PARENT_SCOPE)
 		set_source_files_properties(${asset} PROPERTIES HEADER_FILE_ONLY TRUE)
@@ -82,7 +78,7 @@ endmacro()
 
 copy_assets(font_files fonts copied_fonts)
 copy_assets(model_files models copied_models)
-copy_assets(model_texture_files models/textures copied_model_textures)
+#copy_assets(model_texture_files models/textures copied_model_textures)
 copy_assets(texture_files textures copied_textures)
 	
 source_group("Fonts" FILES ${font_files})
@@ -92,5 +88,5 @@ source_group("Textures" FILES ${texture_files})
 
 add_custom_target(
 	Assets 
-	DEPENDS ${copied_fonts} ${copied_models} ${copied_model_textures} ${compiled_shaders} ${copied_textures} 
+	DEPENDS ${copied_fonts} ${copied_models} ${compiled_shaders} ${copied_textures} 
 	SOURCES ${font_files} ${model_files} ${model_texture_files} ${shader_files} ${shader_extra_files} ${texture_files})
