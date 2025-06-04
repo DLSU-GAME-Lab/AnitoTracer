@@ -177,18 +177,21 @@ void RayTracer::DrawFrame()
 	// Check if the scene has been changed by the user via select new scene
 	if (sceneIndex_ != static_cast<uint32_t>(userSettings_.SceneIndex))
 	{
+		Debug::Log("Scene changed, loading scene " + std::to_string(userSettings_.SceneIndex));
 		Device().WaitIdle();
 		DeleteSwapChain();
 		DeleteAccelerationStructures();
 		LoadScene(userSettings_.SceneIndex);
 		CreateAccelerationStructures();
 		CreateSwapChain();
+		this->isSceneDirty = false;
 		return;
 	}
 
 	//If user edited a certain model
 	if (this->isSceneDirty)
 	{
+		Debug::Log("Scene dirty, reloading scene");
 		this->isSceneDirty = false;
 		Device().WaitIdle();
 		DeleteSwapChain();
