@@ -11,6 +11,7 @@ file(GLOB shader_files
     shaders/*.FRAG 
     shaders/*.rgen 
     shaders/*.rchit 
+    shaders/*.rahit 
     shaders/*.rint 
     shaders/*.rmiss
 )

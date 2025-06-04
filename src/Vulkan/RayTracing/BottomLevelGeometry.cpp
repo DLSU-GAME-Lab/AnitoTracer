@@ -25,7 +25,7 @@ void BottomLevelGeometry::AddGeometryTriangles(
 	geometry.geometry.triangles.indexData.deviceAddress = scene.IndexBuffer().GetDeviceAddress();
 	geometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	geometry.geometry.triangles.transformData = {};
-	geometry.flags = isOpaque ? VK_GEOMETRY_OPAQUE_BIT_KHR : 0;
+	geometry.flags = 0;
 
 	VkAccelerationStructureBuildRangeInfoKHR buildOffsetInfo = {};
 	buildOffsetInfo.firstVertex = vertexOffset / sizeof(Assets::Vertex);
@@ -51,7 +51,7 @@ void BottomLevelGeometry::AddGeometryAabb(
 	geometry.geometry.aabbs.pNext = nullptr;
 	geometry.geometry.aabbs.data.deviceAddress = scene.AabbBuffer().GetDeviceAddress();
 	geometry.geometry.aabbs.stride = sizeof(VkAabbPositionsKHR);
-	geometry.flags = isOpaque ? VK_GEOMETRY_OPAQUE_BIT_KHR : 0;
+	geometry.flags = 0;
 
 	VkAccelerationStructureBuildRangeInfoKHR buildOffsetInfo = {};
 	buildOffsetInfo.firstVertex = 0;

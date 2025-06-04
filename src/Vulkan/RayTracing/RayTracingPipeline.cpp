@@ -165,6 +165,7 @@ RayTracingPipeline::RayTracingPipeline(
 	const ShaderModule rayGenShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.rgen.spv");
 	const ShaderModule missShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.rmiss.spv");
 	const ShaderModule closestHitShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.rchit.spv");
+	const ShaderModule anyHitShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.rahit.spv");
 	const ShaderModule proceduralClosestHitShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.Procedural.rchit.spv");
 	const ShaderModule proceduralIntersectionShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.Procedural.rint.spv");
 
@@ -173,6 +174,7 @@ RayTracingPipeline::RayTracingPipeline(
 		rayGenShader.CreateShaderStage(VK_SHADER_STAGE_RAYGEN_BIT_KHR),
 		missShader.CreateShaderStage(VK_SHADER_STAGE_MISS_BIT_KHR),
 		closestHitShader.CreateShaderStage(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR),
+		anyHitShader.CreateShaderStage(VK_SHADER_STAGE_ANY_HIT_BIT_KHR),
 		proceduralClosestHitShader.CreateShaderStage(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR),
 		proceduralIntersectionShader.CreateShaderStage(VK_SHADER_STAGE_INTERSECTION_BIT_KHR)
 	};
@@ -204,7 +206,7 @@ RayTracingPipeline::RayTracingPipeline(
 	triangleHitGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 	triangleHitGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
 	triangleHitGroupInfo.closestHitShader = 2;
-	triangleHitGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
+	triangleHitGroupInfo.anyHitShader = 3;
 	triangleHitGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
 	triangleHitGroupIndex_ = 2;
 
@@ -213,9 +215,9 @@ RayTracingPipeline::RayTracingPipeline(
 	proceduralHitGroupInfo.pNext = nullptr;
 	proceduralHitGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
 	proceduralHitGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
-	proceduralHitGroupInfo.closestHitShader = 3;
+	proceduralHitGroupInfo.closestHitShader = 4;
 	proceduralHitGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
-	proceduralHitGroupInfo.intersectionShader = 4;
+	proceduralHitGroupInfo.intersectionShader = 5;
 	proceduralHitGroupIndex_ = 3;
 
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups =
