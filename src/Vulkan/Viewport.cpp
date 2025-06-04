@@ -128,13 +128,13 @@ namespace Vulkan {
 	{
 		currentFrame_ = imageIndex;
 		std::array<VkClearValue, 2> clearValues = {};
-		clearValues[0].color = { {0.0f, 1.0f, 0.0f, 1.0f} };
+		clearValues[0].color = { {0.2f, 0.0f, 0.0f, 1.0f} };
 		clearValues[1].depthStencil = { 1.0f, 0 };
 
 		VkRenderPassBeginInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = graphicsPipeline_->RenderPass().Handle();
-		renderPassInfo.framebuffer = frameBuffers_[imageIndex].Handle();
+		renderPassInfo.framebuffer = frameBuffers_[currentFrame_].Handle();
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = { SwapChain().Extent().width, SwapChain().Extent().height };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -142,7 +142,7 @@ namespace Vulkan {
 
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
-			dSet_ = graphicsPipeline_->DescriptorSet(imageIndex);
+			dSet_ = graphicsPipeline_->DescriptorSet(currentFrame_);
 			VkBuffer vertexBuffers[] = { scene_.VertexBuffer().Handle() };
 			const VkBuffer indexBuffer = scene_.IndexBuffer().Handle();
 			VkDeviceSize offsets[] = { 0 };
@@ -167,15 +167,15 @@ namespace Vulkan {
 
 				vertexOffset += vertexCount;
 				indexOffset += indexCount;
-
-				ImGui_ImplVulkan_RemoveTexture(dSet_);
-				dSet_ = ImGui_ImplVulkan_AddTexture(
-					scene_.TextureSamplers()[0],
-					outputImageViews_[imageIndex]->Handle(),
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			}
 		}
 		vkCmdEndRenderPass(commandBuffer);
+		
+		ImGui_ImplVulkan_RemoveTexture(dSet_);
+		dSet_ = ImGui_ImplVulkan_AddTexture(
+			sampler_->Handle(),
+			outputImageViews_[currentFrame_]->Handle(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 
 	void Viewport::drawUI()
