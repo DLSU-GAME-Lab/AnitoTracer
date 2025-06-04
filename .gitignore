@@ -335,3 +335,4 @@ build/*
 /src/tracy-0.11.1/profiler/build
 /src/tracy-0.11.1/profiler/profiler-build/_deps
 src/imgui.ini
+src/imgui_dynamic.ini

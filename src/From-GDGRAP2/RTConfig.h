@@ -13,8 +13,13 @@ struct ApplicationConfig
 		return (slnDir / "src/imgui.ini").string();
 		})();
 
+	static const inline std::string IMGUI_DYNAMIC_INI_PATH = ([] {
+		std::filesystem::path slnDir = SOLUTION_DIR;
+		return (slnDir / "src/imgui_dynamic.ini").string();
+		})();
+
 	static const inline std::string DEFAULT_UI_LAYOUT_PATH = ([] {
-		std::filesystem::path slnDir = SOLUTION_DIR; 
+		std::filesystem::path slnDir = SOLUTION_DIR;
 		return (slnDir / "src/imgui_default_layout.ini").string();
 		})();
 };
