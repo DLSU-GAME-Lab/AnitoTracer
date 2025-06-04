@@ -16,6 +16,7 @@ namespace Assets {
 		~Ray();
 
 		void Update();
+		void Reset();
 		void AddVertex(Vulkan::CommandPool& commandPool, Vertex vertex);
 
 		const Vulkan::Buffer& VertexBuffer() const { return *vertexBuffer_; }

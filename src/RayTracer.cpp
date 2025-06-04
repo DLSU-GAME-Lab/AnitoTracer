@@ -354,6 +354,8 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 					auto& commandPool = CommandPool();
 					Assets::Vertex vertex2{glm::vec3(100.0f,100.0f,0.0f), glm::vec3(0,0,0), glm::vec2(0,0), -1 };
 					Assets::Vertex vertex3{glm::vec3(200.0f,500.0f,0.0f), glm::vec3(0,0,0), glm::vec2(0,0), -1 };
+
+					rayScene_->Rays()[0]->Reset();
 					rayScene_->Rays()[0]->AddVertex(commandPool, vertex2);
 					rayScene_->Rays()[0]->AddVertex(commandPool, vertex3);
 					Debug::Log(std::to_string(rayScene_->Rays()[0]->NumberOfVertices()) + "\n");

@@ -7,6 +7,7 @@ namespace Assets
 	Ray::Ray(Vulkan::CommandPool& commandPool, std::vector<Vertex> vertices)
 	{
 		vertices_.insert(vertices_.end(), vertices.begin(), vertices.end());
+
 		CreateVertexBuffer(commandPool);
 	}
 
@@ -21,15 +22,15 @@ namespace Assets
 
 	}
 
+	void Ray::Reset() {
+		vertices_.clear();
+	}
+
 	void Ray::AddVertex(Vulkan::CommandPool& commandPool, Vertex vertex)
 	{
 		vertices_.push_back(vertex);
 
 		Vulkan::BufferUtil::CopyFromStagingBuffer(commandPool, *vertexBuffer_, vertices_);
-		//ClearVertexBuffer();
-		//CreateVertexBuffer(commandPool);
-
-		//vertexBuffer_->CopyFrom()
 	}
 
 	void Ray::CreateVertexBuffer(Vulkan::CommandPool& commandPool)
