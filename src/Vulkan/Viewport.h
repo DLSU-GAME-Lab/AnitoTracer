@@ -76,7 +76,7 @@ namespace Vulkan
 
 		std::unique_ptr<Vulkan::Sampler> sampler_;
 
-		std::vector<VkDescriptorSet> dSet_;
+		VkDescriptorSet dSet_;
 
 		
 

@@ -27,6 +27,10 @@
 
 #include <array>
 #include <iostream>
+
+#include "imgui_impl_vulkan.h"
+#include "From-GDGRAP2/Debug.h"
+
 namespace Vulkan {
 	Viewport::Viewport(const class SwapChain& swapChain, const class Assets::Scene& scene) :
 		AUIScreen("Viewport"),
@@ -44,7 +48,7 @@ namespace Vulkan {
 			const auto extent = SwapChain().Extent();
 			const auto format = SwapChain().Format();
 			const auto tiling = VK_IMAGE_TILING_OPTIMAL;
-		
+
 			for (int i = 0; i < SwapChain().Images().size(); i++)
 			{
 				VkImageCreateInfo imageInfo = {};
@@ -124,7 +128,7 @@ namespace Vulkan {
 	{
 		currentFrame_ = imageIndex;
 		std::array<VkClearValue, 2> clearValues = {};
-		clearValues[0].color = { {0.2f, 0.0f, 0.0f, 1.0f} };
+		clearValues[0].color = { {0.0f, 1.0f, 0.0f, 1.0f} };
 		clearValues[1].depthStencil = { 1.0f, 0 };
 
 		VkRenderPassBeginInfo renderPassInfo = {};
@@ -132,19 +136,19 @@ namespace Vulkan {
 		renderPassInfo.renderPass = graphicsPipeline_->RenderPass().Handle();
 		renderPassInfo.framebuffer = frameBuffers_[imageIndex].Handle();
 		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = { 512, 512 };
+		renderPassInfo.renderArea.extent = { SwapChain().Extent().width, SwapChain().Extent().height };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
-			VkDescriptorSet descriptorSets[] = { graphicsPipeline_->DescriptorSet(imageIndex) };
+			dSet_ = graphicsPipeline_->DescriptorSet(imageIndex);
 			VkBuffer vertexBuffers[] = { scene_.VertexBuffer().Handle() };
 			const VkBuffer indexBuffer = scene_.IndexBuffer().Handle();
 			VkDeviceSize offsets[] = { 0 };
 
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->Handle());
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->PipelineLayout().Handle(), 0, 1, &dSet_, 0, nullptr);
 			vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 			vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -163,6 +167,12 @@ namespace Vulkan {
 
 				vertexOffset += vertexCount;
 				indexOffset += indexCount;
+
+				ImGui_ImplVulkan_RemoveTexture(dSet_);
+				dSet_ = ImGui_ImplVulkan_AddTexture(
+					scene_.TextureSamplers()[0],
+					outputImageViews_[imageIndex]->Handle(),
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			}
 		}
 		vkCmdEndRenderPass(commandBuffer);
@@ -173,7 +183,10 @@ namespace Vulkan {
 		ImGui::Begin("Viewport");
 
 		ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-		//ImGui::Image(dSet_[currentFrame_], ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
+		//Debug::Log("Viewport size: " + std::to_string(viewportPanelSize.x) + "x" + std::to_string(viewportPanelSize.y));
+		ImGui::Image(reinterpret_cast<ImTextureID>(dSet_), ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
+		//ImGui::Image(reinterpret_cast<ImTextureID>(graphicsPipeline_->DescriptorSet(currentFrame_)), ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
+		//ImGui::Image(ImGui::GetIO().Fonts->TexID, ImVec2{viewportPanelSize.x, viewportPanelSize.y});
 
 		ImGui::End();
 	}

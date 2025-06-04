@@ -82,8 +82,9 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
 	{
 		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
+		
 	};
-	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 1));
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10000));
 	sharedInstance->renderPass.reset(
 		new Vulkan::RenderPass(
 			*swapChain,
@@ -154,7 +155,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 			}
 		});
 
-	//ImGui_ImplVulkan_DestroyFontUploadObjects();
+	ImGui_ImplVulkan_DestroyFontsTexture();
 
 	sharedInstance->initializeUI();
 
