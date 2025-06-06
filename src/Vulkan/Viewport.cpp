@@ -135,84 +135,8 @@ namespace Vulkan {
 	void Viewport::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	{
 		currentFrame_ = imageIndex;
-		std::array<VkClearValue, 2> clearValues = {};
-		clearValues[0].color = { {0.2f, 0.2f, 0.5f, 1.0f} };
-		clearValues[1].depthStencil = { 1.0f, 0 };
 
-		VkImageSubresourceRange subresourceRange;
-		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		subresourceRange.baseMipLevel = 0;
-		subresourceRange.levelCount = 1;
-		subresourceRange.baseArrayLayer = 0;
-		subresourceRange.layerCount = 1;
-
-		VkRenderPassBeginInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = graphicsPipeline_->RenderPass().Handle();
-		renderPassInfo.framebuffer = frameBuffers_[currentFrame_].Handle();
-		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = swapChain_.Extent();
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassInfo.pClearValues = clearValues.data();
-
-		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		{
-			VkDescriptorSet descriptorSets[] = { graphicsPipeline_->DescriptorSet(currentFrame_) };
-			VkBuffer vertexBuffers[] = { scene_.VertexBuffer().Handle() };
-			const VkBuffer indexBuffer = scene_.IndexBuffer().Handle();
-			VkDeviceSize offsets[] = { 0 };
-
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->SkyboxPipeline());
-
-			VkDescriptorSet skyboxDescriptorSet = graphicsPipeline_->SkyboxDescriptorSet(imageIndex);
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-				graphicsPipeline_->SkyboxPipelineLayout().Handle(),
-				0, 1, &skyboxDescriptorSet, 0, nullptr);
-
-			vkCmdDraw(commandBuffer, 36, 1, 0, 0);
-
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->Handle());
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
-			vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-			vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-			uint32_t vertexOffset = 0;
-			uint32_t indexOffset = 0;
-
-			for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
-			{
-				// Debug::Log("Rendering model: " + model.GetName());
-				Assets::PushConstantModel modelConstant = GetPushConstantModel(model);
-				vkCmdPushConstants(commandBuffer, graphicsPipeline_->PipelineLayout().Handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Assets::PushConstantModel), &modelConstant);
-
-				const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-				const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
-
-				vkCmdDrawIndexed(commandBuffer, indexCount, 1, indexOffset, vertexOffset, 0);
-
-				vertexOffset += vertexCount;
-				indexOffset += indexCount;
-			}
-		}
-		vkCmdEndRenderPass(commandBuffer);
-
-		VkImageMemoryBarrier barrier{};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		barrier.image = outputImages_[currentFrame_];
-		barrier.subresourceRange = subresourceRange;
-
-		vkCmdPipelineBarrier(
-			commandBuffer,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			0, 0, nullptr, 0, nullptr,
-			1, &barrier);
-
-		// Copy output image into swap-chain image.
+		// Copy swap-chain image into output image.
 		VkImageCopy copyRegion;
 		copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 		copyRegion.srcOffset = { 0, 0, 0 };
@@ -224,11 +148,6 @@ namespace Vulkan {
 			SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			outputImages_[currentFrame_], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			1, &copyRegion);
-
-		// vkCmdCopyImage(commandBuffer,
-		// 	outputImages_[currentFrame_], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		// 	SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		// 	1, &copyRegion);
 	}
 
 	// void Viewport::RenderRaytraced(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
