@@ -33,6 +33,7 @@
 #include "Vulkan/SwapChain.hpp"
 #include "Vulkan/Window.hpp"
 #include "ViewportManager.h"
+#include "Vulkan/DepthBuffer.hpp"
 
 bool UIManager::isStartup = true;
 
@@ -84,8 +85,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
 	};
 
-	// optimize this fucking outrageous pool allocation, thanks! LOL
-	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10000));
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
 	sharedInstance->renderPass.reset(
 		new Vulkan::RenderPass(
 			*swapChain,
@@ -224,7 +224,6 @@ void UIManager::initializeUI()
 	{
 		Debug::Log("UI first startup");
 		loadLayout();
-		isStartup = false;
 	}
 	else
 		loadDynamicLayout();
@@ -270,6 +269,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	{
 		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
 		isLoadingLayout = false;
+		isStartup = false;
 	}
 	else if (isResettingLayout)
 	{
@@ -293,7 +293,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
 	
-	drawDockspace();
+	//drawDockspace();
 	drawAllUI();
 	//DrawSettings();
 	drawOverlay(statistics);
@@ -384,7 +384,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	renderPassInfo.renderPass = sharedInstance->renderPass->Handle();
 	renderPassInfo.framebuffer = frameBuffer.Handle();
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = sharedInstance->renderPass->SwapChain().Extent();
+	renderPassInfo.renderArea.extent = sharedInstance->swapChain->Extent();
 	//renderPassInfo.renderArea.extent = VkExtent2D(1920, 1080);
 	renderPassInfo.clearValueCount = 0;
 	renderPassInfo.pClearValues = nullptr;

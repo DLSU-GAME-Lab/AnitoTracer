@@ -3,6 +3,8 @@
 #include "UIManager.h"
 #include <vector>
 
+#include "Assets/UniformBuffer.hpp"
+
 namespace Assets {
 	class Scene;
 }

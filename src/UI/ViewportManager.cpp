@@ -1,5 +1,6 @@
 #include "ViewportManager.h"
 
+#include "Assets/UniformBuffer.hpp"
 #include "Vulkan/Viewport.h"
 
 ViewportManager* ViewportManager::P_SHARED_INSTANCE = nullptr;

@@ -304,12 +304,12 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 		const auto& scene = GetScene();
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->SkyboxPipeline());
-
+		
 		VkDescriptorSet skyboxDescriptorSet = graphicsPipeline_->SkyboxDescriptorSet(imageIndex);
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 			graphicsPipeline_->SkyboxPipelineLayout().Handle(),
 			0, 1, &skyboxDescriptorSet, 0, nullptr);
-
+		
 		vkCmdDraw(commandBuffer, 36, 1, 0, 0);
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_->Handle());

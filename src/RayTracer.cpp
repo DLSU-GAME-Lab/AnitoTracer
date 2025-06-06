@@ -77,7 +77,7 @@ RayTracer* RayTracer::getInstance()
 
 Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D extent) const
 {
-	const auto& init = cameraInitialSate_;
+	const auto& init = cameraInitialState_;
 
 	Assets::UniformBufferObject ubo = {};
 	//ubo.ModelView = modelViewController_.ModelView();
@@ -231,17 +231,17 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	const auto timeDelta = time_ - prevTime;
 
 	// Update the camera position / angle.
-	resetAccumulation_ = CameraManager::getInstance()->getActiveCamera()->UpdateCamera(cameraInitialSate_.ControlSpeed, timeDelta);
+	resetAccumulation_ = CameraManager::getInstance()->getActiveCamera()->UpdateCamera(cameraInitialState_.ControlSpeed, timeDelta);
 
 	// Check the current state of the benchmark, update it for the new frame.
 	CheckAndUpdateBenchmarkState(prevTime);
 
-	ViewportManager::getInstance()->renderScenes(commandBuffer, imageIndex);
 	// Render the scene
-	/*userSettings_.IsRayTraced
+	userSettings_.IsRayTraced
 		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
 		: Vulkan::Application::Render(commandBuffer, imageIndex);
-		*/
+	
+	ViewportManager::getInstance()->renderScenes(commandBuffer, imageIndex);
 		
 	if (isVisualizeRays_)
 	{
@@ -481,7 +481,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 {
 	auto& commandPool = CommandPool();
 
-	auto [models, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
+	auto [models, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialState_);
 
 	Assets::CubeMapTexture skyboxCubeMap;
 
@@ -518,11 +518,11 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
 	sceneIndex_ = sceneIndex;
 
-	userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
-	userSettings_.Aperture = cameraInitialSate_.Aperture;
-	userSettings_.FocusDistance = cameraInitialSate_.FocusDistance;
+	userSettings_.FieldOfView = cameraInitialState_.FieldOfView;
+	userSettings_.Aperture = cameraInitialState_.Aperture;
+	userSettings_.FocusDistance = cameraInitialState_.FocusDistance;
 
-	CameraManager::getInstance()->getActiveCamera()->Reset(cameraInitialSate_.ModelView);
+	CameraManager::getInstance()->getActiveCamera()->Reset(cameraInitialState_.ModelView);
 
 	periodTotalFrames_ = 0;
 	resetAccumulation_ = true;
@@ -561,11 +561,11 @@ void RayTracer::ReloadModifiedScene()
 	);
 	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
 
-	// userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
-	// userSettings_.Aperture = cameraInitialSate_.Aperture;
-	// userSettings_.FocusDistance = cameraInitialSate_.FocusDistance;
+	// userSettings_.FieldOfView = cameraInitialState_.FieldOfView;
+	// userSettings_.Aperture = cameraInitialState_.Aperture;
+	// userSettings_.FocusDistance = cameraInitialState_.FocusDistance;
 	//
-	// modelViewController_.Reset(cameraInitialSate_.ModelView);
+	// modelViewController_.Reset(cameraInitialState_.ModelView);
 
 	periodTotalFrames_ = 0;
 	resetAccumulation_ = true;

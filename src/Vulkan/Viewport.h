@@ -6,6 +6,8 @@
 #include <vector>
 #include <memory>
 
+#include "Assets/UniformBuffer.hpp"
+
 namespace Assets
 {
 	class Scene;
@@ -70,15 +72,15 @@ namespace Vulkan
 		std::vector<class Semaphore> renderFinishedSemaphores_;
 		std::vector<class Fence> inFlightFences_;
 
+		std::shared_ptr<class RenderPass> renderPass_;
+
 		std::vector<VkImage> outputImages_;
 		std::vector<std::unique_ptr<DeviceMemory>> outputImageMemory_;
 		std::vector<std::unique_ptr<ImageView>> outputImageViews_;
 
 		std::unique_ptr<Vulkan::Sampler> sampler_;
 
-		VkDescriptorSet dSet_;
-
-		
+		std::vector<VkDescriptorSet> viewportDSet_;
 
 		size_t currentFrame_{};
 	};
