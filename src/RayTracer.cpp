@@ -241,9 +241,8 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	userSettings_.IsRayTraced
 		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
 		: Vulkan::Application::Render(commandBuffer, imageIndex);
-	
-	ViewportManager::getInstance()->renderScenes(commandBuffer, imageIndex);
-		
+
+
 	if (isVisualizeRays_)
 	{
 		std::array<VkClearValue, 2> clearValues = {};

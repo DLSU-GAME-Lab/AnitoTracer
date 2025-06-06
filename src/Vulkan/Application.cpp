@@ -26,6 +26,7 @@
 #include "From-GDGRAP2/ModelManager.h"
 
 #include "Engine/Scene/SceneIO.hpp"
+#include "UI/ViewportManager.h"
 
 namespace Vulkan {
 
@@ -344,6 +345,8 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	}
 
 	vkCmdEndRenderPass(commandBuffer);
+
+	ViewportManager::getInstance()->renderRasterizedScenes(commandBuffer, imageIndex);
 }
 
 void Application::UpdateUniformBuffer(const uint32_t imageIndex)

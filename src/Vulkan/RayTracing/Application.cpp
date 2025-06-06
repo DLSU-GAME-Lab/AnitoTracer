@@ -20,6 +20,7 @@
 #include <numeric>
 
 #include "UI/UIManager.h"
+#include "UI/ViewportManager.h"
 
 
 namespace Vulkan::RayTracing {
@@ -215,28 +216,42 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 		&raygenShaderBindingTable, &missShaderBindingTable, &hitShaderBindingTable, &callableShaderBindingTable,
 		extent.width, extent.height, 1);
 
-	// Acquire output image and swap-chain image for copying.
-	ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 
-		VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-
-	ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, 0,
-		VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-	// Copy output image into swap-chain image.
-	VkImageCopy copyRegion;
+	// Transition ray tracing output image to transfer source layout
+	ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange,
+		VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+		VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	
+	// Transition swap chain image to transfer destination layout
+	ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange,
+		0, VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	
+	// Perform the image copy
+	VkImageCopy copyRegion = {};
 	copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 	copyRegion.srcOffset = { 0, 0, 0 };
 	copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 	copyRegion.dstOffset = { 0, 0, 0 };
 	copyRegion.extent = { extent.width, extent.height, 1 };
-
+	
 	vkCmdCopyImage(commandBuffer,
 		outputImage_->Handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1, &copyRegion);
+	
+	// Transition swap chain image to present layout
+	ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange,
+		VK_ACCESS_TRANSFER_WRITE_BIT, 0,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	
+	// Transition ray tracing output image back to general layout
+	ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange,
+		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 
-	ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, VK_ACCESS_TRANSFER_WRITE_BIT,
-		0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	//ViewportManager::getInstance()->renderRasterizedScenes(commandBuffer, imageIndex);
+
+	ViewportManager::getInstance()->renderRayTracedScenes(commandBuffer, imageIndex, outputImage_->Handle());
 }
 
 void Application::CreateBottomLevelStructures(VkCommandBuffer commandBuffer)
@@ -365,10 +380,9 @@ void Application::CreateOutputImage()
 	debugUtils.SetObjectName(accumulationImageMemory_->Handle(), "Accumulation Image Memory");
 	debugUtils.SetObjectName(accumulationImageView_->Handle(), "Accumulation ImageView");
 	
-	debugUtils.SetObjectName(outputImage_->Handle(), "Output Image");
-	debugUtils.SetObjectName(outputImageMemory_->Handle(), "Output Image Memory");
-	debugUtils.SetObjectName(outputImageView_->Handle(), "Output ImageView");
-
+	debugUtils.SetObjectName(outputImage_->Handle(), "RayTraced Image");
+	debugUtils.SetObjectName(outputImageMemory_->Handle(), "RayTraced Image Memory");
+	debugUtils.SetObjectName(outputImageView_->Handle(), "RayTraced ImageView");
 }
 
 }

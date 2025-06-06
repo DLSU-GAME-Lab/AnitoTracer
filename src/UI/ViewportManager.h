@@ -30,7 +30,8 @@ public:
 	static void initialize();
 	static void destroy();
 
-	void renderScenes(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+	void renderRasterizedScenes(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+	void renderRayTracedScenes(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkImage outputImage);
 	void drawUI();
 
 	void createViewport(const class Vulkan::SwapChain& swapChain, const class Assets::Scene& scene);

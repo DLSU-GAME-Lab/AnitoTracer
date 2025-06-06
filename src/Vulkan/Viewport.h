@@ -6,6 +6,7 @@
 #include <vector>
 #include <memory>
 
+#include "Image.hpp"
 #include "Assets/UniformBuffer.hpp"
 
 namespace Assets
@@ -42,7 +43,8 @@ namespace Vulkan
 		virtual Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const/* = 0*/;
 		virtual Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const/* = 0*/;
 
-		virtual void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+		virtual void RenderRasterized(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+		virtual void RenderRayTraced(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkImage image);
 		virtual void drawUI() override;
 
 		/*
@@ -77,6 +79,8 @@ namespace Vulkan
 		std::vector<VkImage> outputImages_;
 		std::vector<std::unique_ptr<DeviceMemory>> outputImageMemory_;
 		std::vector<std::unique_ptr<ImageView>> outputImageViews_;
+		VkImage rtImage_;
+		VkDescriptorSet rtDset_;
 
 		std::unique_ptr<Vulkan::Sampler> sampler_;
 

@@ -33,13 +33,23 @@ void ViewportManager::destroy()
 	delete P_SHARED_INSTANCE;
 }
 
-void ViewportManager::renderScenes(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+void ViewportManager::renderRasterizedScenes(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
 	/*for (Vulkan::Viewport* viewport : this->viewports)
 	{
-		viewport->Render(commandBuffer, imageIndex);
+		viewport->RenderRasterized(commandBuffer, imageIndex);
 	}*/
-	viewport->Render(commandBuffer, imageIndex);
+	viewport->RenderRasterized(commandBuffer, imageIndex);
 }
+
+void ViewportManager::renderRayTracedScenes(VkCommandBuffer commandBuffer, uint32_t imageIndex,
+	const VkImage outputImage)
+{/*for (Vulkan::Viewport* viewport : this->viewports)
+	{
+		viewport->renderRayTraced(commandBuffer, imageIndex, outputImage);
+	}*/
+	viewport->RenderRayTraced(commandBuffer, imageIndex, outputImage);
+}
+
 void ViewportManager::drawUI()
 {
 	/*for (Vulkan::Viewport* viewport : this->viewports)

@@ -62,8 +62,8 @@ namespace Vulkan {
 				imageInfo.arrayLayers = 1;
 				imageInfo.format = format;
 				imageInfo.tiling = tiling;
-				imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-				imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+				imageInfo.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 				imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 				imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 				imageInfo.flags = 0; // Optional
@@ -82,9 +82,9 @@ namespace Vulkan {
 
 			for (int i = 0; i < SwapChain().Images().size(); i++)
 			{
-				debugUtils.SetObjectName(outputImages_[i], "Output Image");
-				debugUtils.SetObjectName(outputImageMemory_[i]->Handle(), "Output Image Memory");
-				debugUtils.SetObjectName(outputImageViews_[i]->Handle(), "Output ImageView");
+				debugUtils.SetObjectName(outputImages_[i], "Viewport Image");
+				debugUtils.SetObjectName(outputImageMemory_[i]->Handle(), "Viewport Image Memory");
+				debugUtils.SetObjectName(outputImageViews_[i]->Handle(), "Viewport ImageView");
 			}
 		}
 
@@ -132,7 +132,7 @@ namespace Vulkan {
 		return ubo;
 	}
 
-	void Viewport::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
+	void Viewport::RenderRasterized(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	{
 		currentFrame_ = imageIndex;
 
@@ -144,82 +144,79 @@ namespace Vulkan {
 		copyRegion.dstOffset = { 0, 0, 0 };
 		copyRegion.extent = { swapChain_.Extent().width, swapChain_.Extent().height, 1 };
 
+		VkImageSubresourceRange subresourceRange = {};
+		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subresourceRange.baseMipLevel = 0;
+		subresourceRange.levelCount = 1;
+		subresourceRange.baseArrayLayer = 0;
+		subresourceRange.layerCount = 1;
+
+		ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange,
+			VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+		ImageMemoryBarrier::Insert(commandBuffer, outputImages_[currentFrame_], subresourceRange,
+			0, VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
 		vkCmdCopyImage(commandBuffer,
-			SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			outputImages_[currentFrame_], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			outputImages_[currentFrame_], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &copyRegion);
+
+		ImageMemoryBarrier::Insert(commandBuffer, outputImages_[currentFrame_], subresourceRange,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange,
+			VK_ACCESS_TRANSFER_READ_BIT, 0,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 	}
 
-	// void Viewport::RenderRaytraced(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
-	// {
-	// 	const auto extent = SwapChain().Extent();
-	//
-	// 	VkDescriptorSet descriptorSets[] = { rayTracingPipeline_->DescriptorSet(imageIndex) };
-	//
-	// 	VkImageSubresourceRange subresourceRange = {};
-	// 	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	// 	subresourceRange.baseMipLevel = 0;
-	// 	subresourceRange.levelCount = 1;
-	// 	subresourceRange.baseArrayLayer = 0;
-	// 	subresourceRange.layerCount = 1;
-	//
-	// 	// Acquire destination images for rendering.
-	// 	ImageMemoryBarrier::Insert(commandBuffer, accumulationImage_->Handle(), subresourceRange, 0,
-	// 		VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-	//
-	// 	ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 0,
-	// 		VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-	//
-	// 	// Bind ray tracing pipeline.
-	// 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rayTracingPipeline_->Handle());
-	// 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rayTracingPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
-	//
-	// 	// Describe the shader binding table.
-	// 	VkStridedDeviceAddressRegionKHR raygenShaderBindingTable = {};
-	// 	raygenShaderBindingTable.deviceAddress = shaderBindingTable_->RayGenDeviceAddress();
-	// 	raygenShaderBindingTable.stride = shaderBindingTable_->RayGenEntrySize();
-	// 	raygenShaderBindingTable.size = shaderBindingTable_->RayGenSize();
-	//
-	// 	VkStridedDeviceAddressRegionKHR missShaderBindingTable = {};
-	// 	missShaderBindingTable.deviceAddress = shaderBindingTable_->MissDeviceAddress();
-	// 	missShaderBindingTable.stride = shaderBindingTable_->MissEntrySize();
-	// 	missShaderBindingTable.size = shaderBindingTable_->MissSize();
-	//
-	// 	VkStridedDeviceAddressRegionKHR hitShaderBindingTable = {};
-	// 	hitShaderBindingTable.deviceAddress = shaderBindingTable_->HitGroupDeviceAddress();
-	// 	hitShaderBindingTable.stride = shaderBindingTable_->HitGroupEntrySize();
-	// 	hitShaderBindingTable.size = shaderBindingTable_->HitGroupSize();
-	//
-	// 	VkStridedDeviceAddressRegionKHR callableShaderBindingTable = {};
-	//
-	// 	// Execute ray tracing shaders.
-	// 	deviceProcedures_->vkCmdTraceRaysKHR(commandBuffer,
-	// 		&raygenShaderBindingTable, &missShaderBindingTable, &hitShaderBindingTable, &callableShaderBindingTable,
-	// 		extent.width, extent.height, 1);
-	//
-	// 	// Acquire output image and swap-chain image for copying.
-	// 	ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange,
-	// 		VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-	//
-	// 	ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, 0,
-	// 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	//
-	// 	// Copy output image into swap-chain image.
-	// 	VkImageCopy copyRegion;
-	// 	copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-	// 	copyRegion.srcOffset = { 0, 0, 0 };
-	// 	copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-	// 	copyRegion.dstOffset = { 0, 0, 0 };
-	// 	copyRegion.extent = { extent.width, extent.height, 1 };
-	//
-	// 	vkCmdCopyImage(commandBuffer,
-	// 		outputImage_->Handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-	// 		SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-	// 		1, &copyRegion);
-	//
-	// 	ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, VK_ACCESS_TRANSFER_WRITE_BIT,
-	// 		0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-	// }
+	void Viewport::RenderRayTraced(VkCommandBuffer commandBuffer, uint32_t imageIndex, const VkImage image)
+	{
+		currentFrame_ = imageIndex;
+
+		// copy dat bitch
+		VkImageCopy copyRegion = {};
+		copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+		copyRegion.srcOffset = { 0, 0, 0 };
+		copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+		copyRegion.dstOffset = { 0, 0, 0 };
+		copyRegion.extent = { swapChain_.Extent().width, swapChain_.Extent().height, 1 };
+
+		VkImageSubresourceRange subresourceRange = {};
+		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subresourceRange.baseMipLevel = 0;
+		subresourceRange.levelCount = 1;
+		subresourceRange.baseArrayLayer = 0;
+		subresourceRange.layerCount = 1;
+
+		// Transition ray tracing output image to transfer source layout
+		ImageMemoryBarrier::Insert(commandBuffer, image, subresourceRange,
+			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+		// Transition destination (viewport) image to TRANSFER_DST
+		ImageMemoryBarrier::Insert(commandBuffer, outputImages_[currentFrame_], subresourceRange,
+			0, VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+		vkCmdCopyImage(commandBuffer,
+			image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			outputImages_[currentFrame_], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &copyRegion);
+
+		ImageMemoryBarrier::Insert(commandBuffer, image, subresourceRange,
+			VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+
+		// Transition destination image back to SHADER_READ_ONLY for ImGui
+		ImageMemoryBarrier::Insert(commandBuffer, outputImages_[currentFrame_], subresourceRange,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
+
 
 	void Viewport::drawUI()
 	{
