@@ -57,6 +57,7 @@ namespace Vulkan
 		bool isWireFrame_{};
 
 	private:
+		void TransitionImageLayout(CommandPool& commandPool, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount = 1);
 		DeviceMemory AllocateImageMemory(VkImage image) const;
 
 		void UpdateUniformBuffer(uint32_t imageIndex);

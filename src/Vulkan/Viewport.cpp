@@ -16,6 +16,7 @@
 #include "ImageMemoryBarrier.hpp"
 #include "ImageView.hpp"
 #include "SwapChain.hpp"
+#include "SingleTimeCommands.hpp"
 
 #include "Assets/Model.hpp"
 #include "Assets/Scene.hpp"
@@ -41,6 +42,8 @@ namespace Vulkan {
 		const auto& device = SwapChain().Device();
 
 		sampler_.reset(new Vulkan::Sampler(device, Vulkan::SamplerConfig()));
+		commandPool_.reset(new class CommandPool(SwapChain().Device(), SwapChain().Device().GraphicsFamilyIndex(), true));
+
 		{ // Create Viewport Images
 			outputImages_.resize(swapChain_.Images().size());
 			outputImageMemory_.resize(swapChain_.Images().size());
@@ -62,8 +65,8 @@ namespace Vulkan {
 				imageInfo.arrayLayers = 1;
 				imageInfo.format = format;
 				imageInfo.tiling = tiling;
-				imageInfo.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+				imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+				imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 				imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 				imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 				imageInfo.flags = 0; // Optional
@@ -88,7 +91,7 @@ namespace Vulkan {
 			}
 		}
 
-		commandPool_.reset(new class CommandPool(SwapChain().Device(), SwapChain().Device().GraphicsFamilyIndex(), true));
+		
 		depthBuffer_.reset(new class DepthBuffer(*commandPool_, SwapChain().Extent()));
 
 		for (size_t i = 0; i != SwapChain().ImageViews().size(); ++i)
@@ -108,11 +111,16 @@ namespace Vulkan {
 		}
 
 		viewportDSet_.resize(outputImageViews_.size());
-		for (uint32_t i = 0; i < outputImageViews_.size(); i++)
+
+		for (uint32_t i = 0; i < outputImageViews_.size(); i++) {
+			TransitionImageLayout(*commandPool_, outputImages_[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+			TransitionImageLayout(*commandPool_, outputImages_[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			viewportDSet_[i] = ImGui_ImplVulkan_AddTexture(
 				sampler_->Handle(),
 				outputImageViews_[i]->Handle(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		}
+			
 	}
 
 	Viewport::~Viewport()
@@ -226,6 +234,72 @@ namespace Vulkan {
 		ImGui::Image(reinterpret_cast<ImTextureID>(viewportDSet_[currentFrame_]), ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
 		ImGui::End();
 
+	}
+
+	void Viewport::TransitionImageLayout(CommandPool& commandPool, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount)
+	{
+		SingleTimeCommands::Submit(commandPool, [&](VkCommandBuffer commandBuffer)
+		{
+			VkImageMemoryBarrier barrier = {};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = oldLayout;
+			barrier.newLayout = newLayout;
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.image = image;
+			barrier.subresourceRange.baseMipLevel = 0;
+			barrier.subresourceRange.levelCount = 1;
+			barrier.subresourceRange.baseArrayLayer = 0;
+			barrier.subresourceRange.layerCount = layerCount;
+
+			if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+			{
+				barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+				//if (DepthBuffer::HasStencilComponent(format_))
+				//{
+				//	barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+				//}
+			}
+			else
+			{
+				barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			}
+
+			VkPipelineStageFlags sourceStage;
+			VkPipelineStageFlags destinationStage;
+
+			if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+			{
+				barrier.srcAccessMask = 0;
+				barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+				sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+				destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			}
+			else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			{
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+				sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			}
+			else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+			{
+				barrier.srcAccessMask = 0;
+				barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+				sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+				destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+			}
+			else
+			{
+				//Throw(std::invalid_argument("unsupported layout transition"));
+			}
+
+			vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		});
 	}
 
 	DeviceMemory Viewport::AllocateImageMemory(VkImage image) const
