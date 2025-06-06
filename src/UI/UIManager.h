@@ -89,7 +89,6 @@ public:
 
 	static bool wantsToCaptureKeyboard();
 	static bool wantsToCaptureMouse();
-	static bool isStartup; // ui manager already created ?
 
 private:
 	// UserInterface(
@@ -114,6 +113,7 @@ private:
 
 	static UIManager* sharedInstance;
 
+	static bool isStartup; // ui manager already created ?
 	bool isHidingUI = false;
 	bool isLoadingLayout = false;
 	bool isLoadingDynamicLayout = false;

@@ -57,8 +57,6 @@ UIManager::UIManager()
 
 UIManager::~UIManager()
 {
-	saveDynamicLayout();
-
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
@@ -218,11 +216,11 @@ void UIManager::initializeUI()
 
 	// save and load the current layout to avoid resetting randomly
 
-	Debug::Log("Startup is " + (isStartup ? std::string("true") : std::string("false")));
-
+	// Debug::Log("Startup is " + (isStartup ? std::string("true") : std::string("false")));
+	//
 	if (isStartup)
 	{
-		Debug::Log("UI first startup");
+		// 	Debug::Log("UI first startup");
 		loadLayout();
 	}
 	else
@@ -287,9 +285,6 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	ImGui_ImplVulkan_NewFrame();
 	ImGui::NewFrame();
 
-	// DrawSettings();
-	// DrawOverlay(statistics);
-	//ImGui::ShowStyleEditor();
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
 	
@@ -411,21 +406,7 @@ void UIManager::drawOverlay(const Statistics& statistics) const
 		return;
 	}
 
-	// const auto& io = ImGui::GetIO();
-	// const float distance = 10.0f;
-	// const ImVec2 pos = ImVec2(io.DisplaySize.x - distance, distance);
-	// const ImVec2 posPivot = ImVec2(1.0f, 0.0f);
-	// ImGui::SetNextWindowPos(pos, ImGuiCond_Always, posPivot);
-	//AUIScreen::setWindowAlignment(ScreenAlign::TOP_LEFT);
 	ImGui::SetNextWindowBgAlpha(0.3f); // Transparent background
-
-	//const auto flags =
-	//	ImGuiWindowFlags_AlwaysAutoResize |
-	//	ImGuiWindowFlags_NoDecoration |
-	//	ImGuiWindowFlags_NoFocusOnAppearing |
-	//	ImGuiWindowFlags_NoMove |
-	//	ImGuiWindowFlags_NoNav |
-	//	ImGuiWindowFlags_NoSavedSettings;
 
 	if (ImGui::Begin("Statistics", &settings()->ShowOverlay, UISettings::GlobalWindowFlags))
 	{
@@ -440,6 +421,7 @@ void UIManager::drawOverlay(const Statistics& statistics) const
 
 void UIManager::reset()
 {
+	saveDynamicLayout();
 	//ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 	delete sharedInstance;
 }
