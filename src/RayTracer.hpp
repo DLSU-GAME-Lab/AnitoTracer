@@ -67,7 +67,7 @@ private:
 
 	std::unique_ptr<Assets::Scene> scene_;
 	std::unique_ptr<Assets::TextureImage> skyboxTextureImage_;
-	std::unique_ptr<const Assets::RayScene> rayScene_;
+	std::unique_ptr<Assets::RayScene> rayScene_;
 	//std::unique_ptr<class UserInterface> userInterface_;
 
 	double time_{};

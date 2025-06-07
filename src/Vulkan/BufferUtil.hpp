@@ -46,7 +46,7 @@ namespace Vulkan
 
 		// Copy the staging buffer to the device buffer.
 		dstBuffer.CopyFrom(commandPool, *stagingBuffer, contentSize);
-
+		
 		// Delete the buffer before the memory
 		stagingBuffer.reset();
 	}

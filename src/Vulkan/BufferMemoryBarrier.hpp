@@ -17,7 +17,7 @@ namespace Vulkan
 			const VkAccessFlags dstAccessMask)
 		{
 			VkBufferMemoryBarrier barrier;
-			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 			barrier.pNext = nullptr;
 			barrier.srcAccessMask = srcAccessMask;
 			barrier.dstAccessMask = dstAccessMask;

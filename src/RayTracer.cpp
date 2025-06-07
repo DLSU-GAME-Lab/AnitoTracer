@@ -92,6 +92,7 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.NumberOfSamples = numberOfSamples_;
 	ubo.NumberOfBounces = userSettings_.NumberOfBounces;
 	ubo.RandomSeed = 1;
+	ubo.MaxRays = 16;
 	ubo.HasSky = init.HasSky;
 	ubo.ShowHeatmap = userSettings_.ShowHeatmap;
 	ubo.HeatmapScale = userSettings_.HeatmapScale;
@@ -218,11 +219,13 @@ void RayTracer::DrawFrame()
 	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
 	totalNumberOfSamples_ += numberOfSamples_;
 
+	
 	Application::DrawFrame();
 }
 
 void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 {
+	rayScene_->Update(CommandPool());
 	// Record delta time between calls to Render.
 	const auto prevTime = time_;
 	time_ = Window().GetTime();
@@ -479,7 +482,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	//std::cout << "Skybox ImageView: " << scene_->SkyboxImageView() << std::endl;
 	//std::cout << "Skybox Sampler: " << scene_->SkyboxSampler() << std::endl;
 
-	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
+	rayScene_.reset(new Assets::RayScene(CommandPool()));
 	sceneIndex_ = sceneIndex;
 
 	userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
@@ -523,7 +526,7 @@ void RayTracer::ReloadModifiedScene()
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
 	);
-	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
+	rayScene_.reset(new Assets::RayScene(CommandPool()));
 
 	// userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
 	// userSettings_.Aperture = cameraInitialSate_.Aperture;

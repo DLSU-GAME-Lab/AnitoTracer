@@ -32,6 +32,7 @@ set(src_files_assets
 	Assets/Sphere.hpp
 	Assets/Ray.cpp
 	Assets/Ray.hpp
+	Assets/RayVertex.hpp
 )
 
 set(src_files_obb
