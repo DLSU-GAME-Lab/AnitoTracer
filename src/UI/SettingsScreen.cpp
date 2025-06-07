@@ -30,6 +30,7 @@ void SettingsScreen::drawUI()
 		ImGui::BulletText("F1: toggle Settings.");
 		ImGui::BulletText("F2: toggle Statistics.");
 		ImGui::BulletText("WASD/Q/E: move camera.");
+		ImGui::BulletText("Hold RMB: look around.");
 		ImGui::NewLine();
 
 		ImGui::Text("Scene");
