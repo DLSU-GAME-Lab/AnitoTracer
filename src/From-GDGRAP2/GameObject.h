@@ -14,7 +14,7 @@ public:
 
     enum PrimitiveType {
         CAMERA, CUBE, OBJECT_GROUP, QUAD, PLANE, CYLINDER, CAPSULE, SPHERE,
-        POINT_LIGHT, DIRECTIONAL_LIGHT, SPOT_LIGHT, NONE
+        POINT_LIGHT, DIRECTIONAL_LIGHT, SPOT_LIGHT, MESH, NONE
     };
 
     typedef glm::vec3 vec3;

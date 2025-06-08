@@ -65,7 +65,7 @@ namespace Assets {
 		const std::string materialPath = std::filesystem::path(filename).parent_path().string();
 
 		Assimp::Importer objectImporter;
-		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_FlipUVs | aiProcess_Triangulate | 0);
+		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_FindDegenerates | aiProcess_SortByPType | 0);
 		// read file and return an aiScene containing model attributes
 
 		if (scene == nullptr)
@@ -220,7 +220,10 @@ namespace Assets {
 		std::cout << "(" << totalvertices << " vertices, " << uniqueVertices.size() << " unique vertices, " << materials.size() << " materials) ";
 		std::cout << elapsed << "s" << std::endl;
 
-		return Model(name, std::move(vertices), std::move(indices), std::move(materials), nullptr);
+		Model model = Model(name, std::move(vertices), std::move(indices), std::move(materials), nullptr);
+		model.filepath = filename;
+
+		return model;
 	}
 
 
@@ -383,6 +386,7 @@ namespace Assets {
 
 
 			Model model = Model(name, std::move(vertices), std::move(indices), std::move(meshMaterials), nullptr);
+			model.filepath = filename;
 			models.push_back(model);
 		}
 

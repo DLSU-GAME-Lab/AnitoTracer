@@ -725,10 +725,6 @@ SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 	const auto mirror = MaterialLibrary::getInstance()->getMaterial(L"Mirror");
 	//const auto mirror = Material::Dielectric(1.6f, 0.0f); 
 
-	// Add light objects
-	std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl1);
-
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();

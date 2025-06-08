@@ -102,10 +102,10 @@ void MenuScreen::drawUI()
 				if (ImGui::MenuItem("Capsule")) { onCreateCapsuleClicked(); }
 				if (ImGui::MenuItem("Cylinder")) { onCreateCylinderClicked(); }
 				if (ImGui::MenuItem("Plane")) { this->OnCreatePlaneClicked(); }
-				if (ImGui::BeginMenu("Probes")) {
-					if (ImGui::MenuItem("Reflection Probe")) { this->OnCreateRProbe(); } // todo: fix transparent probe to be transparent instead of reflective
+				if (ImGui::BeginMenu("Reflective Spheres")) {
+					if (ImGui::MenuItem("Reflective Sphere")) { this->OnCreateRProbe(); } // todo: fix transparent probe to be transparent instead of reflective
 					//if (ImGui::MenuItem("Create Transparent Probe")) { this->OnCreateTProbe(); }
-					if (ImGui::MenuItem("Metallic Probe")) { this->OnCreateMProbe(); }
+					if (ImGui::MenuItem("Metallic Sphere")) { this->OnCreateMProbe(); }
 					ImGui::EndMenu();
 				}
 				ImGui::EndMenu();
