@@ -29,7 +29,7 @@ public:
 protected:
 
 	const Assets::Scene& GetScene() const override { return *scene_; }
-	const Assets::RayScene& GetRayScene() const { return *rayScene_; }
+	const Assets::RayScene& GetRayScene() const override { return *rayScene_; }
 	Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const override;
 	Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const override;
 
@@ -67,7 +67,7 @@ private:
 
 	std::unique_ptr<Assets::Scene> scene_;
 	std::unique_ptr<Assets::TextureImage> skyboxTextureImage_;
-	std::unique_ptr<const Assets::RayScene> rayScene_;
+	std::unique_ptr<Assets::RayScene> rayScene_;
 	//std::unique_ptr<class UserInterface> userInterface_;
 
 	double time_{};

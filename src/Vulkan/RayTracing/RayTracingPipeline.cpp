@@ -1,6 +1,7 @@
 #include "RayTracingPipeline.hpp"
 #include "DeviceProcedures.hpp"
 #include "TopLevelAccelerationStructure.hpp"
+#include "Assets/RayScene.hpp"
 #include "Assets/Scene.hpp"
 #include "Assets/UniformBuffer.hpp"
 #include "Utilities/Exception.hpp"
@@ -24,7 +25,8 @@ RayTracingPipeline::RayTracingPipeline(
 	const ImageView& accumulationImageView,
 	const ImageView& outputImageView,
 	const std::vector<Assets::UniformBuffer>& uniformBuffers,
-	const Assets::Scene& scene) :
+	const Assets::Scene& scene,
+	const Assets::RayScene& rayScene) :
 	swapChain_(swapChain)
 {
 	// Create descriptor pool/sets.
@@ -55,7 +57,13 @@ RayTracingPipeline::RayTracingPipeline(
 		{10, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR},
 
 		// Skybox
-		{11, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR}
+		{11, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR},
+
+		// Ray Visualization Data
+		{ 12, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+		{ 13, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+		{ 14, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+		{ 15, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR }
 	};
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -119,7 +127,27 @@ RayTracingPipeline::RayTracingPipeline(
 		VkDescriptorImageInfo skyboxImageInfo = {};
 		skyboxImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		skyboxImageInfo.imageView = scene.SkyboxImageView();   
-		skyboxImageInfo.sampler = scene.SkyboxSampler();      
+		skyboxImageInfo.sampler = scene.SkyboxSampler();
+
+		// Ray Debug buffer
+		VkDescriptorBufferInfo rayVertexBufferInfo = {};
+		rayVertexBufferInfo.buffer = rayScene.RayVertexBuffer().Handle();
+		rayVertexBufferInfo.range = VK_WHOLE_SIZE;
+
+		// Ray Counter buffer
+		VkDescriptorBufferInfo rayCounterBufferInfo = {};
+		rayCounterBufferInfo.buffer = rayScene.RayCounterBuffer().Handle();
+		rayCounterBufferInfo.range = VK_WHOLE_SIZE;
+
+		// Ray Counter buffer
+		VkDescriptorBufferInfo rayIndexBufferInfo = {};
+		rayIndexBufferInfo.buffer = rayScene.RayCounterBuffer().Handle();
+		rayIndexBufferInfo.range = VK_WHOLE_SIZE;
+
+		// Ray Counter buffer
+		VkDescriptorBufferInfo rayInfoBufferInfo = {};
+		rayInfoBufferInfo.buffer = rayScene.RayCounterBuffer().Handle();
+		rayInfoBufferInfo.range = VK_WHOLE_SIZE;
 
 		for (size_t t = 0; t != imageInfos.size(); ++t)
 		{
@@ -155,6 +183,10 @@ RayTracingPipeline::RayTracingPipeline(
 		}
 
 		descriptorWrites.push_back(descriptorSets.Bind(i, 11, skyboxImageInfo));
+		descriptorWrites.push_back(descriptorSets.Bind(i, 12, rayCounterBufferInfo));
+		descriptorWrites.push_back(descriptorSets.Bind(i, 13, rayVertexBufferInfo));
+		descriptorWrites.push_back(descriptorSets.Bind(i, 14, rayIndexBufferInfo));
+		descriptorWrites.push_back(descriptorSets.Bind(i, 15, rayInfoBufferInfo));
 		
 		descriptorSets.UpdateDescriptors(i, descriptorWrites);
 	}
