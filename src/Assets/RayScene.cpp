@@ -54,8 +54,6 @@ void RayScene::Update(Vulkan::CommandPool& commandPool)
 	{
 		const auto contentSize = sizeof(RayVertex) * 512;
 
-		// TODO: Try to use the provided command buffer than a single time command
-
 		auto stagingBuffer = std::make_unique<Vulkan::Buffer>(commandPool.Device(), contentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		auto stagingBufferMemory = stagingBuffer->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
