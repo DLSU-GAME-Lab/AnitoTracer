@@ -32,6 +32,10 @@ void SettingsScreen::drawUI()
 		ImGui::BulletText("F2: toggle Statistics.");
 		ImGui::BulletText("WASD/Q/E: move camera.");
 		ImGui::BulletText("Hold RMB: look around.");
+		ImGui::BulletText("T: enable/disable ray tracing.");
+		ImGui::BulletText("R: enable/disable ray visualization.");
+		ImGui::NewLine();
+		ImGui::TextWrapped("Tip: Click in the scene to use shortcuts in the scene.");
 		ImGui::NewLine();
 
 		ImGui::Text("Scene");
@@ -44,8 +48,8 @@ void SettingsScreen::drawUI()
 		ImGui::Text("Ray Tracing");
 		ImGui::Separator();
 		/*ImGui::Checkbox("Enable ray tracing", &settings->IsRayTraced);*/
-		ImGui::Text("Press T to enable/disable ray tracing");
-		ImGui::Text("Press R to visualize/hide rays while in ray tracing mode");
+		//ImGui::Text("Press T to enable/disable ray tracing");
+		ImGui::TextWrapped("Tip: To visualize rays, you must be in ray visualization mode.");
 		ImGui::Checkbox("Accumulate rays between frames", &settings->AccumulateRays);
 		uint32_t min = 1, max = 512;
 		ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);

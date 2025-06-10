@@ -88,6 +88,7 @@ const std::vector<std::tuple<std::string, std::function<SceneAssets(SceneList::C
 	{"AnitoTracer - Demo Scene", AnitoTracer_DemoScene},
 	{"Model Showcase - Blank", Model_Showcase},
 	{"Sponza", Sponza},
+	{"San Miguel", SanMiguel},
 	{"Empty", Empty},
 };
 
@@ -846,6 +847,81 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 
 	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
 }
+
+SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
+{
+	camera.ModelView = lookAt(vec3(800, 400, -230), vec3(-350, 200, 65), vec3(0, 1, 0));
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	std::mt19937 engine(1);
+	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
+
+	bool isProcedural = false;
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotation(0, 0, 0);
+	ModelManager::getInstance()->addObject(areaLightObject);
+
+	std::shared_ptr<Camera> cameraObj = std::make_shared<Camera>("Camera");
+	ModelManager::getInstance()->addObject(cameraObj);
+	cameraObj->setLocalPosition(0, 10.0f, 0);
+	CameraManager::getInstance()->addCamera(cameraObj);
+
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	Model sphere4Model = Model::CreateSphere(vec3(0, 0, 0), 100.0f, *groundReflectMat, false);
+	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
+	ModelManager::getInstance()->addObject(sphere);
+	sphere->setLocalPosition(-350, 200, -45);
+
+	Model sphere2Model = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
+	std::shared_ptr<GameObject> sphere2 = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere2Model));
+	ModelManager::getInstance()->addObject(sphere2);
+	sphere2->setLocalPosition(-500, 500, -45);
+
+	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/San_Miguel/san-miguel.obj");
+
+	sm.Transform(
+		rotate(
+			scale(
+				translate(i, vec3(0, 0, 0)),
+				vec3(50)),
+			radians(0.0f), vec3(0, 1, 0)));
+
+	std::shared_ptr<GameObject> smObj;
+
+	if (sm.GetName() == "")
+		smObj = std::make_shared<GameObject>("San Miguel", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(sm));
+	else
+		smObj = std::make_shared<GameObject>(sm.GetName(), GameObject::PrimitiveType::CUBE, std::make_shared<Model>(sm));
+
+	ModelManager::getInstance()->addObject(smObj);
+	smObj->setLocalPosition(0, 0, 0);
+	smObj->setLocalScale(50,50,50);
+	
+
+	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	textures.push_back(Texture::LoadTexture(FileUtils::getAssetsFolderPath().generic_string() + "/textures/2k_moon.jpg", Vulkan::SamplerConfig()));
+
+	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+}
+
+
 
 SceneAssets SceneList::Empty(CameraInitialState& camera)
 {

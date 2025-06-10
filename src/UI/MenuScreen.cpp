@@ -79,6 +79,7 @@ void MenuScreen::drawUI()
 			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo(); }
 			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase(); }
 			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); }
+			if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel(); }
 			if (ImGui::BeginMenu("Custom Scenes"))
 			{
 				this->OnLoadEmpty();
@@ -111,8 +112,8 @@ void MenuScreen::drawUI()
 				ImGui::EndMenu();
 			} 
 			if (ImGui::BeginMenu("Meshes")) {													// todo: add benchmark/basic meshes
-				if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
-				if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
+				//if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
+				//if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
 				if (ImGui::MenuItem("Lucy")) { onCreateLucyClicked(); }
 				//if (ImGui::MenuItem("CornellBox")) { onCreateCornellClicked(); }
 
@@ -435,10 +436,10 @@ void MenuScreen::onCreateBunnyClicked()
 		rotate(
 			scale(
 				translate(i, vec3(1)),
-				vec3(1500.0f)),
+				vec3(1.0f)),
 			radians(0.0f), vec3(0, 1, 0)));
 	std::shared_ptr<GameObject> bunnyObj = std::make_shared<GameObject>("Bunny", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(bunny));
-	bunnyObj->setLocalScale(1000.0f, 1000.0f, 1000.0f);
+	bunnyObj->setLocalScale(100.0f, 100.0f, 100.0f);
 	ModelManager::getInstance()->addObject(bunnyObj);
 }
 
@@ -452,11 +453,11 @@ void MenuScreen::onCreateTeapotClicked()
 		rotate(
 			scale(
 				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
-				vec3(0.6f)),
+				vec3(1)),
 			radians(75.0f), vec3(0, 1, 0)));
 
 	std::shared_ptr<GameObject> teapotObj = std::make_shared<GameObject>("Teapot", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(teapot));
-	teapotObj->setLocalScale(100.0f, 100.0f, 100.0f);
+	teapotObj->setLocalScale(5.0f, 5.0f, 5.0f);
 	ModelManager::getInstance()->addObject(teapotObj);
 }
 
@@ -470,7 +471,7 @@ void MenuScreen::onCreateLucyClicked()
 		rotate(
 			scale(
 				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
-				vec3(0.6f)),
+				vec3(0.5)),
 			radians(75.0f), vec3(0, 1, 0)));
 
 	std::shared_ptr<GameObject> lucyObj = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(lucy0));
@@ -572,6 +573,14 @@ void MenuScreen::OnLoadSponza()
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 11);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+}
+
+void MenuScreen::OnLoadSanMiguel()
+{
+	ModelManager::getInstance()->clearAllObjects();
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", 12);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 
