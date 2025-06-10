@@ -3,11 +3,11 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
-layout(location = 0) in vec3 FragColor;
+layout(location = 0) flat in vec4 FragColor;
 
 layout(location = 0) out vec4 OutColor;
 
 void main() 
 {
-	OutColor = vec4(FragColor, 1.0f);
+	OutColor = FragColor;
 }
