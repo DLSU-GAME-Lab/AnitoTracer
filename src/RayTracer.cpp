@@ -221,13 +221,13 @@ void RayTracer::DrawFrame()
 	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
 	totalNumberOfSamples_ += numberOfSamples_;
 
+	rayScene_->Update(CommandPool());
 	
 	Application::DrawFrame();
 }
 
 void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 {
-	rayScene_->Update(CommandPool());
 	// Record delta time between calls to Render.
 	const auto prevTime = time_;
 	time_ = Window().GetTime();
