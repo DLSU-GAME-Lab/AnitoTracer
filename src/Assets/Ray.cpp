@@ -1,10 +1,11 @@
 #include "Ray.hpp"
 
+#include "From-GDGRAP2/Debug.h"
 #include "Vulkan/BufferUtil.hpp"
 
 namespace Assets
 {
-	Ray::Ray(Vulkan::CommandPool& commandPool, std::vector<Vertex> vertices)
+	Ray::Ray(Vulkan::CommandPool& commandPool, std::vector<RayVertex> vertices)
 	{
 		vertices_.insert(vertices_.end(), vertices.begin(), vertices.end());
 
@@ -22,11 +23,12 @@ namespace Assets
 
 	}
 
-	void Ray::Reset() {
+	void Ray::Reset()
+	{
 		vertices_.clear();
 	}
 
-	void Ray::AddVertex(Vulkan::CommandPool& commandPool, Vertex vertex)
+	void Ray::AddVertex(Vulkan::CommandPool& commandPool, RayVertex vertex)
 	{
 		vertices_.push_back(vertex);
 

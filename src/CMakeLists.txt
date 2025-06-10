@@ -33,6 +33,7 @@ set(src_files_assets
 	Assets/Ray.cpp
 	Assets/Ray.hpp
 	Assets/RayVertex.hpp
+	Assets/RayInfo.hpp
 )
 
 set(src_files_obb
