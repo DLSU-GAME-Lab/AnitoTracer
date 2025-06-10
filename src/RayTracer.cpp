@@ -130,6 +130,7 @@ void RayTracer::SetPhysicalDevice(
 	deviceFeatures.fillModeNonSolid = true;
 	deviceFeatures.samplerAnisotropy = true;
 	deviceFeatures.shaderInt64 = true;
+	
 
 	Application::SetPhysicalDevice(physicalDevice, requiredExtensions, deviceFeatures, &shaderClockFeatures);
 }
@@ -352,18 +353,6 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 			case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
 			case GLFW_KEY_R: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			case GLFW_KEY_L:
-				{
-					auto& commandPool = CommandPool();
-					Assets::Vertex vertex2{glm::vec3(100.0f,100.0f,0.0f), glm::vec3(0,0,0), glm::vec2(0,0), -1 };
-					Assets::Vertex vertex3{glm::vec3(200.0f,500.0f,0.0f), glm::vec3(0,0,0), glm::vec2(0,0), -1 };
-
-					rayScene_->Rays()[0]->Reset();
-					rayScene_->Rays()[0]->AddVertex(commandPool, vertex2);
-					rayScene_->Rays()[0]->AddVertex(commandPool, vertex3);
-					Debug::Log(std::to_string(rayScene_->Rays()[0]->NumberOfVertices()) + "\n");
-					break;
-				}
 			default: break;
 			}
 		}

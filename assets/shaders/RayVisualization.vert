@@ -9,8 +9,9 @@
 layout(binding = 0) readonly uniform UniformBufferObjectStruct { UniformBufferObject Camera; };
 
 layout(location = 0) in vec3 InPosition;
+layout(location = 1) in vec4 InColor;
 
-layout(location = 0) out vec3 FragColor;
+layout(location = 0) flat out vec4 FragColor;
 
 out gl_PerVertex
 {
@@ -21,5 +22,5 @@ void main()
 {
     gl_Position = Camera.Projection * Camera.ModelView * vec4(InPosition.xyz, 1.0);
     //gl_Position = vec4(InPosition, 1.0);
-    FragColor = vec3(0.5f, 1.0f, 0.0f);
+    FragColor = InColor;
 }
