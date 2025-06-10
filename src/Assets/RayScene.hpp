@@ -6,6 +6,8 @@
 
 #include "Engine/LightSystem/Light.h"
 
+struct UserSettings;
+
 namespace Vulkan
 {
 	class Buffer;
@@ -30,7 +32,7 @@ namespace Assets
 		RayScene& operator = (const RayScene&) = delete;
 		RayScene& operator = (RayScene&&) = delete;
 
-		RayScene(Vulkan::CommandPool& commandPool);
+		RayScene(Vulkan::CommandPool& commandPool, UserSettings& userSettings);
 		~RayScene();
 
 		void Update(Vulkan::CommandPool& commandPool);

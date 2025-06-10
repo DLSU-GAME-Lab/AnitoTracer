@@ -60,6 +60,10 @@ void SettingsScreen::drawUI()
 		ImGui::SliderScalar("Bounces", ImGuiDataType_U32, &settings->NumberOfBounces, &min, &max);
 		ImGui::NewLine();
 
+		ImGui::Text("Ray Visualization");
+		min = 16; max = 64;
+		ImGui::SliderScalarN("Max Rays", ImGuiDataType_U32, &settings->MaxRays, 1, &min, &max);
+
 		ImGui::Text("Camera");
 		ImGui::Separator();
 		ImGui::SliderFloat("FoV", &settings->FieldOfView, UserSettings::FieldOfViewMinValue, UserSettings::FieldOfViewMaxValue, "%.0f");
