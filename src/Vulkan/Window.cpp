@@ -68,6 +68,9 @@ Window::Window(const WindowConfig& config) :
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, config.Resizable ? GLFW_TRUE : GLFW_FALSE);
+	glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+	glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
+	//glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 
 	auto* const monitor = config.Fullscreen ? glfwGetPrimaryMonitor() : nullptr;
 
