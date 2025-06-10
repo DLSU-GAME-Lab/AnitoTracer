@@ -26,16 +26,19 @@ void SettingsScreen::drawUI()
 
 		UserSettings* settings = UIManager::getInstance()->settings();
 
-		ImGui::Text("Help");
+		ImGui::Text("AnitoTracer Shortcuts");
 		ImGui::Separator();
-		ImGui::BulletText("F1: toggle Settings.");
-		ImGui::BulletText("F2: toggle Statistics.");
-		ImGui::BulletText("WASD/Q/E: move camera.");
-		ImGui::BulletText("Hold RMB: look around.");
-		ImGui::BulletText("T: enable/disable ray tracing.");
-		ImGui::BulletText("R: enable/disable ray visualization.");
+		ImGui::BulletText("F1: Toggle Settings");
+		ImGui::BulletText("F2: Toggle Statistics");
+		ImGui::BulletText("F3: Toggle All UI");
+		ImGui::Separator();
+		ImGui::BulletText("Hold RMB & WASD/Q/E: Move Camera");
+		ImGui::BulletText("Hold RMB and drag: look around");
+		ImGui::Separator();
+		ImGui::BulletText("T: enable/disable ray tracing");
+		ImGui::BulletText("V: enable/disable ray visualization");
 		ImGui::NewLine();
-		ImGui::TextWrapped("Tip: Click in the scene to use shortcuts in the scene.");
+		ImGui::TextWrapped("Tip: Click in the scene to use shortcuts in the scene");
 		ImGui::NewLine();
 
 		ImGui::Text("Scene");

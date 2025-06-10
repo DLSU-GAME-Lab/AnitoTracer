@@ -53,25 +53,37 @@ glm::mat4 Camera::ModelView()
 
 bool Camera::OnKey(const int key, const int scancode, const int action, const int mods)
 {
-	switch (key)
+	if (key == GLFW_KEY_F && action != GLFW_REPEAT)
 	{
-	case GLFW_KEY_S: cameraMovingBackward_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_W: cameraMovingForward_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_A: cameraMovingLeft_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_D: cameraMovingRight_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_Q: cameraMovingDown_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_E: cameraMovingUp_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_LEFT_ALT: camSlowed = action != GLFW_RELEASE; return true;
-
-	case GLFW_KEY_F: {
-
 		auto selected = ModelManager::getInstance()->getSelectedObject();
 
-		this->Reset(lookAt(selected->getWorldPosition(), selected->getWorldPosition() - vec3(0, 0, 100), vec3(0, 1, 0)));
-
-		break;
+		if (selected) {
+			this->Reset(lookAt(
+				selected->getWorldPosition(),
+				selected->getWorldPosition() - glm::vec3(0, 0, 100),
+				glm::vec3(0, 1, 0)
+			));
+		}
+		return true;
 	}
 
+	if (key == GLFW_KEY_ESCAPE && action != GLFW_REPEAT) 
+	{
+		exit(0); // temp exit lol 
+	}
+
+	if (!mouseRightPressed_)
+		return false;
+
+	switch (key)
+	{
+		case GLFW_KEY_S: cameraMovingBackward_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_W: cameraMovingForward_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_A: cameraMovingLeft_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_D: cameraMovingRight_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_Q: cameraMovingDown_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_E: cameraMovingUp_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_LEFT_ALT: camSlowed = action != GLFW_RELEASE; return true;
 	default: return false;
 	}
 }

@@ -401,7 +401,7 @@ void UIManager::drawOverlay(const Statistics& statistics) const
 		return;
 	}
 
-	ImGui::SetNextWindowBgAlpha(0.3f); // Transparent background
+	//ImGui::SetNextWindowBgAlpha(0.3f); // Transparent background
 
 	if (ImGui::Begin("Statistics", &settings()->ShowOverlay, UISettings::GlobalWindowFlags))
 	{
@@ -432,6 +432,11 @@ void UIManager::drawAllUI() const
 
 bool UIManager::getEnabled(const std::string& name)
 {
+	if (name == "Statistics")
+	{
+		return userSettings->ShowOverlay;
+	}
+
 	if (!this->uiTable[name])
 		return false;
 
@@ -440,6 +445,12 @@ bool UIManager::getEnabled(const std::string& name)
 
 void UIManager::setEnabled(const String& uiName, const bool flag)
 {
+	if (uiName == "Statistics")
+	{
+		userSettings->ShowOverlay = flag;
+		return;
+	}
+
 	if (this->uiTable[uiName] != nullptr)
 	{
 		this->uiTable[uiName]->setEnabled(flag);
@@ -448,6 +459,12 @@ void UIManager::setEnabled(const String& uiName, const bool flag)
 
 void UIManager::toggleEnabled(const String& uiName)
 {
+	if (uiName == "Statistics")
+	{
+		userSettings->ShowOverlay = !userSettings->ShowOverlay;
+		return;
+	}
+
 	if (this->uiTable[uiName] != nullptr)
 	{
 		this->uiTable[uiName]->toggleEnabled();
@@ -473,6 +490,7 @@ void UIManager::toggleAllUI()
 	}
 
 	isHidingUI = !isHidingUI;
+	userSettings->ShowOverlay = !userSettings->ShowOverlay;
 }
 
 void UIManager::hideAllUI() const

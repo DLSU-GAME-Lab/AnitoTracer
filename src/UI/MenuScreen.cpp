@@ -41,27 +41,31 @@ void MenuScreen::drawUI()
 {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
-			if (ImGui::MenuItem("Undo", "Ctrl+Z"))
-			{
-				//GameObjectManager::get()->applyAction(ActionHistory::get()->undoAction());
-			}
-			if (ImGui::MenuItem("Redo", "Ctrl+Y"))
-			{
-				//GameObjectManager::get()->applyAction(ActionHistory::get()->redoAction());
-			}
-			if (ImGui::MenuItem("Open..", "Ctrl+O")) {
-				//this->openSceneDialog->Open();
-			}
-			if (ImGui::MenuItem("Save", "Ctrl+S")) {
-				//this->saveSceneDialog->Open();
-			}
-			if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {
-				//this->saveSceneDialog->Open();
+			//if (ImGui::MenuItem("Undo", "Ctrl+Z"))
+			//{
+			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->undoAction());
+			//}
+			//if (ImGui::MenuItem("Redo", "Ctrl+Y"))
+			//{
+			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->redoAction());
+			//}
+			//if (ImGui::MenuItem("Open..", "Ctrl+O")) {
+			//	//this->openSceneDialog->Open();
+			//}
+			//if (ImGui::MenuItem("Save", "Ctrl+S")) {
+			//	//this->saveSceneDialog->Open();
+			//}
+			//if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {
+			//	//this->saveSceneDialog->Open();
+			//}
+			if (ImGui::MenuItem("Save Scene As", nullptr, isSaveSceneAsOpen)) 
+			{ 
+				isSaveSceneAsOpen = !isSaveSceneAsOpen;
 			}
 
 			ImGui::Separator();
 
-			if (ImGui::MenuItem("Exit Editor", "Ctrl+W"))
+			if (ImGui::MenuItem("Exit Editor", "Esc"))
 			{
 				// Walnut::Application::Get().Close();
 				exit(0); // temp exit lol 
@@ -71,7 +75,6 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Scene"))
 		{
-			if (ImGui::MenuItem("Refresh Scene", "F5")) { EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); }
 			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); }
 			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); }
 			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); }
@@ -89,11 +92,10 @@ void MenuScreen::drawUI()
 				}
 				ImGui::EndMenu();
 			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Refresh Scene", "F5")) { EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); }
 			if (ImGui::MenuItem("Delete All Objects in Current Scene")) { this->OnLoadEmpty(); }
 
-			// Scene IO
-			ImGui::Separator();
-			if (ImGui::MenuItem("Save Scene As", nullptr, isSaveSceneAsOpen)) { isSaveSceneAsOpen = !isSaveSceneAsOpen; }
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Objects")) {
@@ -117,6 +119,7 @@ void MenuScreen::drawUI()
 				if (ImGui::MenuItem("Lucy")) { onCreateLucyClicked(); }
 				//if (ImGui::MenuItem("CornellBox")) { onCreateCornellClicked(); }
 
+				ImGui::Separator();
 				if (ImGui::MenuItem("Import Mesh From File...", nullptr, isLoadObjOpen))
 				{
 					isLoadObjOpen = !isLoadObjOpen;
@@ -136,10 +139,10 @@ void MenuScreen::drawUI()
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Components")) {
-			if (ImGui::MenuItem("Material")) { this->OnMaterialComponentClicked(); }
-			ImGui::EndMenu();
-		}
+		//if (ImGui::BeginMenu("Components")) {
+		//	if (ImGui::MenuItem("Material")) { this->OnMaterialComponentClicked(); }
+		//	ImGui::EndMenu();
+		//}
 
 		if (ImGui::BeginMenu("Tools"))
 		{
@@ -163,12 +166,16 @@ void MenuScreen::drawUI()
 			{
 				UIManager::getInstance()->toggleEnabled(UINames::CONSOLE_SCREEN);
 			}
-			if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
+			if (ImGui::MenuItem("Statistics", nullptr, UIManager::getInstance()->getEnabled("Statistics")))
 			{
-				UIManager::getInstance()->toggleEnabled(UINames::PLAYBACK_SCREEN);
+				UIManager::getInstance()->toggleEnabled("Statistics");
 			}
-			if (ImGui::BeginMenu("Viewport"))
-			{
+			//if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
+			//{
+			//	UIManager::getInstance()->toggleEnabled(UINames::PLAYBACK_SCREEN);
+			//}
+			//if (ImGui::BeginMenu("Viewport"))
+			//{
 				// if (ImGui::MenuItem("Create Viewport"))
 				// {
 				// 	ViewportManager::get()->createViewport();
@@ -193,17 +200,17 @@ void MenuScreen::drawUI()
 				// {
 				// 	ViewportManager::get()->deleteAllViewports();
 				// }
-				ImGui::EndMenu();
-			}
+			//	ImGui::EndMenu();
+			//}
 			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
 			{
 				UIManager::getInstance()->toggleEnabled(UINames::MATERIAL_EDITOR_SCREEN);
 			}
 
-			if (ImGui::MenuItem("Color Picker", nullptr, isColorPickerOpen))
-			{
-				isColorPickerOpen = !isColorPickerOpen;
-			}
+			//if (ImGui::MenuItem("Color Picker", nullptr, isColorPickerOpen))
+			//{
+			//	isColorPickerOpen = !isColorPickerOpen;
+			//}
 
 			ImGui::EndMenu();
 		}
