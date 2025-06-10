@@ -244,6 +244,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
 		: Vulkan::Application::Render(commandBuffer, imageIndex);
 
+	// Render ray visualization
 	if (isVisualizeRays_)
 	{
 		std::array<VkClearValue, 2> clearValues = {};
@@ -260,43 +261,23 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
-			const auto& scene = GetRayScene();
+			const auto& rayScene = GetRayScene();
 
 			VkDescriptorSet descriptorSets[] = { rayVisualizationPipeline_->DescriptorSet(imageIndex) };
-			//VkBuffer vertexBuffers[] = { scene.VertexBuffer().Handle() };
-			//const VkBuffer indexBuffer = scene.IndexBuffer().Handle();
 			VkDeviceSize offsets[] = { 0 };
 
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->Handle());
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
 
-			for (const auto& rays : scene.Rays())
+			for (const auto& rays : rayScene.Rays())
 			{
 				VkBuffer vertexBuffer = rays->VertexBuffer().Handle();
 
 				vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
-				//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 				vkCmdSetLineWidth(commandBuffer, 5);
-				//vkCmdDrawIndexed(commandBuffer, 2, 1, 0, 0, 0);
                 
 				vkCmdDraw(commandBuffer, rays->NumberOfVertices(), 1, 0, 0);
 			}
-			/*uint32_t vertexOffset = 0;
-			uint32_t indexOffset = 0;*/
-
-			/*for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
-			{
-				Assets::PushConstantModel modelConstant = GetPushConstantModel(model);
-				vkCmdPushConstants(commandBuffer, rayVisualizationPipeline_->PipelineLayout().Handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Assets::PushConstantModel), &modelConstant);
-
-				const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-				const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
-
-				vkCmdDrawIndexed(commandBuffer, indexCount, 1, indexOffset, vertexOffset, 0);
-
-				vertexOffset += vertexCount;
-				indexOffset += indexCount;
-			}*/
 		}
 
 		vkCmdEndRenderPass(commandBuffer);
