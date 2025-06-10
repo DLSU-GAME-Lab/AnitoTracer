@@ -43,6 +43,7 @@ public:
 	static SceneAssets AnitoTracer_DemoScene(CameraInitialState& camera);
 	static SceneAssets Model_Showcase(CameraInitialState& camera);
 	static SceneAssets Sponza(CameraInitialState& camera);
+	static SceneAssets SanMiguel(CameraInitialState& camera);
 	static SceneAssets Empty(CameraInitialState& camera);
 	static std::vector<Assets::Texture> AssembleTextureList();
 

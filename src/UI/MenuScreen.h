@@ -38,6 +38,7 @@ private:
 	void OnLoadAnitoTracerDemo();
 	void OnLoadShowcase();
 	void OnLoadSponza();
+	void OnLoadSanMiguel();
 	void OnLoadEmpty();
 	void ShowColorPickerWindow();
 
