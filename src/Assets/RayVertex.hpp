@@ -6,7 +6,7 @@
 
 namespace Assets
 {
-	struct alignas(16) RayVertex final
+	struct RayVertex final
 	{
 		glm::vec3 Position;
 		float pad;

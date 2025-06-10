@@ -2,7 +2,7 @@
 
 namespace Assets
 {
-	struct alignas(16) RayInfo final {
+	struct RayInfo final {
 		uint32_t RayCount;
 		uint32_t RayOffset;
 	};

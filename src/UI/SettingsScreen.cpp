@@ -61,7 +61,7 @@ void SettingsScreen::drawUI()
 		ImGui::NewLine();
 
 		ImGui::Text("Ray Visualization");
-		min = 16; max = 64;
+		min = 1; max = 128;
 		ImGui::SliderScalarN("Max Rays", ImGuiDataType_U32, &settings->MaxRays, 1, &min, &max);
 
 		ImGui::Text("Camera");

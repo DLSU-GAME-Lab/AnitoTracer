@@ -50,6 +50,7 @@ namespace Assets {
 	
 		if (numRays == maxRays_ && rays_.size() != maxRays_ && !hasRenderedRays_)
 		{
+			// Hard coded amount :>
 			const auto contentSize = sizeof(RayVertex) * 512;
 	
 			auto stagingBuffer = std::make_unique<Vulkan::Buffer>(commandPool.Device(), contentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
@@ -77,28 +78,19 @@ namespace Assets {
 			infoStagingBufferMemory.Unmap();
 	
 			infoStagingBuffer.reset();
-	
-			// I don't know why we have to divide it by 2 or else it's device memory lost
-			for (uint32_t i = 0; i < maxRays_ / 2; i++)
+
+			for (uint32_t i = 0; i < maxRays_; i++)
 			{
-				// Debug::Log("Ray " + std::to_string(i) +  " Count: " + std::to_string(rayInfos[i].RayCount) + "\n");
-				// Debug::Log("Ray " + std::to_string(i) +  " Offset: " + std::to_string(rayInfos[i].RayOffset) + "\n");
 				std::vector<RayVertex> vertices;
 				for (uint32_t j = 0; j < rayInfos[i].RayCount; j++)
 				{
 					const uint32_t offset = rayInfos[i].RayOffset;
-	
-					// Debug::Log("Vertex Pos " + std::to_string(j) + " (" + std::to_string(rayVertices[offset + j].Position.x) + ", " + std::to_string(rayVertices[offset + j].Position.y) + ", " + std::to_string(rayVertices[offset + j].Position.z) + ")\n");
-					// Debug::Log("Vertex Col" + std::to_string(j) + " (" + std::to_string(rayVertices[offset + j].Color.x) + ", " + std::to_string(rayVertices[offset + j].Color.y) + ", " + std::to_string(rayVertices[offset + j].Color.z) + ")\n");
 	
 					vertices.push_back(RayVertex{ rayVertices[offset * i + j].Position, 0, rayVertices[offset * i + j].Color });
 				}
 				rays_.push_back(new Ray(commandPool, vertices));
 			}
 			hasRenderedRays_ = true;
-	
-			// Debug::Log("Number of rays: " + std::to_string(numRays) + "\n");
-			// Debug::Log("Number of rays vector: " + std::to_string(rays_.size()) + "\n");
 	
 			delete[] rayInfos;
 		}
