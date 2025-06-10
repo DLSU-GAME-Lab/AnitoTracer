@@ -6,6 +6,8 @@
 #include <string>
 #include <nlohmann/json.hpp>
 
+#include "Utilities/FileUtils.h"
+
 using namespace nlohmann;
 class SceneIO {
 public:

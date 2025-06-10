@@ -83,7 +83,7 @@ void RayScene::Update(Vulkan::CommandPool& commandPool)
 		for (int i = 0; i < 4; i++)
 		{
 			//Debug::Log("Index " + std::to_string(rayIndices[i]) + "\n");
-			Debug::Log("Vertex " + std::to_string(i) + " (" + std::to_string(rayVertices[i].Position.x) + ", " + std::to_string(rayVertices[i].Position.y) + ", " + std::to_string(rayVertices[i].Position.z) + ")\n");
+			//Debug::Log("Vertex " + std::to_string(i) + " (" + std::to_string(rayVertices[i].Position.x) + ", " + std::to_string(rayVertices[i].Position.y) + ", " + std::to_string(rayVertices[i].Position.z) + ")\n");
 			vertices.push_back(Vertex{ rayVertices[i].Position, vec3(0, 0, 0), vec2(0, 0), -1});
 		}
 		rays_.push_back(new Ray(commandPool, vertices));
