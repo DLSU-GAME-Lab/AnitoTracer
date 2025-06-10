@@ -1,7 +1,9 @@
 #include "GameObject.h"
 
 #include <iostream>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include "EventBroadcaster.h"
 #include "ModelManager.h"
@@ -276,131 +278,89 @@ std::shared_ptr<BoundingBox> GameObject::getOBB() const
 
 void GameObject::updateObjectMatrix()
 {
-	this->mat_ = glm::translate(glm::mat4(1.0f), this->worldPosition);
+	glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), this->worldScale);
 
 	glm::mat4 rotateZ = glm::rotate(glm::mat4(1.0f), glm::radians(this->worldRotation.z), glm::vec3(0, 0, 1));
 	glm::mat4 rotateY = glm::rotate(glm::mat4(1.0f), glm::radians(this->worldRotation.y), glm::vec3(0, 1, 0));
 	glm::mat4 rotateX = glm::rotate(glm::mat4(1.0f), glm::radians(this->worldRotation.x), glm::vec3(1, 0, 0));
 
-	this->mat_ *= rotateZ * rotateY * rotateX;
+	glm::mat4 rotationMat = rotateZ * rotateY * rotateX;
+	glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), this->worldPosition);
 
-	this->mat_ = glm::scale(this->mat_, this->worldScale);
+	this->mat_ = translationMat * rotationMat * scaleMat;
+
 }
 
 
 void GameObject::updateWorldTransform()
 {
+	// Construct local transformation matrix: T * R * S
+	glm::mat4 localMat = glm::translate(glm::mat4(1.0f), localPosition) *
+		glm::yawPitchRoll(glm::radians(localRotation.y), glm::radians(localRotation.x), glm::radians(localRotation.z)) *
+		glm::scale(glm::mat4(1.0f), localScale);
 
-	if (this->parent)
-	{
-		this->worldPosition = this->parent->worldPosition + this->localPosition;
-		this->worldRotation = this->parent->worldRotation + this->localRotation;
-		this->worldScale = this->parent->worldScale * this->localScale;
+	// Combine with parent transform if exists
+	if (parent) {
+		mat_ = parent->mat_ * localMat;
 	}
-	else
-	{
-		this->worldPosition = this->localPosition;
-		this->worldRotation = this->localRotation;
-		this->worldScale = this->localScale;
+	else {
+		mat_ = localMat;
 	}
+
+	// Decompose mat_ to get world position, rotation, scale
+	glm::vec3 skew;
+	glm::vec4 perspective;
+	glm::quat rotationQuat;
+	glm::decompose(mat_, worldScale, rotationQuat, worldPosition, skew, perspective);
+	worldRotation = glm::degrees(glm::eulerAngles(rotationQuat)); // Convert quat to Euler in degrees
 
 	// Update children recursively
-	for (GameObject* child : this->children)
-	{
-		if (child)
-		{
+	for (GameObject* child : children) {
+		if (child) {
 			child->updateWorldTransform();
 		}
 	}
 
-	updateObjectMatrix();
+	// Update bounding box and model matrix
+	if (modelRef && !modelRef->Vertices().empty()) {
+		std::vector<glm::vec3> worldPositions;
+		worldPositions.reserve(modelRef->Vertices().size());
 
-	if (type != CAMERA)
-	{
-		//this->performModelTransform();
-		//this->performModelRotate();
-		//this->performModelScale();
-		/*if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
-			
-		}
-		else*/
-		{
-			mat4 worldMatrix(1);
-			mat4 translateOp = glm::translate(mat4(1.0), this->worldPosition/* - this->origin*/);
-			this->origin = this->worldPosition;
-
-			vec3 scaleOffset = this->worldScale / this->originScale;
-
-			mat4 scaleOp = glm::scale(mat4(1), this->worldScale);
-	
-			this->originScale = this->worldScale;
-
-			vec3 rotOffset = this->worldRotation - this->originRot;
-
-			mat4 translateToOrigin = glm::translate(mat4(1.0f), -this->worldPosition);
-
-			mat4 rotateXOp = glm::rotate(mat4(1), glm::radians(this->worldRotation.x), vec3(1, 0, 0));
-			mat4 rotateYOp = glm::rotate(mat4(1), glm::radians(this->worldRotation.y), vec3(0, 1, 0));
-			mat4 rotateZOp = glm::rotate(mat4(1), glm::radians(this->worldRotation.z), vec3(0, 0, 1));
-
-			mat4 translateBack = glm::translate(mat4(1.0f), this->worldPosition);
-
-			mat4 finalRotation = translateBack * rotateZOp * rotateYOp * rotateXOp * translateToOrigin;
-
-			this->originRot = this->worldRotation;
-
-			worldMatrix = scaleOp * finalRotation * translateOp;
-
-			if (modelRef)
-				this->modelRef->Transform(worldMatrix);
-
-			if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
-				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		for (const auto& vertex : modelRef->Vertices()) {
+			glm::vec3 posWorld = glm::vec3(mat_ * glm::vec4(vertex.Position, 1.0f));
+			worldPositions.push_back(posWorld);
 		}
 
-		if (this->modelRef && !this->modelRef->Vertices().empty())
-		{
-			glm::mat4 worldTransform = glm::translate(glm::mat4(1.0f), this->worldPosition);
+		// Calculate OBB axes from rotation matrix
+		glm::mat3 rotMat = glm::mat3_cast(rotationQuat);
+		glm::vec3 axisX = glm::normalize(rotMat[0]);
+		glm::vec3 axisY = glm::normalize(rotMat[1]);
+		glm::vec3 axisZ = glm::normalize(rotMat[2]);
 
-			worldTransform *= glm::eulerAngleYXZ(glm::radians(this->worldRotation.y),
-				glm::radians(this->worldRotation.x),
-				glm::radians(this->worldRotation.z));
+		std::array<glm::vec3, 3> axes = { axisX, axisY, axisZ };
 
-			worldTransform = glm::scale(worldTransform, this->worldScale);
+		// Calculate OBB center
+		glm::vec3 computedCenter(0.0f);
+		for (const auto& pos : worldPositions) {
+			computedCenter += pos;
+		}
+		computedCenter /= static_cast<float>(worldPositions.size());
 
-			std::vector<glm::vec3> worldPositions;
+		// Set the new OBB
+		BoundingBox newOBB(worldPosition, worldPositions, axes);
+		setOBB(newOBB);
+	}
 
-			worldPositions.reserve(this->modelRef->Vertices().size());
+	// Apply transformation to model
+	if (modelRef) {
+		modelRef->Transform(mat_);
 
-			for (const auto& vertex : this->modelRef->Vertices())
-			{
-				glm::vec3 posWorld = glm::vec3(worldTransform * glm::vec4(vertex.Position, 1.0f));
-				worldPositions.push_back(posWorld);
-			}
-
-			glm::mat4 rotMat = glm::eulerAngleYXZ(glm::radians(this->worldRotation.y),
-				glm::radians(this->worldRotation.x),
-				glm::radians(this->worldRotation.z));
-
-			glm::vec3 axisX = glm::normalize(glm::vec3(rotMat[0]));
-			glm::vec3 axisY = glm::normalize(glm::vec3(rotMat[1]));
-			glm::vec3 axisZ = glm::normalize(glm::vec3(rotMat[2]));
-
-			std::array<glm::vec3, 3> axes = { axisX, axisY, axisZ };
-
-			glm::vec3 computedCenter(0.0f);
-			for (const auto& pos : worldPositions)
-			{
-				computedCenter += pos;
-			}
-			computedCenter /= static_cast<float>(worldPositions.size());
-
-			BoundingBox newOBB(this->worldPosition, worldPositions, axes);
-
-			setOBB(newOBB);
+		if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		}
 	}
 }
+
 
 /**
  * \brief Performs the model transform via model-view-projection matrix form
