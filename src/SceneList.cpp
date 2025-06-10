@@ -76,20 +76,20 @@ namespace
 
 const std::vector<std::tuple<std::string, std::function<SceneAssets(SceneList::CameraInitialState&)>>> SceneList::AllScenes =
 {
-	{"Cube And Spheres", CubeAndSpheres},
-	{"Ray Tracing In One Weekend", RayTracingInOneWeekend},
+	{"Cube And Spheres", CubeAndSpheres}, 
+	{"Ray Tracing In One Weekend", RayTracingInOneWeekend}, // USED
 	{"Planets In One Weekend", PlanetsInOneWeekend},
 	{"Lucy In One Weekend", LucyInOneWeekend},
 	{"Cornell Box", CornellBox},
 	{"Cornell Box & Lucy", CornellBoxLucy},
-	{"GDGRAP2 - Sphere World", GDGRAP2_SphereWorld},
-	{"GRGRAP2 - Cornell Box", GDGRAP2_CornellBox},
-	{"GDGRAP2 - Box World", GDGRAP2_BoxWorld},
-	{"AnitoTracer - Demo Scene", AnitoTracer_DemoScene},
-	{"Model Showcase - Blank", Model_Showcase},
-	{"Sponza", Sponza},
-	{"San Miguel", SanMiguel},
-	{"Empty", Empty},
+	{"GDGRAP2 - Sphere World", GDGRAP2_SphereWorld}, // USED
+	{"GRGRAP2 - Cornell Box", GDGRAP2_CornellBox}, // USED
+	{"GDGRAP2 - Box World", GDGRAP2_BoxWorld}, // USED
+	{"AnitoTracer - Demo Scene", AnitoTracer_DemoScene}, // USED
+	{"Model Showcase - Blank", Model_Showcase}, // USED
+	{"Sponza", Sponza}, // USED
+	{"San Miguel", SanMiguel}, // USED
+	{"Empty", Empty}, // USED
 };
 
 SceneAssets SceneList::CubeAndSpheres(CameraInitialState& camera)

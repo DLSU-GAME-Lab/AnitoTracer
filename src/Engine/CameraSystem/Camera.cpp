@@ -72,8 +72,17 @@ bool Camera::OnKey(const int key, const int scancode, const int action, const in
 		exit(0); // temp exit lol 
 	}
 
-	if (!mouseRightPressed_)
+	if (!mouseRightPressed_) 
+	{
+		cameraMovingForward_ = false;
+		cameraMovingBackward_ = false;
+		cameraMovingLeft_ = false;
+		cameraMovingRight_ = false;
+		cameraMovingUp_ = false;
+		cameraMovingDown_ = false;
+		camSlowed = false;
 		return false;
+	}
 
 	switch (key)
 	{

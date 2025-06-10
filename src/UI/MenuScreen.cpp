@@ -79,10 +79,10 @@ void MenuScreen::drawUI()
 			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); }
 			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); }
 			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox(); }
-			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo(); }
-			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase(); }
 			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); }
 			if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel(); }
+			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo(); }
+			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase(); }
 			if (ImGui::BeginMenu("Custom Scenes"))
 			{
 				this->OnLoadEmpty();
@@ -150,6 +150,10 @@ void MenuScreen::drawUI()
 			{
 				UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN);
 			}
+			if (ImGui::MenuItem("Statistics", nullptr, UIManager::getInstance()->getEnabled("Statistics")))
+			{
+				UIManager::getInstance()->toggleEnabled("Statistics");
+			}
 			if (ImGui::MenuItem("Inspector", nullptr, UIManager::getInstance()->getEnabled(UINames::INSPECTOR_SCREEN)))
 			{
 				UIManager::getInstance()->toggleEnabled(UINames::INSPECTOR_SCREEN);
@@ -166,9 +170,9 @@ void MenuScreen::drawUI()
 			{
 				UIManager::getInstance()->toggleEnabled(UINames::CONSOLE_SCREEN);
 			}
-			if (ImGui::MenuItem("Statistics", nullptr, UIManager::getInstance()->getEnabled("Statistics")))
+			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
 			{
-				UIManager::getInstance()->toggleEnabled("Statistics");
+				UIManager::getInstance()->toggleEnabled(UINames::MATERIAL_EDITOR_SCREEN);
 			}
 			//if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
 			//{
@@ -202,11 +206,6 @@ void MenuScreen::drawUI()
 				// }
 			//	ImGui::EndMenu();
 			//}
-			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
-			{
-				UIManager::getInstance()->toggleEnabled(UINames::MATERIAL_EDITOR_SCREEN);
-			}
-
 			//if (ImGui::MenuItem("Color Picker", nullptr, isColorPickerOpen))
 			//{
 			//	isColorPickerOpen = !isColorPickerOpen;
