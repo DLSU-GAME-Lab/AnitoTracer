@@ -13,6 +13,7 @@ SettingsScreen::~SettingsScreen() = default;
 void SettingsScreen::drawUI()
 {
 	//setWindowAlignment(ScreenAlign::TOP_LEFT);
+	ImGui::SetNextWindowBgAlpha(0.7f); // Transparent background
 
 	if (ImGui::Begin("Settings", &enabled, UISettings::GlobalWindowFlags))
 	{
@@ -44,6 +45,7 @@ void SettingsScreen::drawUI()
 		ImGui::Separator();
 		/*ImGui::Checkbox("Enable ray tracing", &settings->IsRayTraced);*/
 		ImGui::Text("Press T to enable/disable ray tracing");
+		ImGui::Text("Press R to visualize/hide rays while in ray tracing mode");
 		ImGui::Checkbox("Accumulate rays between frames", &settings->AccumulateRays);
 		uint32_t min = 1, max = 512;
 		ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);
