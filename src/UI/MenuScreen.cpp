@@ -516,10 +516,18 @@ void MenuScreen::OnMaterialComponentClicked()
 void MenuScreen::ShowLoadingPopUp()
 {
 	isLoading = true;
-	ImGui::SetNextWindowSize(ImVec2(500, 400));
-	setWindowAlignment(ScreenAlign::CENTER, isLoading);
 
-	if (ImGui::Begin("Please wait.", &isLoading))
+	static ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMouseInputs |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoDecoration;
+	ImGui::SetNextWindowSize(ImVec2(150, 50));
+	setWindowAlignment(ScreenAlign::CENTER);
+
+	if (ImGui::Begin("Please wait.", &isLoading, flags))
 	{
 		ImGui::Text("Loading...");
 	}
@@ -531,8 +539,8 @@ void MenuScreen::OnLoadSphereWorld()
 	// GameObjectManager::getInstance()->clearAll();
 	// RayTracingProper::getInstance()->generateSphereWorld();
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
-	while (!isLoading) {}
-	isLoading = false;
+	// while (!isLoading) {}
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -545,8 +553,8 @@ void MenuScreen::OnLoadRTIOW()
 	// GameObjectManager::getInstance()->clearAll();
 	// RayTracingProper::getInstance()->generateSphereWorld();
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
-	while (!isLoading) {}
-	isLoading = false;
+	// while (!isLoading) {}
+	// isLoading = false;
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 1);
@@ -555,8 +563,8 @@ void MenuScreen::OnLoadRTIOW()
 
 void MenuScreen::OnLoadBoxWorld()
 {
-	while (!isLoading) {}
-	isLoading = false;
+	// while (!isLoading) {}
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -570,8 +578,11 @@ void MenuScreen::OnLoadCornellBox()
 	// RayTracingProper::getInstance()->generateCornellBox();
 	//
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
-	while (!isLoading) {}
-	isLoading = false;
+	// while (!isLoading)
+	// {
+	// 	Debug::Log("Waiting for loading to finish in MenuScreen::OnLoadCornellBox()...");
+	// }
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -581,8 +592,8 @@ void MenuScreen::OnLoadCornellBox()
 
 void MenuScreen::OnLoadAnitoTracerDemo()
 {
-	while (!isLoading) {}
-	isLoading = false;
+	// while (!isLoading) {}
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -592,8 +603,8 @@ void MenuScreen::OnLoadAnitoTracerDemo()
 
 void MenuScreen::OnLoadShowcase()
 {
-	while (!isLoading) {}
-	isLoading = false;
+	// while (!isLoading) {}
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -603,8 +614,8 @@ void MenuScreen::OnLoadShowcase()
 
 void MenuScreen::OnLoadSponza()
 {
-	while (!isLoading) {}
-	isLoading = false;
+	// while (!isLoading) {}
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -614,8 +625,8 @@ void MenuScreen::OnLoadSponza()
 
 void MenuScreen::OnLoadSanMiguel()
 {
-	while (!isLoading) {}
-	isLoading = false;
+	// while (!isLoading) {}
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -625,8 +636,8 @@ void MenuScreen::OnLoadSanMiguel()
 
 void MenuScreen::OnLoadEmpty()
 {
-	while (!isLoading) {}
-	isLoading = false;
+	// while (!isLoading) {}
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	// std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);

@@ -56,9 +56,9 @@ void SettingsScreen::drawUI()
 		//ImGui::Text("Press T to enable/disable ray tracing");
 		ImGui::TextWrapped("Tip: To visualize rays, you must be in ray visualization mode.");
 		ImGui::Checkbox("Accumulate rays between frames", &settings->AccumulateRays);
-		uint32_t min = 1, max = 512;
+		uint32_t min = 1, max = 24;
 		ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);
-		min = 1; max = 32;
+		min = 2; max = 6;
 		ImGui::SliderScalar("Bounces", ImGuiDataType_U32, &settings->NumberOfBounces, &min, &max);
 		ImGui::NewLine();
 
