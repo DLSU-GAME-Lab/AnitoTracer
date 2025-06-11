@@ -34,9 +34,10 @@ void SettingsScreen::drawUI()
 		ImGui::Separator();
 		ImGui::BulletText("Left Click Scene and Hold RMB & WASD/Q/E: Move Camera");
 		ImGui::BulletText("Left Click Scene and Hold RMB and drag: look around");
+		ImGui::BulletText("F: Focus on selected object");
 		ImGui::Separator();
-		ImGui::BulletText("F4: enable/disable ray tracing");
-		ImGui::BulletText("F6: enable/disable ray visualization");
+		ImGui::BulletText("F4: Enable/disable ray tracing");
+		ImGui::BulletText("F6: Enable/disable ray visualization");
 		ImGui::NewLine();
 		ImGui::TextWrapped("Tip: Click in the scene to use shortcuts in the scene");
 		ImGui::NewLine();
