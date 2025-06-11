@@ -610,7 +610,6 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = MaterialLibrary::getInstance()->getMaterial(L"Mirror");
-	//const auto mirror = Material::Dielectric(1.6f, 0.0f); 
 
 	Model box0 = Model::CreateBox(vec3(0, 0, -165), vec3(165, 165, 0), *white);
 	Model box1 = Model::CreateBox(vec3(0, 0, -165), vec3(165, 330, 0), *white);
@@ -629,6 +628,13 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 	std::shared_ptr<GameObject> cornellBoxObject = std::make_shared<GameObject>("CornellBox", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(cornellBoxModel));
 	ModelManager::getInstance()->addObject(cornellBoxObject);
 	cornellBoxObject->setLocalPosition(0, 0, -500);
+
+	Model lucy = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
+	std::shared_ptr<GameObject> lucyObject = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucy));
+	ModelManager::getInstance()->addObject(lucyObject);
+	lucyObject->setLocalPosition(vec3(-100, -170, -350));
+	lucyObject->setLocalRotation(vec3(0, 90, 0));
+	lucyObject->setLocalScale(vec3(0.25));
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
