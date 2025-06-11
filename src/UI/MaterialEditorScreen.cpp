@@ -90,7 +90,7 @@ void MaterialEditorScreen::drawUI()
 		updateSelectedMaterial();
 	}
 	else
-		ImGui::Text("Select an object to edit its material.");
+		ImGui::TextWrapped("Select an object to edit its material.");
 
 	ImGui::End();
 

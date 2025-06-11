@@ -305,6 +305,28 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 void RayTracer::OnKey(int key, int scancode, int action, int mods)
 {
+	// Settings (toggle switches)
+	if (action == GLFW_PRESS)
+	{
+		switch (key)
+		{
+		case GLFW_KEY_F1: UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN); return;
+		case GLFW_KEY_F2: userSettings_.ShowOverlay = !userSettings_.ShowOverlay; return;
+		case GLFW_KEY_F3: UIManager::getInstance()->toggleAllUI(); return;
+		case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+		case GLFW_KEY_1: CameraManager::getInstance()->setSceneCameraProjection(0); return;
+		case GLFW_KEY_2: CameraManager::getInstance()->setSceneCameraProjection(1); return;
+		case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+			// case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; return;
+			// case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+			// case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+			//case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+		case GLFW_KEY_V: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+
+		default: break;
+		}
+	}
+
 	if (UIManager::wantsToCaptureKeyboard())
 	{
 		return;
@@ -316,28 +338,6 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		{
 		//case GLFW_KEY_ESCAPE: Window().Close(); break;
 		default: break;
-		}
-
-		// Settings (toggle switches)
-		if (!userSettings_.Benchmark)
-		{
-			switch (key)
-			{
-			case GLFW_KEY_F1: UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN); break;
-			case GLFW_KEY_F2: userSettings_.ShowOverlay = !userSettings_.ShowOverlay; break;
-			case GLFW_KEY_F3: UIManager::getInstance()->toggleAllUI(); break;
-			case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			case GLFW_KEY_1: CameraManager::getInstance()->setSceneCameraProjection(0); break;
-			case GLFW_KEY_2: CameraManager::getInstance()->setSceneCameraProjection(1); break;
-			case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			// case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; break;
-			// case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			// case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			//case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			case GLFW_KEY_V: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-
-			default: break;
-			}
 		}
 	}
 
