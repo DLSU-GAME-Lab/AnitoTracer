@@ -75,17 +75,17 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Scene"))
 		{
-			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); }
-			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); }
-			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); }
-			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox(); }
-			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); }
-			if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel(); }
-			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo(); }
-			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase(); }
+			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); ShowLoadingPopUp();  }
+			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox();  ShowLoadingPopUp();  }
+			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel();  ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo();  ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase();  ShowLoadingPopUp(); }
 			if (ImGui::BeginMenu("Custom Scenes"))
 			{
-				this->OnLoadEmpty();
+				this->OnLoadEmpty(); ShowLoadingPopUp();
 				for (std::string name : SceneIO::getInstance()->getSceneNames())
 				{
 					if (ImGui::MenuItem(name.c_str())) { SceneIO::getInstance()->LoadScene(name); }
@@ -490,7 +490,7 @@ void MenuScreen::onCreateCornellClicked()
 
 void MenuScreen::ShowSaveSceneAsMenu()
 {
-	ImGui::SetNextWindowSize(ImVec2(500, 250));
+	ImGui::SetNextWindowSize(ImVec2(500, 400));
 
 	if (ImGui::Begin("Save Scene As", &isSaveSceneAsOpen))
 	{
@@ -513,11 +513,26 @@ void MenuScreen::OnMaterialComponentClicked()
 	// Debug::Log("Creating material placeholder.");
 }
 
+void MenuScreen::ShowLoadingPopUp()
+{
+	isLoading = true;
+	ImGui::SetNextWindowSize(ImVec2(500, 400));
+	setWindowAlignment(ScreenAlign::CENTER, isLoading);
+
+	if (ImGui::Begin("Please wait.", &isLoading))
+	{
+		ImGui::Text("Loading...");
+	}
+	ImGui::End();
+}
+
 void MenuScreen::OnLoadSphereWorld()
 {
 	// GameObjectManager::getInstance()->clearAll();
 	// RayTracingProper::getInstance()->generateSphereWorld();
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
+	while (!isLoading) {}
+	isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -530,7 +545,8 @@ void MenuScreen::OnLoadRTIOW()
 	// GameObjectManager::getInstance()->clearAll();
 	// RayTracingProper::getInstance()->generateSphereWorld();
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
-
+	while (!isLoading) {}
+	isLoading = false;
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 1);
@@ -539,6 +555,9 @@ void MenuScreen::OnLoadRTIOW()
 
 void MenuScreen::OnLoadBoxWorld()
 {
+	while (!isLoading) {}
+	isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 8);
@@ -551,6 +570,8 @@ void MenuScreen::OnLoadCornellBox()
 	// RayTracingProper::getInstance()->generateCornellBox();
 	//
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
+	while (!isLoading) {}
+	isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -560,6 +581,9 @@ void MenuScreen::OnLoadCornellBox()
 
 void MenuScreen::OnLoadAnitoTracerDemo()
 {
+	while (!isLoading) {}
+	isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 9);
@@ -568,6 +592,9 @@ void MenuScreen::OnLoadAnitoTracerDemo()
 
 void MenuScreen::OnLoadShowcase()
 {
+	while (!isLoading) {}
+	isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 10);
@@ -576,6 +603,9 @@ void MenuScreen::OnLoadShowcase()
 
 void MenuScreen::OnLoadSponza()
 {
+	while (!isLoading) {}
+	isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 11);
@@ -584,6 +614,9 @@ void MenuScreen::OnLoadSponza()
 
 void MenuScreen::OnLoadSanMiguel()
 {
+	while (!isLoading) {}
+	isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 12);
@@ -592,6 +625,9 @@ void MenuScreen::OnLoadSanMiguel()
 
 void MenuScreen::OnLoadEmpty()
 {
+	while (!isLoading) {}
+	isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	// std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	// parameters->encodeInt("SCENE_INDEX", 11);

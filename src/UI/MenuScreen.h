@@ -31,6 +31,7 @@ private:
 	void ShowLoadObjMenu();
 	void OnMaterialComponentClicked();
 
+	void ShowLoadingPopUp();
 	void OnLoadSphereWorld();
 	void OnLoadRTIOW();
 	void OnLoadBoxWorld();
@@ -51,6 +52,7 @@ private:
 	bool isSaveSceneAsOpen = false;
 
 	bool openSceneSelected = false;
+	bool isLoading = false;
 
 	// ImGui::FileBrowser* saveSceneDialog;
 	// ImGui::FileBrowser* openSceneDialog;
