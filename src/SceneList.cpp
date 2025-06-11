@@ -829,25 +829,7 @@ SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
-	Model sphere4Model = Model::CreateSphere(vec3(0, 0, 0), 100.0f, *groundReflectMat, false);
-	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
-	ModelManager::getInstance()->addObject(sphere);
-	sphere->setLocalPosition(-350, 200, -45);
-
-	Model sphere2Model = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
-	std::shared_ptr<GameObject> sphere2 = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere2Model));
-	ModelManager::getInstance()->addObject(sphere2);
-	sphere2->setLocalPosition(-500, 500, -45);
-
 	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/San_Miguel/san-miguel.obj");
-
-	sm.Transform(
-		rotate(
-			scale(
-				translate(i, vec3(0, 0, 0)),
-				vec3(50)),
-			radians(0.0f), vec3(0, 1, 0)));
-
 	std::shared_ptr<GameObject> smObj;
 
 	if (sm.GetName() == "")
