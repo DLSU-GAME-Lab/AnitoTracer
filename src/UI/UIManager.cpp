@@ -34,6 +34,7 @@
 #include "Vulkan/Window.hpp"
 
 bool UIManager::isStartup = true;
+bool UIManager::isHidingUI = false;
 
 UIManager* UIManager::sharedInstance = nullptr;
 
@@ -212,6 +213,12 @@ void UIManager::initializeUI()
 	// materialScreen->SetEnabled(false);
 
 	// save and load the current layout to avoid resetting randomly
+
+	for (const auto& i : this->uiList)
+	{
+		if (i->name != UINames::MENU_SCREEN)
+			i->setEnabled(!isHidingUI);
+	}
 
 	// Debug::Log("Startup is " + (isStartup ? std::string("true") : std::string("false")));
 	//

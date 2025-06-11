@@ -20,7 +20,7 @@
 using namespace Assets;
 using namespace glm;
 
-MenuScreen::MenuScreen() : AUIScreen("MenuScreen")
+MenuScreen::MenuScreen() : AUIScreen(UINames::MENU_SCREEN)
 {
 	// this->openSceneDialog = new ImGui::FileBrowser();
 	// this->openSceneDialog->SetTitle("Open Scene");
@@ -216,10 +216,10 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Window"))
 		{
-			if (ImGui::MenuItem("[DEBUG] Save Default Layout"))
-			{
-				UIManager::saveDefaultLayout();
-			}
+			// if (ImGui::MenuItem("[DEBUG] Save Default Layout"))
+			// {
+			// 	UIManager::saveDefaultLayout();
+			// }
 			if (ImGui::MenuItem("Save Window Layout"))
 			{
 				UIManager::saveLayout();

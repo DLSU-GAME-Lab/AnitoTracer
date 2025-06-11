@@ -113,7 +113,7 @@ private:
 	static UIManager* sharedInstance;
 
 	static bool isStartup; // ui manager already created ?
-	bool isHidingUI = false;
+	static bool isHidingUI;
 	bool isLoadingLayout = false;
 	bool isLoadingDynamicLayout = false;
 	bool isResettingLayout = false;
