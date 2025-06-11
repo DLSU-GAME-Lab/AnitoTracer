@@ -490,7 +490,7 @@ void MenuScreen::onCreateCornellClicked()
 
 void MenuScreen::ShowSaveSceneAsMenu()
 {
-	ImGui::SetNextWindowSize(ImVec2(500, 100));
+	ImGui::SetNextWindowSize(ImVec2(500, 250));
 
 	if (ImGui::Begin("Save Scene As", &isSaveSceneAsOpen))
 	{
