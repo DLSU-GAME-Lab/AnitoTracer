@@ -43,12 +43,12 @@ void SettingsScreen::drawUI()
 		ImGui::TextWrapped("Tip: Click in the scene to use shortcuts in the scene");
 		ImGui::NewLine();
 
-		ImGui::Text("Scene");
-		ImGui::Separator();
-		ImGui::PushItemWidth(-1);
-		ImGui::Combo("##SceneList", &settings->SceneIndex, scenes.data(), static_cast<int>(scenes.size()));
-		ImGui::PopItemWidth();
-		ImGui::NewLine();
+		//ImGui::Text("Scene");
+		//ImGui::Separator();
+		//ImGui::PushItemWidth(-1);
+		//ImGui::Combo("##SceneList", &settings->SceneIndex, scenes.data(), static_cast<int>(scenes.size()));
+		//ImGui::PopItemWidth();
+		//ImGui::NewLine();
 
 		ImGui::Text("Ray Tracing");
 		ImGui::Separator();
