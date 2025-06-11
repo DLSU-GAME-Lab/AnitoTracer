@@ -840,13 +840,10 @@ SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 	ModelManager::getInstance()->addObject(smObj);
 	smObj->setLocalPosition(0, 0, 0);
 	smObj->setLocalScale(50,50,50);
-	
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
-
-	textures.push_back(Texture::LoadTexture(FileUtils::getAssetsFolderPath().generic_string() + "/textures/2k_moon.jpg", Vulkan::SamplerConfig()));
 
 	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
 }
