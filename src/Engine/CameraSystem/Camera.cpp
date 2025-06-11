@@ -59,8 +59,8 @@ bool Camera::OnKey(const int key, const int scancode, const int action, const in
 
 		if (selected) {
 			this->Reset(lookAt(
+				selected->getWorldPosition() - glm::vec3(0, 0, 1000),
 				selected->getWorldPosition(),
-				selected->getWorldPosition() - glm::vec3(0, 0, 100),
 				glm::vec3(0, 1, 0)
 			));
 		}
