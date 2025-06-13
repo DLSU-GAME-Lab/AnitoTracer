@@ -32,8 +32,11 @@ void SettingsScreen::drawUI()
 		ImGui::BulletText("F2: Toggle Statistics");
 		ImGui::BulletText("F3: Toggle All UI");
 		ImGui::Separator();
-		ImGui::BulletText("Left Click Scene and Hold RMB & WASD/Q/E: Move Camera");
-		ImGui::BulletText("Left Click Scene and Hold RMB and drag: look around");
+		ImGui::BulletText("Left Click Scene and Hold RMB + WASD/Q/E: Move Camera");
+		ImGui::BulletText("Left Click Scene and Hold RMB + drag: Look Around");
+		ImGui::BulletText("Select an Object + W: Move Object Gizmo");
+		ImGui::BulletText("Select an Object + E: Rotate Object Gizmo");
+		ImGui::BulletText("Select an Object + R: Scale Object Gizmo");
 		ImGui::BulletText("F: Focus on selected object");
 		ImGui::BulletText("F5: Refresh Scene to see your changes");
 		ImGui::Separator();
