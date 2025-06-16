@@ -178,6 +178,21 @@ void RayTracer::DeleteSwapChain()
 
 void RayTracer::DrawFrame()
 {
+	if (userSettings_.MultiSampling) {
+		if (isMoving || mousePressed)
+		{
+			userSettings_.NumberOfSamples = 2;
+		}
+		else
+		{
+			userSettings_.NumberOfSamples = 2 * userSettings_.aaValue;
+		}
+
+		//if (userSettings_.NumberOfSamples > 24) 
+		//{
+		//	userSettings_.NumberOfSamples = 24;
+		//}
+	}
 	// Check if the scene has been changed by the user via select new scene
 	if (sceneIndex_ != static_cast<uint32_t>(userSettings_.SceneIndex))
 	{
@@ -308,6 +323,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 	// Settings (toggle switches)
 	if (action == GLFW_PRESS)
 	{
+		isMoving = true;
 		switch (key)
 		{
 		case GLFW_KEY_F1: UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN); return;
@@ -332,20 +348,15 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		return;
 	}
 
-	// Settings (toggle switches)
-	if (action == GLFW_PRESS)
-	{
-		switch (key)
-		{
-		
-		default: break;
-		}
-	}
-
 	// Camera motions
 	if (!userSettings_.Benchmark)
 	{
 		resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnKey(key, scancode, action, mods);
+
+	}
+
+	if (action == GLFW_RELEASE) {
+		isMoving = false;
 	}
 }
 
@@ -361,10 +372,17 @@ void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 
 	// Camera motions
 	resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnCursorPosition(xpos, ypos);
+
 }
 
 void RayTracer::OnMouseButton(const int button, const int action, const int mods)
 {
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+	{
+		isMoving = true;
+		mousePressed = true;
+	}
+
 	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||
 		UIManager::wantsToCaptureMouse())
@@ -373,7 +391,14 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 	}
 
 	// Camera motions
+
 	resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnMouseButton(button, action, mods);
+	
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+	{
+		isMoving = false;
+		mousePressed = false;
+	}
 }
 
 void RayTracer::OnScroll(const double xoffset, const double yoffset)

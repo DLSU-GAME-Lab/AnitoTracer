@@ -71,7 +71,13 @@ void SettingsScreen::drawUI()
 		//ImGui::Text("Press T to enable/disable ray tracing");
 		ImGui::TextWrapped("Tip: To visualize rays, you must be in ray visualization mode.");
 		ImGui::Checkbox("Accumulate rays between frames", &settings->AccumulateRays);
-		uint32_t min = 1, max = 24;
+		ImGui::Checkbox("Multisample Anti-Aliasing", &settings->MultiSampling);
+		uint32_t min = 2, max = 8;
+		std::string label = (std::to_string(settings->aaValue) + "x");
+		if (ImGui::SliderScalarN("MSAA Value", ImGuiDataType_U32, &settings->aaValue, 1, &min, &max, label.c_str())) { // if value has changed
+			settings->aaValue = (settings->aaValue / 2) * 2; // round to even number
+		}
+		min = 1, max = 24;
 		ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);
 		min = 2; max = 6;
 		ImGui::SliderScalar("Bounces", ImGuiDataType_U32, &settings->NumberOfBounces, &min, &max);

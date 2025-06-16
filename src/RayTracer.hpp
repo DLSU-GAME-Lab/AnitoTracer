@@ -89,6 +89,8 @@ private:
 
 	bool renderUI_ = true;
 	bool isVisualizeRays_ = false;
+	bool isMoving = false;
+	bool mousePressed = false;
 
 	static RayTracer* sharedInstance;
 
