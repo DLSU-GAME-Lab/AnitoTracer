@@ -1,57 +1,117 @@
 #include "RayScene.hpp"
 
-#include <iostream>
+#include "Ray.hpp"
+#include "RayVertex.hpp"
+#include "RayInfo.hpp"
+#include "UserSettings.hpp"
 
-#include "Model.hpp"
+#include "From-GDGRAP2/Debug.h"
 #include "Vulkan/BufferUtil.hpp"
-#include "Utilities/Exception.hpp"
 #include "Vulkan/SingleTimeCommands.hpp"
 
 using namespace glm;
 namespace Assets {
+	RayScene::RayScene(Vulkan::CommandPool& commandPool, UserSettings& userSettings) :
+		maxRays_(userSettings.MaxRays)
+	{
 
-RayScene::RayScene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models) :
-	models_(std::move(models))
-{
-	// Concatenate all the models
-	std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
-	std::vector<glm::uvec2> offsets;
+		constexpr auto flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
-	Vertex vertex1{ vec3(-100.0f,-100.0f,0.0f), vec3(0,0,0), vec2(0,0), -1 };
-	Vertex vertex2{ vec3(100.0f,100.0f,0.0f), vec3(0,0,0), vec2(0,0), -1 };
+		// Create ray vertex buffer to be placed into the ray tracing pipeline as storage for calculated ray positions.
+		rayVertexBuffer_.reset(new Vulkan::Buffer(commandPool.Device(), sizeof(RayVertex) * 512, flags | VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+		rayVertexBufferMemory_.reset(new Vulkan::DeviceMemory(rayVertexBuffer_->AllocateMemory(VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
 
-	// Remember the index, vertex offsets.
-	const auto indexOffset = static_cast<uint32_t>(indices.size());
-	const auto vertexOffset = static_cast<uint32_t>(vertices.size());
+		// Ray counter buffer to count how many rays have been calculated in the GPU
+		std::vector<uint32_t> rayCounter = { 0 };
+		Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Ray Counter", flags | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, rayCounter, rayCounterBuffer_, rayCounterBufferMemory_);
 
-	offsets.emplace_back(indexOffset, vertexOffset);
+		// Storage buffer for ray information
+		rayInfoBuffer_.reset(new Vulkan::Buffer(commandPool.Device(), sizeof(RayInfo) * maxRays_, flags | VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+		rayInfoBufferMemory_.reset(new Vulkan::DeviceMemory(rayInfoBuffer_->AllocateMemory(VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+	}
 
-	// Copy model data one after the other.
-	//vertices.insert(vertices.end(), model.Vertices().begin(), model.Vertices().end());
-	//indices.insert(indices.end(), model.Indices().begin(), model.Indices().end());
+	RayScene::~RayScene()
+	{
+		rays_.clear();
+	
+		rayCounterBuffer_.reset();
+		rayCounterBufferMemory_.reset();
+	
+		rayVertexBuffer_.reset();
+		rayVertexBufferMemory_.reset();
+	
+		rayInfoBuffer_.reset();
+		rayInfoBufferMemory_.reset();
+	}
 
-	vertices.push_back(vertex1);
-	vertices.push_back(vertex2);
+	void RayScene::Update(Vulkan::CommandPool& commandPool)
+	{
+		uint32_t numRays = GetRayCounter(commandPool);
+	
+		if (numRays == maxRays_ && rays_.size() != maxRays_ && !hasRenderedRays_)
+		{
+			// Hard coded amount :>
+			const auto contentSize = sizeof(RayVertex) * 512;
+	
+			auto stagingBuffer = std::make_unique<Vulkan::Buffer>(commandPool.Device(), contentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+			auto stagingBufferMemory = stagingBuffer->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	
+			stagingBuffer->CopyFrom(commandPool, *rayVertexBuffer_, contentSize);
+	
+			RayVertex rayVertices[512];
+			const auto data = stagingBufferMemory.Map(0, contentSize);
+			std::memcpy(&rayVertices, data, contentSize);
+			stagingBufferMemory.Unmap();
+	
+			stagingBuffer.reset();
+	
+			const auto infoContentSize = sizeof(RayInfo) * maxRays_;
+	
+			auto infoStagingBuffer = std::make_unique<Vulkan::Buffer>(commandPool.Device(), infoContentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+			auto infoStagingBufferMemory = infoStagingBuffer->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	
+			infoStagingBuffer->CopyFrom(commandPool, *rayInfoBuffer_, infoContentSize);
+	
+			RayInfo* rayInfos = new RayInfo[maxRays_]();
+			const auto infoData = infoStagingBufferMemory.Map(0, infoContentSize);
+			std::memcpy(rayInfos, infoData, infoContentSize);
+			infoStagingBufferMemory.Unmap();
+	
+			infoStagingBuffer.reset();
 
-	indices.push_back(0);
-	indices.push_back(1);
+			for (uint32_t i = 0; i < maxRays_; i++)
+			{
+				std::vector<RayVertex> vertices;
+				for (uint32_t j = 0; j < rayInfos[i].RayCount; j++)
+				{
+					const uint32_t offset = rayInfos[i].RayOffset;
+	
+					vertices.push_back(RayVertex{ rayVertices[offset * i + j].Position, 0, rayVertices[offset * i + j].Color });
+				}
+				rays_.push_back(new Ray(commandPool, vertices));
+			}
+			hasRenderedRays_ = true;
+	
+			delete[] rayInfos;
+		}
+	}
 
-	constexpr auto flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-
-	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Vertices", VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | flags, vertices, vertexBuffer_, vertexBufferMemory_);
-	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Indices", VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | flags, indices, indexBuffer_, indexBufferMemory_);
-	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Offsets", flags, offsets, offsetBuffer_, offsetBufferMemory_);
-}
-
-RayScene::~RayScene()
-{
-	offsetBuffer_.reset();
-	offsetBufferMemory_.reset(); // release memory after bound buffer has been destroyed
-	indexBuffer_.reset();
-	indexBufferMemory_.reset(); // release memory after bound buffer has been destroyed
-	vertexBuffer_.reset();
-	vertexBufferMemory_.reset(); // release memory after bound buffer has been destroyed
-}
-
+	uint32_t RayScene::GetRayCounter(Vulkan::CommandPool& commandPool)
+	{
+		const auto contentSize = sizeof(uint32_t);
+	
+		auto stagingBuffer = std::make_unique<Vulkan::Buffer>(commandPool.Device(), contentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		auto stagingBufferMemory = stagingBuffer->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	
+		stagingBuffer->CopyFrom(commandPool, *rayCounterBuffer_, contentSize);
+	
+		uint32_t numRays;
+		const auto data = stagingBufferMemory.Map(0, contentSize);
+		std::memcpy(&numRays, data, contentSize);
+		stagingBufferMemory.Unmap();
+	
+		stagingBuffer.reset();
+	
+		return numRays;
+	}
 }

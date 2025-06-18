@@ -22,6 +22,7 @@
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
 #include "imgui_impl_vulkan.h"
+#include "Assets/Ray.hpp"
 
 #include "Engine/CameraSystem/CameraManager.h"
 #include "Utilities/FileUtils.h"
@@ -30,6 +31,7 @@
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
+
 namespace
 {
 	const bool EnableValidationLayers =
@@ -92,6 +94,7 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.NumberOfSamples = numberOfSamples_;
 	ubo.NumberOfBounces = userSettings_.NumberOfBounces;
 	ubo.RandomSeed = 1;
+	ubo.MaxRays = userSettings_.MaxRays;
 	ubo.HasSky = init.HasSky;
 	ubo.ShowHeatmap = userSettings_.ShowHeatmap;
 	ubo.HeatmapScale = userSettings_.HeatmapScale;
@@ -129,6 +132,7 @@ void RayTracer::SetPhysicalDevice(
 	deviceFeatures.fillModeNonSolid = true;
 	deviceFeatures.samplerAnisotropy = true;
 	deviceFeatures.shaderInt64 = true;
+	
 
 	Application::SetPhysicalDevice(physicalDevice, requiredExtensions, deviceFeatures, &shaderClockFeatures);
 }
@@ -178,6 +182,21 @@ void RayTracer::DeleteSwapChain()
 
 void RayTracer::DrawFrame()
 {
+	if (userSettings_.MultiSampling) {
+		if (isMoving || mousePressed)
+		{
+			userSettings_.NumberOfSamples = 2;
+		}
+		else
+		{
+			userSettings_.NumberOfSamples = 2 * userSettings_.aaValue;
+		}
+
+		//if (userSettings_.NumberOfSamples > 24) 
+		//{
+		//	userSettings_.NumberOfSamples = 24;
+		//}
+	}
 	// Check if the scene has been changed by the user via select new scene
 	if (sceneIndex_ != static_cast<uint32_t>(userSettings_.SceneIndex))
 	{
@@ -221,6 +240,8 @@ void RayTracer::DrawFrame()
 	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
 	totalNumberOfSamples_ += numberOfSamples_;
 
+	rayScene_->Update(CommandPool());
+	
 	Application::DrawFrame();
 }
 
@@ -242,7 +263,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
 		: Vulkan::Application::Render(commandBuffer, imageIndex);
 
-
+	// Render ray visualization
 	if (isVisualizeRays_)
 	{
 		std::array<VkClearValue, 2> clearValues = {};
@@ -259,87 +280,23 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		{
-			const auto& scene = GetRayScene();
+			const auto& rayScene = GetRayScene();
 
 			VkDescriptorSet descriptorSets[] = { rayVisualizationPipeline_->DescriptorSet(imageIndex) };
-			VkBuffer vertexBuffers[] = { scene.VertexBuffer().Handle() };
-			const VkBuffer indexBuffer = scene.IndexBuffer().Handle();
 			VkDeviceSize offsets[] = { 0 };
 
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->Handle());
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
-			vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-			vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdSetLineWidth(commandBuffer, 5);
-			vkCmdDrawIndexed(commandBuffer, 2, 1, 0, 0, 0);
 
-			/*uint32_t vertexOffset = 0;
-			uint32_t indexOffset = 0;*/
-
-			/*for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
+			for (const auto& rays : rayScene.Rays())
 			{
-				Assets::PushConstantModel modelConstant = GetPushConstantModel(model);
-				vkCmdPushConstants(commandBuffer, rayVisualizationPipeline_->PipelineLayout().Handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Assets::PushConstantModel), &modelConstant);
+				VkBuffer vertexBuffer = rays->VertexBuffer().Handle();
 
-				const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-				const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
-
-				vkCmdDrawIndexed(commandBuffer, indexCount, 1, indexOffset, vertexOffset, 0);
-
-				vertexOffset += vertexCount;
-				indexOffset += indexCount;
-			}*/
-		}
-
-		vkCmdEndRenderPass(commandBuffer);
-	}
-
-	if (isVisualizeRays_)
-	{
-		std::array<VkClearValue, 2> clearValues = {};
-		clearValues[1].depthStencil = { 1.0f, 0 };
-
-		VkRenderPassBeginInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = rayVisualizationPipeline_->RenderPass().Handle();
-		renderPassInfo.framebuffer = SwapChainFrameBuffer(imageIndex).Handle();
-		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = SwapChain().Extent();
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassInfo.pClearValues = clearValues.data();
-
-		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		{
-			const auto& scene = GetRayScene();
-
-			VkDescriptorSet descriptorSets[] = { rayVisualizationPipeline_->DescriptorSet(imageIndex) };
-			VkBuffer vertexBuffers[] = { scene.VertexBuffer().Handle() };
-			const VkBuffer indexBuffer = scene.IndexBuffer().Handle();
-			VkDeviceSize offsets[] = { 0 };
-
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->Handle());
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rayVisualizationPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
-			vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-			vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdSetLineWidth(commandBuffer, 5);
-			vkCmdDrawIndexed(commandBuffer, 2, 1, 0, 0, 0);
-
-			/*uint32_t vertexOffset = 0;
-			uint32_t indexOffset = 0;*/
-
-			/*for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
-			{
-				Assets::PushConstantModel modelConstant = GetPushConstantModel(model);
-				vkCmdPushConstants(commandBuffer, rayVisualizationPipeline_->PipelineLayout().Handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Assets::PushConstantModel), &modelConstant);
-
-				const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-				const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
-
-				vkCmdDrawIndexed(commandBuffer, indexCount, 1, indexOffset, vertexOffset, 0);
-
-				vertexOffset += vertexCount;
-				indexOffset += indexCount;
-			}*/
+				vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
+				vkCmdSetLineWidth(commandBuffer, 5);
+                
+				vkCmdDraw(commandBuffer, rays->NumberOfVertices(), 1, 0, 0);
+			}
 		}
 
 		vkCmdEndRenderPass(commandBuffer);
@@ -367,45 +324,43 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 void RayTracer::OnKey(int key, int scancode, int action, int mods)
 {
+	// Settings (toggle switches)
+	if (action == GLFW_PRESS)
+	{
+		isMoving = true;
+		switch (key)
+		{
+		case GLFW_KEY_F1: UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN); return;
+		case GLFW_KEY_F2: userSettings_.ShowOverlay = !userSettings_.ShowOverlay; return;
+		case GLFW_KEY_F3: UIManager::getInstance()->toggleAllUI(); return;
+		case GLFW_KEY_F4: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+		case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+		case GLFW_KEY_F6: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+
+			// case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; return;
+			// case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+			// case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+			//case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+
+
+		default: break;
+		}
+	}
+
 	if (UIManager::wantsToCaptureKeyboard())
 	{
 		return;
-	}
-
-	if (action == GLFW_PRESS)
-	{
-		switch (key)
-		{
-		case GLFW_KEY_ESCAPE: Window().Close(); break;
-		default: break;
-		}
-
-		// Settings (toggle switches)
-		if (!userSettings_.Benchmark)
-		{
-			switch (key)
-			{
-			case GLFW_KEY_F1: UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN); break;
-			case GLFW_KEY_F2: userSettings_.ShowOverlay = !userSettings_.ShowOverlay; break;
-			case GLFW_KEY_F3: UIManager::getInstance()->toggleAllUI(); break;
-			case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			case GLFW_KEY_1: CameraManager::getInstance()->setSceneCameraProjection(0); break;
-			case GLFW_KEY_2: CameraManager::getInstance()->setSceneCameraProjection(1); break;
-			case GLFW_KEY_T: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; break;
-			case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			case GLFW_KEY_R: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); break;
-			default: break;
-			}
-		}
 	}
 
 	// Camera motions
 	if (!userSettings_.Benchmark)
 	{
 		resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnKey(key, scancode, action, mods);
+
+	}
+
+	if (action == GLFW_RELEASE) {
+		isMoving = false;
 	}
 }
 
@@ -421,10 +376,17 @@ void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 
 	// Camera motions
 	resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnCursorPosition(xpos, ypos);
+
 }
 
 void RayTracer::OnMouseButton(const int button, const int action, const int mods)
 {
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+	{
+		isMoving = true;
+		mousePressed = true;
+	}
+
 	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||
 		UIManager::wantsToCaptureMouse())
@@ -433,7 +395,14 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 	}
 
 	// Camera motions
+
 	resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnMouseButton(button, action, mods);
+	
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+	{
+		isMoving = false;
+		mousePressed = false;
+	}
 }
 
 void RayTracer::OnScroll(const double xoffset, const double yoffset)
@@ -515,7 +484,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	//std::cout << "Skybox ImageView: " << scene_->SkyboxImageView() << std::endl;
 	//std::cout << "Skybox Sampler: " << scene_->SkyboxSampler() << std::endl;
 
-	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
+	rayScene_.reset(new Assets::RayScene(CommandPool(), userSettings_));
 	sceneIndex_ = sceneIndex;
 
 	userSettings_.FieldOfView = cameraInitialState_.FieldOfView;
@@ -559,7 +528,7 @@ void RayTracer::ReloadModifiedScene()
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
 	);
-	rayScene_.reset(new Assets::RayScene(CommandPool(), std::move(models)));
+	rayScene_.reset(new Assets::RayScene(CommandPool(), userSettings_));
 
 	// userSettings_.FieldOfView = cameraInitialState_.FieldOfView;
 	// userSettings_.Aperture = cameraInitialState_.Aperture;

@@ -1,4 +1,6 @@
 #include "RayVisualizationPipeline.h"
+
+#include "Assets/RayVertex.hpp"
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/DescriptorSetManager.hpp"
 #include "Vulkan/DescriptorPool.hpp"
@@ -23,19 +25,19 @@ namespace Vulkan {
 		swapChain_(swapChain)
 	{
 		const auto& device = swapChain.Device();
-		const auto bindingDescription = Assets::Vertex::GetBindingDescription();
-		const auto attributeDescriptions = Assets::Vertex::GetAttributeDescriptions();
+		const auto bindingDescription = Assets::RayVertex::GetBindingDescription();
+		const auto attributeDescriptions = Assets::RayVertex::GetAttributeDescriptions();
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-		vertexInputInfo.vertexAttributeDescriptionCount = 1;
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
 		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
 		inputAssembly.primitiveRestartEnable = VK_FALSE;
 
 		VkViewport viewport = {};

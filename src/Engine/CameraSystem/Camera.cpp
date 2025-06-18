@@ -53,25 +53,46 @@ glm::mat4 Camera::ModelView()
 
 bool Camera::OnKey(const int key, const int scancode, const int action, const int mods)
 {
-	switch (key)
+	if (key == GLFW_KEY_F && action != GLFW_REPEAT)
 	{
-	case GLFW_KEY_S: cameraMovingBackward_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_W: cameraMovingForward_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_A: cameraMovingLeft_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_D: cameraMovingRight_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_Q: cameraMovingDown_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_E: cameraMovingUp_ = action != GLFW_RELEASE; return true;
-	case GLFW_KEY_LEFT_ALT: camSlowed = action != GLFW_RELEASE; return true;
-
-	case GLFW_KEY_F: {
-
 		auto selected = ModelManager::getInstance()->getSelectedObject();
 
-		this->Reset(lookAt(selected->getWorldPosition(), selected->getWorldPosition() - vec3(0, 0, 100), vec3(0, 1, 0)));
-
-		break;
+		if (selected) {
+			this->Reset(lookAt(
+				selected->getWorldPosition() - glm::vec3(0, 0, 1000),
+				selected->getWorldPosition(),
+				glm::vec3(0, 1, 0)
+			));
+		}
+		return true;
 	}
 
+	if (key == GLFW_KEY_ESCAPE && action != GLFW_REPEAT) 
+	{
+		exit(0); // temp exit lol 
+	}
+
+	if (!mouseRightPressed_) 
+	{
+		cameraMovingForward_ = false;
+		cameraMovingBackward_ = false;
+		cameraMovingLeft_ = false;
+		cameraMovingRight_ = false;
+		cameraMovingUp_ = false;
+		cameraMovingDown_ = false;
+		camSlowed = false;
+		return false;
+	}
+
+	switch (key)
+	{
+		case GLFW_KEY_S: cameraMovingBackward_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_W: cameraMovingForward_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_A: cameraMovingLeft_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_D: cameraMovingRight_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_Q: cameraMovingDown_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_E: cameraMovingUp_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_LEFT_ALT: camSlowed = action != GLFW_RELEASE; return true;
 	default: return false;
 	}
 }
@@ -154,15 +175,6 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 				glm::vec3 minCorner = obb->center - obb->halfExtents;
 				glm::vec3 maxCorner = obb->center + obb->halfExtents;
 
-				//if (obj->getName().find("Light") == std::string::npos)
-				//{
-				//	std::cout << obj->getName() << " center: " << glm::to_string(obb->center) << std::endl;
-				//	std::cout << "Min Corner: " << glm::to_string(minCorner) << std::endl;
-				//	std::cout << "Max Corner: " << glm::to_string(maxCorner) << std::endl;
-
-				//	std::cout << "----------------\n\n" << std::endl;
-				//}
-
 				float tHit = 0.0f;
 				if (pickingRay.intersects(*obb, tHit))
 				{
@@ -178,8 +190,6 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 		if (selectedObject)
 		{
 			glm::vec3 hitPoint = rayOrigin + rayDirection * closestT;
-			//std::cout << "Intersection at (" << hitPoint.x << ", "
-			//	<< hitPoint.y << ", " << hitPoint.z << ")\n";
 			ModelManager::getInstance()->setSelectedObject(selectedObject);
 		}
 	}

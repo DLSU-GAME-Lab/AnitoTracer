@@ -45,7 +45,7 @@ namespace gdeng03
 		GameObject* selectedObject = nullptr;
 
 		bool isMaterialChanged = false;
-		bool isColorPickerOpen = false;
+		bool isColorPickerOpen = true;
 		//bool isMaterialEditorOpen = false;
 
 		ImVec4 diffuse = ImVec4(1, 1, 1, 1);

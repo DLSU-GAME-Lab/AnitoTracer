@@ -20,7 +20,7 @@
 using namespace Assets;
 using namespace glm;
 
-MenuScreen::MenuScreen() : AUIScreen("MenuScreen")
+MenuScreen::MenuScreen() : AUIScreen(UINames::MENU_SCREEN)
 {
 	// this->openSceneDialog = new ImGui::FileBrowser();
 	// this->openSceneDialog->SetTitle("Open Scene");
@@ -41,27 +41,31 @@ void MenuScreen::drawUI()
 {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
-			if (ImGui::MenuItem("Undo", "Ctrl+Z"))
-			{
-				//GameObjectManager::get()->applyAction(ActionHistory::get()->undoAction());
-			}
-			if (ImGui::MenuItem("Redo", "Ctrl+Y"))
-			{
-				//GameObjectManager::get()->applyAction(ActionHistory::get()->redoAction());
-			}
-			if (ImGui::MenuItem("Open..", "Ctrl+O")) {
-				//this->openSceneDialog->Open();
-			}
-			if (ImGui::MenuItem("Save", "Ctrl+S")) {
-				//this->saveSceneDialog->Open();
-			}
-			if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {
-				//this->saveSceneDialog->Open();
+			//if (ImGui::MenuItem("Undo", "Ctrl+Z"))
+			//{
+			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->undoAction());
+			//}
+			//if (ImGui::MenuItem("Redo", "Ctrl+Y"))
+			//{
+			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->redoAction());
+			//}
+			//if (ImGui::MenuItem("Open..", "Ctrl+O")) {
+			//	//this->openSceneDialog->Open();
+			//}
+			//if (ImGui::MenuItem("Save", "Ctrl+S")) {
+			//	//this->saveSceneDialog->Open();
+			//}
+			//if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {
+			//	//this->saveSceneDialog->Open();
+			//}
+			if (ImGui::MenuItem("Save Scene As", nullptr, isSaveSceneAsOpen)) 
+			{ 
+				isSaveSceneAsOpen = !isSaveSceneAsOpen;
 			}
 
 			ImGui::Separator();
 
-			if (ImGui::MenuItem("Exit Editor", "Ctrl+W"))
+			if (ImGui::MenuItem("Exit Editor", "Esc"))
 			{
 				// Walnut::Application::Get().Close();
 				exit(0); // temp exit lol 
@@ -71,28 +75,27 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Scene"))
 		{
-			if (ImGui::MenuItem("Refresh Scene", "F5")) { EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); }
-			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); }
-			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); }
-			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); }
-			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox(); }
-			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo(); }
-			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase(); }
-			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); }
+			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); ShowLoadingPopUp();  }
+			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox();  ShowLoadingPopUp();  }
+			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel();  ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo();  ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase();  ShowLoadingPopUp(); }
 			if (ImGui::BeginMenu("Custom Scenes"))
 			{
-				this->OnLoadEmpty();
+				this->OnLoadEmpty(); ShowLoadingPopUp();
 				for (std::string name : SceneIO::getInstance()->getSceneNames())
 				{
 					if (ImGui::MenuItem(name.c_str())) { SceneIO::getInstance()->LoadScene(name); }
 				}
 				ImGui::EndMenu();
 			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Refresh Scene", "F5")) { EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); }
 			if (ImGui::MenuItem("Delete All Objects in Current Scene")) { this->OnLoadEmpty(); }
 
-			// Scene IO
-			ImGui::Separator();
-			if (ImGui::MenuItem("Save Scene As", nullptr, isSaveSceneAsOpen)) { isSaveSceneAsOpen = !isSaveSceneAsOpen; }
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Objects")) {
@@ -102,20 +105,21 @@ void MenuScreen::drawUI()
 				if (ImGui::MenuItem("Capsule")) { onCreateCapsuleClicked(); }
 				if (ImGui::MenuItem("Cylinder")) { onCreateCylinderClicked(); }
 				if (ImGui::MenuItem("Plane")) { this->OnCreatePlaneClicked(); }
-				if (ImGui::BeginMenu("Probes")) {
-					if (ImGui::MenuItem("Reflection Probe")) { this->OnCreateRProbe(); } // todo: fix transparent probe to be transparent instead of reflective
+				if (ImGui::BeginMenu("Reflective Spheres")) {
+					if (ImGui::MenuItem("Reflective Sphere")) { this->OnCreateRProbe(); } // todo: fix transparent probe to be transparent instead of reflective
 					//if (ImGui::MenuItem("Create Transparent Probe")) { this->OnCreateTProbe(); }
-					if (ImGui::MenuItem("Metallic Probe")) { this->OnCreateMProbe(); }
+					if (ImGui::MenuItem("Metallic Sphere")) { this->OnCreateMProbe(); }
 					ImGui::EndMenu();
 				}
 				ImGui::EndMenu();
 			} 
 			if (ImGui::BeginMenu("Meshes")) {													// todo: add benchmark/basic meshes
-				if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
-				if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
+				//if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
+				//if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
 				if (ImGui::MenuItem("Lucy")) { onCreateLucyClicked(); }
 				//if (ImGui::MenuItem("CornellBox")) { onCreateCornellClicked(); }
 
+				ImGui::Separator();
 				if (ImGui::MenuItem("Import Mesh From File...", nullptr, isLoadObjOpen))
 				{
 					isLoadObjOpen = !isLoadObjOpen;
@@ -135,16 +139,20 @@ void MenuScreen::drawUI()
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Components")) {
-			if (ImGui::MenuItem("Material")) { this->OnMaterialComponentClicked(); }
-			ImGui::EndMenu();
-		}
+		//if (ImGui::BeginMenu("Components")) {
+		//	if (ImGui::MenuItem("Material")) { this->OnMaterialComponentClicked(); }
+		//	ImGui::EndMenu();
+		//}
 
 		if (ImGui::BeginMenu("Tools"))
 		{
 			if (ImGui::MenuItem("Editor Settings", nullptr, UIManager::getInstance()->getEnabled(UINames::SETTINGS_SCREEN)))
 			{
 				UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN);
+			}
+			if (ImGui::MenuItem("Statistics", nullptr, UIManager::getInstance()->getEnabled("Statistics")))
+			{
+				UIManager::getInstance()->toggleEnabled("Statistics");
 			}
 			if (ImGui::MenuItem("Inspector", nullptr, UIManager::getInstance()->getEnabled(UINames::INSPECTOR_SCREEN)))
 			{
@@ -162,12 +170,16 @@ void MenuScreen::drawUI()
 			{
 				UIManager::getInstance()->toggleEnabled(UINames::CONSOLE_SCREEN);
 			}
-			if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
+			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
 			{
-				UIManager::getInstance()->toggleEnabled(UINames::PLAYBACK_SCREEN);
+				UIManager::getInstance()->toggleEnabled(UINames::MATERIAL_EDITOR_SCREEN);
 			}
-			if (ImGui::BeginMenu("Viewport"))
-			{
+			//if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
+			//{
+			//	UIManager::getInstance()->toggleEnabled(UINames::PLAYBACK_SCREEN);
+			//}
+			//if (ImGui::BeginMenu("Viewport"))
+			//{
 				// if (ImGui::MenuItem("Create Viewport"))
 				// {
 				// 	ViewportManager::get()->createViewport();
@@ -192,27 +204,22 @@ void MenuScreen::drawUI()
 				// {
 				// 	ViewportManager::get()->deleteAllViewports();
 				// }
-				ImGui::EndMenu();
-			}
-			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
-			{
-				UIManager::getInstance()->toggleEnabled(UINames::MATERIAL_EDITOR_SCREEN);
-			}
-
-			if (ImGui::MenuItem("Color Picker", nullptr, isColorPickerOpen))
-			{
-				isColorPickerOpen = !isColorPickerOpen;
-			}
+			//	ImGui::EndMenu();
+			//}
+			//if (ImGui::MenuItem("Color Picker", nullptr, isColorPickerOpen))
+			//{
+			//	isColorPickerOpen = !isColorPickerOpen;
+			//}
 
 			ImGui::EndMenu();
 		}
 
 		if (ImGui::BeginMenu("Window"))
 		{
-			if (ImGui::MenuItem("[DEBUG] Save Default Layout"))
-			{
-				UIManager::saveDefaultLayout();
-			}
+			// if (ImGui::MenuItem("[DEBUG] Save Default Layout"))
+			// {
+			// 	UIManager::saveDefaultLayout();
+			// }
 			if (ImGui::MenuItem("Save Window Layout"))
 			{
 				UIManager::saveLayout();
@@ -435,10 +442,10 @@ void MenuScreen::onCreateBunnyClicked()
 		rotate(
 			scale(
 				translate(i, vec3(1)),
-				vec3(1500.0f)),
+				vec3(1.0f)),
 			radians(0.0f), vec3(0, 1, 0)));
 	std::shared_ptr<GameObject> bunnyObj = std::make_shared<GameObject>("Bunny", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(bunny));
-	bunnyObj->setLocalScale(1000.0f, 1000.0f, 1000.0f);
+	bunnyObj->setLocalScale(100.0f, 100.0f, 100.0f);
 	ModelManager::getInstance()->addObject(bunnyObj);
 }
 
@@ -452,11 +459,11 @@ void MenuScreen::onCreateTeapotClicked()
 		rotate(
 			scale(
 				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
-				vec3(0.6f)),
+				vec3(1)),
 			radians(75.0f), vec3(0, 1, 0)));
 
 	std::shared_ptr<GameObject> teapotObj = std::make_shared<GameObject>("Teapot", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(teapot));
-	teapotObj->setLocalScale(100.0f, 100.0f, 100.0f);
+	teapotObj->setLocalScale(5.0f, 5.0f, 5.0f);
 	ModelManager::getInstance()->addObject(teapotObj);
 }
 
@@ -470,7 +477,7 @@ void MenuScreen::onCreateLucyClicked()
 		rotate(
 			scale(
 				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
-				vec3(0.6f)),
+				vec3(0.5)),
 			radians(75.0f), vec3(0, 1, 0)));
 
 	std::shared_ptr<GameObject> lucyObj = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(lucy0));
@@ -483,7 +490,7 @@ void MenuScreen::onCreateCornellClicked()
 
 void MenuScreen::ShowSaveSceneAsMenu()
 {
-	ImGui::SetNextWindowSize(ImVec2(500, 100));
+	ImGui::SetNextWindowSize(ImVec2(500, 400));
 
 	if (ImGui::Begin("Save Scene As", &isSaveSceneAsOpen))
 	{
@@ -506,11 +513,34 @@ void MenuScreen::OnMaterialComponentClicked()
 	// Debug::Log("Creating material placeholder.");
 }
 
+void MenuScreen::ShowLoadingPopUp()
+{
+	isLoading = true;
+
+	static ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMouseInputs |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoDecoration;
+	ImGui::SetNextWindowSize(ImVec2(150, 50));
+	setWindowAlignment(ScreenAlign::CENTER);
+
+	if (ImGui::Begin("Please wait.", &isLoading, flags))
+	{
+		ImGui::Text("Loading...");
+	}
+	ImGui::End();
+}
+
 void MenuScreen::OnLoadSphereWorld()
 {
 	// GameObjectManager::getInstance()->clearAll();
 	// RayTracingProper::getInstance()->generateSphereWorld();
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
+	// while (!isLoading) {}
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -523,7 +553,8 @@ void MenuScreen::OnLoadRTIOW()
 	// GameObjectManager::getInstance()->clearAll();
 	// RayTracingProper::getInstance()->generateSphereWorld();
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
-
+	// while (!isLoading) {}
+	// isLoading = false;
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 1);
@@ -532,6 +563,9 @@ void MenuScreen::OnLoadRTIOW()
 
 void MenuScreen::OnLoadBoxWorld()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 8);
@@ -544,6 +578,11 @@ void MenuScreen::OnLoadCornellBox()
 	// RayTracingProper::getInstance()->generateCornellBox();
 	//
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
+	// while (!isLoading)
+	// {
+	// 	Debug::Log("Waiting for loading to finish in MenuScreen::OnLoadCornellBox()...");
+	// }
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -553,6 +592,9 @@ void MenuScreen::OnLoadCornellBox()
 
 void MenuScreen::OnLoadAnitoTracerDemo()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 9);
@@ -561,6 +603,9 @@ void MenuScreen::OnLoadAnitoTracerDemo()
 
 void MenuScreen::OnLoadShowcase()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 10);
@@ -569,14 +614,31 @@ void MenuScreen::OnLoadShowcase()
 
 void MenuScreen::OnLoadSponza()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 11);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 
+void MenuScreen::OnLoadSanMiguel()
+{
+	// while (!isLoading) {}
+	// isLoading = false;
+
+	ModelManager::getInstance()->clearAllObjects();
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", 12);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+}
+
 void MenuScreen::OnLoadEmpty()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	// std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	// parameters->encodeInt("SCENE_INDEX", 11);

@@ -36,6 +36,7 @@
 #include "Vulkan/DepthBuffer.hpp"
 
 bool UIManager::isStartup = true;
+bool UIManager::isHidingUI = false;
 
 UIManager* UIManager::sharedInstance = nullptr;
 
@@ -216,6 +217,12 @@ void UIManager::initializeUI()
 
 	// save and load the current layout to avoid resetting randomly
 
+	for (const auto& i : this->uiList)
+	{
+		if (i->name != UINames::MENU_SCREEN)
+			i->setEnabled(!isHidingUI);
+	}
+
 	// Debug::Log("Startup is " + (isStartup ? std::string("true") : std::string("false")));
 	//
 	if (isStartup)
@@ -298,9 +305,12 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	{
 		static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
 
-		if (ImGui::IsKeyPressed(ImGuiKey_W)) mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-		if (ImGui::IsKeyPressed(ImGuiKey_E)) mCurrentGizmoOperation = ImGuizmo::ROTATE;
-		if (ImGui::IsKeyPressed(ImGuiKey_R)) mCurrentGizmoOperation = ImGuizmo::SCALE;
+		if (!ImGui::IsMouseDown(ImGuiMouseButton_Right))
+		{
+			if (ImGui::IsKeyPressed(ImGuiKey_W)) mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+			if (ImGui::IsKeyPressed(ImGuiKey_E)) mCurrentGizmoOperation = ImGuizmo::ROTATE;
+			if (ImGui::IsKeyPressed(ImGuiKey_R)) mCurrentGizmoOperation = ImGuizmo::SCALE;
+		}
 
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
 
@@ -406,7 +416,7 @@ void UIManager::drawOverlay(const Statistics& statistics) const
 		return;
 	}
 
-	ImGui::SetNextWindowBgAlpha(0.3f); // Transparent background
+	//ImGui::SetNextWindowBgAlpha(0.3f); // Transparent background
 
 	if (ImGui::Begin("Statistics", &settings()->ShowOverlay, UISettings::GlobalWindowFlags))
 	{
@@ -468,6 +478,11 @@ void UIManager::drawAllUI() const
 
 bool UIManager::getEnabled(const std::string& name)
 {
+	if (name == "Statistics")
+	{
+		return userSettings->ShowOverlay;
+	}
+
 	if (!this->uiTable[name])
 		return false;
 
@@ -476,6 +491,12 @@ bool UIManager::getEnabled(const std::string& name)
 
 void UIManager::setEnabled(const String& uiName, const bool flag)
 {
+	if (uiName == "Statistics")
+	{
+		userSettings->ShowOverlay = flag;
+		return;
+	}
+
 	if (this->uiTable[uiName] != nullptr)
 	{
 		this->uiTable[uiName]->setEnabled(flag);
@@ -484,6 +505,12 @@ void UIManager::setEnabled(const String& uiName, const bool flag)
 
 void UIManager::toggleEnabled(const String& uiName)
 {
+	if (uiName == "Statistics")
+	{
+		userSettings->ShowOverlay = !userSettings->ShowOverlay;
+		return;
+	}
+
 	if (this->uiTable[uiName] != nullptr)
 	{
 		this->uiTable[uiName]->toggleEnabled();
@@ -509,6 +536,7 @@ void UIManager::toggleAllUI()
 	}
 
 	isHidingUI = !isHidingUI;
+	userSettings->ShowOverlay = !userSettings->ShowOverlay;
 }
 
 void UIManager::hideAllUI() const

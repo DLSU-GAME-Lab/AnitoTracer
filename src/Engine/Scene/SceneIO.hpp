@@ -6,6 +6,8 @@
 #include <string>
 #include <nlohmann/json.hpp>
 
+#include "Utilities/FileUtils.h"
+
 using namespace nlohmann;
 class SceneIO {
 public:
@@ -82,6 +84,7 @@ public:
 	void LoadScene(std::string name) {
 		for (json obj : map[name]["objects"])
 		{
+			//if type mesh -> helper function convert text to .obj -> next line
 			glm::vec3 pos = glm::vec3(obj["position"][0], obj["position"][1], obj["position"][2]);
 			glm::vec3 rot = glm::vec3(obj["rotation"][0], obj["rotation"][1], obj["rotation"][2]);
 			glm::vec3 scale = glm::vec3(obj["scale"][0], obj["scale"][1], obj["scale"][2]);
@@ -90,7 +93,7 @@ public:
 				obj["type"],
 				obj["enabled"],
 				pos,
-				rot,scale);
+				rot, scale);
 
 		}
 	}
@@ -112,5 +115,28 @@ public:
 			sceneNames.push_back(scene["scene_name"]);
 		}
 		return sceneNames;
+	}
+
+	std::stringstream OBJToString(std::string filename)
+	{
+
+		const std::ifstream file(filename, std::ios::binary);
+		std::stringstream returnBytes;
+		returnBytes << file.rdbuf();
+
+		return returnBytes;
+	}
+
+	void BytesToOBJ(std::string bytes, std::string objName)
+	{
+		//load the bytes into a new obj file
+		std::string modelLocation = FileUtils::getAssetsFolderPath().generic_string() + "/models/";
+		std::string filePath = modelLocation + objName + ".obj";
+		//convert path to wchar_t
+		std::wstring widestr = std::wstring(filePath.begin(), filePath.end());
+		const wchar_t* charPath = widestr.c_str();
+
+		std::ofstream file(filePath, std::ios::binary);
+		file << bytes;
 	}
 };

@@ -23,7 +23,7 @@ void InspectorScreen::drawUI()
 	if (this->selectedObject != nullptr)
 	{
 		String name = this->selectedObject->getName();
-		ImGui::Text("Selected Object: %s", name.c_str());
+		ImGui::TextWrapped("Selected Object: %s", name.c_str());
 
 		this->updateTransformDisplays();
 		this->updateLightPropsDisplays();
@@ -79,7 +79,7 @@ void InspectorScreen::drawUI()
 		this->drawMaterialsTab();
 	}
 	else {
-		ImGui::Text("No object selected. Select an object first.");
+		ImGui::TextWrapped("No object selected. Select an object first.");
 	}
 
 	ImGui::End();

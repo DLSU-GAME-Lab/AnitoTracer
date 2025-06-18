@@ -70,6 +70,7 @@ namespace Assets
 		std::vector<Material> materials_;
 		std::shared_ptr<const class Procedural> procedural_;
 		glm::mat4 worldMatrix_;
+		std::string filepath;
 	};
 
 }
