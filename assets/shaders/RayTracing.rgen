@@ -24,7 +24,6 @@ layout(location = 0) rayPayloadEXT RayPayload Ray;
 void main() 
 {
 	const uint64_t clock = Camera.ShowHeatmap ? clockARB() : 0;
-
 	// Initialise separate random seeds for the pixel and the rays.
 	// - pixel: we want the same random seed for each pixel to get a homogeneous anti-aliasing.
 	// - ray: we want a noisy random seed, different for each pixel.
@@ -33,20 +32,22 @@ void main()
 
 	vec3 pixelColor = vec3(0);
 
-	// Count the rays and set the index
-	uint rayIndex = -1;
-
-	uint i = 0;
+	
 	uint rayOffset = Camera.NumberOfBounces + 1;
 
+	vec2 center = vec2(gl_LaunchSizeEXT.x / 2, gl_LaunchSizeEXT.y / 2);
 
 	// Accumulate all the rays for this pixels.
 	for (uint s = 0; s < Camera.NumberOfSamples; ++s)
 	{
+		// Initialize index
+		uint i = 0;
+		uint rayIndex = -1;
+
 		//if (Camera.NumberOfSamples != Camera.TotalNumberOfSamples) break;
 		const vec2 pixel = vec2(gl_LaunchIDEXT.x + RandomFloat(pixelRandomSeed), gl_LaunchIDEXT.y + RandomFloat(pixelRandomSeed));
 		const vec2 uv = (pixel / gl_LaunchSizeEXT.xy) * 2.0 - 1.0;
-
+		
 		vec2 offset = Camera.Aperture/2 * RandomInUnitDisk(Ray.RandomSeed);
 		vec4 origin = Camera.ModelViewInverse * vec4(offset, 0, 1);
 		vec4 target = Camera.ProjectionInverse * (vec4(uv.x, uv.y, 1, 1));
@@ -84,9 +85,8 @@ void main()
 				break;
 			}
 
-			// Only check the first sample for each pixel
-			// If first bounce and did not miss, increment ray counter and store ray info
-			if (rayIndex == -1 && s == 0 && b == 0)
+			// If bounced and did not miss, increment ray counter and store ray info
+			if (rayIndex == -1 && ivec2(center.xy) == ivec2(gl_LaunchIDEXT.xy) && b == 0)
 			{
 				// Atomic Increment, implemented with busy-waiting
 				// TODO: isolate this into a function for reusability.
@@ -95,7 +95,7 @@ void main()
 				{
 					assumedCounter = rayCounter;
 
-					if (assumedCounter >= Camera.MaxRays)
+					if (assumedCounter >= Camera.MaxRays * Camera.NumberOfSamples)
 						break;
 
 					oldCounter = atomicCompSwap(rayCounter, assumedCounter, assumedCounter + 1);
@@ -124,7 +124,7 @@ void main()
 			origin = origin + t * direction;
 			direction = vec4(Ray.ScatterDirection.xyz, 0);
 
-			if (rayIndex != -1 && s == 0)
+			if (rayIndex != -1 && ivec2(center.xy) == ivec2(gl_LaunchIDEXT.xy))
 			{
 				RayVertex vertex;
 				vertex.Position = origin.xyz;

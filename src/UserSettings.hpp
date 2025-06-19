@@ -38,7 +38,7 @@ struct UserSettings final
 	inline static constexpr float FieldOfViewMaxValue = 90.0f;
 
 	// Ray Visualization
-	uint32_t MaxRays = 16;
+	uint32_t MaxRays = 1;
 
 	bool RequiresAccumulationReset(const UserSettings& prev) const
 	{

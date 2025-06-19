@@ -480,7 +480,6 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	//std::cout << "Skybox ImageView: " << scene_->SkyboxImageView() << std::endl;
 	//std::cout << "Skybox Sampler: " << scene_->SkyboxSampler() << std::endl;
 
-	rayScene_.reset(new Assets::RayScene(CommandPool(), userSettings_));
 	sceneIndex_ = sceneIndex;
 
 	userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
@@ -488,6 +487,8 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	userSettings_.FocusDistance = cameraInitialSate_.FocusDistance;
 
 	CameraManager::getInstance()->getActiveCamera()->Reset(cameraInitialSate_.ModelView);
+
+	rayScene_.reset(new Assets::RayScene(CommandPool(), userSettings_));
 
 	periodTotalFrames_ = 0;
 	resetAccumulation_ = true;
@@ -524,6 +525,7 @@ void RayTracer::ReloadModifiedScene()
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
 	);
+
 	rayScene_.reset(new Assets::RayScene(CommandPool(), userSettings_));
 
 	// userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;

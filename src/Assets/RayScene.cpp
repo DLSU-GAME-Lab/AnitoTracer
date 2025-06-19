@@ -12,9 +12,8 @@
 using namespace glm;
 namespace Assets {
 	RayScene::RayScene(Vulkan::CommandPool& commandPool, UserSettings& userSettings) :
-		maxRays_(userSettings.MaxRays)
+		maxRays_(userSettings.MaxRays * userSettings.NumberOfSamples)
 	{
-
 		constexpr auto flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
 		// Create ray vertex buffer to be placed into the ray tracing pipeline as storage for calculated ray positions.
@@ -47,7 +46,7 @@ namespace Assets {
 	void RayScene::Update(Vulkan::CommandPool& commandPool)
 	{
 		uint32_t numRays = GetRayCounter(commandPool);
-	
+
 		if (numRays == maxRays_ && rays_.size() != maxRays_ && !hasRenderedRays_)
 		{
 			// Hard coded amount :>
