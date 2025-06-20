@@ -243,8 +243,6 @@ set(src_files_from_gdgrap2
 
 set(src_files
 	main.cpp
-	ModelViewController.cpp
-	ModelViewController.hpp
 	Options.cpp
 	Options.hpp
 	RayTracer.cpp

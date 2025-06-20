@@ -1,6 +1,4 @@
 #pragma once
-
-#include "ModelViewController.hpp"
 #include "SceneList.hpp"
 #include "UserSettings.hpp"
 #include "Vulkan/RayTracing/Application.hpp"
@@ -63,7 +61,6 @@ private:
 	UserSettings userSettings_{};
 	UserSettings previousSettings_{};
 	SceneList::CameraInitialState cameraInitialSate_{};
-	ModelViewController modelViewController_{};
 
 	std::unique_ptr<Assets::Scene> scene_;
 	std::unique_ptr<Assets::TextureImage> skyboxTextureImage_;
