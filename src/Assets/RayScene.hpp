@@ -48,7 +48,6 @@ namespace Assets
 
 		const uint32_t maxRays_ = 16;
 
-		const std::vector<Model> models_;
 		std::vector<Ray*> rays_;
 
 		std::unique_ptr<Vulkan::Buffer> rayCounterBuffer_;

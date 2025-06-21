@@ -217,8 +217,6 @@ set(src_files_from_gdgrap2
 	From-GDGRAP2/IETSemaphore.h
 	From-GDGRAP2/IETThread.cpp
 	From-GDGRAP2/IETThread.h
-	From-GDGRAP2/RTRules.cpp
-	From-GDGRAP2/RTRules.h
 	From-GDGRAP2/EventBroadcaster.cpp
 	From-GDGRAP2/EventBroadcaster.h
 	From-GDGRAP2/MathUtils.cpp
