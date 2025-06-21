@@ -7,6 +7,7 @@
 #include "Heatmap.glsl"
 #include "Random.glsl"
 #include "RayPayload.glsl"
+#include "RayVertex.glsl"
 #include "UniformBufferObject.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT Scene;
@@ -14,8 +15,11 @@ layout(binding = 1, rgba32f) uniform image2D AccumulationImage;
 layout(binding = 2, rgba8) uniform image2D OutputImage;
 layout(binding = 3) readonly uniform UniformBufferObjectStruct { UniformBufferObject Camera; };
 
-layout(location = 0) rayPayloadEXT RayPayload Ray;
+layout(binding = 12) buffer RayCounter { uint rayCounter; };
+layout(binding = 13) buffer RayVertexBuffer { RayVertex Vertices[]; };
+layout(binding = 14) buffer RayInfoBuffer { RayInfo info[]; };
 
+layout(location = 0) rayPayloadEXT RayPayload Ray;
 
 void main() 
 {
@@ -28,6 +32,13 @@ void main()
 	Ray.RandomSeed = InitRandomSeed(InitRandomSeed(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y), Camera.TotalNumberOfSamples);
 
 	vec3 pixelColor = vec3(0);
+
+	// Count the rays and set the index
+	uint rayIndex = -1;
+
+	uint i = 0;
+	uint rayOffset = Camera.NumberOfBounces + 1;
+
 
 	// Accumulate all the rays for this pixels.
 	for (uint s = 0; s < Camera.NumberOfSamples; ++s)
@@ -57,10 +68,10 @@ void main()
 			}
 
 			traceRayEXT(
-				Scene, gl_RayFlagsOpaqueEXT, 0xff, 
+				Scene, gl_RayFlagsNoneEXT, 0xff, 
 				0 /*sbtRecordOffset*/, 0 /*sbtRecordStride*/, 0 /*missIndex*/, 
 				origin.xyz, tMin, direction.xyz, tMax, 0 /*payload*/);
-			
+
 			const vec3 hitColor = Ray.ColorAndDistance.rgb;
 			const float t = Ray.ColorAndDistance.w;
 			const bool isScattered = Ray.ScatterDirection.w > 0;
@@ -73,9 +84,57 @@ void main()
 				break;
 			}
 
+			// Only check the first sample for each pixel
+			// If first bounce and did not miss, increment ray counter and store ray info
+			if (rayIndex == -1 && s == 0 && b == 0)
+			{
+				// Atomic Increment, implemented with busy-waiting
+				// TODO: isolate this into a function for reusability.
+				uint oldCounter, assumedCounter;
+				do
+				{
+					assumedCounter = rayCounter;
+
+					if (assumedCounter >= Camera.MaxRays)
+						break;
+
+					oldCounter = atomicCompSwap(rayCounter, assumedCounter, assumedCounter + 1);
+
+					if (oldCounter == assumedCounter)
+					{
+				        rayIndex = assumedCounter;
+				    }
+				} while (oldCounter != assumedCounter);
+
+				if (rayIndex != -1) {
+					RayVertex vertex;
+					vertex.Position = origin.xyz;
+					vertex.Color = vec4(1.0);
+
+					Vertices[rayIndex * rayOffset] = vertex;
+					Vertices[rayIndex * rayOffset] = vertex;
+					i++;
+
+					info[rayIndex].offset = rayOffset;
+					info[rayIndex].count  = i;
+				}
+			}
+
 			// Trace hit.
 			origin = origin + t * direction;
 			direction = vec4(Ray.ScatterDirection.xyz, 0);
+
+			if (rayIndex != -1 && s == 0)
+			{
+				RayVertex vertex;
+				vertex.Position = origin.xyz;
+				vertex.Color = vec4(rayColor, 1.0);
+				Vertices[rayIndex * rayOffset + i] = vertex;
+				i++;
+
+				info[rayIndex].offset = rayOffset;
+				info[rayIndex].count  = i;
+			}
 		}
 
 		pixelColor += rayColor;

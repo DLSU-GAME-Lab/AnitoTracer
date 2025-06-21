@@ -7,7 +7,7 @@
 layout(binding = 1) readonly buffer MaterialArray { Material[] Materials; };
 layout(binding = 2) uniform sampler2D[] TextureSamplers;
 
-layout(location = 0) in vec3 FragColor;
+layout(location = 0) in vec4 FragColor;
 layout(location = 1) in vec3 FragNormal;
 layout(location = 2) in vec2 FragTexCoord;
 layout(location = 3) in flat int FragMaterialIndex;
@@ -19,14 +19,19 @@ const vec3 dirLightDir = normalize(vec3(5.0, 4.0, 3.0));
 
 void main() 
 {
-	const int textureId = Materials[FragMaterialIndex].DiffuseTextureId;
-	const float d = max(dot(dirLightDir, normalize(FragNormal)), 0.2);
-	
-	vec3 c = FragColor * d;
-	if (textureId >= 0)
-	{
-		c *= texture(TextureSamplers[textureId], FragTexCoord).rgb;
-	}
-	
-    OutColor = dirLightColor * vec4(c, 1);
+    const int textureId = Materials[FragMaterialIndex].DiffuseTextureId;
+    const float d = max(dot(dirLightDir, normalize(FragNormal)), 0.2);
+
+    vec4 baseColor = vec4(FragColor.rgb * d, FragColor.a); // Apply lighting to base color
+    if (textureId >= 0)
+    {
+        vec4 texColor = texture(TextureSamplers[textureId], FragTexCoord);
+        baseColor.rgb *= texColor.rgb;
+        baseColor.a *= texColor.a; 
+    }
+
+    if (baseColor.a < 0.01)
+        discard;
+
+    OutColor = dirLightColor * baseColor;
 }

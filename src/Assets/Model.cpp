@@ -10,7 +10,6 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/hash.hpp>
 
-#include <tiny_obj_loader.h>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -66,7 +65,9 @@ namespace Assets {
 		const std::string materialPath = std::filesystem::path(filename).parent_path().string();
 
 		Assimp::Importer objectImporter;
-		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_FlipUVs | aiProcess_Triangulate | 0);
+		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
+			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_Triangulate |
+			aiProcess_GenUVCoords | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs | 0);
 		// read file and return an aiScene containing model attributes
 
 		if (scene == nullptr)
@@ -221,7 +222,10 @@ namespace Assets {
 		std::cout << "(" << totalvertices << " vertices, " << uniqueVertices.size() << " unique vertices, " << materials.size() << " materials) ";
 		std::cout << elapsed << "s" << std::endl;
 
-		return Model(name, std::move(vertices), std::move(indices), std::move(materials), nullptr);
+		Model model = Model(name, std::move(vertices), std::move(indices), std::move(materials), nullptr);
+		model.filepath = filename;
+
+		return model;
 	}
 
 
@@ -235,7 +239,9 @@ namespace Assets {
 		Assimp::Importer objectImporter;
 		std::vector<Model> models;
 
-		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_FlipUVs | aiProcess_Triangulate | 0); //read file and return an aiScene containing model attributes
+		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
+			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_Triangulate |
+			aiProcess_GenUVCoords | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs | 0); //read file and return an aiScene containing model attributes
 
 
 		if (scene == nullptr)
@@ -384,6 +390,7 @@ namespace Assets {
 
 
 			Model model = Model(name, std::move(vertices), std::move(indices), std::move(meshMaterials), nullptr);
+			model.filepath = filename;
 			models.push_back(model);
 		}
 

@@ -15,6 +15,8 @@ struct UserSettings final
 	// Renderer
 	bool IsRayTraced;
 	bool AccumulateRays;
+	bool MultiSampling;
+	uint32_t aaValue;
 	uint32_t NumberOfSamples;
 	uint32_t NumberOfBounces;
 	uint32_t MaxNumberOfSamples;
@@ -34,6 +36,9 @@ struct UserSettings final
 
 	inline static constexpr float FieldOfViewMinValue = 10.0f;
 	inline static constexpr float FieldOfViewMaxValue = 90.0f;
+
+	// Ray Visualization
+	uint32_t MaxRays = 16;
 
 	bool RequiresAccumulationReset(const UserSettings& prev) const
 	{

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "imgui_internal.h"
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/EventNames.h"
@@ -90,7 +91,7 @@ void MaterialEditorScreen::drawUI()
 		updateSelectedMaterial();
 	}
 	else
-		ImGui::Text("Select an object to edit its material.");
+		ImGui::TextWrapped("Select an object to edit its material.");
 
 	ImGui::End();
 
@@ -103,10 +104,23 @@ void MaterialEditorScreen::drawUI()
 
 void MaterialEditorScreen::showColorPickerWindow()
 {
-	if (ImGui::Begin("Color Picker", &isColorPickerOpen))
+	ImGui::SetNextWindowPos(ImGui::FindWindowByName("Material Editor")->Pos);
+	ImGui::SetNextWindowSize(ImVec2(350, 350));
+	if (ImGui::Begin("Color Picker", &isColorPickerOpen) && selectedMaterial)
 	{
 		ImGui::SameLine();
 		ImGui::ColorPicker4("Albedo Color##4", reinterpret_cast<float*>(&diffuse), 0);
+
+		if (ImGui::Button("Close & Apply"))
+		{
+			isColorPickerOpen = false;
+
+			// if (selectedMaterial->Diffuse != glm::vec4(this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w))
+			// {
+			selectedMaterial->Diffuse = { this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w };
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+			//}
+		}
 	}
 	ImGui::End();
 }
@@ -180,22 +194,17 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 
 	ImGui::NewLine();
 
-	if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(50, 30)))
+	ImGui::Text("Color");
+	if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(100, 50)))
 	{
 		isColorPickerOpen = !isColorPickerOpen;
 	}
 
-	if (selectedMaterial->Diffuse != glm::vec4(this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w))
-	{
-		selectedMaterial->Diffuse = { this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w };
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
-
-	if (ImGui::InputInt("Texture Id", &textureId))
-	{
-		selectedMaterial->DiffuseTextureId = textureId;
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
+	// if (ImGui::InputInt("Texture Id", &textureId))
+	// {
+	// 	selectedMaterial->DiffuseTextureId = textureId;
+	// 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	// }
 
 	ImGui::NewLine();
 

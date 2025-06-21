@@ -76,19 +76,20 @@ namespace
 
 const std::vector<std::tuple<std::string, std::function<SceneAssets(SceneList::CameraInitialState&)>>> SceneList::AllScenes =
 {
-	{"Cube And Spheres", CubeAndSpheres},
-	{"Ray Tracing In One Weekend", RayTracingInOneWeekend},
+	{"Cube And Spheres", CubeAndSpheres}, 
+	{"Ray Tracing In One Weekend", RayTracingInOneWeekend}, // USED
 	{"Planets In One Weekend", PlanetsInOneWeekend},
 	{"Lucy In One Weekend", LucyInOneWeekend},
 	{"Cornell Box", CornellBox},
 	{"Cornell Box & Lucy", CornellBoxLucy},
-	{"GDGRAP2 - Sphere World", GDGRAP2_SphereWorld},
-	{"GRGRAP2 - Cornell Box", GDGRAP2_CornellBox},
-	{"GDGRAP2 - Box World", GDGRAP2_BoxWorld},
-	{"AnitoTracer - Demo Scene", AnitoTracer_DemoScene},
-	{"Model Showcase - Blank", Model_Showcase},
-	{"Sponza", Sponza},
-	{"Empty", Empty},
+	{"GDGRAP2 - Sphere World", GDGRAP2_SphereWorld}, // USED
+	{"GRGRAP2 - Cornell Box", GDGRAP2_CornellBox}, // USED
+	{"GDGRAP2 - Box World", GDGRAP2_BoxWorld}, // USED
+	{"AnitoTracer - Demo Scene", AnitoTracer_DemoScene}, // USED
+	{"Model Showcase - Blank", Model_Showcase}, // USED
+	{"Sponza", Sponza}, // USED
+	{"San Miguel", SanMiguel}, // USED
+	{"Empty", Empty}, // USED
 };
 
 SceneAssets SceneList::CubeAndSpheres(CameraInitialState& camera)
@@ -272,7 +273,7 @@ SceneAssets SceneList::CornellBox(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -305,7 +306,7 @@ SceneAssets SceneList::CornellBoxLucy(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	const auto i = mat4(1);
 	const auto sphere = Model::CreateSphere(vec3(555 - 130, 165.0f, -165.0f / 2 - 65), 80.0f, *Material::Dielectric(1.5f), true);
@@ -437,13 +438,13 @@ SceneAssets SceneList::GDGRAP2_SphereWorld(CameraInitialState& camera)
 
 SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(278, 278, 800), vec3(278, 278, 0), vec3(0, 1, 0));
+	camera.ModelView = lookAt(vec3(0, 0, 1800), vec3(0, 0, 0), vec3(0, 1, 0));
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -456,14 +457,15 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 	Model box0 = Model::CreateBox(vec3(0, 0, -165), vec3(165, 165, 0), *white);
 	Model box1 = Model::CreateBox(vec3(0, 0, -165), vec3(165, 330, 0), *white);
 
-	box0.Transform(rotate(translate(i, vec3(555 - 130 - 165, 0, -65)), radians(-18.0f), vec3(0, 1, 0)));
-	box1.Transform(rotate(translate(i, vec3(555 - 265 - 165, 0, -295)), radians(15.0f), vec3(0, 1, 0)));
-
 	std::shared_ptr<GameObject> box0_Object = std::make_shared<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
 	ModelManager::getInstance()->addObject(box0_Object);
+	box0_Object->setLocalPosition(vec3(125, -194, 100));
+	box0_Object->setLocalRotation(vec3(0, 50, 0));
 
 	std::shared_ptr<GameObject> box1_Object = std::make_shared<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
 	ModelManager::getInstance()->addObject(box1_Object);
+	box1_Object->setLocalPosition(vec3(-100, -112, -100));
+	box1_Object->setLocalRotation(vec3(0, -60, 0));
 
 	Model cornellBoxModel = Model::CreateCornellBox(555);
 	std::shared_ptr<GameObject> cornellBoxObject = std::make_shared<GameObject>("CornellBox", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(cornellBoxModel));
@@ -488,7 +490,7 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
@@ -581,7 +583,7 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 
 SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(0, 0, 800), vec3(0, 0, 0), vec3(0, 1, 0));
+	camera.ModelView = lookAt(vec3(0, 0, 1000), vec3(0, 0, 0), vec3(0, 1, 0));
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
@@ -608,84 +610,31 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = MaterialLibrary::getInstance()->getMaterial(L"Mirror");
-	//const auto mirror = Material::Dielectric(1.6f, 0.0f); 
 
 	Model box0 = Model::CreateBox(vec3(0, 0, -165), vec3(165, 165, 0), *white);
 	Model box1 = Model::CreateBox(vec3(0, 0, -165), vec3(165, 330, 0), *white);
 
-	box0.Transform(rotate(translate(i, vec3(555 - 130 - 165, 80, -65)), radians(-18.0f), vec3(0, 1, 0)));
-	box1.Transform(rotate(translate(i, vec3(555 - 265 - 165, 175, -295)), radians(15.0f), vec3(0, 1, 0)));
+	std::shared_ptr<GameObject> box0_Object = std::make_shared<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
+	ModelManager::getInstance()->addObject(box0_Object);
+	box0_Object->setLocalPosition(vec3(125, -194, -400));
+	box0_Object->setLocalRotation(vec3(0, 50, 0));
 
-	std::shared_ptr<GameObject> box0Obj = std::make_shared<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
-	ModelManager::getInstance()->addObject(box0Obj);
-
-	std::shared_ptr<GameObject> box1Obj = std::make_shared<GameObject>("Box 1", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
-	ModelManager::getInstance()->addObject(box1Obj);
+	std::shared_ptr<GameObject> box1_Object = std::make_shared<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
+	ModelManager::getInstance()->addObject(box1_Object);
+	box1_Object->setLocalPosition(vec3(-100, -112, -600));
+	box1_Object->setLocalRotation(vec3(0, -60, 0));
 
 	Model cornellBoxModel = Model::CreateCornellBox(555);
 	std::shared_ptr<GameObject> cornellBoxObject = std::make_shared<GameObject>("CornellBox", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(cornellBoxModel));
 	ModelManager::getInstance()->addObject(cornellBoxObject);
-	cornellBoxObject->setLocalPosition(0, 0, 0);
+	cornellBoxObject->setLocalPosition(0, 0, -500);
 
-	Model capsuleTest = Model::CreateCapsule(100, 500, *white.get());
-	std::shared_ptr<GameObject> capsuleObject = std::make_shared<GameObject>("Capsule", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(capsuleTest));
-	ModelManager::getInstance()->addObject(capsuleObject);
-
-	Model cylinderTest = Model::CreateCylinder(100, 200, *white.get());
-	std::shared_ptr<GameObject> cylinderObject = std::make_shared<GameObject>("Cylinder", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(cylinderTest));
-	ModelManager::getInstance()->addObject(cylinderObject);
-
-	auto lucy0 = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
-
-	lucy0.Transform(
-		rotate(
-			scale(
-				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
-				vec3(0.6f)),
-			radians(75.0f), vec3(0, 1, 0)));
-
-	std::shared_ptr<GameObject> lucyObj = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(lucy0));
-	ModelManager::getInstance()->addObject(lucyObj);
-
-	Model teapot = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/teapot.obj");
-	teapot.SetMaterial(*white);
-	teapot.Transform(
-		rotate(
-			scale(
-				translate(i, vec3(1)),
-				vec3(75.0f)),
-			radians(0.0f), vec3(0, 1, 0)));
-
-	std::shared_ptr<GameObject> teapotObj = std::make_shared<GameObject>("Teapot", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(teapot));
-	ModelManager::getInstance()->addObject(teapotObj);
-
-	Model bunny = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/bunny.obj");
-	bunny.SetMaterial(*white);
-	bunny.Transform(
-		rotate(
-			scale(
-				translate(i, vec3(1)),
-				vec3(1500.0f)),
-			radians(0.0f), vec3(0, 1, 0)));
-	std::shared_ptr<GameObject> bunnyObj = std::make_shared<GameObject>("Bunny", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(bunny));
-	ModelManager::getInstance()->addObject(bunnyObj);
-
-	Model plane = Model::CreatePlane(vec3(0, 0, -1), vec3(1, 1, 0), *white);
-	std::shared_ptr<GameObject> planeObj = std::make_shared<GameObject>("Plane", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(plane));
-	ModelManager::getInstance()->addObject(planeObj);
-	planeObj->setLocalScale(vec3(5000));
-
-	teapotObj->setLocalPosition(1000, 0, 0);
-	bunnyObj->setLocalPosition(1750, -10, 0);
-	lucyObj->setLocalPosition(2500, 0, 0);
-	planeObj->setLocalPosition(1000, -185, 500);
-
-	capsuleObject->setLocalPosition(2000, 500, 300);
-	cylinderObject->setLocalPosition(2000, 200, 0);
-
-	// Add light objects
-	std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl1);
+	Model lucy = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
+	std::shared_ptr<GameObject> lucyObject = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucy));
+	ModelManager::getInstance()->addObject(lucyObject);
+	lucyObject->setLocalPosition(vec3(-100, -170, -350));
+	lucyObject->setLocalRotation(vec3(0, 90, 0));
+	lucyObject->setLocalScale(vec3(0.25));
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
@@ -725,10 +674,6 @@ SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 	const auto mirror = MaterialLibrary::getInstance()->getMaterial(L"Mirror");
 	//const auto mirror = Material::Dielectric(1.6f, 0.0f); 
 
-	// Add light objects
-	std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl1);
-
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
@@ -744,7 +689,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
-	camera.HasSky = false;
+	camera.HasSky = true;
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -811,7 +756,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 		rathObj->setLocalPosition(100, 850, 0);*/
 	 
 	 
-	std::vector<Model> sponza = Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/sponza.obj");
+	std::vector<Model> sponza = Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj");
 	//sponza.SetMaterial(white);
 
 	for (int j = 0; j < sponza.size(); j++) 
@@ -850,6 +795,60 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 
 	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
 }
+
+SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
+{
+	camera.ModelView = lookAt(vec3(800, 400, -230), vec3(-350, 200, 65), vec3(0, 1, 0));
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	std::mt19937 engine(1);
+	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
+
+	bool isProcedural = false;
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotation(0, 0, 0);
+	ModelManager::getInstance()->addObject(areaLightObject);
+
+	std::shared_ptr<Camera> cameraObj = std::make_shared<Camera>("Camera");
+	ModelManager::getInstance()->addObject(cameraObj);
+	cameraObj->setLocalPosition(0, 10.0f, 0);
+	CameraManager::getInstance()->addCamera(cameraObj);
+
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/San_Miguel/san-miguel.obj");
+	std::shared_ptr<GameObject> smObj;
+
+	if (sm.GetName() == "")
+		smObj = std::make_shared<GameObject>("San Miguel", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(sm));
+	else
+		smObj = std::make_shared<GameObject>(sm.GetName(), GameObject::PrimitiveType::CUBE, std::make_shared<Model>(sm));
+
+	ModelManager::getInstance()->addObject(smObj);
+	smObj->setLocalPosition(0, 0, 0);
+	smObj->setLocalScale(50,50,50);
+
+	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+}
+
+
 
 SceneAssets SceneList::Empty(CameraInitialState& camera)
 {

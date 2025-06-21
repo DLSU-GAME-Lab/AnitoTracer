@@ -1,6 +1,7 @@
 #include "RayTracingPipeline.hpp"
 #include "DeviceProcedures.hpp"
 #include "TopLevelAccelerationStructure.hpp"
+#include "Assets/RayScene.hpp"
 #include "Assets/Scene.hpp"
 #include "Assets/UniformBuffer.hpp"
 #include "Utilities/Exception.hpp"
@@ -24,7 +25,8 @@ RayTracingPipeline::RayTracingPipeline(
 	const ImageView& accumulationImageView,
 	const ImageView& outputImageView,
 	const std::vector<Assets::UniformBuffer>& uniformBuffers,
-	const Assets::Scene& scene) :
+	const Assets::Scene& scene,
+	const Assets::RayScene& rayScene) :
 	swapChain_(swapChain)
 {
 	// Create descriptor pool/sets.
@@ -42,20 +44,25 @@ RayTracingPipeline::RayTracingPipeline(
 		{3, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR},
 
 		// Vertex buffer, Index buffer, Material buffer, Lights buffer, Offset buffer
-		{4, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-		{5, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-		{6, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+		{4, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR},
+		{5, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR},
+		{6, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR},
 		{7, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-		{8, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+		{8, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR},
 
 		// Textures and image samplers
-		{9, static_cast<uint32_t>(scene.TextureSamplers().size()), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+		{9, static_cast<uint32_t>(scene.TextureSamplers().size()), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR},
 
 		// The Procedural buffer.
 		{10, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR},
 
 		// Skybox
-		{11, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR}
+		{11, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR},
+
+		// Ray Visualization Data
+		{ 12, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+		{ 13, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+		{ 14, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
 	};
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -119,7 +126,22 @@ RayTracingPipeline::RayTracingPipeline(
 		VkDescriptorImageInfo skyboxImageInfo = {};
 		skyboxImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		skyboxImageInfo.imageView = scene.SkyboxImageView();   
-		skyboxImageInfo.sampler = scene.SkyboxSampler();      
+		skyboxImageInfo.sampler = scene.SkyboxSampler();
+
+		// Ray Debug buffer
+		VkDescriptorBufferInfo rayVertexBufferInfo = {};
+		rayVertexBufferInfo.buffer = rayScene.RayVertexBuffer().Handle();
+		rayVertexBufferInfo.range = VK_WHOLE_SIZE;
+
+		// Ray Counter buffer
+		VkDescriptorBufferInfo rayCounterBufferInfo = {};
+		rayCounterBufferInfo.buffer = rayScene.RayCounterBuffer().Handle();
+		rayCounterBufferInfo.range = VK_WHOLE_SIZE;
+
+		// Ray Info buffer
+		VkDescriptorBufferInfo rayInfoBufferInfo = {};
+		rayInfoBufferInfo.buffer = rayScene.RayInfoBuffer().Handle();
+		rayInfoBufferInfo.range = VK_WHOLE_SIZE;
 
 		for (size_t t = 0; t != imageInfos.size(); ++t)
 		{
@@ -155,6 +177,9 @@ RayTracingPipeline::RayTracingPipeline(
 		}
 
 		descriptorWrites.push_back(descriptorSets.Bind(i, 11, skyboxImageInfo));
+		descriptorWrites.push_back(descriptorSets.Bind(i, 12, rayCounterBufferInfo));
+		descriptorWrites.push_back(descriptorSets.Bind(i, 13, rayVertexBufferInfo));
+		descriptorWrites.push_back(descriptorSets.Bind(i, 14, rayInfoBufferInfo));
 		
 		descriptorSets.UpdateDescriptors(i, descriptorWrites);
 	}
@@ -165,6 +190,7 @@ RayTracingPipeline::RayTracingPipeline(
 	const ShaderModule rayGenShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.rgen.spv");
 	const ShaderModule missShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.rmiss.spv");
 	const ShaderModule closestHitShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.rchit.spv");
+	const ShaderModule anyHitShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.rahit.spv");
 	const ShaderModule proceduralClosestHitShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.Procedural.rchit.spv");
 	const ShaderModule proceduralIntersectionShader(device, FileUtils::getAssetsFolderPath().generic_string() + "/shaders/RayTracing.Procedural.rint.spv");
 
@@ -173,6 +199,7 @@ RayTracingPipeline::RayTracingPipeline(
 		rayGenShader.CreateShaderStage(VK_SHADER_STAGE_RAYGEN_BIT_KHR),
 		missShader.CreateShaderStage(VK_SHADER_STAGE_MISS_BIT_KHR),
 		closestHitShader.CreateShaderStage(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR),
+		anyHitShader.CreateShaderStage(VK_SHADER_STAGE_ANY_HIT_BIT_KHR),
 		proceduralClosestHitShader.CreateShaderStage(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR),
 		proceduralIntersectionShader.CreateShaderStage(VK_SHADER_STAGE_INTERSECTION_BIT_KHR)
 	};
@@ -204,7 +231,7 @@ RayTracingPipeline::RayTracingPipeline(
 	triangleHitGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 	triangleHitGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
 	triangleHitGroupInfo.closestHitShader = 2;
-	triangleHitGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
+	triangleHitGroupInfo.anyHitShader = 3;
 	triangleHitGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
 	triangleHitGroupIndex_ = 2;
 
@@ -213,9 +240,9 @@ RayTracingPipeline::RayTracingPipeline(
 	proceduralHitGroupInfo.pNext = nullptr;
 	proceduralHitGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
 	proceduralHitGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
-	proceduralHitGroupInfo.closestHitShader = 3;
+	proceduralHitGroupInfo.closestHitShader = 4;
 	proceduralHitGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
-	proceduralHitGroupInfo.intersectionShader = 4;
+	proceduralHitGroupInfo.intersectionShader = 5;
 	proceduralHitGroupIndex_ = 3;
 
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups =

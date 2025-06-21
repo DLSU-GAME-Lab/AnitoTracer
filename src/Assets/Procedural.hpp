@@ -16,7 +16,7 @@ namespace Assets
 		Procedural& operator = (Procedural&&) = delete;
 
 		Procedural() = default;
-		virtual ~Procedural() = default;;
+		virtual ~Procedural() = default;
 		virtual std::pair<glm::vec3, glm::vec3> BoundingBox() const = 0;
 	};
 }

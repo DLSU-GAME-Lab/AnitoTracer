@@ -17,10 +17,10 @@
 #include "ViewportScreen.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/ModelManager.h"
-#include "ImGui/ImGuizmo.h"
-#include "ImGui/imgui_freetype.h"
-#include "ImGui/imgui_impl_glfw.h"
-#include "ImGui/imgui_impl_vulkan.h"
+#include "ImGuizmo.h"
+#include "imgui_freetype.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 #include "Vulkan/DescriptorPool.hpp"
@@ -32,6 +32,9 @@
 #include "Vulkan/Surface.hpp"
 #include "Vulkan/SwapChain.hpp"
 #include "Vulkan/Window.hpp"
+
+bool UIManager::isStartup = true;
+bool UIManager::isHidingUI = false;
 
 UIManager* UIManager::sharedInstance = nullptr;
 
@@ -104,13 +107,14 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	vulkanInit.QueueFamily = device.GraphicsFamilyIndex();
 	vulkanInit.Queue = device.GraphicsQueue();
 	vulkanInit.PipelineCache = nullptr;
+	vulkanInit.RenderPass = sharedInstance->renderPass->Handle();
 	vulkanInit.DescriptorPool = sharedInstance->descriptorPool->Handle();
 	vulkanInit.MinImageCount = swapChain->MinImageCount();
 	vulkanInit.ImageCount = static_cast<uint32_t>(swapChain->Images().size());
 	vulkanInit.Allocator = nullptr;
 	vulkanInit.CheckVkResultFn = CheckVulkanResultCallback;
 
-	if (!ImGui_ImplVulkan_Init(&vulkanInit, sharedInstance->renderPass->Handle()))
+	if (!ImGui_ImplVulkan_Init(&vulkanInit))
 	{
 		Throw(std::runtime_error("failed to initialise ImGui vulkan adapter"));
 	}
@@ -121,7 +125,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
 	// Loads Default UI Layout (from imgui_default_layout.ini)
 	//ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
@@ -142,16 +146,16 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 	Vulkan::SingleTimeCommands::Submit(*commandPool, [](VkCommandBuffer commandBuffer)
 		{
-			if (!ImGui_ImplVulkan_CreateFontsTexture(commandBuffer))
+			if (!ImGui_ImplVulkan_CreateFontsTexture())
 			{
 				Throw(std::runtime_error("failed to create ImGui font textures"));
 			}
 		});
 
-
-	ImGui_ImplVulkan_DestroyFontUploadObjects();
+	//ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 	sharedInstance->initializeUI();
+
 }
 
 void UIManager::initializeUI()
@@ -208,12 +212,46 @@ void UIManager::initializeUI()
 	// this->uiList.push_back(materialScreen);
 	// materialScreen->SetEnabled(false);
 
+	// save and load the current layout to avoid resetting randomly
+
+	for (const auto& i : this->uiList)
+	{
+		if (i->name != UINames::MENU_SCREEN)
+			i->setEnabled(!isHidingUI);
+	}
+
+	// Debug::Log("Startup is " + (isStartup ? std::string("true") : std::string("false")));
+	//
+	if (isStartup)
+	{
+		// 	Debug::Log("UI first startup");
+		loadLayout();
+	}
+	else
+		loadDynamicLayout();
+
 	Debug::Log("Initialized UIs!");
 }
 
 void UIManager::saveLayout()
 {
 	ImGui::SaveIniSettingsToDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+}
+
+void UIManager::saveDefaultLayout()
+{
+	ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
+}
+
+void UIManager::saveDynamicLayout()
+{
+	Debug::Log("Saving dynamic layout to " + ApplicationConfig::IMGUI_DYNAMIC_INI_PATH);
+	ImGui::SaveIniSettingsToDisk(ApplicationConfig::IMGUI_DYNAMIC_INI_PATH.c_str());
+}
+
+void UIManager::loadDynamicLayout()
+{
+	isLoadingDynamicLayout = true;
 }
 
 void UIManager::loadLayout()
@@ -233,21 +271,24 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	{
 		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
 		isLoadingLayout = false;
+		isStartup = false;
 	}
-
-	if (isResettingLayout)
+	else if (isResettingLayout)
 	{
 		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 		isResettingLayout = false;
+	}
+	else if (isLoadingDynamicLayout)
+	{
+		Debug::Log("Loading dynamic layout");
+		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::IMGUI_DYNAMIC_INI_PATH.c_str());
+		isLoadingDynamicLayout = false;
 	}
 
 	ImGui_ImplGlfw_NewFrame();
 	ImGui_ImplVulkan_NewFrame();
 	ImGui::NewFrame();
 
-	// DrawSettings();
-	// DrawOverlay(statistics);
-	//ImGui::ShowStyleEditor();
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
 	drawAllUI();
@@ -259,9 +300,12 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	{
 		static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
 
-		if (ImGui::IsKeyPressed(ImGuiKey_W)) mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-		if (ImGui::IsKeyPressed(ImGuiKey_E)) mCurrentGizmoOperation = ImGuizmo::ROTATE;
-		if (ImGui::IsKeyPressed(ImGuiKey_R)) mCurrentGizmoOperation = ImGuizmo::SCALE;
+		if (!ImGui::IsMouseDown(ImGuiMouseButton_Right))
+		{
+			if (ImGui::IsKeyPressed(ImGuiKey_W)) mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+			if (ImGui::IsKeyPressed(ImGuiKey_E)) mCurrentGizmoOperation = ImGuizmo::ROTATE;
+			if (ImGui::IsKeyPressed(ImGuiKey_R)) mCurrentGizmoOperation = ImGuizmo::SCALE;
+		}
 
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
 
@@ -348,6 +392,16 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 	vkCmdEndRenderPass(commandBuffer);
+
+	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		GLFWwindow* backup_current_context = glfwGetCurrentContext();
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+		glfwMakeContextCurrent(backup_current_context);
+	}
+	//ImGui::UpdatePlatformWindows();
+	//ImGui::RenderPlatformWindowsDefault();
 }
 
 void UIManager::drawOverlay(const Statistics& statistics) const
@@ -357,21 +411,7 @@ void UIManager::drawOverlay(const Statistics& statistics) const
 		return;
 	}
 
-	// const auto& io = ImGui::GetIO();
-	// const float distance = 10.0f;
-	// const ImVec2 pos = ImVec2(io.DisplaySize.x - distance, distance);
-	// const ImVec2 posPivot = ImVec2(1.0f, 0.0f);
-	// ImGui::SetNextWindowPos(pos, ImGuiCond_Always, posPivot);
-	//AUIScreen::setWindowAlignment(ScreenAlign::TOP_LEFT);
-	ImGui::SetNextWindowBgAlpha(0.3f); // Transparent background
-
-	//const auto flags =
-	//	ImGuiWindowFlags_AlwaysAutoResize |
-	//	ImGuiWindowFlags_NoDecoration |
-	//	ImGuiWindowFlags_NoFocusOnAppearing |
-	//	ImGuiWindowFlags_NoMove |
-	//	ImGuiWindowFlags_NoNav |
-	//	ImGuiWindowFlags_NoSavedSettings;
+	//ImGui::SetNextWindowBgAlpha(0.3f); // Transparent background
 
 	if (ImGui::Begin("Statistics", &settings()->ShowOverlay, UISettings::GlobalWindowFlags))
 	{
@@ -386,6 +426,7 @@ void UIManager::drawOverlay(const Statistics& statistics) const
 
 void UIManager::reset()
 {
+	saveDynamicLayout();
 	//ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 	delete sharedInstance;
 }
@@ -401,6 +442,11 @@ void UIManager::drawAllUI() const
 
 bool UIManager::getEnabled(const std::string& name)
 {
+	if (name == "Statistics")
+	{
+		return userSettings->ShowOverlay;
+	}
+
 	if (!this->uiTable[name])
 		return false;
 
@@ -409,6 +455,12 @@ bool UIManager::getEnabled(const std::string& name)
 
 void UIManager::setEnabled(const String& uiName, const bool flag)
 {
+	if (uiName == "Statistics")
+	{
+		userSettings->ShowOverlay = flag;
+		return;
+	}
+
 	if (this->uiTable[uiName] != nullptr)
 	{
 		this->uiTable[uiName]->setEnabled(flag);
@@ -417,6 +469,12 @@ void UIManager::setEnabled(const String& uiName, const bool flag)
 
 void UIManager::toggleEnabled(const String& uiName)
 {
+	if (uiName == "Statistics")
+	{
+		userSettings->ShowOverlay = !userSettings->ShowOverlay;
+		return;
+	}
+
 	if (this->uiTable[uiName] != nullptr)
 	{
 		this->uiTable[uiName]->toggleEnabled();
@@ -442,6 +500,7 @@ void UIManager::toggleAllUI()
 	}
 
 	isHidingUI = !isHidingUI;
+	userSettings->ShowOverlay = !userSettings->ShowOverlay;
 }
 
 void UIManager::hideAllUI() const
@@ -503,7 +562,7 @@ void UIManager::setupImGuiStyle()
 	style.GrabRounding = 10.0f;
 	style.TabRounding = 4.0f;
 	style.TabBorderSize = 0.0f;
-	style.TabMinWidthForCloseButton = 0.0f;
+	//style.TabMinWidthForCloseButton = 0.0f;
 	style.ColorButtonPosition = ImGuiDir_Left;
 	style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
 	style.SelectableTextAlign = ImVec2(0.0f, 0.0f);

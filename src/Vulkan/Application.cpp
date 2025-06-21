@@ -25,6 +25,8 @@
 #include "From-GDGRAP2/GlobalConfig.h"
 #include "From-GDGRAP2/ModelManager.h"
 
+#include "Engine/Scene/SceneIO.hpp"
+
 namespace Vulkan {
 
 Application::Application(const WindowConfig& windowConfig, const VkPresentModeKHR presentMode, const bool enableValidationLayers) :
@@ -46,6 +48,7 @@ Application::Application(const WindowConfig& windowConfig, const VkPresentModeKH
 	GlobalConfig::initialize();
 	EventBroadcaster::initialize();
 	ModelManager::initialize();
+	SceneIO::initialize();
 }
 
 Application::~Application()
@@ -95,6 +98,7 @@ void Application::SetPhysicalDevice(VkPhysicalDevice physicalDevice)
 
 	VkPhysicalDeviceFeatures deviceFeatures = {};
 	deviceFeatures.sampleRateShading = VK_TRUE;
+	deviceFeatures.wideLines = VK_TRUE;
 	
 	SetPhysicalDevice(physicalDevice, requiredExtensions, deviceFeatures, nullptr);
 	OnDeviceSet();

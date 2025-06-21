@@ -30,6 +30,8 @@ CommandBuffers::~CommandBuffers()
 
 VkCommandBuffer CommandBuffers::Begin(const size_t i)
 {
+	Check(vkResetCommandBuffer(commandBuffers_[i], 0), "resetting command buffer");
+
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;

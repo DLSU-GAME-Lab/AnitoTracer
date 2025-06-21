@@ -56,6 +56,9 @@ public:
 
 	void initializeUI();
 	static void saveLayout();
+	static void saveDefaultLayout();
+	static void saveDynamicLayout();
+	void loadDynamicLayout();
 	void loadLayout();
 	void resetLayout();
 
@@ -109,8 +112,10 @@ private:
 
 	static UIManager* sharedInstance;
 
-	bool isHidingUI = false;
+	static bool isStartup; // ui manager already created ?
+	static bool isHidingUI;
 	bool isLoadingLayout = false;
+	bool isLoadingDynamicLayout = false;
 	bool isResettingLayout = false;
 	UserSettings* userSettings = nullptr;
 	const Vulkan::SwapChain* swapChain = nullptr;

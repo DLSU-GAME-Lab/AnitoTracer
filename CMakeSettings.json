@@ -1,0 +1,101 @@
+﻿{
+    "configurations": [
+        {
+            "name": "x64-Debug",
+            "generator": "Ninja",
+            "configurationType": "Debug",
+            "inheritEnvironments": [ "msvc_x64_x64" ],
+            "buildRoot": "${projectDir}\\out\\build\\${name}",
+            "installRoot": "${projectDir}\\out\\install\\${name}",
+            "cmakeCommandArgs": "",
+            "buildCommandArgs": "",
+            "ctestCommandArgs": "",
+            "variables": [
+                {
+                    "name": "freetype_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/freetype",
+                    "type": "PATH"
+                },
+                {
+                    "name": "glm_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/glm",
+                    "type": "PATH"
+                },
+                {
+                    "name": "glfw3_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/glfw3",
+                    "type": "PATH"
+                },
+                {
+                    "name": "imgui_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/imgui",
+                    "type": "PATH"
+                },
+                {
+                    "name": "VCPKG_INSTALLED_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/",
+                    "type": "PATH"
+                },
+                {
+                    "name": "_VCPKG_INSTALLED_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed",
+                    "type": "PATH"
+                }
+            ]
+        },
+        {
+            "name": "x64-Release",
+            "generator": "Ninja",
+            "configurationType": "Release",
+            "buildRoot": "${projectDir}\\out\\build\\${name}",
+            "installRoot": "${projectDir}\\out\\install\\${name}",
+            "cmakeCommandArgs": "",
+            "ctestCommandArgs": "",
+            "inheritEnvironments": [ "msvc_x64_x64" ],
+            "environments": [
+                {
+                    "MINGW64_ROOT": "C:/msys64/mingw64",
+                    "BIN_ROOT": "${env.MINGW64_ROOT}/bin",
+                    "FLAVOR": "x86_64-w64-mingw32",
+                    "TOOLSET_VERSION": "9.1.0",
+                    "PATH": "${env.MINGW64_ROOT}/bin;${env.MINGW64_ROOT}/../usr/local/bin;${env.MINGW64_ROOT}/../usr/bin;${env.MINGW64_ROOT}/../bin;${env.PATH}",
+                    "INCLUDE": "${env.INCLUDE};${env.MINGW64_ROOT}/include/c++/${env.TOOLSET_VERSION};${env.MINGW64_ROOT}/include/c++/${env.TOOLSET_VERSION}/tr1;${env.MINGW64_ROOT}/include/c++/${env.TOOLSET_VERSION}/${env.FLAVOR}",
+                    "environment": "mingw_64"
+                }
+            ],
+            "variables": [
+                {
+                    "name": "freetype_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/freetype",
+                    "type": "PATH"
+                },
+                {
+                    "name": "glm_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/glm",
+                    "type": "PATH"
+                },
+                {
+                    "name": "glfw3_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/glfw3",
+                    "type": "PATH"
+                },
+                {
+                    "name": "imgui_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/x64-windows-static/share/imgui",
+                    "type": "PATH"
+                },
+                {
+                    "name": "VCPKG_INSTALLED_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed/",
+                    "type": "PATH"
+                },
+                {
+                    "name": "_VCPKG_INSTALLED_DIR",
+                    "value": "D:/CPP Projects/AnitoTracer/build/vcpkg.windows/installed",
+                    "type": "PATH"
+                }
+            ],
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ]
+}

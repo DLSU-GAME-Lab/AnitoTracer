@@ -7,6 +7,7 @@
 namespace Assets
 {
 	class Scene;
+	class RayScene;
 	class UniformBuffer;
 }
 
@@ -36,7 +37,8 @@ namespace Vulkan::RayTracing
 			const ImageView& accumulationImageView,
 			const ImageView& outputImageView,
 			const std::vector<Assets::UniformBuffer>& uniformBuffers,
-			const Assets::Scene& scene);
+			const Assets::Scene& scene,
+			const Assets::RayScene& rayScene);
 		~RayTracingPipeline();
 
 		uint32_t RayGenShaderIndex() const { return rayGenIndex_; }

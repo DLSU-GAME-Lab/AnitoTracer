@@ -1,6 +1,7 @@
 #pragma once
 #include "AUIScreen.h"
 #include "Engine/LightSystem/Light.h"
+#include "Utilities/Glm.hpp"
 
 class MenuScreen :    public AUIScreen
 {
@@ -17,10 +18,20 @@ private:
 	void onCreateCylinderClicked();
 	void OnCreatePlaneClicked();
 	void OnCreateLightClicked(Light::LightType type);
-	void OnCreateProbe();
+	void OnCreateRProbe();
+	void OnCreateTProbe();
+	void OnCreateMProbe();
+
+	void onCreateBunnyClicked();
+	void onCreateTeapotClicked(); 
+	void onCreateLucyClicked(); 
+	void onCreateCornellClicked();
+	void ShowSaveSceneAsMenu();
+
 	void ShowLoadObjMenu();
 	void OnMaterialComponentClicked();
 
+	void ShowLoadingPopUp();
 	void OnLoadSphereWorld();
 	void OnLoadRTIOW();
 	void OnLoadBoxWorld();
@@ -28,6 +39,7 @@ private:
 	void OnLoadAnitoTracerDemo();
 	void OnLoadShowcase();
 	void OnLoadSponza();
+	void OnLoadSanMiguel();
 	void OnLoadEmpty();
 	void ShowColorPickerWindow();
 
@@ -37,8 +49,10 @@ private:
 	bool isLoadSceneOpen = false;
 	bool isColorPickerOpen = false;
 	bool isOpen = false;
+	bool isSaveSceneAsOpen = false;
 
 	bool openSceneSelected = false;
+	bool isLoading = false;
 
 	// ImGui::FileBrowser* saveSceneDialog;
 	// ImGui::FileBrowser* openSceneDialog;

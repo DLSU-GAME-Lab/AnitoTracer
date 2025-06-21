@@ -1,4 +1,4 @@
-set(exe_name ${MAIN_PROJECT})
+	set(exe_name ${MAIN_PROJECT})
 
 set(src_files_assets
 	Assets/CornellBox.cpp
@@ -7,6 +7,8 @@ set(src_files_assets
 	Assets/Model.cpp
 	Assets/Model.hpp
 	Assets/Procedural.hpp
+	Assets/RayScene.cpp
+	Assets/RayScene.hpp
 	Assets/Scene.cpp
 	Assets/Scene.hpp
 	Assets/SphereProc.hpp
@@ -28,6 +30,10 @@ set(src_files_assets
 	Assets/Plane.hpp
 	Assets/Sphere.cpp
 	Assets/Sphere.hpp
+	Assets/Ray.cpp
+	Assets/Ray.hpp
+	Assets/RayVertex.hpp
+	Assets/RayInfo.hpp
 )
 
 set(src_files_obb
@@ -35,98 +41,6 @@ set(src_files_obb
 	OBB/BoundingBox.hpp
 	OBB/Ray.cpp
 	OBB/Ray.hpp
-)
-
-set(src_files_assimp
-	Assimp/include/assimp/aabb.h
-	Assimp/include/assimp/ai_assert.h
-	Assimp/include/assimp/anim.h
-	Assimp/include/assimp/AssertHandler.h
-	Assimp/include/assimp/Base64.hpp
-	Assimp/include/assimp/BaseImporter.h
-	Assimp/include/assimp/Bitmap.h
-	Assimp/include/assimp/BlobIOSystem.h
-	Assimp/include/assimp/ByteSwapper.h
-	Assimp/include/assimp/camera.h
-	Assimp/include/assimp/cexport.h
-	Assimp/include/assimp/cfileio.h
-	Assimp/include/assimp/cimport.h
-	Assimp/include/assimp/ColladaMetaData.h
-	Assimp/include/assimp/color4.h
-	Assimp/include/assimp/color4.inl
-	Assimp/include/assimp/commonMetaData.h
-	Assimp/include/assimp/config.h
-	Assimp/include/assimp/config.h.in
-	Assimp/include/assimp/CreateAnimMesh.h
-	Assimp/include/assimp/DefaultIOStream.h
-	Assimp/include/assimp/DefaultIOSystem.h
-	Assimp/include/assimp/DefaultLogger.hpp
-	Assimp/include/assimp/defs.h
-	Assimp/include/assimp/Exceptional.h
-	Assimp/include/assimp/Exporter.hpp
-	Assimp/include/assimp/fast_atof.h
-	Assimp/include/assimp/GenericProperty.h
-	Assimp/include/assimp/GltfMaterial.h
-	Assimp/include/assimp/Hash.h
-	Assimp/include/assimp/Importer.hpp
-	Assimp/include/assimp/importerdesc.h
-	Assimp/include/assimp/IOStream.hpp
-	Assimp/include/assimp/IOStreamBuffer.h
-	Assimp/include/assimp/IOSystem.hpp
-	Assimp/include/assimp/light.h
-	Assimp/include/assimp/LineSplitter.h
-	Assimp/include/assimp/LogAux.h
-	Assimp/include/assimp/Logger.hpp
-	Assimp/include/assimp/LogStream.hpp
-	Assimp/include/assimp/material.h
-	Assimp/include/assimp/material.inl
-	Assimp/include/assimp/MathFunctions.h
-	Assimp/include/assimp/matrix3x3.h
-	Assimp/include/assimp/matrix3x3.inl
-	Assimp/include/assimp/matrix4x4.h
-	Assimp/include/assimp/matrix4x4.inl
-	Assimp/include/assimp/MemoryIOWrapper.h
-	Assimp/include/assimp/mesh.h
-	Assimp/include/assimp/metadata.h
-	Assimp/include/assimp/module.modulemap
-	Assimp/include/assimp/NullLogger.hpp
-	Assimp/include/assimp/ObjMaterial.h
-	Assimp/include/assimp/ParsingUtils.h
-	Assimp/include/assimp/pbrmaterial.h
-	Assimp/include/assimp/postprocess.h
-	Assimp/include/assimp/Profiler.h
-	Assimp/include/assimp/ProgressHandler.hpp
-	Assimp/include/assimp/qnan.h
-	Assimp/include/assimp/quaternion.h
-	Assimp/include/assimp/quaternion.inl
-	Assimp/include/assimp/RemoveComments.h
-	Assimp/include/assimp/revision.h
-	Assimp/include/assimp/revision.h.in
-	Assimp/include/assimp/scene.h
-	Assimp/include/assimp/SceneCombiner.h
-	Assimp/include/assimp/SGSpatialSort.h
-	Assimp/include/assimp/SkeletonMeshBuilder.h
-	Assimp/include/assimp/SmallVector.h
-	Assimp/include/assimp/SmoothingGroups.h
-	Assimp/include/assimp/SmoothingGroups.inl
-	Assimp/include/assimp/SpatialSort.h
-	Assimp/include/assimp/StandardShapes.h
-	Assimp/include/assimp/StreamReader.h
-	Assimp/include/assimp/StreamWriter.h
-	Assimp/include/assimp/StringComparison.h
-	Assimp/include/assimp/StringUtils.h
-	Assimp/include/assimp/Subdivision.h
-	Assimp/include/assimp/texture.h
-	Assimp/include/assimp/TinyFormatter.h
-	Assimp/include/assimp/types.h
-	Assimp/include/assimp/vector2.h
-	Assimp/include/assimp/vector2.inl
-	Assimp/include/assimp/vector3.h
-	Assimp/include/assimp/vector3.inl
-	Assimp/include/assimp/version.h
-	Assimp/include/assimp/Vertex.h
-	Assimp/include/assimp/XmlParser.h
-	Assimp/include/assimp/XMLTools.h
 )
 
 set(src_files_camerasystem
@@ -146,6 +60,16 @@ set(src_files_lightsystem
 set(src_files_profiler
 	Engine/Profiler/Profiler.cpp
 	Engine/Profiler/Profiler.h
+)
+
+set(src_files_sceneio
+	Engine/Scene/SceneIO.cpp
+	Engine/Scene/SceneIO.hpp
+)
+
+set(src_files_ray_visualization
+	RayVisualization/RayVisualizationPipeline.cpp
+	RayVisualization/RayVisualizationPipeline.h
 )
 
 set(src_files_imgui
@@ -293,8 +217,6 @@ set(src_files_from_gdgrap2
 	From-GDGRAP2/IETSemaphore.h
 	From-GDGRAP2/IETThread.cpp
 	From-GDGRAP2/IETThread.h
-	From-GDGRAP2/RTRules.cpp
-	From-GDGRAP2/RTRules.h
 	From-GDGRAP2/EventBroadcaster.cpp
 	From-GDGRAP2/EventBroadcaster.h
 	From-GDGRAP2/MathUtils.cpp
@@ -319,8 +241,6 @@ set(src_files_from_gdgrap2
 
 set(src_files
 	main.cpp
-	ModelViewController.cpp
-	ModelViewController.hpp
 	Options.cpp
 	Options.hpp
 	RayTracer.cpp
@@ -332,11 +252,12 @@ set(src_files
 
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
-source_group("Assimp" FILES ${src_files_assimp})
+
 source_group("CameraSystem" FILES ${src_files_camerasystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("Profiler" FILES ${src_files_profiler})
-source_group("ImGui" FILES ${src_files_imgui})
+source_group("Scene IO" FILES ${src_files_sceneio})
+source_group("RayVisualization" FILES ${src_files_ray_visualization})
 source_group("Utilities" FILES ${src_files_utilities})
 source_group("UI" FILES ${src_files_ui})
 source_group("From-GDGRAP2" FILES ${src_files_from_gdgrap2})
@@ -347,18 +268,19 @@ source_group("Main" FILES ${src_files})
 add_executable(${exe_name} 
 	${src_files_assets}
 	${src_files_obb}
-	${src_files_assimp}
+
 	${src_files_camerasystem} 
 	${src_files_lightsystem} 
 	${src_files_profiler}
-	${src_files_imgui} 
+	${src_files_sceneio}
+	${src_files_ray_visualization} 
 	${src_files_utilities}
 	${src_files_ui}
 	${src_files_from_gdgrap2}
 	${src_files_vulkan} 
 	${src_files_vulkan_raytracing} 
 	${src_files}
-)
+ "Engine/Scene/SceneIO.cpp")
 
 if (UNIX)
 	# GCC8 needs an extra lib for <filesystem>.
@@ -370,20 +292,21 @@ add_dependencies(${exe_name} Assets)
 set_target_properties(${exe_name} PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
 target_include_directories(
 	${exe_name} 
-	PRIVATE . Assimp/include 
+	PRIVATE . 
+	${assimp_INCLUDE_DIRS}
 	${Boost_INCLUDE_DIRS} 
 	${glfw3_INCLUDE_DIRS} 
 	${glm_INCLUDE_DIRS} 
 	${STB_INCLUDE_DIRS} 
 	${Vulkan_INCLUDE_DIRS})
 target_link_directories(${exe_name} PRIVATE Assimp/lib ${Vulkan_LIBRARY})
-target_link_libraries(${exe_name} PRIVATE assimp-vc143-mt ${Boost_LIBRARIES} freetype glfw glm::glm imgui::imgui tinyobjloader::tinyobjloader ${Vulkan_LIBRARIES} ${extra_libs})
+target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm imgui::imgui imguizmo::imguizmo ${Vulkan_LIBRARIES} ${extra_libs})
 
-if(${WIN32})
-add_custom_command(TARGET ${exe_name} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${PROJECT_SOURCE_DIR}/src/Assimp/dll/assimp-vc143-mt.dll"
-        $<TARGET_FILE_DIR:${exe_name}>)
-endif()
+#if(${WIN32})
+#add_custom_command(TARGET ${exe_name} POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#        "${PROJECT_SOURCE_DIR}/src/Assimp/dll/assimp-vc143-mt.dll"
+#        $<TARGET_FILE_DIR:${exe_name}>)
+#endif()
 
 add_compile_definitions(TRACY_ENABLE)

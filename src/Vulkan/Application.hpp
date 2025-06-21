@@ -9,6 +9,7 @@
 namespace Assets
 {
 	class Scene;
+	class RayScene;
 	class UniformBufferObject;
 	class PushConstantModel;
 	class UniformBuffer;
@@ -50,6 +51,7 @@ namespace Vulkan
 		const class FrameBuffer& SwapChainFrameBuffer(const size_t i) const { return swapChainFramebuffers_[i]; }
 		
 		virtual const Assets::Scene& GetScene() const = 0;
+		virtual const Assets::RayScene& GetRayScene() const = 0;
 		virtual Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const = 0;
 		virtual Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const = 0;
 

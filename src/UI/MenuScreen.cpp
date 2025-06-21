@@ -6,6 +6,7 @@
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/ModelManager.h"
+#include "From-GDGRAP2/MaterialLibrary.h"
 #include "UIManager.h"
 #include "UserSettings.hpp"
 #include "Utilities/FileUtils.h"
@@ -13,12 +14,13 @@
 #include "Assets/Material.hpp"
 #include "Assets/Model.hpp"
 
+#include "Engine/Scene/SceneIO.hpp"
 // #include "GameObjectManager.h"
 
 using namespace Assets;
 using namespace glm;
 
-MenuScreen::MenuScreen() : AUIScreen("MenuScreen")
+MenuScreen::MenuScreen() : AUIScreen(UINames::MENU_SCREEN)
 {
 	// this->openSceneDialog = new ImGui::FileBrowser();
 	// this->openSceneDialog->SetTitle("Open Scene");
@@ -39,27 +41,31 @@ void MenuScreen::drawUI()
 {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
-			if (ImGui::MenuItem("Undo", "Ctrl+Z"))
-			{
-				//GameObjectManager::get()->applyAction(ActionHistory::get()->undoAction());
-			}
-			if (ImGui::MenuItem("Redo", "Ctrl+Y"))
-			{
-				//GameObjectManager::get()->applyAction(ActionHistory::get()->redoAction());
-			}
-			if (ImGui::MenuItem("Open..", "Ctrl+O")) {
-				//this->openSceneDialog->Open();
-			}
-			if (ImGui::MenuItem("Save", "Ctrl+S")) {
-				//this->saveSceneDialog->Open();
-			}
-			if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {
-				//this->saveSceneDialog->Open();
+			//if (ImGui::MenuItem("Undo", "Ctrl+Z"))
+			//{
+			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->undoAction());
+			//}
+			//if (ImGui::MenuItem("Redo", "Ctrl+Y"))
+			//{
+			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->redoAction());
+			//}
+			//if (ImGui::MenuItem("Open..", "Ctrl+O")) {
+			//	//this->openSceneDialog->Open();
+			//}
+			//if (ImGui::MenuItem("Save", "Ctrl+S")) {
+			//	//this->saveSceneDialog->Open();
+			//}
+			//if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {
+			//	//this->saveSceneDialog->Open();
+			//}
+			if (ImGui::MenuItem("Save Scene As", nullptr, isSaveSceneAsOpen)) 
+			{ 
+				isSaveSceneAsOpen = !isSaveSceneAsOpen;
 			}
 
 			ImGui::Separator();
 
-			if (ImGui::MenuItem("Exit Editor", "Ctrl+W"))
+			if (ImGui::MenuItem("Exit Editor", "Esc"))
 			{
 				// Walnut::Application::Get().Close();
 				exit(0); // temp exit lol 
@@ -69,35 +75,62 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Scene"))
 		{
+			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); ShowLoadingPopUp();  }
+			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox();  ShowLoadingPopUp();  }
+			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel();  ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo();  ShowLoadingPopUp(); }
+			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase();  ShowLoadingPopUp(); }
+			if (ImGui::BeginMenu("Custom Scenes"))
+			{
+				this->OnLoadEmpty(); ShowLoadingPopUp();
+				for (std::string name : SceneIO::getInstance()->getSceneNames())
+				{
+					if (ImGui::MenuItem(name.c_str())) { SceneIO::getInstance()->LoadScene(name); }
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::Separator();
 			if (ImGui::MenuItem("Refresh Scene", "F5")) { EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); }
-			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); }
-			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); }
-			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); }
-			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox(); }
-			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo(); }
-			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase(); }
-			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); }
 			if (ImGui::MenuItem("Delete All Objects in Current Scene")) { this->OnLoadEmpty(); }
+
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Game Object")) {
-			if (ImGui::MenuItem("Create Sphere")) { this->OnCreateSphereClicked(); }
-			if (ImGui::MenuItem("Create Cube")) { this->OnCreateCubeClicked(); }
-			if (ImGui::MenuItem("Create Capsule")) { onCreateCapsuleClicked(); }
-			if (ImGui::MenuItem("Create Cylinder")) { onCreateCylinderClicked(); }
-			//if (ImGui::MenuItem("Create Textured Cube")) { this->OnCreateTexturedCubeClicked(); } // add texture component
-			if (ImGui::MenuItem("Create Plane")) { this->OnCreatePlaneClicked(); }
-			if (ImGui::MenuItem("Create Reflection Probe")) { this->OnCreateProbe(); }
-			if (ImGui::MenuItem("Create Game Object From File...", nullptr, isLoadObjOpen))
-			{
-				isLoadObjOpen = !isLoadObjOpen;
-			}
-			if (ImGui::MenuItem("Create Game Object Group From File...", nullptr, isLoadSceneOpen))
-			{
-				isLoadSceneOpen = !isLoadSceneOpen;
-			}
+		if (ImGui::BeginMenu("Objects")) {
+			if (ImGui::BeginMenu("Primitives")) {
+				if (ImGui::MenuItem("Sphere")) { this->OnCreateSphereClicked(); }
+				if (ImGui::MenuItem("Cube")) { this->OnCreateCubeClicked(); }
+				if (ImGui::MenuItem("Capsule")) { onCreateCapsuleClicked(); }
+				if (ImGui::MenuItem("Cylinder")) { onCreateCylinderClicked(); }
+				if (ImGui::MenuItem("Plane")) { this->OnCreatePlaneClicked(); }
+				if (ImGui::BeginMenu("Reflective Spheres")) {
+					if (ImGui::MenuItem("Reflective Sphere")) { this->OnCreateRProbe(); } // todo: fix transparent probe to be transparent instead of reflective
+					//if (ImGui::MenuItem("Create Transparent Probe")) { this->OnCreateTProbe(); }
+					if (ImGui::MenuItem("Metallic Sphere")) { this->OnCreateMProbe(); }
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenu();
+			} 
+			if (ImGui::BeginMenu("Meshes")) {													// todo: add benchmark/basic meshes
+				//if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
+				//if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
+				if (ImGui::MenuItem("Lucy")) { onCreateLucyClicked(); }
+				//if (ImGui::MenuItem("CornellBox")) { onCreateCornellClicked(); }
 
-			if (ImGui::BeginMenu("Light")) {
+				ImGui::Separator();
+				if (ImGui::MenuItem("Import Mesh From File...", nullptr, isLoadObjOpen))
+				{
+					isLoadObjOpen = !isLoadObjOpen;
+				}
+				if (ImGui::MenuItem("Import Separated Mesh From File...", nullptr, isLoadSceneOpen))
+				{
+					isLoadSceneOpen = !isLoadSceneOpen;
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Lights")) {
 				if (ImGui::MenuItem("Point Light")) { OnCreateLightClicked(Light::PointLight); }
 				if (ImGui::MenuItem("Directional Light")) { OnCreateLightClicked(Light::DirectionalLight); }
 				if (ImGui::MenuItem("Spot Light")) { OnCreateLightClicked(Light::SpotLight); }
@@ -106,16 +139,20 @@ void MenuScreen::drawUI()
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Components")) {
-			if (ImGui::MenuItem("Material")) { this->OnMaterialComponentClicked(); }
-			ImGui::EndMenu();
-		}
+		//if (ImGui::BeginMenu("Components")) {
+		//	if (ImGui::MenuItem("Material")) { this->OnMaterialComponentClicked(); }
+		//	ImGui::EndMenu();
+		//}
 
 		if (ImGui::BeginMenu("Tools"))
 		{
 			if (ImGui::MenuItem("Editor Settings", nullptr, UIManager::getInstance()->getEnabled(UINames::SETTINGS_SCREEN)))
 			{
 				UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN);
+			}
+			if (ImGui::MenuItem("Statistics", nullptr, UIManager::getInstance()->getEnabled("Statistics")))
+			{
+				UIManager::getInstance()->toggleEnabled("Statistics");
 			}
 			if (ImGui::MenuItem("Inspector", nullptr, UIManager::getInstance()->getEnabled(UINames::INSPECTOR_SCREEN)))
 			{
@@ -133,12 +170,16 @@ void MenuScreen::drawUI()
 			{
 				UIManager::getInstance()->toggleEnabled(UINames::CONSOLE_SCREEN);
 			}
-			if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
+			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
 			{
-				UIManager::getInstance()->toggleEnabled(UINames::PLAYBACK_SCREEN);
+				UIManager::getInstance()->toggleEnabled(UINames::MATERIAL_EDITOR_SCREEN);
 			}
-			if (ImGui::BeginMenu("Viewport"))
-			{
+			//if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
+			//{
+			//	UIManager::getInstance()->toggleEnabled(UINames::PLAYBACK_SCREEN);
+			//}
+			//if (ImGui::BeginMenu("Viewport"))
+			//{
 				// if (ImGui::MenuItem("Create Viewport"))
 				// {
 				// 	ViewportManager::get()->createViewport();
@@ -163,23 +204,22 @@ void MenuScreen::drawUI()
 				// {
 				// 	ViewportManager::get()->deleteAllViewports();
 				// }
-				ImGui::EndMenu();
-			}
-			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
-			{
-				UIManager::getInstance()->toggleEnabled(UINames::MATERIAL_EDITOR_SCREEN);
-			}
-
-			if (ImGui::MenuItem("Color Picker", nullptr, isColorPickerOpen))
-			{
-				isColorPickerOpen = !isColorPickerOpen;
-			}
+			//	ImGui::EndMenu();
+			//}
+			//if (ImGui::MenuItem("Color Picker", nullptr, isColorPickerOpen))
+			//{
+			//	isColorPickerOpen = !isColorPickerOpen;
+			//}
 
 			ImGui::EndMenu();
 		}
 
 		if (ImGui::BeginMenu("Window"))
 		{
+			// if (ImGui::MenuItem("[DEBUG] Save Default Layout"))
+			// {
+			// 	UIManager::saveDefaultLayout();
+			// }
 			if (ImGui::MenuItem("Save Window Layout"))
 			{
 				UIManager::saveLayout();
@@ -209,6 +249,8 @@ void MenuScreen::drawUI()
 			ShowLoadObjMenu();
 		if (isColorPickerOpen)
 			ShowColorPickerWindow();
+		if (isSaveSceneAsOpen)
+			ShowSaveSceneAsMenu();
 
 		ImGui::EndMainMenuBar();
 	}
@@ -358,14 +400,112 @@ void MenuScreen::OnCreateLightClicked(Light::LightType type)
 	}
 }
 
-void MenuScreen::OnCreateProbe()
+void MenuScreen::OnCreateRProbe()
 {
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 
-	Model sphere2Model = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
-	std::shared_ptr<GameObject> sphere2 = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere2Model));
-	ModelManager::getInstance()->addObject(sphere2);
-	sphere2->setLocalPosition(0, 0, 0);
+	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
+	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	ModelManager::getInstance()->addObject(sphere);
+	sphere->setLocalPosition(0, 0, 0);
+}
+
+void MenuScreen::OnCreateTProbe()
+{
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(-360.0f);
+
+
+	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
+	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	ModelManager::getInstance()->addObject(sphere);
+	sphere->setLocalPosition(0, 0, 0);
+}
+
+void MenuScreen::OnCreateMProbe()
+{
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+
+	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
+	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	ModelManager::getInstance()->addObject(sphere);
+	sphere->setLocalPosition(0, 0, 0);
+}
+
+void MenuScreen::onCreateBunnyClicked()
+{
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	Model bunny = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/bunny.obj");
+	bunny.SetMaterial(*white);
+	bunny.Transform(
+		rotate(
+			scale(
+				translate(i, vec3(1)),
+				vec3(1.0f)),
+			radians(0.0f), vec3(0, 1, 0)));
+	std::shared_ptr<GameObject> bunnyObj = std::make_shared<GameObject>("Bunny", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(bunny));
+	bunnyObj->setLocalScale(100.0f, 100.0f, 100.0f);
+	ModelManager::getInstance()->addObject(bunnyObj);
+}
+
+void MenuScreen::onCreateTeapotClicked()
+{
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	auto teapot = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/teapot.obj");
+
+	teapot.Transform(
+		rotate(
+			scale(
+				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
+				vec3(1)),
+			radians(75.0f), vec3(0, 1, 0)));
+
+	std::shared_ptr<GameObject> teapotObj = std::make_shared<GameObject>("Teapot", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(teapot));
+	teapotObj->setLocalScale(5.0f, 5.0f, 5.0f);
+	ModelManager::getInstance()->addObject(teapotObj);
+}
+
+void MenuScreen::onCreateLucyClicked()
+{
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	auto lucy0 = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
+
+	lucy0.Transform(
+		rotate(
+			scale(
+				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
+				vec3(0.5)),
+			radians(75.0f), vec3(0, 1, 0)));
+
+	std::shared_ptr<GameObject> lucyObj = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(lucy0));
+	ModelManager::getInstance()->addObject(lucyObj);
+}
+
+void MenuScreen::onCreateCornellClicked()
+{
+}
+
+void MenuScreen::ShowSaveSceneAsMenu()
+{
+	ImGui::SetNextWindowSize(ImVec2(500, 400));
+
+	if (ImGui::Begin("Save Scene As", &isSaveSceneAsOpen))
+	{
+		static std::string name = "New Scene";
+
+		ImGui::Text("Save the current scene as:");
+		ImGui::InputTextWithHint("Scene Name", name.c_str(), &name);
+
+		if (ImGui::Button("Save", ImVec2(150, 25)))
+		{
+			SceneIO::getInstance()->SaveCurrentScene(name);
+			isSaveSceneAsOpen = false;
+		}
+	}
+	ImGui::End();
 }
 
 void MenuScreen::OnMaterialComponentClicked()
@@ -373,11 +513,34 @@ void MenuScreen::OnMaterialComponentClicked()
 	// Debug::Log("Creating material placeholder.");
 }
 
+void MenuScreen::ShowLoadingPopUp()
+{
+	isLoading = true;
+
+	static ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMouseInputs |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoDecoration;
+	ImGui::SetNextWindowSize(ImVec2(150, 50));
+	setWindowAlignment(ScreenAlign::CENTER);
+
+	if (ImGui::Begin("Please wait.", &isLoading, flags))
+	{
+		ImGui::Text("Loading...");
+	}
+	ImGui::End();
+}
+
 void MenuScreen::OnLoadSphereWorld()
 {
 	// GameObjectManager::getInstance()->clearAll();
 	// RayTracingProper::getInstance()->generateSphereWorld();
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
+	// while (!isLoading) {}
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -390,7 +553,8 @@ void MenuScreen::OnLoadRTIOW()
 	// GameObjectManager::getInstance()->clearAll();
 	// RayTracingProper::getInstance()->generateSphereWorld();
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
-
+	// while (!isLoading) {}
+	// isLoading = false;
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 1);
@@ -399,6 +563,9 @@ void MenuScreen::OnLoadRTIOW()
 
 void MenuScreen::OnLoadBoxWorld()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 8);
@@ -411,6 +578,11 @@ void MenuScreen::OnLoadCornellBox()
 	// RayTracingProper::getInstance()->generateCornellBox();
 	//
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
+	// while (!isLoading)
+	// {
+	// 	Debug::Log("Waiting for loading to finish in MenuScreen::OnLoadCornellBox()...");
+	// }
+	// isLoading = false;
 
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
@@ -420,6 +592,9 @@ void MenuScreen::OnLoadCornellBox()
 
 void MenuScreen::OnLoadAnitoTracerDemo()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 9);
@@ -428,6 +603,9 @@ void MenuScreen::OnLoadAnitoTracerDemo()
 
 void MenuScreen::OnLoadShowcase()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 10);
@@ -436,14 +614,31 @@ void MenuScreen::OnLoadShowcase()
 
 void MenuScreen::OnLoadSponza()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 11);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 
+void MenuScreen::OnLoadSanMiguel()
+{
+	// while (!isLoading) {}
+	// isLoading = false;
+
+	ModelManager::getInstance()->clearAllObjects();
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", 12);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+}
+
 void MenuScreen::OnLoadEmpty()
 {
+	// while (!isLoading) {}
+	// isLoading = false;
+
 	ModelManager::getInstance()->clearAllObjects();
 	// std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	// parameters->encodeInt("SCENE_INDEX", 11);

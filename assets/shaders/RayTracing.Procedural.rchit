@@ -96,5 +96,5 @@ void main()
 	lighting += calculateDirectionalLight(dl, worldPos, normal);
 	
 
-	Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, lighting);
+	Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, lighting, 0);
 }

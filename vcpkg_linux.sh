@@ -17,4 +17,4 @@ git checkout 2023.04.15
 	glm:x64-linux \
 	imgui:x64-linux \
 	stb:x64-linux \
-	tinyobjloader:x64-linux
+	assimp:x64-linux
