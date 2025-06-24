@@ -40,6 +40,10 @@ private:
 	void OnLoadShowcase();
 	void OnLoadSponza();
 	void OnLoadSanMiguel();
+	void OnLoadVokselia();
+	void OnLoadBreakfast();
+	void OnLoadBathroom();
+	void OnLoadGallery();
 	void OnLoadEmpty();
 	void ShowColorPickerWindow();
 
