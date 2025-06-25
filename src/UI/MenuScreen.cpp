@@ -83,7 +83,7 @@ void MenuScreen::drawUI()
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Sample Scenes")) {
-				if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
+				//if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel();  ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Vokselia")) { this->OnLoadVokselia(); ShowLoadingPopUp(); }
