@@ -124,8 +124,8 @@ void MenuScreen::drawUI()
 				ImGui::EndMenu();
 			} 
 			if (ImGui::BeginMenu("Meshes")) {													// todo: add benchmark/basic meshes
-				//if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
-				//if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
+				if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
+				if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
 				if (ImGui::MenuItem("Lucy")) { onCreateLucyClicked(); }
 				//if (ImGui::MenuItem("CornellBox")) { onCreateCornellClicked(); }
 
