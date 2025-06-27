@@ -24,10 +24,12 @@
 #include "Assets/Ray.hpp"
 
 #include "Engine/CameraSystem/CameraManager.h"
+#include "From-GDGRAP2/RTConfig.h"
 #include "Utilities/FileUtils.h"
 
 #include "RayVisualization/RayVisualizationPipeline.h"
 #include "Vulkan/Buffer.hpp"
+#include "Vulkan/ImageMemoryBarrier.hpp"
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
 
@@ -130,7 +132,7 @@ void RayTracer::SetPhysicalDevice(
 	deviceFeatures.fillModeNonSolid = true;
 	deviceFeatures.samplerAnisotropy = true;
 	deviceFeatures.shaderInt64 = true;
-	
+
 
 	Application::SetPhysicalDevice(physicalDevice, requiredExtensions, deviceFeatures, &shaderClockFeatures);
 }
@@ -158,7 +160,7 @@ void RayTracer::CreateSwapChain()
 		UIManager::getInstance()->initializeUI();
 		// UIManager::getInstance()->device = &Device();
 		// UIManager::getInstance()->sampler = new Vulkan::Sampler(Device(), Vulkan::SamplerConfig());
-	
+
 		initializedUI = true;
 	}
 
@@ -237,7 +239,7 @@ void RayTracer::DrawFrame()
 	totalNumberOfSamples_ += numberOfSamples_;
 
 	rayScene_->Update(CommandPool());
-	
+
 	Application::DrawFrame();
 }
 
@@ -290,7 +292,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 				vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
 				vkCmdSetLineWidth(commandBuffer, 5);
-                
+
 				vkCmdDraw(commandBuffer, rays->NumberOfVertices(), 1, 0, 0);
 			}
 		}
@@ -316,6 +318,12 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 	if (renderUI_)
 		UIManager::getInstance()->render(commandBuffer, SwapChainFrameBuffer(imageIndex), stats);
+
+	if (isTakingScreenshot)
+	{
+		saveScreenshot(commandBuffer, imageIndex);
+		isTakingScreenshot = false;
+	}
 }
 
 void RayTracer::OnKey(int key, int scancode, int action, int mods)
@@ -332,7 +340,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		case GLFW_KEY_F4: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 		case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 		case GLFW_KEY_F6: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
-
+		case GLFW_KEY_F11: isTakingScreenshot = true; return;
 			// case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; return;
 			// case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 			// case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
@@ -393,7 +401,7 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 	// Camera motions
 
 	resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnMouseButton(button, action, mods);
-	
+
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
 	{
 		isMoving = false;
@@ -456,7 +464,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	skyboxCubeMap.faces[3] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_bottom.png";
 	skyboxCubeMap.faces[4] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_front.png";
 	skyboxCubeMap.faces[5] = FileUtils::getAssetsFolderPath().generic_string() + "/textures/sky_back.png";
-	
+
 	skyboxTextureImage_ = std::make_unique<Assets::TextureImage>(commandPool, skyboxCubeMap);
 	/*std::cout << "TextureImage ImageView handle: " << skyboxTextureImage_->ImageView().Handle() << std::endl;
 	std::cout << "TextureImage Sampler handle: " << skyboxTextureImage_->Sampler().Handle() << std::endl;*/
@@ -602,4 +610,160 @@ void RayTracer::CheckFramebufferSize() const
 
 		Throw(std::runtime_error(out.str()));
 	}
+}
+
+void RayTracer::saveScreenshot(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
+{
+	Debug::Log("Saving screenshot to " + ApplicationConfig::SCREENSHOT_PATH);
+
+	bool supportsBlit = true;
+
+	// Check blit support for source and destination
+	VkFormatProperties formatProps;
+
+	// Check if the device supports blitting from optimal images (the swapchain images are in optimal format)
+	vkGetPhysicalDeviceFormatProperties(Device().PhysicalDevice(), SwapChain().Format(), &formatProps);
+	if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+		std::cerr << "Device does not support blitting from optimal tiled images, using copy instead of blit!" << std::endl;
+		supportsBlit = false;
+	}
+
+	// Check if the device supports blitting to linear images
+	vkGetPhysicalDeviceFormatProperties(Device().PhysicalDevice(), VK_FORMAT_R8G8B8A8_UNORM, &formatProps);
+	if (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		std::cerr << "Device does not support blitting to linear tiled images, using copy instead of blit!" << std::endl;
+		supportsBlit = false;
+	}
+
+	// Source for the copy is the last rendered swapchain image
+	VkImage srcImage = SwapChain().Images()[imageIndex];
+
+	screenshotImage_.reset(new Vulkan::Image(
+		Device(),
+		SwapChain().Extent(),
+		VK_FORMAT_R8G8B8A8_UNORM,
+		VK_IMAGE_TILING_LINEAR,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT
+	));
+
+	screenshotImageMemory_.reset(
+		new Vulkan::DeviceMemory(screenshotImage_->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)));
+
+	VkImageSubresourceRange subresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+	Vulkan::ImageMemoryBarrier::Insert(commandBuffer, screenshotImage_->Handle(), subresourceRange,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	Vulkan::ImageMemoryBarrier::Insert(commandBuffer, srcImage, subresourceRange,
+		VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+	// If source and destination support blit we'll blit as this also does automatic format conversion (e.g. from BGR to RGB)
+	if (supportsBlit)
+	{
+		// Define the region to blit (we will blit the whole swap chain image)
+		VkOffset3D blitSize;
+		blitSize.x = SwapChain().Extent().width;
+		blitSize.y = SwapChain().Extent().height;
+		blitSize.z = 1;
+		VkImageBlit imageBlitRegion{};
+		imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlitRegion.srcSubresource.layerCount = 1;
+		imageBlitRegion.srcOffsets[1] = blitSize;
+		imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlitRegion.dstSubresource.layerCount = 1;
+		imageBlitRegion.dstOffsets[1] = blitSize;
+
+		// Issue the blit command
+		vkCmdBlitImage(
+			commandBuffer,
+			srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			screenshotImage_->Handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&imageBlitRegion,
+			VK_FILTER_NEAREST);
+	}
+	else
+	{
+		// Otherwise use image copy (requires us to manually flip components)
+		VkImageCopy imageCopyRegion{};
+		imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopyRegion.srcSubresource.layerCount = 1;
+		imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopyRegion.dstSubresource.layerCount = 1;
+		imageCopyRegion.extent.width = SwapChain().Extent().width;
+		imageCopyRegion.extent.height = SwapChain().Extent().height;
+		imageCopyRegion.extent.depth = 1;
+
+		// Issue the copy command
+		vkCmdCopyImage(
+			commandBuffer,
+			srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			screenshotImage_->Handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&imageCopyRegion);
+	}
+
+	// Transition destination image to general layout, which is the required layout for mapping the image memory later on
+	Vulkan::ImageMemoryBarrier::Insert(commandBuffer, screenshotImage_->Handle(), subresourceRange,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+
+	// Transition back the swap chain image after the blit is done
+	Vulkan::ImageMemoryBarrier::Insert(commandBuffer, srcImage, subresourceRange,
+		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+	// Get layout of the image (including row pitch)
+	VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
+	VkSubresourceLayout subResourceLayout;
+	vkGetImageSubresourceLayout(Device().Handle(), screenshotImage_->Handle(), &subResource, &subResourceLayout);
+
+	// Map image memory so we can start copying from it
+	const char* data;
+	vkMapMemory(Device().Handle(), screenshotImageMemory_->Handle(), 0, VK_WHOLE_SIZE, 0, (void**)&data);
+	data += subResourceLayout.offset;
+
+	std::ofstream file(ApplicationConfig::SCREENSHOT_PATH + "/FUCK.ppm", std::ios::out | std::ios::binary | std::ios::trunc);
+
+	// ppm header
+	file << "P6\n" << (int)SwapChain().Extent().width << "\n" << (int)SwapChain().Extent().height << "\n" << 255 << "\n";
+
+	// If source is BGR (destination is always RGB) and we can't use blit (which does automatic conversion), we'll have to manually swizzle color components
+	bool colorSwizzle = false;
+	// Check if source is BGR
+	// Note: Not complete, only contains most common and basic BGR surface formats for demonstration purposes
+	if (!supportsBlit)
+	{
+		std::vector<VkFormat> formatsBGR = { VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SNORM };
+		colorSwizzle = (std::ranges::find(formatsBGR, SwapChain().Format()) != formatsBGR.end());
+	}
+
+	// ppm binary pixel data
+	for (uint32_t y = 0; y < (int)SwapChain().Extent().height; y++)
+	{
+		unsigned int* row = (unsigned int*)data;
+		for (uint32_t x = 0; x < (int)SwapChain().Extent().width; x++)
+		{
+			if (colorSwizzle)
+			{
+				file.write(reinterpret_cast<char*>(row) + 2, 1);
+				file.write(reinterpret_cast<char*>(row) + 1, 1);
+				file.write(reinterpret_cast<char*>(row), 1);
+			}
+			else
+			{
+				file.write(reinterpret_cast<char*>(row), 3);
+			}
+			row++;
+		}
+		data += subResourceLayout.rowPitch;
+	}
+	file.close();
+
+	std::cout << "Screenshot saved to disk" << std::endl;
+
+	// // Clean up resources
+	// vkUnmapMemory(Device().Handle(), dstImageMemory);
+	// vkFreeMemory(Device().Handle(), dstImageMemory, nullptr);
+	// vkDestroyImage(Device().Handle(), dstImage, nullptr);
+	//
+	// screenshotSaved = true;
 }

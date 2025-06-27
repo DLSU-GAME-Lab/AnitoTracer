@@ -69,6 +69,12 @@ private:
 
 	double time_{};
 
+	void saveScreenshot(VkCommandBuffer commandBuffer, const uint32_t imageIndex);
+	bool isTakingScreenshot = false;
+	std::unique_ptr<Vulkan::Image> screenshotImage_;
+	std::unique_ptr<Vulkan::DeviceMemory> screenshotImageMemory_;
+
+
 	uint32_t totalNumberOfSamples_{};
 	uint32_t numberOfSamples_{};
 	bool resetAccumulation_{};
