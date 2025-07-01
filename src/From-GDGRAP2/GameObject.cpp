@@ -14,6 +14,8 @@ GameObject::GameObject()
 	this->name = "No-name";
 	this->type = NONE;
 	this->modelRef = nullptr;
+
+	this->updateWorldTransform();
 }
 
 GameObject::GameObject(String name, PrimitiveType type)
@@ -21,6 +23,8 @@ GameObject::GameObject(String name, PrimitiveType type)
 	this->name = name;
 	this->type = type;
 	this->modelRef = nullptr;
+
+	this->updateWorldTransform();
 }
 
 GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::Model> modelRef)
@@ -358,6 +362,14 @@ void GameObject::updateWorldTransform()
 		if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
 			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		}
+	}
+}
+
+// for Child Gameobjects
+void GameObject::updateSceneView()
+{
+	if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 }
 

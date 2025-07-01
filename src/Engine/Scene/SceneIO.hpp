@@ -23,6 +23,7 @@ private:
 
 	SceneList scenes;
 	SceneMap map;
+	std::string scenesDirectory = "";
 
 public:
 	static SceneIO* getInstance();
@@ -36,9 +37,38 @@ private:
 		map[sceneName] = scene;
 	}
 
+	void ReadFromFile()
+	{
+		if (!std::filesystem::exists(scenesDirectory) || !std::filesystem::is_directory(scenesDirectory)) {
+			std::cerr << "Scene directory not found: " << scenesDirectory << std::endl;
+			return;
+		}
+
+		for (const auto& entry : std::filesystem::directory_iterator(scenesDirectory)) {
+			if (entry.path().extension() == ".json") {
+				std::ifstream file(entry.path());
+				if (file.is_open()) {
+					try {
+						json scene;
+						file >> scene;
+						std::string sceneName = scene["scene_name"];
+						AddScene(scene, sceneName);
+						std::cout << "Loaded scene: " << sceneName << std::endl;
+					}
+					catch (const std::exception& e) {
+						std::cerr << "Failed to parse " << entry.path().filename() << ": " << e.what() << std::endl;
+					}
+				}
+				else {
+					std::cerr << "Failed to open file: " << entry.path().filename() << std::endl;
+				}
+			}
+		}
+	}
+
 	void WriteToFile(json scene, std::string sceneName) {
 		// Implement file writing logic here
-		std::ofstream file(sceneName + ".json");
+		std::ofstream file(scenesDirectory + sceneName + ".json");
 
 		if (file.is_open()) {
 			file << std::setw(4) << scene << std::endl; // Use setw for pretty printing
