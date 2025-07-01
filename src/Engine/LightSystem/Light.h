@@ -34,10 +34,12 @@ public:
 		// Default Properties
 		props_.LightPos = glm::vec3(0, 0, 0);
 		props_.AmbientColor = glm::vec4(1.0, 1.0, 1.0, 0.02);
-		props_.LightColor = glm::vec4(1.0, 1.0, 1.0, 1000000.0f);
+		props_.LightColor = glm::vec4(1.0, 1.0, 1.0, 500000.0f);
 		props_.LightType = convertLightTypeEnum(type);
 
 		GameObject::setLocalPosition(props_.LightPos);
+
+		updateSceneView();
 	}
 
 	Light(String name, LightType type, glm::vec3 pos, glm::vec4 ambientCol, glm::vec4 lightCol)
@@ -49,6 +51,8 @@ public:
 		props_.LightType = convertLightTypeEnum(type);
 
 		GameObject::setLocalPosition(props_.LightPos);
+
+		updateSceneView();
 	}
 
 	const Assets::LightProperties Properties() const { return this->props_; }

@@ -102,6 +102,8 @@ protected:
     virtual void performModelRotate();
     virtual void performModelScale();
 
+    void updateSceneView();
+
     friend class ModelManager;
 };
 
