@@ -84,7 +84,7 @@ void InspectorScreen::drawUI()
 						lightTypeDisplay = (type == lightTypes[0]) ? Light::PointLight :
 							(type == lightTypes[1]) ? Light::DirectionalLight :
 							(type == lightTypes[2]) ? Light::SpotLight : Light::PointLight;
-						//this->onLightPropsUpdate();
+						this->onLightPropsUpdate();
 					}
 				}
 				ImGui::EndCombo();
@@ -133,9 +133,6 @@ void InspectorScreen::updateLightPropsDisplays()
 	if (light)
 	{
 		glm::vec4 lightCol = light->getLightColor();
-		Debug::Log("Light Color Picker Variable: " + std::to_string(lightColor.x) + ", " + std::to_string(lightColor.y) + ", " + std::to_string(lightColor.z));
-		Debug::Log("Light Color Display: " + std::to_string(lightColorDisplay.x) + ", " + std::to_string(lightColorDisplay.y) + ", " + std::to_string(lightColorDisplay.z));
-		Debug::Log("Light Color: " + std::to_string(lightCol.x) + ", " + std::to_string(lightCol.y) + ", " + std::to_string(lightCol.z));
 		this->lightColorDisplay.x = lightCol.x;
 		this->lightColorDisplay.y = lightCol.y;
 		this->lightColorDisplay.z = lightCol.z;

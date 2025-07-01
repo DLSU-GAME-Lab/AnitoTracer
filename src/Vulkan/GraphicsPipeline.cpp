@@ -117,9 +117,14 @@ GraphicsPipeline::GraphicsPipeline(
 	// Create descriptor pool/sets.
 	std::vector<DescriptorBinding> descriptorBindings =
 	{
+		// 0 UniformBufferObjectStruct
+		// 1 Material Array
+		// 2 Light Array
+		// 3 Texture Samplers
 		{0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT},
 		{1, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT},
-		{2, static_cast<uint32_t>(scene.TextureSamplers().size()), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
+		{2, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT},
+		{3, static_cast<uint32_t>(scene.TextureSamplers().size()), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 	};
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -138,6 +143,11 @@ GraphicsPipeline::GraphicsPipeline(
 		materialBufferInfo.buffer = scene.MaterialBuffer().Handle();
 		materialBufferInfo.range = VK_WHOLE_SIZE;
 
+		// Lights buffer
+		VkDescriptorBufferInfo lightsBufferInfo = {};
+		lightsBufferInfo.buffer = scene.LightBuffer().Handle();
+		lightsBufferInfo.range = VK_WHOLE_SIZE;
+
 		// Image and texture samplers
 		std::vector<VkDescriptorImageInfo> imageInfos(scene.TextureSamplers().size());
 
@@ -153,7 +163,8 @@ GraphicsPipeline::GraphicsPipeline(
 		{
 			descriptorSets.Bind(i, 0, uniformBufferInfo),
 			descriptorSets.Bind(i, 1, materialBufferInfo),
-			descriptorSets.Bind(i, 2, *imageInfos.data(), static_cast<uint32_t>(imageInfos.size()))
+			descriptorSets.Bind(i, 2, lightsBufferInfo),
+			descriptorSets.Bind(i, 3, *imageInfos.data(), static_cast<uint32_t>(imageInfos.size()))
 		};
 
 		descriptorSets.UpdateDescriptors(i, descriptorWrites);

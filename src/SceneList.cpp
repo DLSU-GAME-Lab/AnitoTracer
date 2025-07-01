@@ -120,8 +120,8 @@ SceneAssets SceneList::CubeAndSpheres(CameraInitialState& camera)
 
 
 	// Add light objects
-	std::shared_ptr<GameObject> pl1 = std::make_shared<GameObject>("Point Light 1", GameObject::PrimitiveType::POINT_LIGHT);
-	ModelManager::getInstance()->addObject(pl1);
+	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(pl);
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -155,8 +155,8 @@ SceneAssets SceneList::RayTracingInOneWeekend(CameraInitialState& camera)
 
 
 	// Add light objects
-	std::shared_ptr<GameObject> pl1 = std::make_shared<GameObject>("Point Light 1", GameObject::PrimitiveType::POINT_LIGHT);
-	ModelManager::getInstance()->addObject(pl1);
+	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(pl);
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -195,8 +195,8 @@ SceneAssets SceneList::PlanetsInOneWeekend(CameraInitialState& camera)
 
 
 	// Add light objects
-	std::shared_ptr<GameObject> pl1 = std::make_shared<GameObject>("Point Light 1", GameObject::PrimitiveType::POINT_LIGHT);
-	ModelManager::getInstance()->addObject(pl1);
+	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(pl);
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -261,8 +261,8 @@ SceneAssets SceneList::LucyInOneWeekend(CameraInitialState& camera)
 	models.push_back(std::move(lucy2));
 
 	// Add light objects
-	std::shared_ptr<GameObject> pl1 = std::make_shared<GameObject>("Point Light 1", GameObject::PrimitiveType::POINT_LIGHT);
-	ModelManager::getInstance()->addObject(pl1);
+	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(pl);
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -294,8 +294,8 @@ SceneAssets SceneList::CornellBox(CameraInitialState& camera)
 	models.push_back(box1);
 
 	// Add light objects
-	std::shared_ptr<GameObject> pl1 = std::make_shared<GameObject>("Point Light 1", GameObject::PrimitiveType::POINT_LIGHT);
-	ModelManager::getInstance()->addObject(pl1);
+	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(pl);
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -329,8 +329,8 @@ SceneAssets SceneList::CornellBoxLucy(CameraInitialState& camera)
 	models.push_back(lucy0);
 
 	// Add light objects
-	std::shared_ptr<GameObject> pl1 = std::make_shared<GameObject>("Point Light 1", GameObject::PrimitiveType::POINT_LIGHT);
-	ModelManager::getInstance()->addObject(pl1);
+	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(pl);
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -432,8 +432,8 @@ SceneAssets SceneList::GDGRAP2_SphereWorld(CameraInitialState& camera)
 
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	// Add light objects
-	std::shared_ptr<GameObject> pl1 = std::make_shared<GameObject>("Point Light 1", GameObject::PrimitiveType::POINT_LIGHT);
-	ModelManager::getInstance()->addObject(pl1);
+	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(pl);
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -478,8 +478,8 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	// Add light objects
-	std::shared_ptr<GameObject> pl1 = std::make_shared<GameObject>("Point Light 1", GameObject::PrimitiveType::POINT_LIGHT);
-	ModelManager::getInstance()->addObject(pl1);
+	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(pl);
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
