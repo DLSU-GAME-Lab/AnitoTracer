@@ -9,13 +9,15 @@ namespace Vulkan
 	public:
 
 		static void Insert(
-			const VkCommandBuffer commandBuffer, 
-			const VkImage image, 
-			const VkImageSubresourceRange subresourceRange, 
+			const VkCommandBuffer commandBuffer,
+			const VkImage image,
+			const VkImageSubresourceRange& subresourceRange,
 			const VkAccessFlags srcAccessMask,
-			const VkAccessFlags dstAccessMask, 
-			const VkImageLayout oldLayout, 
-			const VkImageLayout newLayout)
+			const VkAccessFlags dstAccessMask,
+			const VkImageLayout oldLayout,
+			const VkImageLayout newLayout,
+			const VkAccessFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+			const VkAccessFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT)
 		{
 			VkImageMemoryBarrier barrier;
 			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -29,8 +31,16 @@ namespace Vulkan
 			barrier.image = image;
 			barrier.subresourceRange = subresourceRange;
 
-			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				srcStageMask,
+				dstStageMask,
+				0,
+				0,
+				nullptr,
+				0,
+				nullptr,
+				1,
 				&barrier);
 		}
 	};
