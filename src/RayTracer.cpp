@@ -248,6 +248,8 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	time_ = Window().GetTime();
 	const auto timeDelta = time_ - prevTime;
 
+	//Debug::Log("Rendering frame, time delta: " + std::to_string(timeDelta) + "s");
+
 	// Update the camera position / angle.
 	resetAccumulation_ = CameraManager::getInstance()->getActiveCamera()->UpdateCamera(cameraInitialSate_.ControlSpeed, timeDelta);
 
