@@ -95,10 +95,9 @@ void MenuScreen::drawUI()
 			}
 			if (ImGui::BeginMenu("Custom Scenes"))
 			{
-				this->OnLoadEmpty(); ShowLoadingPopUp();
 				for (std::string name : SceneIO::getInstance()->getSceneNames())
 				{
-					if (ImGui::MenuItem(name.c_str())) { SceneIO::getInstance()->LoadScene(name); }
+					if (ImGui::MenuItem(name.c_str())) { this->OnLoadEmpty(); ShowLoadingPopUp(); SceneIO::getInstance()->LoadScene(name); }
 				}
 				ImGui::EndMenu();
 			}
