@@ -50,17 +50,18 @@ namespace gdeng03
 
 		ImVec4 diffuse = ImVec4(1, 1, 1, 1);
 		int textureId;
-		//
-		// // Base material
-		// //glm::vec4 Diffuse;
-		// int32_t diffuseTextureId;
-		//
-		// // Metal fuzziness
-		// float fuzziness;
-		//
-		// // Dielectric refraction index
-		// float refractionIndex;
-		//
+
+		
+		 // Base material
+		 //glm::vec4 Diffuse;
+		 //int32_t diffuseTextureId;
+		
+		 // Metal fuzziness
+		 float fuzziness = 0;
+		
+		 // Dielectric refraction index
+		 float refractionIndex;
+		
 		// // Which material are we dealing with
 		// Material::Enum materialModel;
 
