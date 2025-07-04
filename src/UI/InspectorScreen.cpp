@@ -37,6 +37,7 @@ void InspectorScreen::drawUI()
 		if (ImGui::Button("Delete")) {
 			ModelManager::getInstance()->deleteObject(this->selectedObject);
 			ModelManager::getInstance()->setSelectedObject(static_cast<std::shared_ptr<GameObject>>(nullptr));
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		}
 
 		if (ImGui::InputFloat3("Position", this->positionDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate(); }
@@ -84,6 +85,7 @@ void InspectorScreen::drawUI()
 						lightTypeDisplay = (type == lightTypes[0]) ? Light::PointLight :
 							(type == lightTypes[1]) ? Light::DirectionalLight :
 							(type == lightTypes[2]) ? Light::SpotLight : Light::PointLight;
+
 						this->onLightPropsUpdate();
 					}
 				}
