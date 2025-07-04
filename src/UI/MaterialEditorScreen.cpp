@@ -7,6 +7,7 @@
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/EventNames.h"
 #include "From-GDGRAP2/ModelManager.h"
+#include "From-GDGRAP2/TextureLibrary.h"
 #include "UIManager.h"
 
 using namespace gdeng03;
@@ -29,6 +30,13 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 
 	diffuse = { mat->Diffuse.x, mat->Diffuse.y, mat->Diffuse.z, mat->Diffuse.w };
 	textureId = mat->DiffuseTextureId;
+	if (mat->MaterialModel == Material::Enum::Lambertian) {
+		this->fuzziness = 0;
+	}
+	else {
+		this->fuzziness = 1 - mat->Fuzziness;
+	}
+	
 	// diffuseTextureId = mat->DiffuseTextureId;
 	// fuzziness = mat->Fuzziness;
 	// refractionIndex = mat->RefractionIndex;
@@ -194,40 +202,63 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 
 	ImGui::NewLine();
 
+	ImGui::Text("Texture");
+	if (ImGui::ImageButton("Texture", selectedMaterial->DiffuseTextureId, ImVec2(100, 50)))
+	{
+		//isColorPickerOpen = !isColorPickerOpen;
+	}
+
 	ImGui::Text("Color");
 	if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(100, 50)))
 	{
 		isColorPickerOpen = !isColorPickerOpen;
 	}
 
-	// if (ImGui::InputInt("Texture Id", &textureId))
-	// {
-	// 	selectedMaterial->DiffuseTextureId = textureId;
-	// 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	// }
+
+	//// if (ImGui::InputInt("Texture Id", &textureId))
+	//// {
+	//// 	selectedMaterial->DiffuseTextureId = textureId;
+	//// 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	//// }
 
 	ImGui::NewLine();
 
 	//slider size
 	ImGui::PushItemWidth(250);
 
-	if (selectedMaterial->MaterialModel == Material::Enum::Metallic)
+	//Metallic
+	ImGui::SameLine();
+	if (ImGui::SliderFloat("Metallic", &this->fuzziness, 0, 1, " %.1f"))
 	{
-		ImGui::SameLine();
-		if (ImGui::SliderFloat("Fuzziness", &selectedMaterial->Fuzziness, 0, 0))
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		selectedMaterial->Fuzziness = 1 - this->fuzziness;
 
-		ImGui::NewLine();
+		if (selectedMaterial->MaterialModel == Material::Enum::Metallic || selectedMaterial->MaterialModel == Material::Enum::Lambertian) {
+			if (selectedMaterial->Fuzziness < 1)
+			{
+				selectedMaterial->MaterialModel = Material::Enum::Metallic;
+			}
+			if (selectedMaterial->Fuzziness == 1)
+			{
+				selectedMaterial->MaterialModel = Material::Enum::Lambertian;
+			}
+		}
+		//EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 
-	if (selectedMaterial->MaterialModel == Material::Enum::Dielectric)
-	{
-		ImGui::SameLine();
-		if (ImGui::SliderFloat("Refraction Index", &selectedMaterial->RefractionIndex, 0, 0))
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	ImGui::NewLine();
 
-		ImGui::NewLine();
-	}
+	//ImGui::SameLine();
+	//if (ImGui::SliderFloat("Refraction Index", &selectedMaterial->RefractionIndex, 0, 255))
+	//	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+
+	//ImGui::NewLine();
+
 
 	ImGui::PopItemWidth();
+
+	if (ImGui::Button("Apply")) 
+	{
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
 }

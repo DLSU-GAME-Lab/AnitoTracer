@@ -42,18 +42,24 @@ namespace Assets
 			Isotropic = 3,
 			DiffuseLight = 4
 		};
-
+		
 		// Note: vec3 and vec4 gets aligned on 16 bytes in Vulkan shaders. 
-
+		
 		// Base material
 		glm::vec4 Diffuse;
 		int32_t DiffuseTextureId;
+		//float metallic = 1;
+		//int32_t MetallicTextureId;
+		//float smoothness = 1;
+		//int32_t SmoothnessTextureId;
+		//float flatness = 1;
+		//int32_t NormalTextureId;
 
 		// Metal fuzziness
 		float Fuzziness;
 
 		// Dielectric refraction index
-		float RefractionIndex;
+		float RefractionIndex = 0;
 
 		// Which material are we dealing with
 		Enum MaterialModel;
