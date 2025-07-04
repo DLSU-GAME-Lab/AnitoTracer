@@ -30,6 +30,7 @@ public:
 	int getTextureId(std::string textureName);
 	std::vector<Assets::Texture> getTextureLibraryList();
 	bool doesTextureExist(std::string textureName);
+	int loadTextureFromFile();
 
 private:
 	static TextureLibrary* sharedInstance;

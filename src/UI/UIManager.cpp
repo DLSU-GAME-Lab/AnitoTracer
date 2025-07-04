@@ -75,6 +75,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	const auto& window = device.Surface().Instance().Window();
 	sharedInstance->userSettings = userSettings;
 	sharedInstance->swapChain = swapChain;
+	sharedInstance->commandPool = commandPool;
 
 	// Initialise descriptor pool and render pass for ImGui.
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =

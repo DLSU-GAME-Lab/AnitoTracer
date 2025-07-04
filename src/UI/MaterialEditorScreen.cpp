@@ -3,11 +3,14 @@
 #include <algorithm>
 
 #include "imgui_internal.h"
+#include "imgui_impl_vulkan.h"
+#include "Vulkan/SingleTimeCommands.hpp"
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/EventNames.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "From-GDGRAP2/TextureLibrary.h"
+#include "Assets/TextureImage.hpp"
 #include "UIManager.h"
 
 using namespace gdeng03;
@@ -201,33 +204,45 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 	}
 
 	ImGui::NewLine();
-
-	ImGui::Text("Texture");
-	if (ImGui::ImageButton("Texture", selectedMaterial->DiffuseTextureId, ImVec2(100, 50)))
-	{
-		//isColorPickerOpen = !isColorPickerOpen;
+	//TEXTURE
+	//ImGui::Image((ImTextureID)(intptr_t)&TextureLibrary::getInstance()->getTextureLibraryList()[selectedMaterial->DiffuseTextureId], ImVec2(100, 50));
+	ImTextureID texId;
+	/*VkDescriptorSet tex_dset;
+	if (selectedMaterial->DiffuseTextureId != -1 && selectedMaterial->DiffuseTextureId != -0) {
+		Assets::TextureImage textureimg = Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureLibraryList()[selectedMaterial->DiffuseTextureId]);
+		tex_dset = ImGui_ImplVulkan_AddTexture(textureimg.Sampler().Handle(), textureimg.ImageView().Handle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		texId = reinterpret_cast<ImTextureID>(tex_dset);
 	}
+	else {*/
+		texId = 0;
+	//}
 
-	ImGui::Text("Color");
+	
+
+	if (ImGui::ImageButton("Texture", texId, ImVec2(100, 50)))
+	{
+		int newTextureId = TextureLibrary::getInstance()->loadTextureFromFile();
+		this->textureId = newTextureId;
+		selectedMaterial->DiffuseTextureId = newTextureId;
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+	ImGui::SameLine();
+	ImGui::Text("Texture");
+
+	ImGui::NewLine();
+	//COLOR
 	if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(100, 50)))
 	{
 		isColorPickerOpen = !isColorPickerOpen;
 	}
-
-
-	//// if (ImGui::InputInt("Texture Id", &textureId))
-	//// {
-	//// 	selectedMaterial->DiffuseTextureId = textureId;
-	//// 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	//// }
+	ImGui::SameLine();
+	ImGui::Text("Color");
 
 	ImGui::NewLine();
 
 	//slider size
 	ImGui::PushItemWidth(250);
-
-	//Metallic
-	ImGui::SameLine();
+	//METALLIC
 	if (ImGui::SliderFloat("Metallic", &this->fuzziness, 0, 1, " %.1f"))
 	{
 		selectedMaterial->Fuzziness = 1 - this->fuzziness;

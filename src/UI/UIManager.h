@@ -74,6 +74,7 @@ public:
 	void showAllUI() const;
 
 	GpuCpuProfiler* profiler;
+	Vulkan::CommandPool* commandPool;
 	void SetProfiler(GpuCpuProfiler* profiler) { this->profiler = profiler; }
 
 	// fucky test code below vvv

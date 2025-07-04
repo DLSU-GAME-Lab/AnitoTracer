@@ -5,6 +5,7 @@
 #include "Assets/Texture.hpp"
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
+#include "Debug.h"
 
 TextureLibrary* TextureLibrary::sharedInstance = nullptr;
 void TextureLibrary::addTexture(const std::string& textureName, const std::string& fileName)
@@ -71,6 +72,28 @@ bool TextureLibrary::doesTextureExist(std::string textureName)
 	else
 		return false;
 	
+}
+
+int TextureLibrary::loadTextureFromFile()
+{
+	std::string texturePath;
+	std::string fileName;
+
+	if (!FileUtils::getTextureFilePath(texturePath, fileName))
+	{
+		Debug::Log("Cancelled loading texture from path: " + texturePath);
+
+		return 0;
+	}
+
+	if (!texturePath.empty()) {
+		Debug::Log("Loading texture from path: " + texturePath);
+	}
+
+	this->addTexture(fileName, texturePath);
+
+	return this->getTextureId(fileName);
+
 }
 
 void TextureLibrary::initialize()
