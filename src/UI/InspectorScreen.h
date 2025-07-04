@@ -42,6 +42,6 @@ private:
 	String materialName = DEFAULT_MATERIAL;
 	Texture* materialDisplay;
 	
-	float lightIntensityMultiplier = 1000000.0f;
+	float lightIntensityMultiplier = 500000.0f;
 };
 

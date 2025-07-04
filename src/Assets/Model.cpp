@@ -500,6 +500,11 @@ void Model::SetMaterial(const Material& material)
 	materials_[0] = material;
 }
 
+void Model::SetMaterials(std::vector<Material> mats)
+{
+	this->materials_ = mats;
+}
+
 void Model::SetMaterialIndex(int index)
 {
 	this->materials_[0].DiffuseTextureId = index;
@@ -551,4 +556,8 @@ Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint3
 	this->worldMatrix_ = mat4(1.0f);
 }
 
+void Model::SetName(std::string name)
+{
+	this->name = name;
+}
 }
