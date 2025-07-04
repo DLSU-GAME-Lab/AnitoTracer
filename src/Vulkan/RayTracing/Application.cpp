@@ -234,10 +234,10 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	copyRegion.dstOffset = { 0, 0, 0 };
 	copyRegion.extent = { extent.width, extent.height, 1 };
 	
-	vkCmdCopyImage(commandBuffer,
-		outputImage_->Handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		1, &copyRegion);
+	// vkCmdCopyImage(commandBuffer,
+	// 	outputImage_->Handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+	// 	SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	// 	1, &copyRegion);
 	
 	// Transition swap chain image to present layout
 	ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange,

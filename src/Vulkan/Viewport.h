@@ -77,15 +77,15 @@ namespace Vulkan
 
 		std::shared_ptr<class RenderPass> renderPass_;
 
-		std::vector<VkImage> outputImages_;
-		std::vector<std::unique_ptr<DeviceMemory>> outputImageMemory_;
-		std::vector<std::unique_ptr<ImageView>> outputImageViews_;
+		std::unique_ptr<Image> outputImage_;
+		std::unique_ptr<DeviceMemory> outputImageMemory_;
+		std::unique_ptr<ImageView> outputImageView_;
 		VkImage rtImage_;
 		VkDescriptorSet rtDset_;
 
 		std::unique_ptr<Vulkan::Sampler> sampler_;
 
-		std::vector<VkDescriptorSet> viewportDSet_;
+		VkDescriptorSet viewportDSet_;
 
 		size_t currentFrame_{};
 	};
