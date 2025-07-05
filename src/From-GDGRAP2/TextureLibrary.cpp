@@ -40,6 +40,16 @@ Assets::Texture TextureLibrary::getTexture(std::string textureName)
 	return *this->textureMap[textureName];
 }
 
+Assets::Texture TextureLibrary::getTextureById(int textureId)
+{
+	std::vector<Assets::Texture> textureList;
+	for (auto& texture : this->textureList) {
+		textureList.push_back(*texture);
+	}
+
+	return textureList[textureId];
+}
+
 int TextureLibrary::getTextureId(std::string textureName)
 {
 	std::shared_ptr<Assets::Texture> texture = this->textureMap[textureName];
@@ -74,7 +84,7 @@ bool TextureLibrary::doesTextureExist(std::string textureName)
 	
 }
 
-int TextureLibrary::loadTextureFromFile()
+bool TextureLibrary::loadTextureFromFile(int& textureId)
 {
 	std::string texturePath;
 	std::string fileName;
@@ -83,7 +93,7 @@ int TextureLibrary::loadTextureFromFile()
 	{
 		Debug::Log("Cancelled loading texture from path: " + texturePath);
 
-		return 0;
+		return false;
 	}
 
 	if (!texturePath.empty()) {
@@ -92,7 +102,9 @@ int TextureLibrary::loadTextureFromFile()
 
 	this->addTexture(fileName, texturePath);
 
-	return this->getTextureId(fileName);
+	textureId = this->getTextureId(fileName);
+	return true;
+	
 
 }
 

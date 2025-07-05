@@ -72,6 +72,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	sharedInstance = new UIManager();
 
 	const auto& device = swapChain->Device();
+	//sharedInstance->device = &swapChain->Device();
 	const auto& window = device.Surface().Instance().Window();
 	sharedInstance->userSettings = userSettings;
 	sharedInstance->swapChain = swapChain;
@@ -82,7 +83,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	{
 		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
 	};
-	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 1));
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
 	sharedInstance->renderPass.reset(
 		new Vulkan::RenderPass(
 			*swapChain,
@@ -520,6 +521,19 @@ void UIManager::showAllUI() const
 		if (i->name != UINames::MENU_SCREEN)
 			i->setEnabled(true);
 	}
+}
+
+void UIManager::FreeDescriptor(VkDescriptorSet& descriptorset)
+{
+	const auto& device = swapChain->Device();
+
+	// Initialise descriptor pool and render pass for ImGui.
+	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
+	{
+		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
+	};
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
+
 }
 
 bool UIManager::wantsToCaptureKeyboard()

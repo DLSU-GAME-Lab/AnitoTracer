@@ -10,13 +10,19 @@
 #include "From-GDGRAP2/EventNames.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "From-GDGRAP2/TextureLibrary.h"
-#include "Assets/TextureImage.hpp"
+
+#include "ButtonTexture.hpp"
 #include "UIManager.h"
 
 using namespace gdeng03;
 
 MaterialEditorScreen::MaterialEditorScreen() : AUIScreen(UINames::MATERIAL_EDITOR_SCREEN)
 {
+	textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
+	//tex_dset = ImGui_ImplVulkan_AddTexture(textureimg->Sampler().Handle(), textureimg->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+	Assets::ButtonTexture buttonImg = Assets::ButtonTexture(textureimg);
+	currTexId = (ImTextureID)(buttonImg.textureDset);
+
 	//loadDefaultTextures();
 }
 
@@ -152,6 +158,7 @@ void MaterialEditorScreen::updateSelectedMaterial()
 
 	selectedMaterial->Diffuse = { this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w };
 	selectedMaterial->DiffuseTextureId = this->textureId;
+
 }
 
 void MaterialEditorScreen::showMaterialEditorWindow()
@@ -203,35 +210,45 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 		return;
 	}
 
+
 	ImGui::NewLine();
 	//TEXTURE
 	//ImGui::Image((ImTextureID)(intptr_t)&TextureLibrary::getInstance()->getTextureLibraryList()[selectedMaterial->DiffuseTextureId], ImVec2(100, 50));
-	ImTextureID texId;
-	/*VkDescriptorSet tex_dset;
-	if (selectedMaterial->DiffuseTextureId != -1 && selectedMaterial->DiffuseTextureId != -0) {
-		Assets::TextureImage textureimg = Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureLibraryList()[selectedMaterial->DiffuseTextureId]);
-		tex_dset = ImGui_ImplVulkan_AddTexture(textureimg.Sampler().Handle(), textureimg.ImageView().Handle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		texId = reinterpret_cast<ImTextureID>(tex_dset);
-	}
-	else {*/
-		texId = 0;
-	//}
 
-	
-
-	if (ImGui::ImageButton("Texture", texId, ImVec2(100, 50)))
+	if (this->textureChanged)
 	{
-		int newTextureId = TextureLibrary::getInstance()->loadTextureFromFile();
-		this->textureId = newTextureId;
-		selectedMaterial->DiffuseTextureId = newTextureId;
+		//this->textureId = newTextureId;
+		
+
+		Debug::Log("UPDATED BUTTON TEXTURE");
+		textureimg = nullptr;
+
+		if (selectedMaterial->DiffuseTextureId == -1)
+			textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
+		else
+			textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(selectedMaterial->DiffuseTextureId));
+
+		Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
+		currTexId = 0;
+		currTexId = (ImTextureID)(newButtonimg.textureDset);
+		this->textureChanged = false;
+
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
+
+	if (ImGui::ImageButton("Texture", currTexId, ImVec2(40,40)))
+	{
+		//int newTextureId;
+		this->textureChanged = TextureLibrary::getInstance()->loadTextureFromFile(this->textureId);
+		selectedMaterial->DiffuseTextureId = this->textureId;
+	}
+	
 	ImGui::SameLine();
 	ImGui::Text("Texture");
 
 	ImGui::NewLine();
 	//COLOR
-	if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(100, 50)))
+	if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(50, 50)))
 	{
 		isColorPickerOpen = !isColorPickerOpen;
 	}
@@ -270,7 +287,6 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 
 
 	ImGui::PopItemWidth();
-
 	if (ImGui::Button("Apply")) 
 	{
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);

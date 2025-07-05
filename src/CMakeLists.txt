@@ -280,7 +280,7 @@ add_executable(${exe_name}
 	${src_files_vulkan} 
 	${src_files_vulkan_raytracing} 
 	${src_files}
- "Engine/Scene/SceneIO.cpp")
+ "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp")
 
 if (UNIX)
 	# GCC8 needs an extra lib for <filesystem>.

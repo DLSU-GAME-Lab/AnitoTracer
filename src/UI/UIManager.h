@@ -75,11 +75,13 @@ public:
 
 	GpuCpuProfiler* profiler;
 	Vulkan::CommandPool* commandPool;
+	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool;
 	void SetProfiler(GpuCpuProfiler* profiler) { this->profiler = profiler; }
+	void FreeDescriptor(VkDescriptorSet& descriptorset);
 
 	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;
-	// const Vulkan::Device* device = nullptr;
+	//Vulkan::Device* device = nullptr;
 	// Vulkan::Sampler* sampler = nullptr;
 	// Vulkan::ImageView* imageView = nullptr;
 	// VkDescriptorSet m_Dset;
@@ -104,7 +106,7 @@ private:
 	void drawAllUI() const;
 	void drawOverlay(const Statistics& statistics) const;
 
-	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool;
+
 	std::unique_ptr<Vulkan::RenderPass> renderPass;
 
 
