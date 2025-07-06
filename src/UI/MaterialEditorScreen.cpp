@@ -18,10 +18,10 @@ using namespace gdeng03;
 
 MaterialEditorScreen::MaterialEditorScreen() : AUIScreen(UINames::MATERIAL_EDITOR_SCREEN)
 {
-	textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
-	//tex_dset = ImGui_ImplVulkan_AddTexture(textureimg->Sampler().Handle(), textureimg->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
-	Assets::ButtonTexture buttonImg = Assets::ButtonTexture(textureimg);
-	currTexId = (ImTextureID)(buttonImg.textureDset);
+	//textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
+	////tex_dset = ImGui_ImplVulkan_AddTexture(textureimg->Sampler().Handle(), textureimg->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+	//Assets::ButtonTexture buttonImg = Assets::ButtonTexture(textureimg);
+	//currTexId = (ImTextureID)(buttonImg.textureDset);
 
 	//loadDefaultTextures();
 }
@@ -39,6 +39,18 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 
 	diffuse = { mat->Diffuse.x, mat->Diffuse.y, mat->Diffuse.z, mat->Diffuse.w };
 	textureId = mat->DiffuseTextureId;
+
+	textureimg = nullptr;
+
+	if (mat->DiffuseTextureId == -1)
+		textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
+	else
+		textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(mat->DiffuseTextureId));
+
+	Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
+	currTexId = 0;
+	currTexId = (ImTextureID)(newButtonimg.textureDset);
+
 	if (mat->MaterialModel == Material::Enum::Lambertian) {
 		this->fuzziness = 0;
 	}
@@ -215,32 +227,27 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 	//TEXTURE
 	//ImGui::Image((ImTextureID)(intptr_t)&TextureLibrary::getInstance()->getTextureLibraryList()[selectedMaterial->DiffuseTextureId], ImVec2(100, 50));
 
-	if (this->textureChanged)
-	{
-		//this->textureId = newTextureId;
-		
-
-		Debug::Log("UPDATED BUTTON TEXTURE");
-		textureimg = nullptr;
-
-		if (selectedMaterial->DiffuseTextureId == -1)
-			textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
-		else
-			textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(selectedMaterial->DiffuseTextureId));
-
-		Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
-		currTexId = 0;
-		currTexId = (ImTextureID)(newButtonimg.textureDset);
-		this->textureChanged = false;
-
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
-
 	if (ImGui::ImageButton("Texture", currTexId, ImVec2(40,40)))
 	{
 		//int newTextureId;
 		this->textureChanged = TextureLibrary::getInstance()->loadTextureFromFile(this->textureId);
 		selectedMaterial->DiffuseTextureId = this->textureId;
+
+		if (this->textureChanged) 
+		{
+	/*		textureimg = nullptr;
+
+			if (selectedMaterial->DiffuseTextureId == -1)
+				textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
+			else
+				textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(selectedMaterial->DiffuseTextureId));
+
+			Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
+			currTexId = 0;
+			currTexId = (ImTextureID)(newButtonimg.textureDset);*/
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+
+		}
 	}
 	
 	ImGui::SameLine();
