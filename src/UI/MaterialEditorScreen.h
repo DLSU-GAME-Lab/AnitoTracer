@@ -53,6 +53,7 @@ namespace gdeng03
 		//ImTextureID currTexId = 0;
 		bool textureChanged = false;
 		ImTextureID currTexId;
+		ImTextureID prevTexId;
 		Assets::TextureImage* textureimg;
 		//VkDescriptorSet tex_dset;
 		 // Base material

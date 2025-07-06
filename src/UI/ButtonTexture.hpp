@@ -30,6 +30,7 @@ namespace Assets {
 	class ButtonTexture {
 
 		public:
+			ButtonTexture();
 			ButtonTexture(TextureImage* textureImage);
 			~ButtonTexture();
 

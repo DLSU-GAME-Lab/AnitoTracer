@@ -11,17 +11,18 @@
 #include "From-GDGRAP2/ModelManager.h"
 #include "From-GDGRAP2/TextureLibrary.h"
 
-#include "ButtonTexture.hpp"
 #include "UIManager.h"
+#include "MaterialEditorTextures.hpp"
 
 using namespace gdeng03;
+using namespace Assets;
 
 MaterialEditorScreen::MaterialEditorScreen() : AUIScreen(UINames::MATERIAL_EDITOR_SCREEN)
 {
-	textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
-	//tex_dset = ImGui_ImplVulkan_AddTexture(textureimg->Sampler().Handle(), textureimg->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
-	Assets::ButtonTexture buttonImg = Assets::ButtonTexture(textureimg);
-	currTexId = (ImTextureID)(buttonImg.textureDset);
+	//textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
+	////tex_dset = ImGui_ImplVulkan_AddTexture(textureimg->Sampler().Handle(), textureimg->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+	//Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
+	//MaterialEditorTextures::GetInstance()->setTexture(&newButtonimg);
 
 	//loadDefaultTextures();
 }
@@ -215,32 +216,40 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 	//TEXTURE
 	//ImGui::Image((ImTextureID)(intptr_t)&TextureLibrary::getInstance()->getTextureLibraryList()[selectedMaterial->DiffuseTextureId], ImVec2(100, 50));
 
-	if (this->textureChanged)
-	{
-		//this->textureId = newTextureId;
-		
+	//this->textureId = newTextureId;
+	//if (this->textureChanged || MaterialEditorTextures::GetInstance()->UIReset) {
+	//	Debug::Log("UPDATED BUTTON TEXTURE");
 
+	//	if (selectedMaterial->DiffuseTextureId == -1)
+	//		textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
+	//	else
+	//		textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(selectedMaterial->DiffuseTextureId));
+
+	//	Assets::ButtonTexture* newButtonimg = new Assets::ButtonTexture(textureimg);
+	//	MaterialEditorTextures::GetInstance()->setTexture(newButtonimg);
+	//	this->textureChanged = false;
+	//	MaterialEditorTextures::GetInstance()->UIReset = false;
+
+	//	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	//}
+
+	if (this->textureChanged || MaterialEditorTextures::GetInstance()->UIReset) {
 		Debug::Log("UPDATED BUTTON TEXTURE");
-		textureimg = nullptr;
 
-		if (selectedMaterial->DiffuseTextureId == -1)
-			textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
-		else
-			textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(selectedMaterial->DiffuseTextureId));
-
-		Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
-		currTexId = 0;
-		currTexId = (ImTextureID)(newButtonimg.textureDset);
+		MaterialEditorTextures::GetInstance()->setTexture(selectedMaterial->DiffuseTextureId);
 		this->textureChanged = false;
+		MaterialEditorTextures::GetInstance()->UIReset = false;
 
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		
 	}
 
-	if (ImGui::ImageButton("Texture", currTexId, ImVec2(40,40)))
+	if (ImGui::ImageButton("Texture", reinterpret_cast<ImTextureID>(MaterialEditorTextures::GetInstance()->getTexture().textureDset), ImVec2(40, 40)))
 	{
 		//int newTextureId;
 		this->textureChanged = TextureLibrary::getInstance()->loadTextureFromFile(this->textureId);
 		selectedMaterial->DiffuseTextureId = this->textureId;
+
 	}
 	
 	ImGui::SameLine();

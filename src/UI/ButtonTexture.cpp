@@ -12,6 +12,10 @@
 #include <cstring>
 #include <stdexcept>
 
+Assets::ButtonTexture::ButtonTexture()
+{
+}
+
 Assets::ButtonTexture::ButtonTexture(TextureImage* textureImage)
 {
 	this->textureImage = textureImage;

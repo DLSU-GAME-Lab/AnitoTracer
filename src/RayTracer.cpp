@@ -18,6 +18,7 @@
 #include "From-GDGRAP2/GlobalConfig.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "UI/UIManager.h"
+#include "UI/MaterialEditorTextures.hpp"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
 #include "imgui_impl_vulkan.h"
@@ -30,6 +31,7 @@
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
+#include "Vulkan/CommandPool.hpp"
 
 namespace
 {
@@ -54,6 +56,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
+
 }
 
 RayTracer::~RayTracer()
@@ -73,6 +76,12 @@ void RayTracer::initialize(const UserSettings& userSettings, const Vulkan::Windo
 RayTracer* RayTracer::getInstance()
 {
 	return sharedInstance;
+}
+
+Vulkan::CommandPool* RayTracer::getCommandPool()
+{
+	Vulkan::CommandPool* cp = &CommandPool();
+	return cp;
 }
 
 Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D extent) const
@@ -158,7 +167,11 @@ void RayTracer::CreateSwapChain()
 		UIManager::getInstance()->initializeUI();
 		// UIManager::getInstance()->device = &Device();
 		// UIManager::getInstance()->sampler = new Vulkan::Sampler(Device(), Vulkan::SamplerConfig());
-	
+
+		Debug::Log("MAT EDITOR TEX INIT");
+		Assets::MaterialEditorTextures::initialize();
+		Assets::MaterialEditorTextures::GetInstance()->setTexture(0);
+
 		initializedUI = true;
 	}
 

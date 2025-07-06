@@ -23,6 +23,7 @@ public:
 	static RayTracer* getInstance();
 
 	UserSettings getUserSettings() const { return userSettings_; }
+	Vulkan::CommandPool* getCommandPool();
 
 protected:
 
@@ -88,6 +89,8 @@ private:
 	bool isVisualizeRays_ = false;
 	bool isMoving = false;
 	bool mousePressed = false;
+
+	bool initUI = true;
 
 	static RayTracer* sharedInstance;
 
