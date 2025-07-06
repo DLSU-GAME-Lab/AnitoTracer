@@ -40,6 +40,8 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 
 	diffuse = { mat->Diffuse.x, mat->Diffuse.y, mat->Diffuse.z, mat->Diffuse.w };
 	textureId = mat->DiffuseTextureId;
+	MaterialEditorTextures::GetInstance()->setTexture(mat->DiffuseTextureId);
+
 	if (mat->MaterialModel == Material::Enum::Lambertian) {
 		this->fuzziness = 0;
 	}
@@ -236,7 +238,7 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 	if (this->textureChanged || MaterialEditorTextures::GetInstance()->UIReset) {
 		Debug::Log("UPDATED BUTTON TEXTURE");
 
-		MaterialEditorTextures::GetInstance()->setTexture(selectedMaterial->DiffuseTextureId);
+		
 		this->textureChanged = false;
 		MaterialEditorTextures::GetInstance()->UIReset = false;
 
