@@ -39,6 +39,10 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 
 	diffuse = { mat->Diffuse.x, mat->Diffuse.y, mat->Diffuse.z, mat->Diffuse.w };
 	textureId = mat->DiffuseTextureId;
+	originalMat = mat->MaterialModel;
+
+	if (mat->MaterialModel == Material::Enum::Dielectric)
+		this->dielectric = true;
 
 	textureimg = nullptr;
 
@@ -265,10 +269,40 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 	ImGui::NewLine();
 
 	//slider size
-	ImGui::PushItemWidth(250);
+	ImGui::PushItemWidth(100);
 	//METALLIC
-	if (ImGui::SliderFloat("Metallic", &this->fuzziness, 0, 1, " %.1f"))
+	if (ImGui::SliderFloat("Metallic", &this->fuzziness, 0, 1, " %.05f"))
 	{
+		//EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
+	ImGui::NewLine();
+
+	if (ImGui::Checkbox("Dielectric", &this->dielectric)) 
+	{
+
+	}
+
+
+
+	//ImGui::SameLine();
+	//if (ImGui::SliderFloat("Refraction Index", &selectedMaterial->RefractionIndex, 0, 255))
+	//	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+
+	//ImGui::NewLine();
+
+
+	ImGui::PopItemWidth();
+	if (ImGui::Button("Apply")) 
+	{
+		if (this->dielectric) {
+			selectedMaterial->MaterialModel = Material::Enum::Dielectric;
+			selectedMaterial->RefractionIndex = 1.5f;
+		}
+		else {
+			selectedMaterial->MaterialModel = Material::Enum::Lambertian;
+		}
+
 		selectedMaterial->Fuzziness = 1 - this->fuzziness;
 
 		if (selectedMaterial->MaterialModel == Material::Enum::Metallic || selectedMaterial->MaterialModel == Material::Enum::Lambertian) {
@@ -281,21 +315,7 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 				selectedMaterial->MaterialModel = Material::Enum::Lambertian;
 			}
 		}
-		//EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
 
-	ImGui::NewLine();
-
-	//ImGui::SameLine();
-	//if (ImGui::SliderFloat("Refraction Index", &selectedMaterial->RefractionIndex, 0, 255))
-	//	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-
-	//ImGui::NewLine();
-
-
-	ImGui::PopItemWidth();
-	if (ImGui::Button("Apply")) 
-	{
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 

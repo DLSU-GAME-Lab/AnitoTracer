@@ -52,6 +52,8 @@ namespace gdeng03
 		int textureId;
 		//ImTextureID currTexId = 0;
 		bool textureChanged = false;
+		bool dielectric = false;
+		Material::Enum originalMat;
 		ImTextureID currTexId;
 		Assets::TextureImage* textureimg;
 		//VkDescriptorSet tex_dset;
