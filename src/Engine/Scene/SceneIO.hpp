@@ -8,6 +8,7 @@
 
 #include "Utilities/FileUtils.h"
 #include "../../From-GDGRAP2/GameObject.h"
+#include "../../From-GDGRAP2/Debug.h"
 
 using namespace nlohmann;
 class SceneIO {
@@ -38,35 +39,6 @@ private:
 		map[sceneName] = scene;
 	}
 
-	void ReadFromFile()
-	{
-		if (!std::filesystem::exists(scenesDirectory) || !std::filesystem::is_directory(scenesDirectory)) {
-			std::cerr << "Scene directory not found: " << scenesDirectory << std::endl;
-			return;
-		}
-
-		for (const auto& entry : std::filesystem::directory_iterator(scenesDirectory)) {
-			if (entry.path().extension() == ".json") {
-				std::ifstream file(entry.path());
-				if (file.is_open()) {
-					try {
-						json scene;
-						file >> scene;
-						std::string sceneName = scene["scene_name"];
-						AddScene(scene, sceneName);
-						std::cout << "Loaded scene: " << sceneName << std::endl;
-					}
-					catch (const std::exception& e) {
-						std::cerr << "Failed to parse " << entry.path().filename() << ": " << e.what() << std::endl;
-					}
-				}
-				else {
-					std::cerr << "Failed to open file: " << entry.path().filename() << std::endl;
-				}
-			}
-		}
-	}
-
 	void WriteToFile(json scene, std::string sceneName) {
 		// Implement file writing logic here
 		std::ofstream file(scenesDirectory + sceneName + ".json");
@@ -79,6 +51,29 @@ private:
 		else {
 			std::cerr << "Error opening file for writing" << std::endl;
 		}
+	}
+
+	std::stringstream OBJToString(std::string filename)
+	{
+
+		const std::ifstream file(filename, std::ios::binary);
+		std::stringstream returnBytes;
+		returnBytes << file.rdbuf();
+
+		return returnBytes;
+	}
+
+	void BytesToOBJ(std::string bytes, std::string objName)
+	{
+		//load the bytes into a new obj file
+		std::string modelLocation = FileUtils::getAssetsFolderPath().generic_string() + "/models/";
+		std::string filePath = modelLocation + objName + ".obj";
+		//convert path to wchar_t
+		std::wstring widestr = std::wstring(filePath.begin(), filePath.end());
+		const wchar_t* charPath = widestr.c_str();
+
+		std::ofstream file(filePath, std::ios::binary);
+		file << bytes;
 	}
 
 public:
@@ -220,12 +215,42 @@ public:
 		}
 	}
 
-	void LoadFromFile() {
-		// Implement file reading logic here
-		// Populate objects with the loaded data
-		/*for (const auto& obj : objects) {
-			SceneIO::getInstance()->addObject(obj);
+	void ReadFromDirectory()
+	{
+		Debug::Log("Reading custom scenes from directory...");
+
+		/*if (!std::filesystem::exists(scenesDirectory) || !std::filesystem::is_directory(scenesDirectory)) {
+			std::string message = "Scene directory not found: " + scenesDirectory;
+			Debug::Log(message);
+			return;
 		}*/
+		for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::current_path())) {
+			std::string msg = "File: " + entry.path().string() + std::filesystem::current_path().string();
+			Debug::Log(msg);
+
+			if (entry.path().extension() == ".json") {
+				std::ifstream file(entry.path());
+				if (file.is_open()) {
+					try {
+						json scene;
+						file >> scene;
+						std::string sceneName = scene["scene_name"];
+						AddScene(scene, sceneName);
+
+						std::string msg1 = "Loaded scene: " + sceneName;
+						Debug::Log(msg1);
+					}
+					catch (const std::exception& e) {
+						std::string msg1 = "Failed to parse " + entry.path().filename().string() + ": " + e.what();
+						Debug::Log(msg1);
+					}
+				}
+				else {
+					std::string msg1 = "Failed to open file: " + entry.path().filename().string();
+					Debug::Log(msg1);
+				}
+			}
+		}
 	}
 
 	std::vector<std::string> getSceneNames() const
@@ -237,29 +262,6 @@ public:
 			sceneNames.push_back(scene["scene_name"]);
 		}
 		return sceneNames;
-	}
-
-	std::stringstream OBJToString(std::string filename)
-	{
-
-		const std::ifstream file(filename, std::ios::binary);
-		std::stringstream returnBytes;
-		returnBytes << file.rdbuf();
-
-		return returnBytes;
-	}
-
-	void BytesToOBJ(std::string bytes, std::string objName)
-	{
-		//load the bytes into a new obj file
-		std::string modelLocation = FileUtils::getAssetsFolderPath().generic_string() + "/models/";
-		std::string filePath = modelLocation + objName + ".obj";
-		//convert path to wchar_t
-		std::wstring widestr = std::wstring(filePath.begin(), filePath.end());
-		const wchar_t* charPath = widestr.c_str();
-
-		std::ofstream file(filePath, std::ios::binary);
-		file << bytes;
 	}
 
 	std::vector<Assets::Material> LoadMaterials(json obj)

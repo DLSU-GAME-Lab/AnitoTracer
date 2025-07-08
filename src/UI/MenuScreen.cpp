@@ -29,6 +29,7 @@ MenuScreen::MenuScreen() : AUIScreen(UINames::MENU_SCREEN)
 	// this->saveSceneDialog = new ImGui::FileBrowser(ImGuiFileBrowserFlags_EnterNewFilename);
 	// this->saveSceneDialog->SetTitle("Save Scene");
 	// this->saveSceneDialog->SetTypeFilters({ ".iet" });
+	SceneIO::getInstance()->ReadFromDirectory();
 }
 
 MenuScreen::~MenuScreen()
