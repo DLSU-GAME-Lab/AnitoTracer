@@ -25,7 +25,6 @@ private:
 
 	SceneList scenes;
 	SceneMap map;
-	std::string scenesDirectory = "";
 
 public:
 	static SceneIO* getInstance();
@@ -41,7 +40,7 @@ private:
 
 	void WriteToFile(json scene, std::string sceneName) {
 		// Implement file writing logic here
-		std::ofstream file(scenesDirectory + sceneName + ".json");
+		std::ofstream file(sceneName + ".json");
 
 		if (file.is_open()) {
 			file << std::setw(4) << scene << std::endl; // Use setw for pretty printing
@@ -219,13 +218,9 @@ public:
 
 	void ReadFromDirectory()
 	{
-		Debug::Log("Reading custom scenes from directory...");
+		scenes.clear();
+		this->map.clear();
 
-		/*if (!std::filesystem::exists(scenesDirectory) || !std::filesystem::is_directory(scenesDirectory)) {
-			std::string message = "Scene directory not found: " + scenesDirectory;
-			Debug::Log(message);
-			return;
-		}*/
 		for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::current_path())) {
 			std::string msg = "File: " + entry.path().string() + std::filesystem::current_path().string();
 			Debug::Log(msg);
