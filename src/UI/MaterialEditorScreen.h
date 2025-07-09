@@ -63,9 +63,8 @@ namespace gdeng03
 		
 		 // Metal fuzziness
 		 float fuzziness = 0;
-		
 		 // Dielectric refraction index
-		 float refractionIndex;
+		 float refractionIndex = 0;
 		
 		// // Which material are we dealing with
 		// Material::Enum materialModel;

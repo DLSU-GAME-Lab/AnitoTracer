@@ -41,8 +41,10 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 	textureId = mat->DiffuseTextureId;
 	originalMat = mat->MaterialModel;
 
-	if (mat->MaterialModel == Material::Enum::Dielectric)
+	if (mat->MaterialModel == Material::Enum::Dielectric) {
 		this->dielectric = true;
+		this->refractionIndex = mat->RefractionIndex;
+	}
 
 	textureimg = nullptr;
 
@@ -282,6 +284,10 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 	{
 
 	}
+	if (ImGui::SliderFloat("Refraction Index", &this->refractionIndex, 0, 15, "%1.0f"))
+	{
+
+	}
 
 
 
@@ -293,11 +299,13 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 
 
 	ImGui::PopItemWidth();
+	ImGui::NewLine();
+
 	if (ImGui::Button("Apply")) 
 	{
 		if (this->dielectric) {
 			selectedMaterial->MaterialModel = Material::Enum::Dielectric;
-			selectedMaterial->RefractionIndex = 1.5f;
+			selectedMaterial->RefractionIndex = this->refractionIndex;
 		}
 		else {
 			selectedMaterial->MaterialModel = Material::Enum::Lambertian;
