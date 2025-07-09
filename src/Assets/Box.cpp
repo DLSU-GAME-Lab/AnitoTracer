@@ -11,35 +11,36 @@ void Assets::Box::Create(const glm::vec3& p0, const glm::vec3& p1, std::vector<V
     vertices =
     {
         Vertex{vec3(p0.x, p0.y, p0.z) - center, vec3(-1, 0, 0), vec2(0), 0},
-        Vertex{vec3(p0.x, p0.y, p1.z) - center, vec3(-1, 0, 0), vec2(0), 0},
-        Vertex{vec3(p0.x, p1.y, p1.z) - center, vec3(-1, 0, 0), vec2(0), 0},
-        Vertex{vec3(p0.x, p1.y, p0.z) - center, vec3(-1, 0, 0), vec2(0), 0},
+        Vertex{vec3(p0.x, p0.y, p1.z) - center, vec3(-1, 0, 0), vec2(0,1), 0},
+        Vertex{vec3(p0.x, p1.y, p1.z) - center, vec3(-1, 0, 0), vec2(1,1), 0},
+        Vertex{vec3(p0.x, p1.y, p0.z) - center, vec3(-1, 0, 0), vec2(1,0), 0},
 
         Vertex{vec3(p1.x, p0.y, p1.z) - center, vec3(1, 0, 0), vec2(0), 0},
-        Vertex{vec3(p1.x, p0.y, p0.z) - center, vec3(1, 0, 0), vec2(0), 0},
-        Vertex{vec3(p1.x, p1.y, p0.z) - center, vec3(1, 0, 0), vec2(0), 0},
-        Vertex{vec3(p1.x, p1.y, p1.z) - center, vec3(1, 0, 0), vec2(0), 0},
+        Vertex{vec3(p1.x, p0.y, p0.z) - center, vec3(1, 0, 0), vec2(0,1), 0},
+        Vertex{vec3(p1.x, p1.y, p0.z) - center, vec3(1, 0, 0), vec2(1,1), 0},
+        Vertex{vec3(p1.x, p1.y, p1.z) - center, vec3(1, 0, 0), vec2(1,0), 0},
 
         Vertex{vec3(p1.x, p0.y, p0.z) - center, vec3(0, 0, -1), vec2(0), 0},
-        Vertex{vec3(p0.x, p0.y, p0.z) - center, vec3(0, 0, -1), vec2(0), 0},
-        Vertex{vec3(p0.x, p1.y, p0.z) - center, vec3(0, 0, -1), vec2(0), 0},
-        Vertex{vec3(p1.x, p1.y, p0.z) - center, vec3(0, 0, -1), vec2(0), 0},
+        Vertex{vec3(p0.x, p0.y, p0.z) - center, vec3(0, 0, -1), vec2(0,1), 0},
+        Vertex{vec3(p0.x, p1.y, p0.z) - center, vec3(0, 0, -1), vec2(1,1), 0},
+        Vertex{vec3(p1.x, p1.y, p0.z) - center, vec3(0, 0, -1), vec2(1,0), 0},
 
         Vertex{vec3(p0.x, p0.y, p1.z) - center, vec3(0, 0, 1), vec2(0), 0},
-        Vertex{vec3(p1.x, p0.y, p1.z) - center, vec3(0, 0, 1), vec2(0), 0},
-        Vertex{vec3(p1.x, p1.y, p1.z) - center, vec3(0, 0, 1), vec2(0), 0},
-        Vertex{vec3(p0.x, p1.y, p1.z) - center, vec3(0, 0, 1), vec2(0), 0},
+        Vertex{vec3(p1.x, p0.y, p1.z) - center, vec3(0, 0, 1), vec2(0,1), 0},
+        Vertex{vec3(p1.x, p1.y, p1.z) - center, vec3(0, 0, 1), vec2(1,1), 0},
+        Vertex{vec3(p0.x, p1.y, p1.z) - center, vec3(0, 0, 1), vec2(1,0), 0},
 
         Vertex{vec3(p0.x, p0.y, p0.z) - center, vec3(0, -1, 0), vec2(0), 0},
-        Vertex{vec3(p1.x, p0.y, p0.z) - center, vec3(0, -1, 0), vec2(0), 0},
-        Vertex{vec3(p1.x, p0.y, p1.z) - center, vec3(0, -1, 0), vec2(0), 0},
-        Vertex{vec3(p0.x, p0.y, p1.z) - center, vec3(0, -1, 0), vec2(0), 0},
+        Vertex{vec3(p1.x, p0.y, p0.z) - center, vec3(0, -1, 0), vec2(0,1), 0},
+        Vertex{vec3(p1.x, p0.y, p1.z) - center, vec3(0, -1, 0), vec2(1,1), 0},
+        Vertex{vec3(p0.x, p0.y, p1.z) - center, vec3(0, -1, 0), vec2(1,0), 0},
 
         Vertex{vec3(p1.x, p1.y, p0.z) - center, vec3(0, 1, 0), vec2(0), 0},
-        Vertex{vec3(p0.x, p1.y, p0.z) - center, vec3(0, 1, 0), vec2(0), 0},
-        Vertex{vec3(p0.x, p1.y, p1.z) - center, vec3(0, 1, 0), vec2(0), 0},
-        Vertex{vec3(p1.x, p1.y, p1.z) - center, vec3(0, 1, 0), vec2(0), 0},
+        Vertex{vec3(p0.x, p1.y, p0.z) - center, vec3(0, 1, 0), vec2(0,1), 0},
+        Vertex{vec3(p0.x, p1.y, p1.z) - center, vec3(0, 1, 0), vec2(1,1), 0},
+        Vertex{vec3(p1.x, p1.y, p1.z) - center, vec3(0, 1, 0), vec2(1,0), 0},
     };
+ 
 
     indices =
     {
