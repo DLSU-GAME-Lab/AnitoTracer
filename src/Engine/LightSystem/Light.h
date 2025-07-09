@@ -15,6 +15,7 @@ namespace Assets
 		};
 
 		alignas(16) glm::vec3 LightPos;
+		alignas(16) glm::vec3 LightDir; // Where the light is pointing (if has direction)
 		alignas(16) glm::vec4 AmbientColor;
 		alignas(16) glm::vec4 LightColor;
 		alignas(4) Enum LightType;
@@ -33,6 +34,7 @@ public:
 	{
 		// Default Properties
 		props_.LightPos = glm::vec3(0, 0, 0);
+		props_.LightDir = glm::vec3(0, -1, 0);
 		props_.AmbientColor = glm::vec4(1.0, 1.0, 1.0, 0.02);
 		props_.LightColor = glm::vec4(1.0, 1.0, 1.0, 500000.0f);
 		props_.LightType = convertLightTypeEnum(type);
@@ -51,6 +53,8 @@ public:
 		props_.LightType = convertLightTypeEnum(type);
 
 		GameObject::setLocalPosition(props_.LightPos);
+
+		props_.LightDir = calculateDirection();
 
 		updateSceneView();
 	}
@@ -86,6 +90,18 @@ public:
 		GameObject::setLocalPosition(newPos);
 
 		updateSceneView();
+	}
+
+	void setLocalRotation(vec3 newRot) override
+	{
+		GameObject::setLocalRotation(newRot);
+		props_.LightDir = calculateDirection();
+	}
+	
+	void setLocalRotation(float x, float y, float z) override
+	{
+		GameObject::setLocalRotation(x, y, z);
+		props_.LightDir = calculateDirection();
 	}
 
 	void setAmbientColor(float r, float g, float b, float a)
@@ -150,5 +166,14 @@ private:
 			return SPOT_LIGHT;
 			break;
 		}
+	}
+
+	glm::vec3 calculateDirection()
+	{
+		glm::vec3 localForward = glm::vec3(0.0f, -1.0f, 0.0f); // pointing down by default
+		glm::mat4 modelMatrix = this->mat_;
+
+		glm::vec3 worldDirection = glm::normalize(glm::mat3(modelMatrix) * localForward);
+		return worldDirection;
 	}
 };

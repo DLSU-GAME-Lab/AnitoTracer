@@ -215,6 +215,7 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 	case GameObject::DIRECTIONAL_LIGHT:
 	{
 		std::shared_ptr<Light> dl = std::make_shared<Light>("Light Source", Light::LightType::DirectionalLight);
+		dl->setLocalRotation(-180, 0, 0);
 		addLightObject(dl);
 	}
 	break;
