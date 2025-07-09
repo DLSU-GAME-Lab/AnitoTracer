@@ -43,8 +43,8 @@ public:
     void setName(std::string name);
     virtual void setLocalPosition(vec3 newPos);
     virtual void setLocalPosition(float x, float y, float z);
-    void setLocalRotation(vec3 newRot);
-    void setLocalRotation(float x, float y, float z);
+    virtual void setLocalRotation(vec3 newRot);
+    virtual void setLocalRotation(float x, float y, float z);
     void setLocalScale(vec3 newScale);
     void setLocalScale(float x, float y, float z);
 

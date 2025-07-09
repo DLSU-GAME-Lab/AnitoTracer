@@ -117,6 +117,7 @@ public:
 				obj->getType() == GameObject::PrimitiveType::SPOT_LIGHT) // 2.5 Light Properties
 			{
 				json lightProps;
+				lightProps["lightDir"] = { lights[0].LightDir.x, lights[0].LightDir.y, lights[0].LightDir.z };
 				lightProps["ambientColor"] = { lights[0].AmbientColor.x, lights[0].AmbientColor.y, lights[0].AmbientColor.z, lights[0].AmbientColor.w};
 				lightProps["lightColor"] = { lights[0].LightColor.x, lights[0].LightColor.y, lights[0].LightColor.z, lights[0].LightColor.w};
 				objJson["lightProps"] = lightProps;
@@ -201,9 +202,10 @@ public:
 			{
 				// 2. Get materials.
 				std::vector<Assets::Material> materials = LoadMaterials(obj);
+				glm::vec3 lightDir = glm::vec3(obj["lightProps"]["lightDir"][0], obj["lightProps"]["lightDir"][1], obj["lightProps"]["lightDir"][2]);
 				glm::vec4 ambientCol = glm::vec4(obj["lightProps"]["ambientColor"][0], obj["lightProps"]["ambientColor"][1], obj["lightProps"]["ambientColor"][2], obj["lightProps"]["ambientColor"][3]);
 				glm::vec4 lightCol = glm::vec4(obj["lightProps"]["lightColor"][0], obj["lightProps"]["lightColor"][1], obj["lightProps"]["lightColor"][2], obj["lightProps"]["lightColor"][3]);
-				Assets::LightProperties props = { pos, ambientCol, lightCol, Assets::LightProperties::Enum::PointLight };
+				Assets::LightProperties props = { pos, lightDir, ambientCol, lightCol, Assets::LightProperties::Enum::PointLight };
 
 				// 3. Create the object.
 				ModelManager::getInstance()->createLightFromScene(
