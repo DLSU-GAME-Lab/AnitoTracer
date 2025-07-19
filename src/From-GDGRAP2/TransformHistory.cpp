@@ -36,6 +36,7 @@ bool TransformHistory::undo()
     }
 
     undoOrRedoInProgress = false;
+    undoOrRedoJustFinished = true;
     return true;
 }
 
@@ -55,6 +56,7 @@ bool TransformHistory::redo()
     }
 
     undoOrRedoInProgress = false;
+    undoOrRedoJustFinished = true;
     return true;
 }
 
@@ -75,3 +77,7 @@ bool TransformHistory::isDifferent(const TransformState& a, const TransformState
     return a.position != b.position || a.rotation != b.rotation || a.scale != b.scale;
 }
 
+void TransformHistory::resetUndoRedoFlag()
+{
+    undoOrRedoJustFinished = false;
+}

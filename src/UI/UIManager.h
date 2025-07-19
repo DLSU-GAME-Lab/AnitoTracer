@@ -130,6 +130,8 @@ private:
 	static bool wasUsingGizmoLastFrame;
 	static TransformState gizmoBeforeState;
 
+	static bool gizmoWasManipulated;
+
 	UIList uiList;
 	UITable uiTable;
 };

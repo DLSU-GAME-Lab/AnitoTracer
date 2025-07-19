@@ -351,14 +351,12 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL))
 		{
 			TransformHistory::getInstance().undo();
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 			return;
 		}
 
 		if (key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL))
 		{
 			TransformHistory::getInstance().redo();
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 			return;
 		}
 	}

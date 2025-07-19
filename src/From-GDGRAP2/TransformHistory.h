@@ -26,7 +26,8 @@ public:
     static bool isDifferent(const TransformState& a, const TransformState& b);
 
     bool isUndoOrRedoInProgress() const { return undoOrRedoInProgress; }
-
+    bool isUndoOrRedoFinished() const { return undoOrRedoJustFinished; }
+    void resetUndoRedoFlag();
 private:
     std::vector<TransformAction> undoStack;
     std::vector<TransformAction> redoStack;
@@ -37,5 +38,5 @@ private:
     bool suppressRecording = false;
 
     bool undoOrRedoInProgress = false;
-
+    bool undoOrRedoJustFinished = true;
 };

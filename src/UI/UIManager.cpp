@@ -41,6 +41,7 @@ UIManager* UIManager::sharedInstance = nullptr;
 
 TransformState UIManager::gizmoBeforeState = {};
 bool UIManager::wasUsingGizmoLastFrame = false;
+bool UIManager::gizmoWasManipulated = false;
 
 namespace
 {
@@ -317,9 +318,11 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
 		bool isUsingGizmoNow = ImGuizmo::IsUsing();
 
+		// Store the 'before' state when manipulation starts
 		if (isUsingGizmoNow && !wasUsingGizmoLastFrame)
 		{
-			// Store the "before" state when the gizmo starts being used
+			gizmoWasManipulated = false;
+
 			gizmoBeforeState = {
 				selectedObject->getLocalPosition(),
 				selectedObject->getLocalRotation(),
@@ -336,10 +339,10 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
 			mCurrentGizmoOperation, ImGuizmo::WORLD, glm::value_ptr(selectedObject->getObjectMatrix())))
 		{
-			// Decompose and apply the manipulated matrix
+			gizmoWasManipulated = true;
+
 			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(selectedObject->getObjectMatrix()), translation, rotation, scale);
 
-			// Apply parent corrections for local space
 			if (auto* parent = selectedObject->getParent())
 			{
 				glm::vec3 parentWorldPos = parent->getWorldPosition();
@@ -365,10 +368,11 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
 		}
 
-		// Record transform change when gizmo usage ends
 		if (!isUsingGizmoNow && wasUsingGizmoLastFrame)
 		{
-			if (!TransformHistory::getInstance().isUndoOrRedoInProgress())  // <- Prevent stack corruption
+			if (gizmoWasManipulated &&
+				!TransformHistory::getInstance().isUndoOrRedoInProgress() &&
+				!TransformHistory::getInstance().isUndoOrRedoFinished())
 			{
 				TransformState afterState = {
 					selectedObject->getLocalPosition(),
@@ -383,9 +387,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			}
 		}
 
-
 		wasUsingGizmoLastFrame = isUsingGizmoNow;
 	}
+
 
 
 	ImGui::Render();
@@ -413,6 +417,8 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	}
 	//ImGui::UpdatePlatformWindows();
 	//ImGui::RenderPlatformWindowsDefault();
+
+	TransformHistory::getInstance().resetUndoRedoFlag();
 }
 
 void UIManager::drawOverlay(const Statistics& statistics) const
