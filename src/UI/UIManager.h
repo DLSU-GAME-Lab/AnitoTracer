@@ -15,6 +15,8 @@
 
 #include "Engine/Profiler/Profiler.h"
 
+#include "From-GDGRAP2/TransformHistory.h"
+
 typedef std::string String;
 
 namespace Vulkan
@@ -25,6 +27,8 @@ namespace Vulkan
 	class FrameBuffer;
 	class RenderPass;
 	class SwapChain;
+	
+	class TransformState;
 }
 
 struct UserSettings;
@@ -122,6 +126,9 @@ private:
 	bool isResettingLayout = false;
 	UserSettings* userSettings = nullptr;
 	const Vulkan::SwapChain* swapChain = nullptr;
+
+	static bool wasUsingGizmoLastFrame;
+	static TransformState gizmoBeforeState;
 
 	UIList uiList;
 	UITable uiTable;

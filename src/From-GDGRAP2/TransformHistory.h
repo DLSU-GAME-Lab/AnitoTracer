@@ -23,10 +23,19 @@ public:
     bool undo();
     bool redo();
 
+    static bool isDifferent(const TransformState& a, const TransformState& b);
+
+    bool isUndoOrRedoInProgress() const { return undoOrRedoInProgress; }
+
 private:
     std::vector<TransformAction> undoStack;
     std::vector<TransformAction> redoStack;
     static constexpr size_t MaxSteps = 15;
 
     void applyState(GameObject* obj, const TransformState& state);
+
+    bool suppressRecording = false;
+
+    bool undoOrRedoInProgress = false;
+
 };

@@ -42,14 +42,14 @@ void MenuScreen::drawUI()
 {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
-			//if (ImGui::MenuItem("Undo", "Ctrl+Z"))
-			//{
-			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->undoAction());
-			//}
-			//if (ImGui::MenuItem("Redo", "Ctrl+Y"))
-			//{
-			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->redoAction());
-			//}
+			if (ImGui::MenuItem("Undo", "Ctrl+Z"))
+			{
+				TransformHistory::getInstance().undo();
+			}
+			if (ImGui::MenuItem("Redo", "Ctrl+Y"))
+			{
+				TransformHistory::getInstance().redo();
+			}
 			//if (ImGui::MenuItem("Open..", "Ctrl+O")) {
 			//	//this->openSceneDialog->Open();
 			//}

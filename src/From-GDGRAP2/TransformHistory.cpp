@@ -1,4 +1,5 @@
 #include "TransformHistory.h"
+#include <iostream>
 
 TransformHistory& TransformHistory::getInstance() 
 {
@@ -8,19 +9,23 @@ TransformHistory& TransformHistory::getInstance()
 
 void TransformHistory::recordChange(GameObject* obj, const TransformState& before, const TransformState& after) 
 {
-    if (!obj) return;
+    if (!obj || suppressRecording) return;
 
     if (undoStack.size() >= MaxSteps)
         undoStack.erase(undoStack.begin()); 
 
     undoStack.push_back({ obj, before, after });
-    redoStack.clear(); 
+
+    if (!suppressRecording && !undoOrRedoInProgress)
+        redoStack.clear();
 }
 
-bool TransformHistory::undo() 
+bool TransformHistory::undo()
 {
     if (undoStack.empty())
         return false;
+
+    undoOrRedoInProgress = true;
 
     TransformAction action = undoStack.back();
     undoStack.pop_back();
@@ -30,13 +35,16 @@ bool TransformHistory::undo()
         applyState(action.object, action.before);
     }
 
+    undoOrRedoInProgress = false;
     return true;
 }
 
-bool TransformHistory::redo() 
+bool TransformHistory::redo()
 {
     if (redoStack.empty())
         return false;
+
+    undoOrRedoInProgress = true;
 
     TransformAction action = redoStack.back();
     redoStack.pop_back();
@@ -46,14 +54,24 @@ bool TransformHistory::redo()
         applyState(action.object, action.after);
     }
 
+    undoOrRedoInProgress = false;
     return true;
 }
+
 
 void TransformHistory::applyState(GameObject* obj, const TransformState& state)
 {
     if (!obj) return;
 
+    suppressRecording = true;
     obj->setLocalPosition(state.position);
     obj->setLocalRotation(state.rotation);
     obj->setLocalScale(state.scale);
+    suppressRecording = false;
 }
+
+bool TransformHistory::isDifferent(const TransformState& a, const TransformState& b)
+{
+    return a.position != b.position || a.rotation != b.rotation || a.scale != b.scale;
+}
+
