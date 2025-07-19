@@ -14,6 +14,7 @@
 #include "ProfilerScreen.h"
 #include "RayTracer.hpp"
 #include "SettingsScreen.h"
+#include "From-GDGRAP2/TransformHistory.h"
 #include "ViewportScreen.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/ModelManager.h"
@@ -311,6 +312,13 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
 
+		TransformState beforeState{
+			selectedObject->getLocalPosition(),
+			selectedObject->getLocalRotation(),
+			selectedObject->getLocalScale()
+		};
+
+
 		ImGuizmo::BeginFrame();
 
 		float viewportX = 0;
@@ -373,6 +381,15 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 				scale[2] /= parentScale.z;
 			}
 			selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+
+			TransformState afterState{
+				selectedObject->getLocalPosition(),
+				selectedObject->getLocalRotation(),
+				selectedObject->getLocalScale()
+			};
+
+			TransformHistory::getInstance().recordChange(selectedObject.get(), beforeState, afterState);
+
 
 
 			isUsingImguizmo = false;

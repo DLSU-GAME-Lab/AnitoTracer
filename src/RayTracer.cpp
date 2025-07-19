@@ -17,6 +17,7 @@
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/GlobalConfig.h"
 #include "From-GDGRAP2/ModelManager.h"
+#include "From-GDGRAP2/TransformHistory.h"
 #include "UI/UIManager.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
@@ -343,6 +344,21 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 
 		default: break;
 		}
+	}
+
+	if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL))
+	{
+		TransformHistory::getInstance().undo();
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		return;
+	}
+
+	// Handle Redo (Ctrl + Y)
+	if (key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL))
+	{
+		TransformHistory::getInstance().redo();
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		return;
 	}
 
 	if (UIManager::wantsToCaptureKeyboard())

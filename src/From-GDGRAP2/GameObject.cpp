@@ -260,16 +260,6 @@ bool GameObject::isDescendantOf(const GameObject* potentialParent) const
 	return false;
 }
 
-uint32_t GameObject::getID() const
-{
-	return this->id;
-}
-
-void GameObject::setID(uint32_t newID)
-{
-	this->id = newID;
-}
-
 void GameObject::setOBB(const BoundingBox& obb)
 {
 	this->obb = std::make_shared<BoundingBox>(obb);
@@ -425,3 +415,4 @@ void GameObject::performModelScale()
 
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
+

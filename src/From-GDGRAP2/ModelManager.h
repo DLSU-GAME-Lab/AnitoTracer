@@ -72,6 +72,5 @@ private:
 
 	std::shared_ptr<GameObject> selectedObject = nullptr;
 
-	static uint32_t nextID;
 };
 

@@ -237,6 +237,8 @@ set(src_files_from_gdgrap2
 	From-GDGRAP2/RTConfig.h
 	From-GDGRAP2/TextureLibrary.cpp
 	From-GDGRAP2/TextureLibrary.h
+	From-GDGRAP2/TransformHistory.cpp
+	From-GDGRAP2/TransformHistory.h
 )
 
 set(src_files

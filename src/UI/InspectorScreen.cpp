@@ -9,6 +9,7 @@
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/GameObject.h"
+#include "From-GDGRAP2/TransformHistory.h"
 
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
@@ -199,7 +200,12 @@ void InspectorScreen::onTransformUpdate() const
 {
 	if (this->selectedObject != nullptr)
 	{
-		// ActionHistory::getInstance()->recordAction(this->selectedObject);
+		TransformState before{
+			this->selectedObject->getLocalPosition(),
+			this->selectedObject->getLocalRotation(),
+			this->selectedObject->getLocalScale()
+		};
+
 
 		this->selectedObject->setLocalPosition(this->positionDisplay[0], this->positionDisplay[1], this->positionDisplay[2]);
 		this->selectedObject->setLocalRotation(this->rotationDisplay[0], this->rotationDisplay[1], this->rotationDisplay[2]);
@@ -212,6 +218,15 @@ void InspectorScreen::onTransformUpdate() const
 		{
 			this->selectedObject->setLocalScale(this->scaleDisplay[0], this->scaleDisplay[1], this->scaleDisplay[2]);
 		}
+
+		TransformState after{
+			this->selectedObject->getLocalPosition(),
+			this->selectedObject->getLocalRotation(),
+			this->selectedObject->getLocalScale()
+		};
+
+		TransformHistory::getInstance().recordChange(this->selectedObject.get(), before, after);
+
 
 	}
 }

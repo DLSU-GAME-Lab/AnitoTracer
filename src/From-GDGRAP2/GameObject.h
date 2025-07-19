@@ -7,6 +7,7 @@
 #include "From-GDGRAP2/VectorUtils.h"
 #include "OBB/BoundingBox.hpp"
 
+
 class GameObject
 {
 public:
@@ -60,14 +61,12 @@ public:
     void setParent(GameObject* newParent);
     bool isDescendantOf(const GameObject* potentialParent) const;
 
-    uint32_t getID() const;
-    void setID(uint32_t newID);
-
     void setOBB(const BoundingBox& obb);
     std::shared_ptr<BoundingBox> getOBB() const;
 
     void updateObjectMatrix();
     void updateWorldTransform();
+
 
 protected:
     String name;
@@ -75,8 +74,6 @@ protected:
     bool enabled = true;
 
     std::shared_ptr<GameObject> debugCube = nullptr;
-
-    uint32_t id = 0;
 
     vec3 origin = VectorUtils::zeros();
     vec3 originRot = VectorUtils::zeros();
