@@ -363,13 +363,22 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 				scale[2] /= parentScale.z;
 			}
 
-			selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
-			selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
-			selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced)
+			{
+				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
+				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
+				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+			}
 		}
 
 		if (!isUsingGizmoNow && wasUsingGizmoLastFrame)
 		{
+			if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
+			{
+				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
+				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
+				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+			}
 			if (gizmoWasManipulated &&
 				!TransformHistory::getInstance().isUndoOrRedoInProgress() &&
 				!TransformHistory::getInstance().isUndoOrRedoFinished())
