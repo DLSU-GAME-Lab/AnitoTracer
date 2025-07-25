@@ -1,5 +1,4 @@
 #include "TransformHistory.h"
-#include <iostream>
 
 TransformHistory& TransformHistory::getInstance() 
 {
@@ -12,7 +11,7 @@ void TransformHistory::recordChange(GameObject* obj, const TransformState& befor
     if (!obj || suppressRecording) return;
 
     if (undoStack.size() >= MaxSteps)
-        undoStack.erase(undoStack.begin()); 
+        undoStack.erase(undoStack.begin());
 
     undoStack.push_back({ obj, before, after });
 
@@ -31,7 +30,7 @@ bool TransformHistory::undo()
     undoStack.pop_back();
 
     if (action.object) {
-        redoStack.push_back({ action.object, action.after, action.before });
+        redoStack.push_back({ action.object, action.before, action.after });
         applyState(action.object, action.before);
     }
 
