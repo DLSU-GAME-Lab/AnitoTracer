@@ -7,6 +7,28 @@
     text-align: center;
 }
 
+.center {
+    text-align: center;
+}
+
 p {
     text-align: justify;
+}
+
+.gallery {
+    margin: 5px;
+    border: 1px solid #ccc;
+    float: left;
+    width: 250px;
+}
+
+.gallery img {
+    width: 100%;
+    height: auto;
+}
+
+.clearfix::after {
+  content: "";
+  display: table;
+  clear: both;
 }
