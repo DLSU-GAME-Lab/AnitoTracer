@@ -48,6 +48,10 @@ their needs.
     AnitoTracer has an integrated scene editor that enables users to load in scenes, modify objects, adjust materials, and create custom lighting setups allowing for easy
     experimentation of raytraced rendering.
 
+<h1>Build Instructions</h1>
+<h2>With CMake</h2>
+1. Run "vcpkg_windows.bat". This installs vcpkg and other dependencies.
+2. Build project using CMake and included "CMakeLists.txt" file.
 
 <h1>Download</h1>
 
