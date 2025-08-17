@@ -35,7 +35,9 @@ namespace Assets
 		~Model() = default;
 		Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural);
 
+		void SetName(std::string name);
 		void SetMaterial(const Material& material);
+		void SetMaterials(std::vector<Material> mats);
 		void SetMaterialIndex(int index);
 		void Transform(const glm::mat4& transform);
 		void ResetVertices();
@@ -59,6 +61,7 @@ namespace Assets
 		uint32_t NumberOfMaterials() const { return static_cast<uint32_t>(materials_.size()); }
 		std::string GetName() const { return name; }
 		glm::mat4 GetWorldMatrix() const { return worldMatrix_; };
+		std::string FilePath() const { return filepath; }
 
 	public:
 

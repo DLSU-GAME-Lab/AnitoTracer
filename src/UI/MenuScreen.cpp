@@ -29,6 +29,7 @@ MenuScreen::MenuScreen() : AUIScreen(UINames::MENU_SCREEN)
 	// this->saveSceneDialog = new ImGui::FileBrowser(ImGuiFileBrowserFlags_EnterNewFilename);
 	// this->saveSceneDialog->SetTitle("Save Scene");
 	// this->saveSceneDialog->SetTypeFilters({ ".iet" });
+	SceneIO::getInstance()->ReadFromDirectory();
 }
 
 MenuScreen::~MenuScreen()
@@ -41,14 +42,14 @@ void MenuScreen::drawUI()
 {
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
-			//if (ImGui::MenuItem("Undo", "Ctrl+Z"))
-			//{
-			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->undoAction());
-			//}
-			//if (ImGui::MenuItem("Redo", "Ctrl+Y"))
-			//{
-			//	//GameObjectManager::get()->applyAction(ActionHistory::get()->redoAction());
-			//}
+			if (ImGui::MenuItem("Undo", "Ctrl+Z"))
+			{
+				TransformHistory::getInstance().undo();
+			}
+			if (ImGui::MenuItem("Redo", "Ctrl+Y"))
+			{
+				TransformHistory::getInstance().redo();
+			}
 			//if (ImGui::MenuItem("Open..", "Ctrl+O")) {
 			//	//this->openSceneDialog->Open();
 			//}
@@ -75,20 +76,29 @@ void MenuScreen::drawUI()
 
 		if (ImGui::BeginMenu("Scene"))
 		{
-			if (ImGui::MenuItem("Load Sphere World")) { this->OnLoadSphereWorld(); ShowLoadingPopUp(); }
-			if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
-			if (ImGui::MenuItem("Load Box World")) { this->OnLoadBoxWorld(); ShowLoadingPopUp();  }
-			if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox();  ShowLoadingPopUp();  }
-			if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); ShowLoadingPopUp(); }
-			if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel();  ShowLoadingPopUp(); }
-			if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo();  ShowLoadingPopUp(); }
-			if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase();  ShowLoadingPopUp(); }
+			if (ImGui::BeginMenu("Demo Scenes")) {
+				if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox();  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo();  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase();  ShowLoadingPopUp(); }
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Sample Scenes")) {
+				//if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel();  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Vokselia")) { this->OnLoadVokselia(); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Breakfast Room")) { this->OnLoadBreakfast(); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Salle De Bain")) { this->OnLoadBathroom(); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Gallery")) { this->OnLoadGallery();  ShowLoadingPopUp(); }
+
+				ImGui::EndMenu();
+			}
 			if (ImGui::BeginMenu("Custom Scenes"))
 			{
-				this->OnLoadEmpty(); ShowLoadingPopUp();
 				for (std::string name : SceneIO::getInstance()->getSceneNames())
 				{
-					if (ImGui::MenuItem(name.c_str())) { SceneIO::getInstance()->LoadScene(name); }
+					if (ImGui::MenuItem(name.c_str())) { this->OnLoadEmpty(); ShowLoadingPopUp(); SceneIO::getInstance()->LoadScene(name); }
 				}
 				ImGui::EndMenu();
 			}
@@ -114,8 +124,8 @@ void MenuScreen::drawUI()
 				ImGui::EndMenu();
 			} 
 			if (ImGui::BeginMenu("Meshes")) {													// todo: add benchmark/basic meshes
-				//if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
-				//if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
+				if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
+				if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
 				if (ImGui::MenuItem("Lucy")) { onCreateLucyClicked(); }
 				//if (ImGui::MenuItem("CornellBox")) { onCreateCornellClicked(); }
 
@@ -444,7 +454,7 @@ void MenuScreen::onCreateBunnyClicked()
 				translate(i, vec3(1)),
 				vec3(1.0f)),
 			radians(0.0f), vec3(0, 1, 0)));
-	std::shared_ptr<GameObject> bunnyObj = std::make_shared<GameObject>("Bunny", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(bunny));
+	std::shared_ptr<GameObject> bunnyObj = std::make_shared<GameObject>("Bunny", GameObject::PrimitiveType::MESH, std::make_shared<Model>(bunny));
 	bunnyObj->setLocalScale(100.0f, 100.0f, 100.0f);
 	ModelManager::getInstance()->addObject(bunnyObj);
 }
@@ -462,7 +472,7 @@ void MenuScreen::onCreateTeapotClicked()
 				vec3(1)),
 			radians(75.0f), vec3(0, 1, 0)));
 
-	std::shared_ptr<GameObject> teapotObj = std::make_shared<GameObject>("Teapot", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(teapot));
+	std::shared_ptr<GameObject> teapotObj = std::make_shared<GameObject>("Teapot", GameObject::PrimitiveType::MESH, std::make_shared<Model>(teapot));
 	teapotObj->setLocalScale(5.0f, 5.0f, 5.0f);
 	ModelManager::getInstance()->addObject(teapotObj);
 }
@@ -480,7 +490,7 @@ void MenuScreen::onCreateLucyClicked()
 				vec3(0.5)),
 			radians(75.0f), vec3(0, 1, 0)));
 
-	std::shared_ptr<GameObject> lucyObj = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(lucy0));
+	std::shared_ptr<GameObject> lucyObj = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucy0));
 	ModelManager::getInstance()->addObject(lucyObj);
 }
 
@@ -631,6 +641,39 @@ void MenuScreen::OnLoadSanMiguel()
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 12);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+}
+
+void MenuScreen::OnLoadVokselia()
+{
+	ModelManager::getInstance()->clearAllObjects();
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", 13);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+}
+
+void MenuScreen::OnLoadBreakfast()
+{
+	ModelManager::getInstance()->clearAllObjects();
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", 14);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+}
+
+void MenuScreen::OnLoadBathroom()
+{
+	ModelManager::getInstance()->clearAllObjects();
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", 15);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+}
+
+void MenuScreen::OnLoadGallery()
+{
+
+	ModelManager::getInstance()->clearAllObjects();
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", 16);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 

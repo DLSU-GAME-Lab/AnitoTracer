@@ -45,6 +45,11 @@ public:
 	static SceneAssets Sponza(CameraInitialState& camera);
 	static SceneAssets SanMiguel(CameraInitialState& camera);
 	static SceneAssets Empty(CameraInitialState& camera);
+	//new sample scenes
+	static SceneAssets Vokselia(CameraInitialState& camera);
+	static SceneAssets BreakfastRoom(CameraInitialState& camera);
+	static SceneAssets SalleDeBain(CameraInitialState& camera);
+	static SceneAssets Gallery(CameraInitialState& camera);
 	static std::vector<Assets::Texture> AssembleTextureList();
 
 	static const std::vector<std::tuple<std::string, std::function<SceneAssets (CameraInitialState&)>>> AllScenes;

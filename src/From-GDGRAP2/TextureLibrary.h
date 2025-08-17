@@ -27,9 +27,11 @@ public:
 	void addTexture(const std::string& textureName, const std::string& fileName);
 	void deleteTexture(std::string textureName);
 	Assets::Texture getTexture(std::string textureName);
+	Assets::Texture getTextureById(int textureId);
 	int getTextureId(std::string textureName);
 	std::vector<Assets::Texture> getTextureLibraryList();
 	bool doesTextureExist(std::string textureName);
+	bool loadTextureFromFile(int& textureId);
 
 private:
 	static TextureLibrary* sharedInstance;

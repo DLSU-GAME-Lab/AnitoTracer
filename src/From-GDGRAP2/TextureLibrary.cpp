@@ -5,6 +5,7 @@
 #include "Assets/Texture.hpp"
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
+#include "Debug.h"
 
 TextureLibrary* TextureLibrary::sharedInstance = nullptr;
 void TextureLibrary::addTexture(const std::string& textureName, const std::string& fileName)
@@ -39,6 +40,16 @@ Assets::Texture TextureLibrary::getTexture(std::string textureName)
 	return *this->textureMap[textureName];
 }
 
+Assets::Texture TextureLibrary::getTextureById(int textureId)
+{
+	std::vector<Assets::Texture> textureList;
+	for (auto& texture : this->textureList) {
+		textureList.push_back(*texture);
+	}
+
+	return textureList[textureId];
+}
+
 int TextureLibrary::getTextureId(std::string textureName)
 {
 	std::shared_ptr<Assets::Texture> texture = this->textureMap[textureName];
@@ -71,6 +82,30 @@ bool TextureLibrary::doesTextureExist(std::string textureName)
 	else
 		return false;
 	
+}
+
+bool TextureLibrary::loadTextureFromFile(int& textureId)
+{
+	std::string texturePath;
+	std::string fileName;
+
+	if (!FileUtils::getTextureFilePath(texturePath, fileName))
+	{
+		Debug::Log("Cancelled loading texture from path: " + texturePath);
+
+		return false;
+	}
+
+	if (!texturePath.empty()) {
+		Debug::Log("Loading texture from path: " + texturePath);
+	}
+
+	this->addTexture(fileName, texturePath);
+
+	textureId = this->getTextureId(fileName);
+	return true;
+	
+
 }
 
 void TextureLibrary::initialize()

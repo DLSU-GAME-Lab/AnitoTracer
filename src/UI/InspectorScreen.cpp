@@ -3,9 +3,13 @@
 #include <glm/gtx/string_cast.hpp>
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "UIManager.h"
+#include "From-GDGRAP2/Debug.h"
+#include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/GameObject.h"
+#include "From-GDGRAP2/TransformHistory.h"
 
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
@@ -34,6 +38,7 @@ void InspectorScreen::drawUI()
 		if (ImGui::Button("Delete")) {
 			ModelManager::getInstance()->deleteObject(this->selectedObject);
 			ModelManager::getInstance()->setSelectedObject(static_cast<std::shared_ptr<GameObject>>(nullptr));
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		}
 
 		if (ImGui::InputFloat3("Position", this->positionDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate(); }
@@ -52,8 +57,20 @@ void InspectorScreen::drawUI()
 			|| this->selectedObject->getType() == GameObject::PrimitiveType::DIRECTIONAL_LIGHT
 			|| this->selectedObject->getType() == GameObject::PrimitiveType::SPOT_LIGHT)
 		{
-			if (ImGui::InputFloat4("Light Color", this->lightColorDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onLightPropsUpdate(); }
-			if (ImGui::InputFloat4("Ambient Color", this->ambientColorDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onLightPropsUpdate(); }
+			isLight = true;
+			ImGui::Separator();
+
+			ImGui::Text("Light Color");
+			ImGui::SameLine();
+			if (ImGui::ColorButton("Light Color", lightColorDisplay, 0, ImVec2(75, 25)))
+			{
+				isColorPickerOpen = !isColorPickerOpen;
+			}
+			if (ImGui::SliderFloat("Intensity", &this->intensityDisplay, 0, 1))
+			{
+				this->onLightPropsUpdate();
+				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+			}
 
 			// TODO : Light Type
 			std::string lightTypes[3] = { "Point Light", "Directional Light", "Spot Light" };
@@ -69,12 +86,14 @@ void InspectorScreen::drawUI()
 						lightTypeDisplay = (type == lightTypes[0]) ? Light::PointLight :
 							(type == lightTypes[1]) ? Light::DirectionalLight :
 							(type == lightTypes[2]) ? Light::SpotLight : Light::PointLight;
+
 						this->onLightPropsUpdate();
 					}
 				}
 				ImGui::EndCombo();
 			}
 		}
+		else { isLight = false; }
 
 		this->drawMaterialsTab();
 	}
@@ -83,6 +102,13 @@ void InspectorScreen::drawUI()
 	}
 
 	ImGui::End();
+
+	// Color Picker
+	if (isColorPickerOpen && !enabled)
+		isColorPickerOpen = false;
+
+	if (isColorPickerOpen)
+		showColorPickerWindow();
 }
 
 void InspectorScreen::updateTransformDisplays()
@@ -110,16 +136,12 @@ void InspectorScreen::updateLightPropsDisplays()
 	if (light)
 	{
 		glm::vec4 lightCol = light->getLightColor();
-		this->lightColorDisplay[0] = lightCol.x;
-		this->lightColorDisplay[1] = lightCol.y;
-		this->lightColorDisplay[2] = lightCol.z;
-		this->lightColorDisplay[3] = lightCol.w;
+		this->lightColorDisplay.x = lightCol.x;
+		this->lightColorDisplay.y = lightCol.y;
+		this->lightColorDisplay.z = lightCol.z;
 
-		glm::vec4 ambientCol = light->getAmbientColor();
-		this->ambientColorDisplay[0] = ambientCol.x;
-		this->ambientColorDisplay[1] = ambientCol.y;
-		this->ambientColorDisplay[2] = ambientCol.z;
-		this->ambientColorDisplay[3] = ambientCol.w;
+		// Divide intensity by 1000000.0f (max intensity) so it's a range between 0 to 1.
+		this->intensityDisplay = lightCol.a / lightIntensityMultiplier;
 
 		Light::LightType type = (light->getLightType() == Assets::LightProperties::Enum::PointLight) ? Light::PointLight :
 			(light->getLightType() == Assets::LightProperties::Enum::DirectionalLight) ? Light::DirectionalLight :
@@ -178,7 +200,12 @@ void InspectorScreen::onTransformUpdate() const
 {
 	if (this->selectedObject != nullptr)
 	{
-		// ActionHistory::getInstance()->recordAction(this->selectedObject);
+		TransformState before{
+			this->selectedObject->getLocalPosition(),
+			this->selectedObject->getLocalRotation(),
+			this->selectedObject->getLocalScale()
+		};
+
 
 		this->selectedObject->setLocalPosition(this->positionDisplay[0], this->positionDisplay[1], this->positionDisplay[2]);
 		this->selectedObject->setLocalRotation(this->rotationDisplay[0], this->rotationDisplay[1], this->rotationDisplay[2]);
@@ -192,6 +219,15 @@ void InspectorScreen::onTransformUpdate() const
 			this->selectedObject->setLocalScale(this->scaleDisplay[0], this->scaleDisplay[1], this->scaleDisplay[2]);
 		}
 
+		TransformState after{
+			this->selectedObject->getLocalPosition(),
+			this->selectedObject->getLocalRotation(),
+			this->selectedObject->getLocalScale()
+		};
+
+		TransformHistory::getInstance().recordChange(this->selectedObject.get(), before, after);
+
+
 	}
 }
 
@@ -202,9 +238,31 @@ void InspectorScreen::onLightPropsUpdate() const
 		std::shared_ptr<Light> light = ModelManager::getInstance()->findLightObjectByName(this->selectedObject->getName());
 		if (light)
 		{
-			light->setLightColor(this->lightColorDisplay[0], this->lightColorDisplay[1], this->lightColorDisplay[2], this->lightColorDisplay[3]);
-			light->setAmbientColor(this->ambientColorDisplay[0], this->ambientColorDisplay[1], this->ambientColorDisplay[2], this->ambientColorDisplay[3]);
+			light->setLightColor(this->lightColorDisplay.x, this->lightColorDisplay.y, this->lightColorDisplay.z, intensityDisplay * lightIntensityMultiplier);
 			light->setLightType(lightTypeDisplay);
 		}
 	}
+}
+
+void InspectorScreen::showColorPickerWindow()
+{
+	ImGui::SetNextWindowPos(ImGui::FindWindowByName("Inspector Window")->Pos);
+	ImGui::SetNextWindowSize(ImVec2(300, 350));
+	if (ImGui::Begin("Light Color Picker", &isColorPickerOpen) && isLight)
+	{
+		ImGui::SameLine();
+		ImGui::ColorPicker3("Light Color", reinterpret_cast<float*>(&lightColor), 0);
+
+		if (ImGui::Button("Close & Apply"))
+		{
+			isColorPickerOpen = false;
+
+			lightColorDisplay.x = lightColor.x;
+			lightColorDisplay.y = lightColor.y;
+			lightColorDisplay.z = lightColor.z;
+			onLightPropsUpdate();
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		}
+	}
+	ImGui::End();
 }

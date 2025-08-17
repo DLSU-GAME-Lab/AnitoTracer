@@ -9,11 +9,11 @@
 #include "AUIScreen.h"
 #include "From-GDGRAP2/GameObject.h"
 #include "Assets/Material.hpp"
+#include "Assets/TextureImage.hpp"
 
 namespace gdeng03
 {
 	class MenuScreen;
-
 	using Assets::Material;
 
 	class MaterialEditorScreen :
@@ -50,17 +50,22 @@ namespace gdeng03
 
 		ImVec4 diffuse = ImVec4(1, 1, 1, 1);
 		int textureId;
-		//
-		// // Base material
-		// //glm::vec4 Diffuse;
-		// int32_t diffuseTextureId;
-		//
-		// // Metal fuzziness
-		// float fuzziness;
-		//
-		// // Dielectric refraction index
-		// float refractionIndex;
-		//
+		//ImTextureID currTexId = 0;
+		bool textureChanged = false;
+		bool dielectric = false;
+		Material::Enum originalMat;
+		ImTextureID currTexId;
+		Assets::TextureImage* textureimg;
+		//VkDescriptorSet tex_dset;
+		 // Base material
+		 //glm::vec4 Diffuse;
+		 //int32_t diffuseTextureId;
+		
+		 // Metal fuzziness
+		 float fuzziness = 0;
+		 // Dielectric refraction index
+		 float refractionIndex = 0;
+		
 		// // Which material are we dealing with
 		// Material::Enum materialModel;
 

@@ -17,6 +17,7 @@
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/GlobalConfig.h"
 #include "From-GDGRAP2/ModelManager.h"
+#include "From-GDGRAP2/TransformHistory.h"
 #include "UI/UIManager.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
@@ -248,6 +249,8 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	time_ = Window().GetTime();
 	const auto timeDelta = time_ - prevTime;
 
+	//Debug::Log("Rendering frame, time delta: " + std::to_string(timeDelta) + "s");
+
 	// Update the camera position / angle.
 	resetAccumulation_ = CameraManager::getInstance()->getActiveCamera()->UpdateCamera(cameraInitialSate_.ControlSpeed, timeDelta);
 
@@ -340,6 +343,21 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 
 
 		default: break;
+		}
+	}
+
+	if (action == GLFW_PRESS)
+	{
+		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL))
+		{
+			TransformHistory::getInstance().undo();
+			return;
+		}
+
+		if (key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL))
+		{
+			TransformHistory::getInstance().redo();
+			return;
 		}
 	}
 
@@ -469,7 +487,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	// If there are no lights, add a dummy one. It makes the pipeline setup a lot easier.
 	if (lights.empty())
 	{
-		lights.push_back(Assets::LightProperties(glm::vec3(2600, 20, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 0.4, 0.5, 1000000.0f), Assets::LightProperties::Enum::PointLight));
+		lights.push_back(Assets::LightProperties(glm::vec3(2600, 20, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 0.4, 0.5, 1000000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
 	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
@@ -516,7 +534,7 @@ void RayTracer::ReloadModifiedScene()
 	// If there are no lights, add a dummy one. It makes the pipeline setup a lot easier.
 	if (lights.empty())
 	{
-		lights.push_back(Assets::LightProperties(glm::vec3(1000, 500, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 1.0, 1.0, 1000.0f), Assets::LightProperties::Enum::PointLight));
+		lights.push_back(Assets::LightProperties(glm::vec3(1000, 500, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 1.0, 1.0, 1000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
 	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));

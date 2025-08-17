@@ -6,7 +6,6 @@
 #include "Debug.h"
 #include "Utilities/FileUtils.h"
 
-uint32_t ModelManager::nextID = 0;
 
 ModelManager* ModelManager::sharedInstance = nullptr;
 ModelManager* ModelManager::getInstance()
@@ -119,7 +118,6 @@ void ModelManager::addLightObject(std::shared_ptr<Light> lightObj)
 
 void ModelManager::addObject(std::shared_ptr<GameObject> gameObject)
 {
-	gameObject->setID(nextID++);
 	if (this->gameObjectMap[gameObject->getName()] != nullptr) {
 		int count = 1;
 		String revisedString = gameObject->getName() + " " + "(" + std::to_string(count) + ")";
@@ -134,7 +132,9 @@ void ModelManager::addObject(std::shared_ptr<GameObject> gameObject)
 		this->gameObjectMap[gameObject->getName()] = gameObject;
 	}
 	this->gameObjectList.push_back(gameObject);
-	std::cout << "Added game object in manager: " + gameObject->getName() << std::endl;
+
+	std::string message = "Added game object in manager: " + gameObject->getName();
+	Debug::Log(message);
 }
 
 void ModelManager::addObject(std::shared_ptr<ObjectGroup> objectGroup)
@@ -153,7 +153,9 @@ void ModelManager::addObject(std::shared_ptr<ObjectGroup> objectGroup)
 		this->gameObjectMap[objectGroup->getName()] = objectGroup;
 	}
 	this->objectGroupList.push_back(objectGroup);
-	std::cout << "Added object group in manager: " + objectGroup->getName() << std::endl;
+
+	std::string message = "Added object group in manager: " + objectGroup->getName();
+	Debug::Log(message);
 }
 
 void ModelManager::createObject(GameObject::PrimitiveType type)
@@ -211,6 +213,7 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 	case GameObject::DIRECTIONAL_LIGHT:
 	{
 		std::shared_ptr<Light> dl = std::make_shared<Light>("Light Source", Light::LightType::DirectionalLight);
+		dl->setLocalRotation(-180, 0, 0);
 		addLightObject(dl);
 	}
 	break;
@@ -225,98 +228,97 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 	}
 }
 
-void ModelManager::createObjectFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation,
-	vec3 scale)
+void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation,
+	vec3 scale, std::vector<Assets::Material> mats)
 {
 	std::shared_ptr<GameObject> obj = nullptr;
 
 	switch (type) {
-	case GameObject::CAMERA:
-	case GameObject::OBJECT_GROUP:
-	case GameObject::QUAD:
-	case GameObject::NONE:
-		break;
-	case GameObject::CUBE:
-	{
-		Assets::Model cubeModel = Assets::Model::CreateBox(vec3(0, 0, -50), 
-															vec3(50, 50, 0), 
-															*Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(cubeModel));
-		addObject(obj);
+		case GameObject::CUBE:
+		{
+			Assets::Model cubeModel = Assets::Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), mats[0]);
+			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(cubeModel));
+			break;
+		}
+		case GameObject::SPHERE:
+		{
+			Assets::Model sphereModel = Assets::Model::CreateSphere(vec3(0), 50, mats[0], false);
+			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(sphereModel));
+			break;
+		}
+		case GameObject::PLANE:
+		{
+			Assets::Model planeModel = Assets::Model::CreatePlane(vec3(0, 0, -100), vec3(100, -100, 0), mats[0]);
+			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(planeModel));
+			break;
+		}
+		case GameObject::CYLINDER:
+		{
+			Assets::Model cylinderModel = Assets::Model::CreateCylinder(25, 50, mats[0]);
+			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(cylinderModel));
+			break;
+		}
+		case GameObject::CAPSULE:
+		{
+			Assets::Model capsuleModel = Assets::Model::CreateCapsule(25, 100, mats[0]);
+			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(capsuleModel));
+			break;
+		}
+		case GameObject::CORNELL_BOX:
+		{
+			Assets::Model cornellBoxModel = Assets::Model::CreateCornellBox(555);
+			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Assets::Model>(cornellBoxModel));
+			break;
+		}
 
-		break;
-	}
-	case GameObject::SPHERE:
-	{
-		Assets::Model sphereModel = Assets::Model::CreateSphere(vec3(0), 50, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)), false);
-		obj = std::make_shared<GameObject>("Sphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(sphereModel));
-		addObject(obj);
-	}
-	break;
-	case GameObject::PLANE:
-	{
-		Assets::Model planeModel = Assets::Model::CreatePlane(vec3(0, 0, -100), vec3(100, -100, 0), *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		obj = std::make_shared<GameObject>("Plane", GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(planeModel));
-		addObject(obj);
-	}
-	break;
-	case GameObject::CYLINDER:
-	{
-		Assets::Model cylinderModel = Assets::Model::CreateCylinder(25, 50, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		obj = std::make_shared<GameObject>("Cylinder", GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(cylinderModel));
-		addObject(obj);
-
-	}
-	break;
-	case GameObject::CAPSULE:
-	{
-		Assets::Model capsuleModel = Assets::Model::CreateCapsule(25, 100, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		obj = std::make_shared<GameObject>("Capsule", GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(capsuleModel));
-		addObject(obj);
-	}
-	break;
-	case GameObject::POINT_LIGHT:
-	{
-		std::shared_ptr<Light> pl = std::make_shared<Light>(name.c_str(), Light::LightType::PointLight);
-		pl->setName(name);
-		pl->setLocalPosition(position);
-		pl->setLocalRotation(rotation);
-		pl->setLocalScale(scale);
-		pl->setEnabled(active);
-		addLightObject(pl);
-	}
-	break;
-	case GameObject::DIRECTIONAL_LIGHT:
-	{
-		std::shared_ptr<Light> dl = std::make_shared<Light>(name.c_str(), Light::LightType::DirectionalLight);
-		dl->setName(name);
-		dl->setLocalPosition(position);
-		dl->setLocalRotation(rotation);
-		dl->setLocalScale(scale);
-		dl->setEnabled(active);
-			addLightObject(dl);
-	}
-	break;
-	case GameObject::SPOT_LIGHT:
-	{
-		std::shared_ptr<Light> sl = std::make_shared<Light>(name.c_str(), Light::LightType::SpotLight);
-		sl->setName(name);
-		sl->setLocalPosition(position);
-		sl->setLocalRotation(rotation);
-		sl->setLocalScale(scale);
-		sl->setEnabled(active);
-		addLightObject(sl);
-	}
-	break;
+		default: break;
 	}
 
-	if (obj != nullptr)
+	if (obj)
 	{
-		obj->setName(name);
+		addObject(obj);
 		obj->setLocalPosition(position);
 		obj->setLocalRotation(rotation);
 		obj->setLocalScale(scale);
 		obj->setEnabled(active);
+	}
+}
+
+void ModelManager::createLightFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position,
+	vec3 rotation, vec3 scale, std::vector<Assets::Material> mats, Assets::LightProperties props)
+{
+	std::shared_ptr<Light> light = nullptr;
+
+	switch (type) {
+		case GameObject::POINT_LIGHT:
+		{
+			light = std::make_shared<Light>(name.c_str(), Light::LightType::PointLight, 
+											position, props.AmbientColor, props.LightColor);
+			break;
+		}
+		case GameObject::DIRECTIONAL_LIGHT:
+		{
+			light = std::make_shared<Light>(name.c_str(), Light::LightType::DirectionalLight,
+											position, props.AmbientColor, props.LightColor);
+			break;
+		}
+		case GameObject::SPOT_LIGHT:
+		{
+			light = std::make_shared<Light>(name.c_str(), Light::LightType::SpotLight,
+											position, props.AmbientColor, props.LightColor);
+			break;
+		}
+		default: break;
+	}
+
+	if (light)
+	{
+		light->setName(name);
+		light->setLocalPosition(position);
+		light->setLocalRotation(rotation);
+		light->setLocalScale(scale);
+		light->setEnabled(active);
+		addLightObject(light);
 	}
 }
 

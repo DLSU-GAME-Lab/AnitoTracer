@@ -14,6 +14,8 @@ GameObject::GameObject()
 	this->name = "No-name";
 	this->type = NONE;
 	this->modelRef = nullptr;
+
+	this->updateWorldTransform();
 }
 
 GameObject::GameObject(String name, PrimitiveType type)
@@ -21,6 +23,8 @@ GameObject::GameObject(String name, PrimitiveType type)
 	this->name = name;
 	this->type = type;
 	this->modelRef = nullptr;
+
+	this->updateWorldTransform();
 }
 
 GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::Model> modelRef)
@@ -256,16 +260,6 @@ bool GameObject::isDescendantOf(const GameObject* potentialParent) const
 	return false;
 }
 
-uint32_t GameObject::getID() const
-{
-	return this->id;
-}
-
-void GameObject::setID(uint32_t newID)
-{
-	this->id = newID;
-}
-
 void GameObject::setOBB(const BoundingBox& obb)
 {
 	this->obb = std::make_shared<BoundingBox>(obb);
@@ -361,6 +355,14 @@ void GameObject::updateWorldTransform()
 	}
 }
 
+// for Child Gameobjects
+void GameObject::updateSceneView()
+{
+	if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+}
+
 
 /**
  * \brief Performs the model transform via model-view-projection matrix form
@@ -413,3 +415,4 @@ void GameObject::performModelScale()
 
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
+

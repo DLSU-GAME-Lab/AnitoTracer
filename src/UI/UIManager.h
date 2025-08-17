@@ -15,6 +15,8 @@
 
 #include "Engine/Profiler/Profiler.h"
 
+#include "From-GDGRAP2/TransformHistory.h"
+
 typedef std::string String;
 
 namespace Vulkan
@@ -25,6 +27,8 @@ namespace Vulkan
 	class FrameBuffer;
 	class RenderPass;
 	class SwapChain;
+	
+	class TransformState;
 }
 
 struct UserSettings;
@@ -74,11 +78,14 @@ public:
 	void showAllUI() const;
 
 	GpuCpuProfiler* profiler;
+	Vulkan::CommandPool* commandPool;
+	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool;
 	void SetProfiler(GpuCpuProfiler* profiler) { this->profiler = profiler; }
+	void FreeDescriptor(VkDescriptorSet& descriptorset);
 
 	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;
-	// const Vulkan::Device* device = nullptr;
+	//Vulkan::Device* device = nullptr;
 	// Vulkan::Sampler* sampler = nullptr;
 	// Vulkan::ImageView* imageView = nullptr;
 	// VkDescriptorSet m_Dset;
@@ -103,7 +110,7 @@ private:
 	void drawAllUI() const;
 	void drawOverlay(const Statistics& statistics) const;
 
-	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool;
+
 	std::unique_ptr<Vulkan::RenderPass> renderPass;
 
 
@@ -119,6 +126,11 @@ private:
 	bool isResettingLayout = false;
 	UserSettings* userSettings = nullptr;
 	const Vulkan::SwapChain* swapChain = nullptr;
+
+	static bool wasUsingGizmoLastFrame;
+	static TransformState gizmoBeforeState;
+
+	static bool gizmoWasManipulated;
 
 	UIList uiList;
 	UITable uiTable;

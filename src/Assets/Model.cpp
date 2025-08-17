@@ -106,6 +106,7 @@ namespace Assets {
 			{
 				material.Diffuse = vec4(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
 
+				//diffuse/albedo
 				int texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_DIFFUSE);
 
 				if (texcount > 0) {
@@ -128,6 +129,72 @@ namespace Assets {
 				}
 
 
+				////Normal Map
+				//texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_NORMALS);
+
+				//if (texcount > 0) {
+				//	aiString texture_file;
+				//	scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_NORMALS, 0), texture_file);
+				//	std::string texName = scene->mMaterials[i]->GetName().C_Str();
+				//	if (!TextureLibrary::getInstance()->doesTextureExist(texName))
+				//	{
+				//		TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
+				//		std::cout << "Initialized Texture " << texName << std::endl;
+				//	}
+
+				//	material.NormalTextureId = TextureLibrary::getInstance()->getTextureId(texName);
+
+				//}
+				//else
+				//{
+				//	//material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
+				//	material.NormalTextureId = -1;
+				//}
+
+				////Metallic Map
+				//texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_METALNESS);
+
+				//if (texcount > 0) {
+				//	aiString texture_file;
+				//	scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_METALNESS, 0), texture_file);
+				//	std::string texName = scene->mMaterials[i]->GetName().C_Str();
+				//	if (!TextureLibrary::getInstance()->doesTextureExist(texName))
+				//	{
+				//		TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
+				//		std::cout << "Initialized Texture " << texName << std::endl;
+				//	}
+
+				//	material.MetallicTextureId = TextureLibrary::getInstance()->getTextureId(texName);
+
+				//}
+				//else
+				//{
+				//	//material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
+				//	material.MetallicTextureId = -1;
+				//}
+
+
+				////Metallic Map
+				//texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS);
+
+				//if (texcount > 0) {
+				//	aiString texture_file;
+				//	scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE_ROUGHNESS, 0), texture_file);
+				//	std::string texName = scene->mMaterials[i]->GetName().C_Str();
+				//	if (!TextureLibrary::getInstance()->doesTextureExist(texName))
+				//	{
+				//		TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
+				//		std::cout << "Initialized Texture " << texName << std::endl;
+				//	}
+
+				//	material.RoughTextureId = TextureLibrary::getInstance()->getTextureId(texName);
+
+				//}
+				//else
+				//{
+				//	//material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
+				//	material.RoughTextureId = -1;
+				//}
 			}
 
 			materials.emplace_back(material);
@@ -500,6 +567,11 @@ void Model::SetMaterial(const Material& material)
 	materials_[0] = material;
 }
 
+void Model::SetMaterials(std::vector<Material> mats)
+{
+	this->materials_ = mats;
+}
+
 void Model::SetMaterialIndex(int index)
 {
 	this->materials_[0].DiffuseTextureId = index;
@@ -551,4 +623,8 @@ Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint3
 	this->worldMatrix_ = mat4(1.0f);
 }
 
+void Model::SetName(std::string name)
+{
+	this->name = name;
+}
 }

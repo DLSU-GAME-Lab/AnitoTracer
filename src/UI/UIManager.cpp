@@ -14,6 +14,7 @@
 #include "ProfilerScreen.h"
 #include "RayTracer.hpp"
 #include "SettingsScreen.h"
+#include "From-GDGRAP2/TransformHistory.h"
 #include "ViewportScreen.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/ModelManager.h"
@@ -37,6 +38,10 @@ bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
 
 UIManager* UIManager::sharedInstance = nullptr;
+
+TransformState UIManager::gizmoBeforeState = {};
+bool UIManager::wasUsingGizmoLastFrame = false;
+bool UIManager::gizmoWasManipulated = false;
 
 namespace
 {
@@ -69,19 +74,22 @@ UIManager* UIManager::getInstance()
 void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain,
 	const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings)
 {
+
 	sharedInstance = new UIManager();
 
 	const auto& device = swapChain->Device();
+	//sharedInstance->device = &swapChain->Device();
 	const auto& window = device.Surface().Instance().Window();
 	sharedInstance->userSettings = userSettings;
 	sharedInstance->swapChain = swapChain;
+	sharedInstance->commandPool = commandPool;
 
 	// Initialise descriptor pool and render pass for ImGui.
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
 	{
 		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
 	};
-	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 1));
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
 	sharedInstance->renderPass.reset(
 		new Vulkan::RenderPass(
 			*swapChain,
@@ -308,14 +316,22 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		}
 
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
+		bool isUsingGizmoNow = ImGuizmo::IsUsing();
+
+		// Store the 'before' state when manipulation starts
+		if (isUsingGizmoNow && !wasUsingGizmoLastFrame)
+		{
+			gizmoWasManipulated = false;
+
+			gizmoBeforeState = {
+				selectedObject->getLocalPosition(),
+				selectedObject->getLocalRotation(),
+				selectedObject->getLocalScale()
+			};
+		}
 
 		ImGuizmo::BeginFrame();
-
-		float viewportX = 0;
-		float viewportY = 0;
-		float viewportWidth = swapChain->Extent().width;
-		float viewportHeight = swapChain->Extent().height;
-		ImGuizmo::SetRect(viewportX, viewportY, viewportWidth, viewportHeight);
+		ImGuizmo::SetRect(0, 0, swapChain->Extent().width, swapChain->Extent().height);
 
 		glm::mat4 viewMatrix = CameraManager::getInstance()->getActiveCamera()->GetView();
 		glm::mat4 projMatrix = CameraManager::getInstance()->getActiveCamera()->GetProjection();
@@ -323,59 +339,67 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
 			mCurrentGizmoOperation, ImGuizmo::WORLD, glm::value_ptr(selectedObject->getObjectMatrix())))
 		{
+			gizmoWasManipulated = true;
+
 			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(selectedObject->getObjectMatrix()), translation, rotation, scale);
 
-			if (mCurrentGizmoOperation == ImGuizmo::TRANSLATE)
+			if (auto* parent = selectedObject->getParent())
 			{
-				isUsingImguizmo = true;
-
-			}
-			else if (mCurrentGizmoOperation == ImGuizmo::ROTATE)
-			{
-				isUsingImguizmo = true;
-			}
-			else if (mCurrentGizmoOperation == ImGuizmo::SCALE)
-			{
-				isUsingImguizmo = true;
-			}
-		}
-
-		if ((isUsingImguizmo && !RayTracer::getInstance()->getUserSettings().IsRayTraced) || (isUsingImguizmo && RayTracer::getInstance()->getUserSettings().IsRayTraced && !ImGuizmo::IsUsingAny()))
-		{
-			if (selectedObject->getParent())
-			{
-				glm::vec3 parentWorldPos = selectedObject->getParent()->getWorldPosition();
+				glm::vec3 parentWorldPos = parent->getWorldPosition();
 				translation[0] -= parentWorldPos.x;
 				translation[1] -= parentWorldPos.y;
 				translation[2] -= parentWorldPos.z;
-			}
-			selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
 
-			if (selectedObject->getParent())
-			{
-				glm::quat parentRot = glm::quat(glm::radians(selectedObject->getParent()->getWorldRotation()));
+				glm::quat parentRot = glm::quat(glm::radians(parent->getWorldRotation()));
 				glm::quat localRot = glm::inverse(parentRot) * glm::quat(glm::radians(glm::vec3(rotation[0], rotation[1], rotation[2])));
 				glm::vec3 eulerLocal = glm::degrees(glm::eulerAngles(localRot));
-
 				rotation[0] = eulerLocal.x;
 				rotation[1] = eulerLocal.y;
 				rotation[2] = eulerLocal.z;
-			}
-			selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
 
-			if (selectedObject->getParent())
-			{
-				glm::vec3 parentScale = selectedObject->getParent()->getWorldScale();
+				glm::vec3 parentScale = parent->getWorldScale();
 				scale[0] /= parentScale.x;
 				scale[1] /= parentScale.y;
 				scale[2] /= parentScale.z;
 			}
-			selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
 
-
-			isUsingImguizmo = false;
+			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced)
+			{
+				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
+				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
+				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+			}
 		}
+
+		if (!isUsingGizmoNow && wasUsingGizmoLastFrame)
+		{
+			if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
+			{
+				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
+				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
+				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+			}
+			if (gizmoWasManipulated &&
+				!TransformHistory::getInstance().isUndoOrRedoInProgress() &&
+				!TransformHistory::getInstance().isUndoOrRedoFinished())
+			{
+				TransformState afterState = {
+					selectedObject->getLocalPosition(),
+					selectedObject->getLocalRotation(),
+					selectedObject->getLocalScale()
+				};
+
+				if (TransformHistory::isDifferent(gizmoBeforeState, afterState))
+				{
+					TransformHistory::getInstance().recordChange(selectedObject.get(), gizmoBeforeState, afterState);
+				}
+			}
+		}
+
+		wasUsingGizmoLastFrame = isUsingGizmoNow;
 	}
+
+
 
 	ImGui::Render();
 
@@ -402,6 +426,8 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	}
 	//ImGui::UpdatePlatformWindows();
 	//ImGui::RenderPlatformWindowsDefault();
+
+	TransformHistory::getInstance().resetUndoRedoFlag();
 }
 
 void UIManager::drawOverlay(const Statistics& statistics) const
@@ -519,6 +545,19 @@ void UIManager::showAllUI() const
 		if (i->name != UINames::MENU_SCREEN)
 			i->setEnabled(true);
 	}
+}
+
+void UIManager::FreeDescriptor(VkDescriptorSet& descriptorset)
+{
+	const auto& device = swapChain->Device();
+
+	// Initialise descriptor pool and render pass for ImGui.
+	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
+	{
+		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
+	};
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
+
 }
 
 bool UIManager::wantsToCaptureKeyboard()

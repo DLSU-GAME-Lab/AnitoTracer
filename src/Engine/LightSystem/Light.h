@@ -15,6 +15,7 @@ namespace Assets
 		};
 
 		alignas(16) glm::vec3 LightPos;
+		alignas(16) glm::vec3 LightDir; // Where the light is pointing (if has direction)
 		alignas(16) glm::vec4 AmbientColor;
 		alignas(16) glm::vec4 LightColor;
 		alignas(4) Enum LightType;
@@ -33,11 +34,14 @@ public:
 	{
 		// Default Properties
 		props_.LightPos = glm::vec3(0, 0, 0);
+		props_.LightDir = glm::vec3(0, -1, 0);
 		props_.AmbientColor = glm::vec4(1.0, 1.0, 1.0, 0.02);
-		props_.LightColor = glm::vec4(1.0, 1.0, 1.0, 1000000.0f);
+		props_.LightColor = glm::vec4(1.0, 1.0, 1.0, 500000.0f);
 		props_.LightType = convertLightTypeEnum(type);
 
 		GameObject::setLocalPosition(props_.LightPos);
+
+		updateSceneView();
 	}
 
 	Light(String name, LightType type, glm::vec3 pos, glm::vec4 ambientCol, glm::vec4 lightCol)
@@ -49,6 +53,10 @@ public:
 		props_.LightType = convertLightTypeEnum(type);
 
 		GameObject::setLocalPosition(props_.LightPos);
+
+		props_.LightDir = calculateDirection();
+
+		updateSceneView();
 	}
 
 	const Assets::LightProperties Properties() const { return this->props_; }
@@ -73,11 +81,27 @@ public:
 	{
 		props_.LightPos = glm::vec3(x, y, z);
 		GameObject::setLocalPosition(x, y, z);
+
+		updateSceneView();
 	}
 	void setLocalPosition(vec3 newPos) override
 	{
 		props_.LightPos = newPos;
 		GameObject::setLocalPosition(newPos);
+
+		updateSceneView();
+	}
+
+	void setLocalRotation(vec3 newRot) override
+	{
+		GameObject::setLocalRotation(newRot);
+		props_.LightDir = calculateDirection();
+	}
+	
+	void setLocalRotation(float x, float y, float z) override
+	{
+		GameObject::setLocalRotation(x, y, z);
+		props_.LightDir = calculateDirection();
 	}
 
 	void setAmbientColor(float r, float g, float b, float a)
@@ -93,17 +117,23 @@ public:
 	void setLightColor(float r, float g, float b, float a)
 	{
 		this->props_.LightColor = glm::vec4(r, g, b, a);
+
+		updateSceneView();
 	}
 
 	void setLightColor(glm::vec4 lightCol)
 	{
 		this->props_.LightColor = lightCol;
+
+		updateSceneView();
 	}
 
 	void setLightType(LightType type)
 	{
 		this->props_.LightType = convertLightTypeEnum(type);
 		this->type = convertLightTypeToGameObjectType(type);
+
+		updateSceneView();
 	}
 
 private:
@@ -136,5 +166,14 @@ private:
 			return SPOT_LIGHT;
 			break;
 		}
+	}
+
+	glm::vec3 calculateDirection()
+	{
+		glm::vec3 localForward = glm::vec3(0.0f, -1.0f, 0.0f); // pointing down by default
+		glm::mat4 modelMatrix = this->mat_;
+
+		glm::vec3 worldDirection = glm::normalize(glm::mat3(modelMatrix) * localForward);
+		return worldDirection;
 	}
 };

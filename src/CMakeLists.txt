@@ -237,6 +237,8 @@ set(src_files_from_gdgrap2
 	From-GDGRAP2/RTConfig.h
 	From-GDGRAP2/TextureLibrary.cpp
 	From-GDGRAP2/TextureLibrary.h
+	From-GDGRAP2/TransformHistory.cpp
+	From-GDGRAP2/TransformHistory.h
 )
 
 set(src_files
@@ -280,7 +282,7 @@ add_executable(${exe_name}
 	${src_files_vulkan} 
 	${src_files_vulkan_raytracing} 
 	${src_files}
- "Engine/Scene/SceneIO.cpp")
+ "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp")
 
 if (UNIX)
 	# GCC8 needs an extra lib for <filesystem>.

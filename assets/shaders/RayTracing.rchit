@@ -43,30 +43,30 @@ vec3 calculatePointLight(LightProperties pl, vec3 worldPos, vec3 normal)
 	
 	vec3 lighting = diffuseLight + ambientLight;
 	 
-	return lighting;
+	return lighting; 
 }
  
 vec3 calculateDirectionalLight(LightProperties dl, vec3 worldPos, vec3 normal) 
 {
 	vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
-	vec3 lightDir = -normalize(dl.LightPos);
+	// vec3 lightDir = -normalize(dl.LightPos.xyz);
 
 	vec3 ambientColor = dl.AmbientColor.rgb * dl.AmbientColor.w;
 
-    float diffuseFactor = max(dot(worldNrm, lightDir), 0.f);
+    float diffuseFactor = max(dot(worldNrm, dl.LightDir), 0.f);
     vec3 diffuseColor = dl.LightColor.rgb * dl.LightColor.w * diffuseFactor;
 	 
-	vec3 lighting = (ambientColor + diffuseColor) * 0.2;
+	vec3 lighting = (ambientColor + diffuseColor) * 0.0001;
 	return lighting;
 } 
 
-vec3 calculateSpotLight(LightProperties sl, vec3 worldPos, vec3 normal) 
+vec3 calculateSpotLight2(LightProperties sl, vec3 worldPos, vec3 normal) 
 {         
 	float cutoff = cos(radians(90.0)); // Convert degrees to radians and compute cosine
-	vec3 lightDir = normalize(sl.LightPos.xyz - worldPos); // Direction from light to hit point
-	vec3 lightDirection = vec3(0, -1, 0);
-	vec3 spotDir = normalize(lightDirection); // Direction of the spot light 
-	float spotFactor = dot(lightDir, -spotDir); // Cosine of the angle between lightDir and spotDir
+	// vec3 lightDir = normalize(sl.LightPos.xyz - worldPos); // Direction from light to hit point
+	// vec3 lightDirection = vec3(0, -1, 0);
+	vec3 spotDir = normalize(sl.LightDir); // Direction of the spot light 
+	float spotFactor = dot(sl.LightDir, -spotDir); // Cosine of the angle between lightDir and spotDir
 	 
 	if (spotFactor > cutoff) {
 		vec3 lighting = calculatePointLight(sl, worldPos, normal);
@@ -75,6 +75,42 @@ vec3 calculateSpotLight(LightProperties sl, vec3 worldPos, vec3 normal)
 	return vec3(0.0); // Return no light if outside the spot light cone
 }
 
+vec3 calculateSpotLight(LightProperties sl, vec3 worldPos, vec3 normal)  
+{
+    // Transform normal to world space
+    vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
+
+    // Vector from light to fragment
+    vec3 fragToLight = worldPos - sl.LightPos;
+    float distance = length(fragToLight);
+    vec3 lightDir = normalize(-fragToLight); // Direction from light to fragment
+
+    // Normalize spotlight direction (already in world space)
+    vec3 spotDir = normalize(sl.LightDir);
+
+    // Compute the angle between light direction and spotlight direction
+    float theta = dot(lightDir, spotDir); // Cosine of angle between them
+
+    // Define cutoff angles (in cosine space)
+    float innerCutoff = cos(radians(20.0));
+    float outerCutoff = cos(radians(30.0));
+
+    // Compute smooth falloff for spotlight edge
+    float epsilon = innerCutoff - outerCutoff;
+    float intensity = clamp((theta - outerCutoff) / epsilon, 0.0, 1.0);
+
+    // Compute attenuation
+    float attenuation = 1.0 / (distance * distance);
+
+    // Diffuse component
+    float diff = max(dot(worldNrm, lightDir), 0.0);
+    vec3 diffuse = sl.LightColor.rgb * sl.LightColor.w * diff * attenuation * intensity;
+
+    // Ambient component
+    vec3 ambient = sl.AmbientColor.rgb * sl.AmbientColor.w;
+
+    return ambient + diffuse;
+}
 void main()
 {
     // Get the material.

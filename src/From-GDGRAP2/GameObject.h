@@ -7,6 +7,7 @@
 #include "From-GDGRAP2/VectorUtils.h"
 #include "OBB/BoundingBox.hpp"
 
+
 class GameObject
 {
 public:
@@ -14,7 +15,7 @@ public:
 
     enum PrimitiveType {
         CAMERA, CUBE, OBJECT_GROUP, QUAD, PLANE, CYLINDER, CAPSULE, SPHERE,
-        POINT_LIGHT, DIRECTIONAL_LIGHT, SPOT_LIGHT, MESH, NONE
+        POINT_LIGHT, DIRECTIONAL_LIGHT, SPOT_LIGHT, MESH, CORNELL_BOX, NONE
     };
 
     typedef glm::vec3 vec3;
@@ -43,8 +44,8 @@ public:
     void setName(std::string name);
     virtual void setLocalPosition(vec3 newPos);
     virtual void setLocalPosition(float x, float y, float z);
-    void setLocalRotation(vec3 newRot);
-    void setLocalRotation(float x, float y, float z);
+    virtual void setLocalRotation(vec3 newRot);
+    virtual void setLocalRotation(float x, float y, float z);
     void setLocalScale(vec3 newScale);
     void setLocalScale(float x, float y, float z);
 
@@ -60,14 +61,12 @@ public:
     void setParent(GameObject* newParent);
     bool isDescendantOf(const GameObject* potentialParent) const;
 
-    uint32_t getID() const;
-    void setID(uint32_t newID);
-
     void setOBB(const BoundingBox& obb);
     std::shared_ptr<BoundingBox> getOBB() const;
 
     void updateObjectMatrix();
     void updateWorldTransform();
+
 
 protected:
     String name;
@@ -75,8 +74,6 @@ protected:
     bool enabled = true;
 
     std::shared_ptr<GameObject> debugCube = nullptr;
-
-    uint32_t id = 0;
 
     vec3 origin = VectorUtils::zeros();
     vec3 originRot = VectorUtils::zeros();
@@ -101,6 +98,8 @@ protected:
     virtual void performModelTransform();
     virtual void performModelRotate();
     virtual void performModelScale();
+
+    void updateSceneView();
 
     friend class ModelManager;
 };

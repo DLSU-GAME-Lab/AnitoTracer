@@ -11,7 +11,7 @@ void ConsoleScreen::appendText(String text)
 	this->lineCount++;
 }
 
-ConsoleScreen::ConsoleScreen(): AUIScreen(UINames::CONSOLE_SCREEN)
+ConsoleScreen::ConsoleScreen() : AUIScreen(UINames::CONSOLE_SCREEN)
 {
 	this->textLog = new ImGuiTextBuffer();
 }
@@ -28,6 +28,20 @@ void ConsoleScreen::drawUI()
 	ImGui::Begin("Console", 0, UISettings::GlobalWindowFlags);
 	ImGui::SetWindowSize(ImVec2(1200, 300));
 	if (ImGui::Button("Clear")) { this->textLog->clear(); this->lineCount = 0; }
-	ImGui::TextUnformatted(this->textLog->begin(), this->textLog->end());
+
+	ImGui::Separator();
+
+	if (ImGui::BeginChild("scrolling", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar))
+	{
+		//ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
+		//ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x);
+		ImGui::TextUnformatted(this->textLog->begin(), this->textLog->end());
+		//ImGui::PopStyleVar();
+
+		if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+			ImGui::SetScrollHereY(1.0f);
+
+	}
+	ImGui::EndChild();
 	ImGui::End();
 }
