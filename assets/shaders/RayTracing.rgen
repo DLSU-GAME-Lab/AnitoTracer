@@ -21,6 +21,16 @@ layout(binding = 14) buffer RayInfoBuffer { RayInfo info[]; };
 
 layout(location = 0) rayPayloadEXT RayPayload Ray;
 
+float normpdf(in float x, in float sigma)
+{
+	return 0.39894*exp(-0.5*x*x/(sigma*sigma))/sigma;
+}
+
+float normpdf3(in vec3 v, in float sigma)
+{
+	return 0.39894*exp(-0.5*dot(v,v)/(sigma*sigma))/sigma;
+}
+
 void main() 
 {
 	const uint64_t clock = Camera.ShowHeatmap ? clockARB() : 0;
@@ -148,6 +158,7 @@ void main()
 	// Apply raytracing-in-one-weekend gamma correction.
 	pixelColor = sqrt(pixelColor);
 
+	//heatmap
 	if (Camera.ShowHeatmap)
 	{
 		const uint64_t deltaTime = clockARB() - clock;
@@ -159,4 +170,67 @@ void main()
 
 	imageStore(AccumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(accumulatedColor, 0));
     imageStore(OutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(pixelColor, 0));
+
+		//====================[BILATERAL FILTER]==========================
+
+	const float SIGMA = 10.0;
+	const float BSIGMA = 1.0;
+	const int MSIZE = 15;
+
+	vec2 resolution = imageSize(OutputImage);
+	
+	for (int width = 0; width < resolution.x; width++) {
+		for (int height = 0; height < resolution.y; height++) {
+			vec2 pixelPos = vec2(width, height) + vec2(0.5);
+			vec3 c = imageLoad(OutputImage, ivec2(pixelPos)).rgb;
+			if (accumulate)
+			{
+				//declare stuff
+				const int kSize = (MSIZE-1)/2;
+				float kernel[MSIZE];
+				vec3 final_colour = vec3(0.0);
+		
+				//create the 1-D kernel
+				float Z = 0.0;
+				for (int j = 0; j <= kSize; ++j)
+				{
+					kernel[kSize+j] = kernel[kSize-j] = normpdf(float(j), SIGMA);
+				}
+		
+		
+				vec3 cc;
+				float factor;
+				float bZ = 1.0/normpdf(0.0, BSIGMA);
+				//read out the texels
+				for (int i = -kSize; i <= kSize; ++i)
+				{
+					for (int j = -kSize; j <= kSize; ++j)
+					{
+						cc = imageLoad(OutputImage, ivec2((0.0, 1.0) - (pixelPos + vec2(float(i),float(j))) / resolution)).rgb;
+						factor = normpdf3(cc-c, BSIGMA)*bZ*kernel[kSize+j]*kernel[kSize+i];
+						Z += factor;
+						final_colour += factor*cc;
+
+					}
+				}
+		
+		
+				pixelColor = final_colour/Z;
+	
+		
+			} else {
+		
+				pixelColor = c;
+			}
+
+			//rewrite the output with the filtered image
+			 imageStore(OutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(pixelColor, 0));
+
+		}
+	
+	}
+
+
+
+	//=================================================================
 }

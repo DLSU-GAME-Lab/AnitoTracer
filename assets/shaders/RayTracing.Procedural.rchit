@@ -22,7 +22,7 @@ rayPayloadInEXT RayPayload Ray;
 const int lightType = 0;
 const vec3 lightPos = vec3(2600, 20.0, 0);
 const vec4 ambientColor = vec4(1.0, 1.0, 1.0, 0.02);
-const vec4 lightColor = vec4(0.0, 0.4, 0.5, 1000000.0f);
+const vec4 lightColor = vec4(0.0, 0.4, 0.5, 500000.0f);
 
 vec2 GetSphereTexCoord(const vec3 point)
 {

@@ -1,4 +1,7 @@
 #version 460
+#ifdef GL_ES
+precision mediump float;
+#endif
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
@@ -102,6 +105,11 @@ vec4 calcSpotLight(LightProperties light, vec3 normal, vec3 viewDir) {
 
 void main() 
 {
+
+    const float spatialSigma = 10.0;
+    const float colorSigma = 0.5;
+    const int kernelRadius = 0;
+
     const int textureId = Materials[FragMaterialIndex].DiffuseTextureId;
     const float d = max(dot(dirLightDir, normalize(FragNormal)), 0.2);
 
@@ -133,5 +141,34 @@ void main()
             }
         }
     } else {
+    }	
+
+   
+    vec4 filteredColor = vec4(0.0);
+    float totalWeight = 0.0;
+
+    for (int y = -kernelRadius; y <= kernelRadius; ++y) {
+        for (int x = -kernelRadius; x <= kernelRadius; ++x) {
+            vec2 offset = vec2(x, y);
+            vec2 neighborTexCoord = FragTexCoord + offset / textureSize(TextureSamplers[textureId], 0);
+            vec4 neighborColor = texture(TextureSamplers[textureId], neighborTexCoord);
+
+            // Spatial Gaussian
+            float spatialDistSq = dot(offset, offset);
+            float spatialWeight = exp(-spatialDistSq / (2.0 * spatialSigma * spatialSigma));
+
+            // Photometric Gaussian
+            float colorDistSq = dot(OutColor - neighborColor, OutColor - neighborColor);
+            float colorWeight = exp(-colorDistSq / (2.0 * colorSigma * colorSigma));
+
+            float combinedWeight = spatialWeight * colorWeight;
+
+            filteredColor += neighborColor * combinedWeight;
+            totalWeight += combinedWeight;
+        }
     }
+
+    OutColor = filteredColor / totalWeight;
+   
+
 }
