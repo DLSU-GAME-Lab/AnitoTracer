@@ -172,7 +172,7 @@ void main()
     imageStore(OutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(pixelColor, 0));
 
 		//====================[BILATERAL FILTER]==========================
-
+/*
 	const float SIGMA = 10.0;
 	const float BSIGMA = 1.0;
 	const int MSIZE = 15;
@@ -181,6 +181,7 @@ void main()
 	
 	for (int width = 0; width < resolution.x; width++) {
 		for (int height = 0; height < resolution.y; height++) {
+
 			vec2 pixelPos = vec2(width, height) + vec2(0.5);
 			vec3 c = imageLoad(OutputImage, ivec2(pixelPos)).rgb;
 			if (accumulate)
@@ -217,7 +218,6 @@ void main()
 		
 				pixelColor = final_colour/Z;
 	
-		
 			} else {
 		
 				pixelColor = c;
@@ -231,6 +231,6 @@ void main()
 	}
 
 
-
+	*/
 	//=================================================================
 }
