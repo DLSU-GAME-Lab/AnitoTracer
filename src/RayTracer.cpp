@@ -309,6 +309,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 		std::cout << "[Initiated Screenshot]" << std::endl;
 		std::string screenshotPath = FileUtils::getAssetsFolderPath().generic_string() + "/screenshot.ppm";
 		saveScreenshot(screenshotPath.c_str(), commandBuffer);
+		userSettings_.AccumulateRays = true;
 	}
 
 	// Render the UI
@@ -375,6 +376,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		{
 			std::cout << "[SPACE]" << std::endl;
 			userSettings_.Screenshot = true;
+			userSettings_.AccumulateRays = false;
 			return;
 		}
 	}
