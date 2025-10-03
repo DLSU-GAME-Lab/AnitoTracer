@@ -43,7 +43,7 @@ namespace Vulkan::RayTracing
 		void CreateTopLevelStructures(VkCommandBuffer commandBuffer);
 		void CreateOutputImage();
 		void saveScreenshot(const char* filename, VkCommandBuffer commandBuffer);
-	
+		uint32_t getMemoryType(uint32_t typeBits, VkPhysicalDeviceMemoryProperties memoryProperties, VkMemoryPropertyFlags properties, VkBool32* memTypeFound) const;
 
 		std::unique_ptr<class DeviceProcedures> deviceProcedures_;
 		std::unique_ptr<class RayTracingProperties> rayTracingProperties_;

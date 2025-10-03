@@ -440,40 +440,17 @@ void Application::saveScreenshot(const char* filename, VkCommandBuffer commandBu
 
 	//==
 	// Memory must be host visible to copy from
-	//VkMemoryPropertyFlags properties( | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	VkMemoryPropertyFlags properties;
+	properties = (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	VkPhysicalDeviceMemoryProperties memoryProperties;
 	memoryProperties = {};
 	//memset(&memoryProperties, 0, sizeof(struct VkPhysicalDeviceMemoryProperties));
 	vkGetPhysicalDeviceMemoryProperties(Device().PhysicalDevice(), &memoryProperties);
 
 	uint32_t typeBits = memRequirements.memoryTypeBits;
-	bool memTypeFound = false;
-	uint32_t memindex = 0;
-	for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++)
-	{
-		if ((typeBits & 1) == 1)
-		{
-			if ((memoryProperties.memoryTypes[i].propertyFlags) == 4 || (memoryProperties.memoryTypes[i].propertyFlags) == 2)
-			{
-				if (memTypeFound)
-				{
-					memTypeFound = true;
-				}
-				memindex = i;
-			}
-		}
-		typeBits >>= 1;
-	}
+	VkBool32 *memTypeFound = nullptr;
+	uint32_t memindex = getMemoryType(typeBits, memoryProperties, properties, memTypeFound);
 
-	if (memTypeFound)
-	{
-		memTypeFound = false;
-		memindex = 0;
-	}
-	else
-	{
-		throw std::runtime_error("Could not find a matching memory type");
-	}
 	VkMemoryAllocateInfo memAllocInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, memRequirements.size, memindex};
 	//==
 	VkResult(vkAllocateMemory(Device().Handle(), &memAllocInfo, nullptr, &dstImageMemory));
@@ -511,7 +488,15 @@ void Application::saveScreenshot(const char* filename, VkCommandBuffer commandBu
 	VkResult(vkMapMemory(Device().Handle(), dstImageMemory, 0, VK_WHOLE_SIZE, 0, (void**)&data));
 	data += subResourceLayout.offset;
 
+	//FILE
 	std::ofstream file(filename, std::ios::out | std::ios::binary);
+
+	// ppm header
+	file << "P6\n" << width << "\n" << height << "\n" << 255 << "\n";
+
+	bool colorSwizzle = true;
+
+	std::vector<VkFormat> formatsBGR = { VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SNORM };
 
 	// ppm binary pixel data
 	for (uint32_t y = 0; y < height; y++)
@@ -520,15 +505,25 @@ void Application::saveScreenshot(const char* filename, VkCommandBuffer commandBu
 		for (uint32_t x = 0; x < width; x++)
 		{
 			
-			file.write((char*)row, 3);
+			if (colorSwizzle)
+			{
+				file.write((char*)row + 2, 1);
+				file.write((char*)row + 1, 1);
+				file.write((char*)row, 1);
+			}
+			else
+			{
+				file.write((char*)row, 3);
+			}
 			
 			row++;
 		}
 		data += subResourceLayout.rowPitch;
 	}
+	std::cout << "Screenshot written to disk: " << sizeof(file) << " Bytes" << std::endl;
 	file.close();
 
-	std::cout << "Screenshot saved to disk" << std::endl;
+	std::cout << "Screenshot saved to " << filename << std::endl;
 
 	// Clean up resources
 	vkUnmapMemory(Device().Handle(), dstImageMemory);
@@ -536,6 +531,35 @@ void Application::saveScreenshot(const char* filename, VkCommandBuffer commandBu
 	vkDestroyImage(Device().Handle(), dstImage, nullptr);
 
 	//screenshotSaved = true;
+}
+
+uint32_t Application::getMemoryType(uint32_t typeBits, VkPhysicalDeviceMemoryProperties memoryProperties, VkMemoryPropertyFlags properties, VkBool32* memTypeFound) const
+{
+	for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++)
+	{
+		if ((typeBits & 1) == 1)
+		{
+			if ((memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
+			{
+				if (memTypeFound)
+				{
+					*memTypeFound = true;
+				}
+				return i;
+			}
+		}
+		typeBits >>= 1;
+	}
+
+	if (memTypeFound)
+	{
+		*memTypeFound = false;
+		return 0;
+	}
+	else
+	{
+		throw std::runtime_error("Could not find a matching memory type");
+	}
 }
 
 

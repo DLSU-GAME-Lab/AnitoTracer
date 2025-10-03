@@ -250,17 +250,6 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	time_ = Window().GetTime();
 	const auto timeDelta = time_ - prevTime;
 
-
-	//screenshot
-	std::cout << userSettings_.Screenshot << std::endl;
-	if (userSettings_.Screenshot)
-	{
-		std::cout << "[Initiated Screenshot]" << std::endl;
-		std::string screenshotPath = FileUtils::getAssetsFolderPath().generic_string() + "/screenshot.png";
-		saveScreenshot(screenshotPath.c_str(), commandBuffer);
-		userSettings_.Screenshot = false;
-	}
-
 	//Debug::Log("Rendering frame, time delta: " + std::to_string(timeDelta) + "s");
 
 	// Update the camera position / angle.
@@ -311,6 +300,15 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 		}
 
 		vkCmdEndRenderPass(commandBuffer);
+	}
+
+	//screenshot
+	if (userSettings_.Screenshot)
+	{
+		userSettings_.Screenshot = false;
+		std::cout << "[Initiated Screenshot]" << std::endl;
+		std::string screenshotPath = FileUtils::getAssetsFolderPath().generic_string() + "/screenshot.ppm";
+		saveScreenshot(screenshotPath.c_str(), commandBuffer);
 	}
 
 	// Render the UI
