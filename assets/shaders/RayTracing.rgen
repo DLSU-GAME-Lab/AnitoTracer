@@ -169,7 +169,9 @@ void main()
 	}
 
 	imageStore(AccumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(accumulatedColor, 0));
-    imageStore(OutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(pixelColor, 0));
+	imageStore(OutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(pixelColor, 0));
+	
+
 
 		//====================[BILATERAL FILTER]==========================
 /*

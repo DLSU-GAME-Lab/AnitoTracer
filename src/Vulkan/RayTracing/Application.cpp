@@ -17,6 +17,7 @@
 #include "Vulkan/SwapChain.hpp"
 #include <chrono>
 #include <iostream>
+#include <fstream>
 #include <numeric>
 
 #include "UI/UIManager.h"
@@ -377,5 +378,165 @@ void Application::CreateOutputImage()
 	debugUtils.SetObjectName(outputImageView_->Handle(), "Output ImageView");
 
 }
+
+void Application::saveScreenshot(const char* filename, VkCommandBuffer commandBuffer)
+{
+	//screenshotSaved = false;	
+	std::cout << "[Enter Screenshot]" << std::endl;
+	bool supportsBlit = true;
+
+	// Check blit support for source and destination
+	VkFormatProperties formatProps;
+
+	// Check if the device supports blitting from optimal images (the swapchain images are in optimal format)
+	vkGetPhysicalDeviceFormatProperties(Device().PhysicalDevice(), SwapChain().Format(), &formatProps);
+	if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+		std::cerr << "Device does not support blitting from optimal tiled images, using copy instead of blit!" << std::endl;
+		supportsBlit = false;
+	}
+
+	// Check if the device supports blitting to linear images
+	vkGetPhysicalDeviceFormatProperties(Device().PhysicalDevice(), VK_FORMAT_R8G8B8A8_UNORM, &formatProps);
+	if (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		std::cerr << "Device does not support blitting to linear tiled images, using copy instead of blit!" << std::endl;
+		supportsBlit = false;
+	}
+
+	// Source for the copy is the last rendered swapchain image
+	VkImage srcImage = outputImage_->Handle();
+
+	VkImageCreateInfo imageCreateCI;
+	imageCreateCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCreateCI.imageType = VK_IMAGE_TYPE_2D;
+	imageCreateCI.pNext = nullptr;
+	imageCreateCI.flags = 0;
+	imageCreateCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	// Note that vkCmdBlitImage (if supported) will also do format conversions if the swapchain color format would differ
+	imageCreateCI.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageCreateCI.extent.width = outputImage_->Extent().width;
+	imageCreateCI.extent.height = outputImage_->Extent().height;
+	imageCreateCI.extent.depth = 1;
+	imageCreateCI.arrayLayers = 1;
+	imageCreateCI.mipLevels = 1;
+	imageCreateCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageCreateCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateCI.tiling = VK_IMAGE_TILING_LINEAR;
+	imageCreateCI.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+	int height = outputImage_->Extent().height;
+	int width = outputImage_->Extent().width;
+
+	// Create the image
+	VkImage dstImage;
+	VkResult(vkCreateImage(Device().Handle(), &imageCreateCI, nullptr, &dstImage));
+
+	VkMemoryRequirements memRequirements;
+	//memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	//memAlloc.pNext = nullptr;
+	//memAlloc.memoryTypeIndex = 0;
+	//VkMemoryAllocateInfo memAllocInfo(memAlloc);
+	VkDeviceMemory dstImageMemory;
+	vkGetImageMemoryRequirements(Device().Handle(), dstImage, &memRequirements);
+
+	//==
+	// Memory must be host visible to copy from
+	//VkMemoryPropertyFlags properties( | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	VkPhysicalDeviceMemoryProperties memoryProperties;
+	memoryProperties = {};
+	//memset(&memoryProperties, 0, sizeof(struct VkPhysicalDeviceMemoryProperties));
+	vkGetPhysicalDeviceMemoryProperties(Device().PhysicalDevice(), &memoryProperties);
+
+	uint32_t typeBits = memRequirements.memoryTypeBits;
+	bool memTypeFound = false;
+	uint32_t memindex = 0;
+	for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++)
+	{
+		if ((typeBits & 1) == 1)
+		{
+			if ((memoryProperties.memoryTypes[i].propertyFlags) == 4 || (memoryProperties.memoryTypes[i].propertyFlags) == 2)
+			{
+				if (memTypeFound)
+				{
+					memTypeFound = true;
+				}
+				memindex = i;
+			}
+		}
+		typeBits >>= 1;
+	}
+
+	if (memTypeFound)
+	{
+		memTypeFound = false;
+		memindex = 0;
+	}
+	else
+	{
+		throw std::runtime_error("Could not find a matching memory type");
+	}
+	VkMemoryAllocateInfo memAllocInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, memRequirements.size, memindex};
+	//==
+	VkResult(vkAllocateMemory(Device().Handle(), &memAllocInfo, nullptr, &dstImageMemory));
+	VkResult(vkBindImageMemory(Device().Handle(), dstImage, dstImageMemory, 0));
+
+
+	VkImageMemoryBarrier imageMemoryBarrier{};
+	imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+	imageMemoryBarrier.srcAccessMask = 0;
+	imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imageMemoryBarrier.image = dstImage;
+	imageMemoryBarrier.subresourceRange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &imageMemoryBarrier);
+
+	// Get layout of the image (including row pitch)
+	VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
+	VkSubresourceLayout subResourceLayout;
+	vkGetImageSubresourceLayout(Device().Handle(), dstImage, &subResource, &subResourceLayout);
+
+	// Map image memory so we can start copying from it
+	const char* data;
+	VkResult(vkMapMemory(Device().Handle(), dstImageMemory, 0, VK_WHOLE_SIZE, 0, (void**)&data));
+	data += subResourceLayout.offset;
+
+	std::ofstream file(filename, std::ios::out | std::ios::binary);
+
+	// ppm binary pixel data
+	for (uint32_t y = 0; y < height; y++)
+	{
+		unsigned int* row = (unsigned int*)data;
+		for (uint32_t x = 0; x < width; x++)
+		{
+			
+			file.write((char*)row, 3);
+			
+			row++;
+		}
+		data += subResourceLayout.rowPitch;
+	}
+	file.close();
+
+	std::cout << "Screenshot saved to disk" << std::endl;
+
+	// Clean up resources
+	vkUnmapMemory(Device().Handle(), dstImageMemory);
+	vkFreeMemory(Device().Handle(), dstImageMemory, nullptr);
+	vkDestroyImage(Device().Handle(), dstImage, nullptr);
+
+	//screenshotSaved = true;
+}
+
 
 }

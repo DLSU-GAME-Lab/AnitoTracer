@@ -81,7 +81,7 @@ private:
 	bool isSceneDirty = false;
 
 	bool initializedUI = false;
-
+	bool screenshot = false;
 	bool isRenderChanged = false;
 
 	bool renderUI_ = true;

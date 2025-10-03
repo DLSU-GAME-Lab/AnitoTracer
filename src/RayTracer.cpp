@@ -224,8 +224,7 @@ void RayTracer::DrawFrame()
 
 	// Check if the accumulation buffer needs to be reset.
 	if (resetAccumulation_ ||
-		userSettings_.RequiresAccumulationReset(previousSettings_) ||
-		!userSettings_.AccumulateRays)
+		userSettings_.RequiresAccumulationReset(previousSettings_))
 	{
 		totalNumberOfSamples_ = 0;
 		resetAccumulation_ = false;
@@ -233,12 +232,14 @@ void RayTracer::DrawFrame()
 
 	previousSettings_ = userSettings_;
 
-	// Keep track of our sample count.
-	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
-	totalNumberOfSamples_ += numberOfSamples_;
+	if (userSettings_.AccumulateRays)
+	{
+		// Keep track of our sample count.
+		numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
+		totalNumberOfSamples_ += numberOfSamples_;
 
-	rayScene_->Update(CommandPool());
-	
+		rayScene_->Update(CommandPool());
+	}
 	Application::DrawFrame();
 }
 
@@ -248,6 +249,17 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	const auto prevTime = time_;
 	time_ = Window().GetTime();
 	const auto timeDelta = time_ - prevTime;
+
+
+	//screenshot
+	std::cout << userSettings_.Screenshot << std::endl;
+	if (userSettings_.Screenshot)
+	{
+		std::cout << "[Initiated Screenshot]" << std::endl;
+		std::string screenshotPath = FileUtils::getAssetsFolderPath().generic_string() + "/screenshot.png";
+		saveScreenshot(screenshotPath.c_str(), commandBuffer);
+		userSettings_.Screenshot = false;
+	}
 
 	//Debug::Log("Rendering frame, time delta: " + std::to_string(timeDelta) + "s");
 
@@ -359,6 +371,14 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 			TransformHistory::getInstance().redo();
 			return;
 		}
+
+
+		if (key == GLFW_KEY_SPACE)
+		{
+			std::cout << "[SPACE]" << std::endl;
+			userSettings_.Screenshot = true;
+			return;
+		}
 	}
 
 	if (UIManager::wantsToCaptureKeyboard())
@@ -458,6 +478,7 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, true);
 		//Debug::Log("Scene marked as dirty! \n");
 	}
+
 }
 
 void RayTracer::LoadScene(const uint32_t sceneIndex)

@@ -42,6 +42,8 @@ namespace Vulkan::RayTracing
 		void CreateBottomLevelStructures(VkCommandBuffer commandBuffer);
 		void CreateTopLevelStructures(VkCommandBuffer commandBuffer);
 		void CreateOutputImage();
+		void saveScreenshot(const char* filename, VkCommandBuffer commandBuffer);
+	
 
 		std::unique_ptr<class DeviceProcedures> deviceProcedures_;
 		std::unique_ptr<class RayTracingProperties> rayTracingProperties_;
@@ -69,6 +71,7 @@ namespace Vulkan::RayTracing
 		
 		std::unique_ptr<class RayTracingPipeline> rayTracingPipeline_;
 		std::unique_ptr<class ShaderBindingTable> shaderBindingTable_;
+
 	};
 
 }

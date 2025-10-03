@@ -110,6 +110,7 @@ namespace
 		userSettings.IsRayTraced = true;
 		userSettings.AccumulateRays = true;
 		userSettings.MultiSampling = false;
+		userSettings.Screenshot = false;
 		userSettings.aaValue = 2;
 		userSettings.NumberOfSamples = options.Samples;
 		userSettings.NumberOfBounces = options.Bounces;
