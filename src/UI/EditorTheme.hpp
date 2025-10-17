@@ -8,14 +8,14 @@ struct EditorTheme
     std::string ICON_FONT;
 
     ImVec4 TEXT;
-    //TextDisabled
+	ImVec4 TEXT_DISABLED;
 
     ImVec4 WINDOW_BG;
     ImVec4 CHILD_BG;
     ImVec4 POPUP_BG;
 
     ImVec4 BORDER;
-    //BorderShadow
+	ImVec4 BORDER_SHADOW;
 
     ImVec4 FRAME_BG;
     ImVec4 FRAME_BG_HOVERED;
@@ -27,15 +27,16 @@ struct EditorTheme
 
     ImVec4 MENU_BAR_BG;
 
-    //Scrollbar BG
-    //Scrollbar Grab
-    //Scrollbar Grab Hovered
-    //Scrollbar Grab Active
+	ImVec4 SCROLLBAR_BG;
+	ImVec4 SCROLLBAR_GRAB;
+	ImVec4 SCROLLBAR_GRAB_HOVERED;
+	ImVec4 SCROLLBAR_GRAB_ACTIVE;
 
-    //Checkmark
+	ImVec4 CHECKMARK;
 
-    //Slider Grab
-    //Slider Grab Active
+	ImVec4 SLIDER_GRAB;
+	ImVec4 SLIDER_GRAB_ACTIVE;
+
     ImVec4 BUTTON;
     ImVec4 BUTTON_HOVERED;
     ImVec4 BUTTON_ACTIVE;
@@ -44,13 +45,13 @@ struct EditorTheme
     ImVec4 HEADER_HOVERED;
     ImVec4 HEADER_ACTIVE;
 
-    //Separator
-    //Separator Hovered
-    //Separator Active
+    ImVec4 SEPARATOR;
+	ImVec4 SEPARATOR_HOVERED;
+	ImVec4 SEPARATOR_ACTIVE;
 
-    //Resize Grip
-    //Resize Grip Hovered
-    //Resize Grip Active
+	ImVec4 RESIZE_GRIP;
+	ImVec4 RESIZE_GRIP_HOVERED;
+	ImVec4 RESIZE_GRIP_ACTIVE;
 
     ImVec4 TAB;
     ImVec4 TAB_HOVERED;
@@ -58,24 +59,24 @@ struct EditorTheme
     ImVec4 TAB_UNFOCUSED;
     ImVec4 TAB_UNFOCUSED_ACTIVE;
 
-    //Plot Lines
-    //Plot Lines Hovered
-    //Plot Histogram
-    //Plot Histogram Hovered
+	ImVec4 PLOT_LINES;
+	ImVec4 PLOT_LINES_HOVERED;
+	ImVec4 PLOT_HISTOGRAM;
+	ImVec4 PLOT_HISTOGRAM_HOVERED;
 
-    //Table Header BG
-    //Table Border Strong
-    //Table Border Light
-    //Table Row BG
-    //Table Row BG ALT
+	ImVec4 TABLE_HEADER_BG;
+	ImVec4 TABLE_BORDER_STRONG;
+	ImVec4 TABLE_BORDER_LIGHT;
+	ImVec4 TABLE_ROW_BG;
+	ImVec4 TABLE_ROW_BG_ALT;
 
     ImVec4 TEXT_SELECTED_BG;
-    //Drag Drop Target
+	ImVec4 DRAG_DROP_TARGET;
 
-    //Nav Highlight
-    //Nav Windowing Highlight
-    //Nav Windowing Dim BG
-    //Modal Window Dim BG
+	ImVec4 NAV_HIGHLIGHT;
+	ImVec4 NAV_WINDOWING_HIGHLIGHT;
+	ImVec4 NAV_WINDOWING_DIM_BG;
+	ImVec4 MODAL_WINDOW_DIM_BG;
 };
 
 extern EditorTheme DarkTheme;
