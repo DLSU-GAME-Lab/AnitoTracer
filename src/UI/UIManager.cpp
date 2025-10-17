@@ -625,14 +625,14 @@ void UIManager::setupImGuiStyle()
 	style.SelectableTextAlign = ImVec2(0.0f, 0.0f);
 
 	style.Colors[ImGuiCol_Text] = DarkTheme.TEXT;
-	//style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.2549019753932953f, 0.2823529541492462f, 0.407843142747879f, 1.0f);
+	style.Colors[ImGuiCol_TextDisabled] = DarkTheme.TEXT_DISABLED;
 	
 	style.Colors[ImGuiCol_WindowBg] = DarkTheme.WINDOW_BG;
 	style.Colors[ImGuiCol_ChildBg] = DarkTheme.CHILD_BG;
 	style.Colors[ImGuiCol_PopupBg] = DarkTheme.POPUP_BG;
 	
 	style.Colors[ImGuiCol_Border] = DarkTheme.BORDER;
-	//style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.2543022036552429f, 0.2832040190696716f, 0.407843142747879f, 0.501960813999176f);
+	style.Colors[ImGuiCol_BorderShadow] = DarkTheme.BORDER_SHADOW;
 
 	style.Colors[ImGuiCol_FrameBg] = DarkTheme.FRAME_BG;
 	style.Colors[ImGuiCol_FrameBgHovered] = DarkTheme.FRAME_BG_HOVERED;
@@ -644,15 +644,15 @@ void UIManager::setupImGuiStyle()
 	
 	style.Colors[ImGuiCol_MenuBarBg] = DarkTheme.MENU_BAR_BG;
 	
-	//style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.01960784383118153f, 0.01960784383118153f, 0.01960784383118153f, 0.5299999713897705f);
-	//style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.3098039329051971f, 0.3098039329051971f, 0.3098039329051971f, 1.0f);
-	//style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.407843142747879f, 0.407843142747879f, 0.407843142747879f, 1.0f);
-	//style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.5098039507865906f, 0.5098039507865906f, 0.5098039507865906f, 1.0f);
+	style.Colors[ImGuiCol_ScrollbarBg] = DarkTheme.SCROLLBAR_BG;
+	style.Colors[ImGuiCol_ScrollbarGrab] = DarkTheme.SCROLLBAR_GRAB;
+	style.Colors[ImGuiCol_ScrollbarGrabHovered] = DarkTheme.SCROLLBAR_GRAB_HOVERED;
+	style.Colors[ImGuiCol_ScrollbarGrabActive] = DarkTheme.SCROLLBAR_GRAB_ACTIVE;
 	
-	//style.Colors[ImGuiCol_CheckMark] = ImVec4(0.7333333492279053f, 0.6039215922355652f, 0.9686274528503418f, 1.0f);
+	style.Colors[ImGuiCol_CheckMark] = DarkTheme.CHECKMARK;
 	
-	//style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.7333333492279053f, 0.6039215922355652f, 0.9686274528503418f, 1.0f);
-	//style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.7942906618118286f, 0.6929580569267273f, 0.9785407781600952f, 1.0f);
+	style.Colors[ImGuiCol_SliderGrab] = DarkTheme.SLIDER_GRAB;
+	style.Colors[ImGuiCol_SliderGrabActive] = DarkTheme.SLIDER_GRAB_ACTIVE;
 	
 	style.Colors[ImGuiCol_Button] = DarkTheme.BUTTON;
 	style.Colors[ImGuiCol_ButtonHovered] = DarkTheme.BUTTON_HOVERED;
@@ -662,13 +662,13 @@ void UIManager::setupImGuiStyle()
 	style.Colors[ImGuiCol_HeaderHovered] = DarkTheme.HEADER_HOVERED;
 	style.Colors[ImGuiCol_HeaderActive] = DarkTheme.HEADER_ACTIVE;
 	
-	//style.Colors[ImGuiCol_Separator] = ImVec4(0.4274509847164154f, 0.4274509847164154f, 0.4980392158031464f, 0.5f);
-	//style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(0.09803921729326248f, 0.4000000059604645f, 0.7490196228027344f, 0.7799999713897705f);
-	//style.Colors[ImGuiCol_SeparatorActive] = ImVec4(0.09803921729326248f, 0.4000000059604645f, 0.7490196228027344f, 1.0f);
+	style.Colors[ImGuiCol_Separator] = DarkTheme.SEPARATOR;
+	style.Colors[ImGuiCol_SeparatorHovered] = DarkTheme.SEPARATOR_HOVERED;
+	style.Colors[ImGuiCol_SeparatorActive] = DarkTheme.SEPARATOR_ACTIVE;
 
-	//style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.2588235437870026f, 0.5882353186607361f, 0.9764705896377563f, 0.2000000029802322f);
-	//style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.2588235437870026f, 0.5882353186607361f, 0.9764705896377563f, 0.6700000166893005f);
-	//style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(0.2588235437870026f, 0.5882353186607361f, 0.9764705896377563f, 0.949999988079071f);
+	style.Colors[ImGuiCol_ResizeGrip] = DarkTheme.RESIZE_GRIP;
+	style.Colors[ImGuiCol_ResizeGripHovered] = DarkTheme.RESIZE_GRIP_HOVERED;
+	style.Colors[ImGuiCol_ResizeGripActive] = DarkTheme.RESIZE_GRIP_ACTIVE;
 	
 	style.Colors[ImGuiCol_Tab] = DarkTheme.TAB;
 	style.Colors[ImGuiCol_TabHovered] = DarkTheme.TAB_HOVERED;
@@ -676,23 +676,23 @@ void UIManager::setupImGuiStyle()
 	style.Colors[ImGuiCol_TabUnfocused] = DarkTheme.TAB_UNFOCUSED;
 	style.Colors[ImGuiCol_TabUnfocusedActive] = DarkTheme.TAB_UNFOCUSED_ACTIVE;
 	
-	//style.Colors[ImGuiCol_PlotLines] = ImVec4(1.0f, 0.6196078658103943f, 0.3921568691730499f, 1.0f);
-	//style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.9686274528503418f, 0.4627451002597809f, 0.5568627715110779f, 1.0f);
-	//style.Colors[ImGuiCol_PlotHistogram] = ImVec4(0.8784313797950745f, 0.686274528503418f, 0.407843142747879f, 1.0f);
-	//style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.0f, 0.6196078658103943f, 0.3921568691730499f, 1.0f);
+	style.Colors[ImGuiCol_PlotLines] = DarkTheme.PLOT_LINES;
+	style.Colors[ImGuiCol_PlotLinesHovered] = DarkTheme.PLOT_LINES_HOVERED;
+	style.Colors[ImGuiCol_PlotHistogram] = DarkTheme.PLOT_HISTOGRAM;
+	style.Colors[ImGuiCol_PlotHistogramHovered] = DarkTheme.PLOT_HISTOGRAM_HOVERED;
 	
-	//style.Colors[ImGuiCol_TableHeaderBg] = ImVec4(0.1019607856869698f, 0.105882354080677f, 0.1490196138620377f, 1.0f);
-	//style.Colors[ImGuiCol_TableBorderStrong] = ImVec4(0.3098039329051971f, 0.3098039329051971f, 0.3490196168422699f, 1.0f);
-	//style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.2274509817361832f, 0.2274509817361832f, 0.2470588237047195f, 1.0f);
-	//style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-	//style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.0f, 1.0f, 1.0f, 0.05999999865889549f);
+	style.Colors[ImGuiCol_TableHeaderBg] = DarkTheme.TABLE_HEADER_BG;
+	style.Colors[ImGuiCol_TableBorderStrong] = DarkTheme.TABLE_BORDER_STRONG;
+	style.Colors[ImGuiCol_TableBorderLight] = DarkTheme.TABLE_BORDER_LIGHT;
+	style.Colors[ImGuiCol_TableRowBg] = DarkTheme.TABLE_ROW_BG;
+	style.Colors[ImGuiCol_TableRowBgAlt] = DarkTheme.TABLE_ROW_BG_ALT;
 	
 	style.Colors[ImGuiCol_TextSelectedBg] = DarkTheme.TEXT_SELECTED_BG;
-	//style.Colors[ImGuiCol_DragDropTarget] = ImVec4(1.0f, 1.0f, 0.0f, 0.8999999761581421f);
+	style.Colors[ImGuiCol_DragDropTarget] = DarkTheme.DRAG_DROP_TARGET;
 	
-	//style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.2588235437870026f, 0.5882353186607361f, 0.9764705896377563f, 1.0f);
-	//style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.699999988079071f);
-	//style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.2000000029802322f);
-	//style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.3499999940395355f);
+	style.Colors[ImGuiCol_NavHighlight] = DarkTheme.NAV_HIGHLIGHT;
+	style.Colors[ImGuiCol_NavWindowingHighlight] = DarkTheme.NAV_WINDOWING_HIGHLIGHT;
+	style.Colors[ImGuiCol_NavWindowingDimBg] = DarkTheme.NAV_WINDOWING_DIM_BG;
+	style.Colors[ImGuiCol_ModalWindowDimBg] = DarkTheme.MODAL_WINDOW_DIM_BG;
 }
 
