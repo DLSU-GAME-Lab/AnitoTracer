@@ -29,6 +29,10 @@ public:
 		ImGuiWindowFlags_NoCollapse |
 		ImGuiWindowFlags_NoFocusOnAppearing 
 	;
+	static constexpr int MainWindowFlags = 
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoBackground;
 };
 
 class AUIScreen

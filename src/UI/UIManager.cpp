@@ -22,6 +22,8 @@
 #include "imgui_freetype.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "imgui_internal.h"
+#include "imgui_stdlib.h"
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 #include "Vulkan/DescriptorPool.hpp"
@@ -133,7 +135,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
 	// Loads Default UI Layout (from imgui_default_layout.ini)
 	//ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
@@ -296,6 +298,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	ImGui_ImplGlfw_NewFrame();
 	ImGui_ImplVulkan_NewFrame();
 	ImGui::NewFrame();
+
+	//Allow docking inside the main viewport 
+	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
