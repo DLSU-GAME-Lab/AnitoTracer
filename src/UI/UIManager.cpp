@@ -204,6 +204,8 @@ void UIManager::initializeUI()
 	const std::shared_ptr<ProfilerScreen> profilerScreen = std::make_shared<ProfilerScreen>();
 	this->uiTable[UINames::PROFILER_SCREEN] = profilerScreen;
 	this->uiList.push_back(profilerScreen);
+	profilerScreen->setEnabled(false);
+	sharedInstance->profilerActive = false;
 
 	//std::shared_ptr<gdeng03::PlaybackScreen> playbackScreen = std::make_shared<gdeng03::PlaybackScreen>();
 	//this->uiTable[uiNames.PLAYBACK_SCREEN] = playbackScreen;
@@ -217,6 +219,8 @@ void UIManager::initializeUI()
 	const std::shared_ptr<SettingsScreen> settingsScreen = std::make_shared<SettingsScreen>();
 	this->uiTable[UINames::SETTINGS_SCREEN] = settingsScreen;
 	this->uiList.push_back(settingsScreen);
+	settingsScreen->setEnabled(false);
+	sharedInstance->settingsActive = false;
 
 	// std::shared_ptr<AssetExplorerScreen> assetExplorerScreen = std::make_shared<AssetExplorerScreen>();
 	// this->uiTable[uiNames.ASSET_EXPLORER_SCREEN] = assetExplorerScreen;
@@ -238,6 +242,13 @@ void UIManager::initializeUI()
 	{
 		if (i->name != UINames::MENU_SCREEN)
 			i->setEnabled(!isHidingUI);
+
+		if (i->name == UINames::SETTINGS_SCREEN)
+			i->setEnabled(settingsActive);
+		
+		if (i->name == UINames::PROFILER_SCREEN)
+			i->setEnabled(profilerActive);
+
 	}
 
 	// Debug::Log("Startup is " + (isStartup ? std::string("true") : std::string("false")));

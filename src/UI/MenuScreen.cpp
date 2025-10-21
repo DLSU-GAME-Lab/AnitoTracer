@@ -158,6 +158,8 @@ void MenuScreen::drawUI()
 		{
 			if (ImGui::MenuItem("Editor Settings", nullptr, UIManager::getInstance()->getEnabled(UINames::SETTINGS_SCREEN)))
 			{
+
+				UIManager::getInstance()->settingsActive = !UIManager::getInstance()->settingsActive;
 				UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN);
 			}
 			if (ImGui::MenuItem("Statistics", nullptr, UIManager::getInstance()->getEnabled("Statistics")))
@@ -174,6 +176,7 @@ void MenuScreen::drawUI()
 			}
 			if (ImGui::MenuItem("Profiler", nullptr, UIManager::getInstance()->getEnabled(UINames::PROFILER_SCREEN)))
 			{
+				UIManager::getInstance()->profilerActive = !UIManager::getInstance()->profilerActive;
 				UIManager::getInstance()->toggleEnabled(UINames::PROFILER_SCREEN);
 			}
 			if (ImGui::MenuItem("Debug Console", nullptr, UIManager::getInstance()->getEnabled(UINames::CONSOLE_SCREEN)))

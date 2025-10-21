@@ -100,6 +100,8 @@ public:
 	static bool wantsToCaptureKeyboard();
 	static bool wantsToCaptureMouse();
 
+	bool settingsActive = false;
+	bool profilerActive = false;
 private:
 	// UserInterface(
 	// 	Vulkan::CommandPool& commandPool,
@@ -132,7 +134,7 @@ private:
 
 	static bool wasUsingGizmoLastFrame;
 	static TransformState gizmoBeforeState;
-
+	
 	static bool gizmoWasManipulated;
 
 	UIList uiList;
