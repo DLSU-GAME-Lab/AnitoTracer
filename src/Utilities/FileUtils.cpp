@@ -132,3 +132,30 @@ bool FileUtils::getTextureFilePath(std::string& filePath, std::string& fileName)
 
 	return false;
 }
+
+bool FileUtils::getLayoutFilePath(std::string& filePath, std::string& fileName)
+{
+	wchar_t path[MAX_PATH] = L"";
+
+	constexpr LPCWSTR fileFormats =
+		L"ImGui Layout (.ini)\0*.ini\0";
+
+	OPENFILENAME openFile = OPENFILENAME();
+	openFile.lStructSize = sizeof(OPENFILENAME);
+	openFile.hwndOwner = nullptr;
+	openFile.nMaxFile = MAX_PATH;
+	openFile.lpstrFile = path;
+	openFile.lpstrFilter = fileFormats;
+	openFile.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+	if (GetOpenFileName(&openFile)) {
+		std::wstring ws(path);
+		std::string str(ws.begin(), ws.end());
+		std::ranges::replace(str, '\\', '/');
+		fileName = std::filesystem::path(str).stem().generic_string();
+		filePath = str;
+		return true;
+	}
+
+	return false;
+}
