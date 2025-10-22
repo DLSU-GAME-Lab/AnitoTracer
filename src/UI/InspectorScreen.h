@@ -24,6 +24,8 @@ private:
 	void updateLightPropsDisplays();
 	void FormatMatImage();
 	void drawMaterialsTab();
+	void drawTransformTab();
+	void drawVector3Field(const char* label, float* values);
 	friend class UIManager;
 
 	float positionDisplay[3] = {0.0f, 0.0f, 0.0f};
@@ -47,5 +49,9 @@ private:
 	Texture* materialDisplay;
 	
 	float lightIntensityMultiplier = 500000.0f;
+
+	float transformInputWindowWidth = 60.0f;
+	float transformUniformScalingButtonWidth = 24.0f;
+	float transformLabelWidth = 150.0f;
 };
 

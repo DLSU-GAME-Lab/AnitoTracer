@@ -10,6 +10,7 @@
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/GameObject.h"
 #include "From-GDGRAP2/TransformHistory.h"
+#include "IconsMaterialDesign.h"
 
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
@@ -41,19 +42,7 @@ void InspectorScreen::drawUI()
 			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		}
 
-		if (ImGui::InputFloat3("Position", this->positionDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
-
-
-
-		if (ImGui::InputFloat3("Rotation", this->rotationDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
-
-		if (this->selectedObject->getType() == GameObject::PrimitiveType::SPHERE)
-		{
-			if (ImGui::InputFloat("Resize", this->scaleDisplay, 0, 0, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate(); }
-		}
-		else {
-			if (ImGui::InputFloat3("Scale", this->scaleDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
-		}
+		this->drawTransformTab();
 
 		// Light "Component"
 		if (this->selectedObject->getType() == GameObject::PrimitiveType::POINT_LIGHT
@@ -204,6 +193,101 @@ void InspectorScreen::drawMaterialsTab()
 	// }
 }
 
+void InspectorScreen::drawTransformTab()
+{
+	if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody)) // Label, Button, Input Rects
+		{
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, this->transformLabelWidth);
+			ImGui::TableSetupColumn("Button", ImGuiTableColumnFlags_WidthFixed, this->transformUniformScalingButtonWidth); // reserve space for link button
+			ImGui::TableSetupColumn("Fields", ImGuiTableColumnFlags_WidthStretch, this->transformInputWindowWidth *4);
+
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Position");
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(this->transformUniformScalingButtonWidth, 0.0f)); // placeholder to keep alignment
+			ImGui::TableSetColumnIndex(2);
+			this->drawVector3Field("Pos", this->positionDisplay);
+
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::TextUnformatted("Rotation");
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(this->transformUniformScalingButtonWidth, 0.0f));
+			ImGui::TableSetColumnIndex(2);
+			this->drawVector3Field("Rot", this->rotationDisplay);
+
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::TextUnformatted("Scale");
+			ImGui::TableSetColumnIndex(1);
+			ImGui::PushID("ScaleLink");
+			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_INSERT_LINK : ICON_MD_LINK, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
+			{
+				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
+			}
+
+			ImGui::PopID();
+			ImGui::TableSetColumnIndex(2);
+			this->drawVector3Field("Sca", this->scaleDisplay);
+
+			ImGui::EndTable();
+		}
+
+
+	}
+
+
+	/*if (ImGui::InputFloat3("Position", &this->positionDisplay[0], "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
+	if (ImGui::InputFloat3("Rotation", this->rotationDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
+
+	if (this->selectedObject->getType() == GameObject::PrimitiveType::SPHERE)
+	{
+		if (ImGui::InputFloat("Resize", this->scaleDisplay, 0, 0, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate(); }
+	}
+	else {
+		if (ImGui::InputFloat3("Scale", this->scaleDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
+	}*/
+}
+
+void InspectorScreen::drawVector3Field(const char* label, float* values)
+{
+	ImGui::PushID(label);
+
+	auto axisInput = [&](const char* name, float& v)
+		{
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text(name);
+
+			ImGui::SameLine();
+
+			ImGui::PushItemWidth(this->transformInputWindowWidth);
+
+			std::string id = "##";
+			id += label;
+			id += name;
+
+			if (ImGui::DragFloat(id.c_str(), &v, 0.1f, 1.0f))
+			{
+				if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate();
+			}
+
+			ImGui::PopItemWidth();
+
+			ImGui::SameLine();
+		};
+
+	axisInput("X", values[0]);
+	axisInput("Y", values[1]);
+	axisInput("Z", values[2]);
+
+	ImGui::NewLine();
+	ImGui::PopID();
+}
+
 void InspectorScreen::onTransformUpdate() const
 {
 	if (this->selectedObject != nullptr)
@@ -269,10 +353,7 @@ void InspectorScreen::onTransformUpdate() const
 			this->selectedObject->getLocalScale()
 		};
 
-		if (ImGui::IsItemDeactivatedAfterEdit())
-			TransformHistory::getInstance().recordChange(this->selectedObject.get(), before, after);
-
-
+		TransformHistory::getInstance().recordChange(this->selectedObject.get(), before, after);
 	}
 }
 
