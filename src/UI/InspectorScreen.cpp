@@ -41,7 +41,10 @@ void InspectorScreen::drawUI()
 			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		}
 
-		if (ImGui::InputFloat3("Position", this->positionDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate(); }
+		if (ImGui::InputFloat3("Position", this->positionDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
+
+
+
 		if (ImGui::InputFloat3("Rotation", this->rotationDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
 
 		if (this->selectedObject->getType() == GameObject::PrimitiveType::SPHERE)
@@ -157,6 +160,11 @@ void InspectorScreen::SendResult(String materialPath)
 	// this->popupOpen = false;
 }
 
+bool InspectorScreen::IsUniformScalingEnabled() const
+{
+	return this->isUniformScalingEnabled;
+}
+
 void InspectorScreen::FormatMatImage()
 {
 	//convert to wchar format
@@ -206,7 +214,6 @@ void InspectorScreen::onTransformUpdate() const
 			this->selectedObject->getLocalScale()
 		};
 
-
 		this->selectedObject->setLocalPosition(this->positionDisplay[0], this->positionDisplay[1], this->positionDisplay[2]);
 		this->selectedObject->setLocalRotation(this->rotationDisplay[0], this->rotationDisplay[1], this->rotationDisplay[2]);
 
@@ -216,7 +223,44 @@ void InspectorScreen::onTransformUpdate() const
 		}
 		else
 		{
-			this->selectedObject->setLocalScale(this->scaleDisplay[0], this->scaleDisplay[1], this->scaleDisplay[2]);
+			// Uniform Scaling
+			if (IsUniformScalingEnabled())
+			{
+				float x = before.scale.x;
+				float y = before.scale.y;
+				float z = before.scale.z;
+
+				if (this->scaleDisplay[0] != before.scale.x) // check which value was manipulated
+				{
+					float ratio = this->scaleDisplay[0] / before.scale.x; //New / Old scale
+					x = this->scaleDisplay[0];
+					y = before.scale.y * ratio;
+					z = before.scale.z * ratio;
+				}
+
+				else if (this->scaleDisplay[1] != before.scale.y)
+				{
+					float ratio = this->scaleDisplay[1] / before.scale.y;
+					x = before.scale.x * ratio;
+					y = this->scaleDisplay[1];
+					z = before.scale.z * ratio;
+				}
+
+				else if (this->scaleDisplay[2] != before.scale.z)
+				{
+					float ratio = this->scaleDisplay[2] / before.scale.z;
+					x = before.scale.x * ratio;
+					y = before.scale.y * ratio;
+					z = this->scaleDisplay[2];
+				}
+
+				this->selectedObject->setLocalScale(x, y, z);
+			}
+
+			else
+			{
+				this->selectedObject->setLocalScale(this->scaleDisplay[0], this->scaleDisplay[1], this->scaleDisplay[2]);
+			}
 		}
 
 		TransformState after{
@@ -225,7 +269,8 @@ void InspectorScreen::onTransformUpdate() const
 			this->selectedObject->getLocalScale()
 		};
 
-		TransformHistory::getInstance().recordChange(this->selectedObject.get(), before, after);
+		if (ImGui::IsItemDeactivatedAfterEdit())
+			TransformHistory::getInstance().recordChange(this->selectedObject.get(), before, after);
 
 
 	}

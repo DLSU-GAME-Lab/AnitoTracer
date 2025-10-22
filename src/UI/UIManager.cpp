@@ -381,6 +381,34 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 				scale[2] /= parentScale.z;
 			}
 
+			auto inspector = dynamic_pointer_cast<InspectorScreen>(sharedInstance->findUIByName(UINames::INSPECTOR_SCREEN));
+
+			// Uniform Scaling
+			// Check from InspectorWindow if uniform scaling is enabled
+			if (inspector->IsUniformScalingEnabled())
+			{
+				if (scale[0] != gizmoBeforeState.scale.x) // check which value was manipulated
+				{
+					float ratio = scale[0] / gizmoBeforeState.scale.x; //New / Old scale
+					scale[1] = gizmoBeforeState.scale.y * ratio;
+					scale[2] = gizmoBeforeState.scale.z * ratio;
+				}
+
+				if (scale[1] != gizmoBeforeState.scale.y)
+				{
+					float ratio = scale[1] / gizmoBeforeState.scale.y; 
+					scale[0] = gizmoBeforeState.scale.x * ratio;
+					scale[2] = gizmoBeforeState.scale.z * ratio;
+				}
+
+				if (scale[2] != gizmoBeforeState.scale.z)
+				{
+					float ratio = scale[2] / gizmoBeforeState.scale.z;
+					scale[0] = gizmoBeforeState.scale.x * ratio;
+					scale[1] = gizmoBeforeState.scale.y * ratio;
+				}
+			}
+
 			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced)
 			{
 				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
