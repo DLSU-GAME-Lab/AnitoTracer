@@ -40,7 +40,7 @@ private:
 	ImVec4 lightColorDisplay = ImVec4(1, 1, 1, 1);
 	Light::LightType lightTypeDisplay = Light::PointLight;
 
-	bool isUniformScalingEnabled = true;
+	bool isUniformScalingEnabled = false;
 
 	std::shared_ptr<GameObject> selectedObject = nullptr;
 	const String DEFAULT_MATERIAL = "None";

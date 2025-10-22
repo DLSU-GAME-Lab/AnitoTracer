@@ -12,6 +12,7 @@
 #include "From-GDGRAP2/TransformHistory.h"
 #include "IconsMaterialDesign.h"
 
+
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
 }
@@ -225,12 +226,17 @@ void InspectorScreen::drawTransformTab()
 			ImGui::TextUnformatted("Scale");
 			ImGui::TableSetColumnIndex(1);
 			ImGui::PushID("ScaleLink");
-			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_INSERT_LINK : ICON_MD_LINK, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
+
+			ImGui::PushFont(UIManager::getInstance()->GetIconFont());
+
+			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
 			{
 				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
 			}
 
+			ImGui::PopFont();
 			ImGui::PopID();
+
 			ImGui::TableSetColumnIndex(2);
 			this->drawVector3Field("Sca", this->scaleDisplay);
 

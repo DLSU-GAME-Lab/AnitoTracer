@@ -97,6 +97,8 @@ public:
 	static bool wantsToCaptureKeyboard();
 	static bool wantsToCaptureMouse();
 
+	ImFont* GetIconFont();
+
 private:
 	// UserInterface(
 	// 	Vulkan::CommandPool& commandPool,
@@ -131,6 +133,8 @@ private:
 	static TransformState gizmoBeforeState;
 
 	static bool gizmoWasManipulated;
+
+	ImFont* iconFont = nullptr;
 
 	UIList uiList;
 	UITable uiTable;

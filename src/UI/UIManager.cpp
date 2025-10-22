@@ -163,9 +163,14 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 	io.FontDefault = defaultFont;
 
-	static const ImWchar icons_ranges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
+	static const ImWchar iconRanges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
+	ImFontConfig* iconFontConfig = new ImFontConfig();
+	iconFontConfig->MergeMode = false;
+	iconFontConfig->PixelSnapH = true;
+	iconFontConfig->GlyphOffset =ImVec2(1.0f, 0.0f);
 
-	if (!io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 13 * scaleFactor))
+	sharedInstance->iconFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 13 * scaleFactor, iconFontConfig, iconRanges);
+	if (!sharedInstance->iconFont)
 	{
 		Throw(std::runtime_error("failed to load Icon font"));
 	}
@@ -616,6 +621,11 @@ bool UIManager::wantsToCaptureKeyboard()
 bool UIManager::wantsToCaptureMouse()
 {
 	return ImGui::GetIO().WantCaptureMouse;
+}
+
+ImFont* UIManager::GetIconFont()
+{
+	return this->iconFont;
 }
 
 void UIManager::setupImGuiStyle()
