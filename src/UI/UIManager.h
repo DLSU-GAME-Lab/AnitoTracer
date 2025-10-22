@@ -135,6 +135,7 @@ private:
 	static bool gizmoWasManipulated;
 
 	ImFont* iconFont = nullptr;
+	bool isCTRLHeld = false;
 
 	UIList uiList;
 	UITable uiTable;

@@ -330,15 +330,15 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	if (ModelManager::getInstance()->getSelectedObject() != nullptr)
 	{
 		static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
-		bool isCTRLHeld = false;
 
 		if (!ImGui::IsMouseDown(ImGuiMouseButton_Right))
 		{
 			if (ImGui::IsKeyPressed(ImGuiKey_W)) mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
 			if (ImGui::IsKeyPressed(ImGuiKey_E)) mCurrentGizmoOperation = ImGuizmo::ROTATE;
 			if (ImGui::IsKeyPressed(ImGuiKey_R)) mCurrentGizmoOperation = ImGuizmo::SCALE;
-			if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) isCTRLHeld = true;
 		}
+
+		if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) isCTRLHeld = true;
 
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
 		bool isUsingGizmoNow = ImGuizmo::IsUsing();
@@ -401,14 +401,14 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 					scale[2] = gizmoBeforeState.scale.z * ratio;
 				}
 
-				if (scale[1] != gizmoBeforeState.scale.y)
+				else if (scale[1] != gizmoBeforeState.scale.y)
 				{
 					float ratio = scale[1] / gizmoBeforeState.scale.y; 
 					scale[0] = gizmoBeforeState.scale.x * ratio;
 					scale[2] = gizmoBeforeState.scale.z * ratio;
 				}
 
-				if (scale[2] != gizmoBeforeState.scale.z)
+				else if (scale[2] != gizmoBeforeState.scale.z)
 				{
 					float ratio = scale[2] / gizmoBeforeState.scale.z;
 					scale[0] = gizmoBeforeState.scale.x * ratio;
