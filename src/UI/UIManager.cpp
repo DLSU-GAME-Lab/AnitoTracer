@@ -325,12 +325,14 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	if (ModelManager::getInstance()->getSelectedObject() != nullptr)
 	{
 		static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
+		bool isCTRLHeld = false;
 
 		if (!ImGui::IsMouseDown(ImGuiMouseButton_Right))
 		{
 			if (ImGui::IsKeyPressed(ImGuiKey_W)) mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
 			if (ImGui::IsKeyPressed(ImGuiKey_E)) mCurrentGizmoOperation = ImGuizmo::ROTATE;
 			if (ImGui::IsKeyPressed(ImGuiKey_R)) mCurrentGizmoOperation = ImGuizmo::SCALE;
+			if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) isCTRLHeld = true;
 		}
 
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
@@ -385,7 +387,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 			// Uniform Scaling
 			// Check from InspectorWindow if uniform scaling is enabled
-			if (inspector->IsUniformScalingEnabled())
+			if (inspector->IsUniformScalingEnabled() || (mCurrentGizmoOperation == ImGuizmo::SCALE && isCTRLHeld))
 			{
 				if (scale[0] != gizmoBeforeState.scale.x) // check which value was manipulated
 				{

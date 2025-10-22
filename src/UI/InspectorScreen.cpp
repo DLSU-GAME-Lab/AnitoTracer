@@ -236,8 +236,6 @@ void InspectorScreen::drawTransformTab()
 
 			ImGui::EndTable();
 		}
-
-
 	}
 
 
