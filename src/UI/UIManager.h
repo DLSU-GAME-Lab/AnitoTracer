@@ -48,6 +48,7 @@ public:
 	typedef std::string String;
 	typedef std::vector<std::shared_ptr<AUIScreen>> UIList;
 	typedef std::unordered_map<String, std::shared_ptr<AUIScreen>> UITable;
+	typedef std::vector<String> SavedLayouts;
 
 	VULKAN_NON_COPIABLE(UIManager)
 
@@ -60,10 +61,12 @@ public:
 
 	void initializeUI();
 	static void saveLayout();
+	static void saveLayout(String name);
 	static void saveDefaultLayout();
 	static void saveDynamicLayout();
 	void loadDynamicLayout();
 	void loadLayout();
+	void loadLayoutFromFile();
 	void resetLayout();
 
 	bool getEnabled(const std::string& name);
@@ -99,6 +102,8 @@ public:
 
 	ImFont* GetIconFont();
 
+	bool settingsActive = false;
+	bool profilerActive = false;
 private:
 	// UserInterface(
 	// 	Vulkan::CommandPool& commandPool,
@@ -131,7 +136,7 @@ private:
 
 	static bool wasUsingGizmoLastFrame;
 	static TransformState gizmoBeforeState;
-
+	
 	static bool gizmoWasManipulated;
 
 	ImFont* iconFont = nullptr;
@@ -139,5 +144,7 @@ private:
 
 	UIList uiList;
 	UITable uiTable;
+
+	String currentLayoutPath;
 };
 

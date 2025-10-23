@@ -8,6 +8,11 @@ struct ApplicationConfig
 	static const int APP_WINDOW_WIDTH = 1920;
 	static constexpr int APP_WINDOW_HEIGHT = static_cast<int>(APP_WINDOW_WIDTH / ASPECT_RATIO);
 
+	static const inline std::string IMGUI_INI_SAVE_PATH = ([] {
+		std::filesystem::path slnDir = SOLUTION_DIR;
+		return (slnDir / "src/").string();
+		})();
+
 	static const inline std::string IMGUI_INI_PATH = ([] {
 		std::filesystem::path slnDir = SOLUTION_DIR;
 		return (slnDir / "src/imgui.ini").string();

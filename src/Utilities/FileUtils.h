@@ -14,6 +14,8 @@ public:
 
 	static bool getModelFilePath(std::string& filePath, std::string& fileName);
 	static bool getTextureFilePath(std::string& filePath, std::string& fileName);
+	static bool getLayoutFilePath(std::string& filePath, std::string& fileName);
+
 	//void getModelFilePath(std::string* filePath);
 };
 
