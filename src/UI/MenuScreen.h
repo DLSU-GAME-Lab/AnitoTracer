@@ -27,6 +27,8 @@ private:
 	void onCreateLucyClicked(); 
 	void onCreateCornellClicked();
 	void ShowSaveSceneAsMenu();
+	void ShowSaveLayoutAsMenu();
+	void ShowLoadLayoutAsMenu();
 
 	void ShowLoadObjMenu();
 	void OnMaterialComponentClicked();
@@ -54,6 +56,8 @@ private:
 	bool isColorPickerOpen = false;
 	bool isOpen = false;
 	bool isSaveSceneAsOpen = false;
+	bool isSaveLayoutOpen = false;
+	bool isLoadLayoutOpen = false;
 
 	bool openSceneSelected = false;
 	bool isLoading = false;

@@ -116,7 +116,7 @@ namespace
 		userSettings.MaxNumberOfSamples = options.MaxSamples;
 
 		userSettings.ShowSettings = !options.Benchmark;
-		userSettings.ShowOverlay = true;
+		userSettings.ShowOverlay = false;
 
 		userSettings.ShowHeatmap = false;
 		userSettings.HeatmapScale = 1.5f;

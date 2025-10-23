@@ -22,6 +22,8 @@
 #include "imgui_freetype.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "imgui_internal.h"
+#include "imgui_stdlib.h"
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 #include "Vulkan/DescriptorPool.hpp"
@@ -129,13 +131,14 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 		Throw(std::runtime_error("failed to initialise ImGui vulkan adapter"));
 	}
 
+	sharedInstance->currentLayoutPath = ApplicationConfig::IMGUI_INI_PATH;
 	auto& io = ImGui::GetIO();
 
-	io.IniFilename = "../../../src/imgui.ini";
+	io.IniFilename = sharedInstance->currentLayoutPath.c_str();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
 	// Loads Default UI Layout (from imgui_default_layout.ini)
 	//ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
@@ -198,6 +201,15 @@ void UIManager::initializeUI()
 	this->uiTable[UINames::HIERARCHY_SCREEN] = hierarchyScreen;
 	this->uiList.push_back(hierarchyScreen);
 
+	//PROJECTS/FILE EXPLORER WINDOW
+	//=============================================================================================
+	/*
+	const std::shared_ptr<> menuScreen = std::make_shared<MenuScreen>();
+	this->uiTable[UINames::MENU_SCREEN] = menuScreen;
+	this->uiList.push_back(menuScreen);
+	*/
+	//=============================================================================================
+
 	const std::shared_ptr<InspectorScreen> inspectorScreen = std::make_shared<InspectorScreen>();
 	this->uiTable[UINames::INSPECTOR_SCREEN] = inspectorScreen;
 	this->uiList.push_back(inspectorScreen);
@@ -210,6 +222,8 @@ void UIManager::initializeUI()
 	const std::shared_ptr<ProfilerScreen> profilerScreen = std::make_shared<ProfilerScreen>();
 	this->uiTable[UINames::PROFILER_SCREEN] = profilerScreen;
 	this->uiList.push_back(profilerScreen);
+	profilerScreen->setEnabled(false);
+	sharedInstance->profilerActive = false;
 
 	//std::shared_ptr<gdeng03::PlaybackScreen> playbackScreen = std::make_shared<gdeng03::PlaybackScreen>();
 	//this->uiTable[uiNames.PLAYBACK_SCREEN] = playbackScreen;
@@ -223,6 +237,8 @@ void UIManager::initializeUI()
 	const std::shared_ptr<SettingsScreen> settingsScreen = std::make_shared<SettingsScreen>();
 	this->uiTable[UINames::SETTINGS_SCREEN] = settingsScreen;
 	this->uiList.push_back(settingsScreen);
+	settingsScreen->setEnabled(false);
+	sharedInstance->settingsActive = false;
 
 	// std::shared_ptr<AssetExplorerScreen> assetExplorerScreen = std::make_shared<AssetExplorerScreen>();
 	// this->uiTable[uiNames.ASSET_EXPLORER_SCREEN] = assetExplorerScreen;
@@ -244,6 +260,13 @@ void UIManager::initializeUI()
 	{
 		if (i->name != UINames::MENU_SCREEN)
 			i->setEnabled(!isHidingUI);
+
+		if (i->name == UINames::SETTINGS_SCREEN)
+			i->setEnabled(settingsActive);
+		
+		if (i->name == UINames::PROFILER_SCREEN)
+			i->setEnabled(profilerActive);
+
 	}
 
 	// Debug::Log("Startup is " + (isStartup ? std::string("true") : std::string("false")));
@@ -262,6 +285,12 @@ void UIManager::initializeUI()
 void UIManager::saveLayout()
 {
 	ImGui::SaveIniSettingsToDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+}
+
+void UIManager::saveLayout(String name)
+{
+	String filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + name + ".ini";
+	ImGui::SaveIniSettingsToDisk(filename.c_str());
 }
 
 void UIManager::saveDefaultLayout()
@@ -285,6 +314,13 @@ void UIManager::loadLayout()
 	isLoadingLayout = true;
 }
 
+void UIManager::loadLayoutFromFile()
+{
+	String filename;
+	FileUtils::getLayoutFilePath(sharedInstance->currentLayoutPath, filename);
+	isLoadingLayout = true;
+}
+
 void UIManager::resetLayout()
 {
 	isResettingLayout = true;
@@ -295,7 +331,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 {
 	if (isLoadingLayout)
 	{
-		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+		ImGui::LoadIniSettingsFromDisk(sharedInstance->currentLayoutPath.c_str());
 		isLoadingLayout = false;
 		isStartup = false;
 	}
@@ -314,6 +350,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	ImGui_ImplGlfw_NewFrame();
 	ImGui_ImplVulkan_NewFrame();
 	ImGui::NewFrame();
+
+	//Allow docking inside the main viewport 
+	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
@@ -477,6 +516,15 @@ void UIManager::reset()
 
 void UIManager::drawAllUI() const
 {
+	//PROJECTS/FILE EXPLORER WINDOW
+	if (ImGui::Begin("Project", nullptr, UISettings::GlobalWindowFlags))
+	{
+		ImGui::Text("UNDER CONSTRUCTION");
+		ImGui::Text("INSERT PROJECT/ASSETS PANEL HERE");
+	}
+	ImGui::End();
+
+
 	for (const auto& i : this->uiList)
 	{
 		if (i->enabled)

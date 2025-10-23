@@ -158,6 +158,8 @@ void MenuScreen::drawUI()
 		{
 			if (ImGui::MenuItem("Editor Settings", nullptr, UIManager::getInstance()->getEnabled(UINames::SETTINGS_SCREEN)))
 			{
+
+				UIManager::getInstance()->settingsActive = !UIManager::getInstance()->settingsActive;
 				UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN);
 			}
 			if (ImGui::MenuItem("Statistics", nullptr, UIManager::getInstance()->getEnabled("Statistics")))
@@ -174,6 +176,7 @@ void MenuScreen::drawUI()
 			}
 			if (ImGui::MenuItem("Profiler", nullptr, UIManager::getInstance()->getEnabled(UINames::PROFILER_SCREEN)))
 			{
+				UIManager::getInstance()->profilerActive = !UIManager::getInstance()->profilerActive;
 				UIManager::getInstance()->toggleEnabled(UINames::PROFILER_SCREEN);
 			}
 			if (ImGui::MenuItem("Debug Console", nullptr, UIManager::getInstance()->getEnabled(UINames::CONSOLE_SCREEN)))
@@ -232,12 +235,13 @@ void MenuScreen::drawUI()
 			// }
 			if (ImGui::MenuItem("Save Window Layout"))
 			{
-				UIManager::saveLayout();
+				this->isSaveLayoutOpen = true;
 			}
 
 			if (ImGui::MenuItem("Load Window Layout"))
 			{
-				UIManager::getInstance()->loadLayout();
+				UIManager::getInstance()->loadLayoutFromFile();
+				//this->isLoadLayoutOpen = true;
 			}
 			
 			if (ImGui::MenuItem("Reset Window Layout"))
@@ -261,6 +265,10 @@ void MenuScreen::drawUI()
 			ShowColorPickerWindow();
 		if (isSaveSceneAsOpen)
 			ShowSaveSceneAsMenu();
+		if (isSaveLayoutOpen)
+			ShowSaveLayoutAsMenu();
+		if (isLoadLayoutOpen)
+			ShowLoadLayoutAsMenu();
 
 		ImGui::EndMainMenuBar();
 	}
@@ -513,6 +521,51 @@ void MenuScreen::ShowSaveSceneAsMenu()
 		{
 			SceneIO::getInstance()->SaveCurrentScene(name);
 			isSaveSceneAsOpen = false;
+		}
+	}
+	ImGui::End();
+}
+
+void MenuScreen::ShowSaveLayoutAsMenu()
+{
+	ImGui::SetNextWindowSize(ImVec2(500, 400));
+
+	if (ImGui::Begin("Save Layout", &isSaveLayoutOpen))
+	{
+		static std::string name = "New Layout";
+
+		ImGui::Text("Save the current layout as:");
+		ImGui::InputTextWithHint("Layout Name", name.c_str(), &name);
+
+		if (ImGui::Button("Save", ImVec2(150, 25)))
+		{
+			UIManager::getInstance()->saveLayout(name);
+			isSaveLayoutOpen = false;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(150, 25)))
+		{
+			isSaveLayoutOpen = false;
+		}
+	}
+	ImGui::End();
+}
+
+void MenuScreen::ShowLoadLayoutAsMenu()
+{
+	ImGui::SetNextWindowSize(ImVec2(200, 50));
+
+	if (ImGui::Begin("Save Layout", &isLoadLayoutOpen))
+	{
+		if (ImGui::Button("Select File", ImVec2(200, 25)))
+		{
+			UIManager::getInstance()->loadLayoutFromFile();
+			isLoadLayoutOpen = false;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(150, 25)))
+		{
+			isLoadLayoutOpen = false;
 		}
 	}
 	ImGui::End();
