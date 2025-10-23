@@ -10,6 +10,8 @@
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/GameObject.h"
 #include "From-GDGRAP2/TransformHistory.h"
+#include "IconsMaterialDesign.h"
+
 
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
@@ -41,16 +43,7 @@ void InspectorScreen::drawUI()
 			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		}
 
-		if (ImGui::InputFloat3("Position", this->positionDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate(); }
-		if (ImGui::InputFloat3("Rotation", this->rotationDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
-
-		if (this->selectedObject->getType() == GameObject::PrimitiveType::SPHERE)
-		{
-			if (ImGui::InputFloat("Resize", this->scaleDisplay, 0, 0, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate(); }
-		}
-		else {
-			if (ImGui::InputFloat3("Scale", this->scaleDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
-		}
+		this->drawTransformTab();
 
 		// Light "Component"
 		if (this->selectedObject->getType() == GameObject::PrimitiveType::POINT_LIGHT
@@ -157,6 +150,11 @@ void InspectorScreen::SendResult(String materialPath)
 	// this->popupOpen = false;
 }
 
+bool InspectorScreen::IsUniformScalingEnabled() const
+{
+	return this->isUniformScalingEnabled;
+}
+
 void InspectorScreen::FormatMatImage()
 {
 	//convert to wchar format
@@ -196,6 +194,104 @@ void InspectorScreen::drawMaterialsTab()
 	// }
 }
 
+void InspectorScreen::drawTransformTab()
+{
+	if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody)) // Label, Button, Input Rects
+		{
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, this->transformLabelWidth);
+			ImGui::TableSetupColumn("Button", ImGuiTableColumnFlags_WidthFixed, this->transformUniformScalingButtonWidth); // reserve space for link button
+			ImGui::TableSetupColumn("Fields", ImGuiTableColumnFlags_WidthStretch, this->transformInputWindowWidth *4);
+
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Position");
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(this->transformUniformScalingButtonWidth, 0.0f)); // placeholder to keep alignment
+			ImGui::TableSetColumnIndex(2);
+			this->drawVector3Field("Pos", this->positionDisplay);
+
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::TextUnformatted("Rotation");
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(this->transformUniformScalingButtonWidth, 0.0f));
+			ImGui::TableSetColumnIndex(2);
+			this->drawVector3Field("Rot", this->rotationDisplay);
+
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::TextUnformatted("Scale");
+			ImGui::TableSetColumnIndex(1);
+			ImGui::PushID("ScaleLink");
+
+			ImGui::PushFont(UIManager::getInstance()->GetIconFont());
+
+			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
+			{
+				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
+			}
+
+			ImGui::PopFont();
+			ImGui::PopID();
+
+			ImGui::TableSetColumnIndex(2);
+			this->drawVector3Field("Sca", this->scaleDisplay);
+
+			ImGui::EndTable();
+		}
+	}
+
+
+	/*if (ImGui::InputFloat3("Position", &this->positionDisplay[0], "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
+	if (ImGui::InputFloat3("Rotation", this->rotationDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
+
+	if (this->selectedObject->getType() == GameObject::PrimitiveType::SPHERE)
+	{
+		if (ImGui::InputFloat("Resize", this->scaleDisplay, 0, 0, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate(); }
+	}
+	else {
+		if (ImGui::InputFloat3("Scale", this->scaleDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
+	}*/
+}
+
+void InspectorScreen::drawVector3Field(const char* label, float* values)
+{
+	ImGui::PushID(label);
+
+	auto axisInput = [&](const char* name, float& v)
+		{
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text(name);
+
+			ImGui::SameLine();
+
+			ImGui::PushItemWidth(this->transformInputWindowWidth);
+
+			std::string id = "##";
+			id += label;
+			id += name;
+
+			if (ImGui::DragFloat(id.c_str(), &v, 0.1f, 1.0f))
+			{
+				if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate();
+			}
+
+			ImGui::PopItemWidth();
+
+			ImGui::SameLine();
+		};
+
+	axisInput("X", values[0]);
+	axisInput("Y", values[1]);
+	axisInput("Z", values[2]);
+
+	ImGui::NewLine();
+	ImGui::PopID();
+}
+
 void InspectorScreen::onTransformUpdate() const
 {
 	if (this->selectedObject != nullptr)
@@ -206,7 +302,6 @@ void InspectorScreen::onTransformUpdate() const
 			this->selectedObject->getLocalScale()
 		};
 
-
 		this->selectedObject->setLocalPosition(this->positionDisplay[0], this->positionDisplay[1], this->positionDisplay[2]);
 		this->selectedObject->setLocalRotation(this->rotationDisplay[0], this->rotationDisplay[1], this->rotationDisplay[2]);
 
@@ -216,7 +311,44 @@ void InspectorScreen::onTransformUpdate() const
 		}
 		else
 		{
-			this->selectedObject->setLocalScale(this->scaleDisplay[0], this->scaleDisplay[1], this->scaleDisplay[2]);
+			// Uniform Scaling
+			if (IsUniformScalingEnabled())
+			{
+				float x = before.scale.x;
+				float y = before.scale.y;
+				float z = before.scale.z;
+
+				if (this->scaleDisplay[0] != before.scale.x) // check which value was manipulated
+				{
+					float ratio = this->scaleDisplay[0] / before.scale.x; //New / Old scale
+					x = this->scaleDisplay[0];
+					y = before.scale.y * ratio;
+					z = before.scale.z * ratio;
+				}
+
+				else if (this->scaleDisplay[1] != before.scale.y)
+				{
+					float ratio = this->scaleDisplay[1] / before.scale.y;
+					x = before.scale.x * ratio;
+					y = this->scaleDisplay[1];
+					z = before.scale.z * ratio;
+				}
+
+				else if (this->scaleDisplay[2] != before.scale.z)
+				{
+					float ratio = this->scaleDisplay[2] / before.scale.z;
+					x = before.scale.x * ratio;
+					y = before.scale.y * ratio;
+					z = this->scaleDisplay[2];
+				}
+
+				this->selectedObject->setLocalScale(x, y, z);
+			}
+
+			else
+			{
+				this->selectedObject->setLocalScale(this->scaleDisplay[0], this->scaleDisplay[1], this->scaleDisplay[2]);
+			}
 		}
 
 		TransformState after{
@@ -226,8 +358,6 @@ void InspectorScreen::onTransformUpdate() const
 		};
 
 		TransformHistory::getInstance().recordChange(this->selectedObject.get(), before, after);
-
-
 	}
 }
 

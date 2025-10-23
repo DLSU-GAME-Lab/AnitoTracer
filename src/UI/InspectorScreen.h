@@ -11,6 +11,8 @@ public:
 	InspectorScreen();
 	~InspectorScreen();
 	void SendResult(String materialPath);
+
+	bool IsUniformScalingEnabled() const;
 	
 private:
 
@@ -22,6 +24,8 @@ private:
 	void updateLightPropsDisplays();
 	void FormatMatImage();
 	void drawMaterialsTab();
+	void drawTransformTab();
+	void drawVector3Field(const char* label, float* values);
 	friend class UIManager;
 
 	float positionDisplay[3] = {0.0f, 0.0f, 0.0f};
@@ -36,6 +40,8 @@ private:
 	ImVec4 lightColorDisplay = ImVec4(1, 1, 1, 1);
 	Light::LightType lightTypeDisplay = Light::PointLight;
 
+	bool isUniformScalingEnabled = false;
+
 	std::shared_ptr<GameObject> selectedObject = nullptr;
 	const String DEFAULT_MATERIAL = "None";
 	String materialPath = DEFAULT_MATERIAL;
@@ -43,5 +49,9 @@ private:
 	Texture* materialDisplay;
 	
 	float lightIntensityMultiplier = 500000.0f;
+
+	float transformInputWindowWidth = 60.0f;
+	float transformUniformScalingButtonWidth = 24.0f;
+	float transformLabelWidth = 150.0f;
 };
 

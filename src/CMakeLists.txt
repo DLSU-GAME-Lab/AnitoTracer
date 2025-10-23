@@ -208,6 +208,9 @@ set(src_files_ui
 	UI/SettingsScreen.h
 	UI/UIManager.cpp
 	UI/UIManager.h
+	UI/EditorTheme.hpp
+	UI/EditorTheme.cpp
+	UI/IconsMaterialDesign.h
 )
 
 set(src_files_from_gdgrap2
