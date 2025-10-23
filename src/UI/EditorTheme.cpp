@@ -62,10 +62,10 @@ EditorTheme DarkTheme =
 	ImVec4(0.063f, 0.063f, 0.063f, 1.0f), //Tab Unfocused
 	ImVec4(0.235f, 0.235f, 0.235f, 1.0f), //Tab Unfocused Active
 
-	ImVec4(0.486f, 0.095, 0.095, 1.0f),		//Plot Lines
-	ImVec4(0.486f, 0.095, 0.095, 1.0f),		//PLot Lines Hoverered
-	ImVec4(0.486f, 0.095, 0.095, 0.75f),	//Plot Histogram
-	ImVec4(0.486f, 0.095, 0.095, 0.75f),	// Plot Histogram Hoverered
+	ImVec4(0.486f, 0.095f, 0.095f, 1.0f),	//Plot Lines
+	ImVec4(0.486f, 0.095f, 0.095f, 1.0f),	//PLot Lines Hoverered
+	ImVec4(0.486f, 0.095f, 0.095f, 0.75f),	//Plot Histogram
+	ImVec4(0.486f, 0.095f, 0.095f, 0.75f),	// Plot Histogram Hoverered
 	
 	ImVec4(0.176f, 0.176f, 0.176f, 1.0f),	//Table Header BG
 	ImVec4(0.196f, 0.196f, 0.196f, 0.67f),	//Table Border Strong

@@ -166,9 +166,14 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 	io.FontDefault = defaultFont;
 
-	static const ImWchar icons_ranges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
+	static const ImWchar iconRanges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
+	ImFontConfig* iconFontConfig = new ImFontConfig();
+	iconFontConfig->MergeMode = false;
+	iconFontConfig->PixelSnapH = true;
+	iconFontConfig->GlyphOffset =ImVec2(1.0f, 0.0f);
 
-	if (!io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 13 * scaleFactor))
+	sharedInstance->iconFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 13 * scaleFactor, iconFontConfig, iconRanges);
+	if (!sharedInstance->iconFont)
 	{
 		Throw(std::runtime_error("failed to load Icon font"));
 	}
@@ -372,6 +377,8 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			if (ImGui::IsKeyPressed(ImGuiKey_R)) mCurrentGizmoOperation = ImGuizmo::SCALE;
 		}
 
+		if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) isCTRLHeld = true;
+
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
 		bool isUsingGizmoNow = ImGuizmo::IsUsing();
 
@@ -418,6 +425,34 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 				scale[0] /= parentScale.x;
 				scale[1] /= parentScale.y;
 				scale[2] /= parentScale.z;
+			}
+
+			auto inspector = dynamic_pointer_cast<InspectorScreen>(sharedInstance->findUIByName(UINames::INSPECTOR_SCREEN));
+
+			// Uniform Scaling
+			// Check from InspectorWindow if uniform scaling is enabled
+			if (inspector->IsUniformScalingEnabled() || (mCurrentGizmoOperation == ImGuizmo::SCALE && isCTRLHeld))
+			{
+				if (scale[0] != gizmoBeforeState.scale.x) // check which value was manipulated
+				{
+					float ratio = scale[0] / gizmoBeforeState.scale.x; //New / Old scale
+					scale[1] = gizmoBeforeState.scale.y * ratio;
+					scale[2] = gizmoBeforeState.scale.z * ratio;
+				}
+
+				else if (scale[1] != gizmoBeforeState.scale.y)
+				{
+					float ratio = scale[1] / gizmoBeforeState.scale.y; 
+					scale[0] = gizmoBeforeState.scale.x * ratio;
+					scale[2] = gizmoBeforeState.scale.z * ratio;
+				}
+
+				else if (scale[2] != gizmoBeforeState.scale.z)
+				{
+					float ratio = scale[2] / gizmoBeforeState.scale.z;
+					scale[0] = gizmoBeforeState.scale.x * ratio;
+					scale[1] = gizmoBeforeState.scale.y * ratio;
+				}
 			}
 
 			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced)
@@ -634,6 +669,11 @@ bool UIManager::wantsToCaptureKeyboard()
 bool UIManager::wantsToCaptureMouse()
 {
 	return ImGui::GetIO().WantCaptureMouse;
+}
+
+ImFont* UIManager::GetIconFont()
+{
+	return this->iconFont;
 }
 
 void UIManager::setupImGuiStyle()

@@ -29,6 +29,7 @@ if (MSVC)
 	endforeach()
 	
 	add_compile_options("/MP")
+	add_compile_options("/utf-8")
 endif()
 
 if (UNIX)
@@ -36,6 +37,7 @@ if (UNIX)
 	add_definitions(-DUNIX)
 	add_compile_options("-Wall")
 	add_compile_options("-fvisibility=hidden")
+	add_compile_options("-finput-charset=UTF-8 -fexec-charset=UTF-8")
 	
 	find_package(Backtrace REQUIRED)
 

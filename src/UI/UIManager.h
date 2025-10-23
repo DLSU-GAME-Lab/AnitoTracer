@@ -100,6 +100,8 @@ public:
 	static bool wantsToCaptureKeyboard();
 	static bool wantsToCaptureMouse();
 
+	ImFont* GetIconFont();
+
 	bool settingsActive = false;
 	bool profilerActive = false;
 private:
@@ -136,6 +138,9 @@ private:
 	static TransformState gizmoBeforeState;
 	
 	static bool gizmoWasManipulated;
+
+	ImFont* iconFont = nullptr;
+	bool isCTRLHeld = false;
 
 	UIList uiList;
 	UITable uiTable;
