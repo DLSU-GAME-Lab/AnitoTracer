@@ -14,6 +14,7 @@
 #include "ProfilerScreen.h"
 #include "RayTracer.hpp"
 #include "SettingsScreen.h"
+#include "ProjectScreen.h"
 #include "From-GDGRAP2/TransformHistory.h"
 #include "ViewportScreen.h"
 #include "Engine/CameraSystem/CameraManager.h"
@@ -168,7 +169,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 	static const ImWchar iconRanges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
 	ImFontConfig* iconFontConfig = new ImFontConfig();
-	iconFontConfig->MergeMode = false;
+	iconFontConfig->MergeMode = true;
 	iconFontConfig->PixelSnapH = true;
 	iconFontConfig->GlyphOffset =ImVec2(1.0f, 0.0f);
 
@@ -218,6 +219,10 @@ void UIManager::initializeUI()
 	const std::shared_ptr<InspectorScreen> inspectorScreen = std::make_shared<InspectorScreen>();
 	this->uiTable[UINames::INSPECTOR_SCREEN] = inspectorScreen;
 	this->uiList.push_back(inspectorScreen);
+
+	const std::shared_ptr<ProjectScreen> projectScreen = std::make_shared<ProjectScreen>();
+	this->uiTable[UINames::PROJECT_SCREEN] = projectScreen;
+	this->uiList.push_back(projectScreen);
 
 	const std::shared_ptr<ConsoleScreen> consoleScreen = std::make_shared<ConsoleScreen>();
 	this->uiTable[UINames::CONSOLE_SCREEN] = consoleScreen;
@@ -551,15 +556,6 @@ void UIManager::reset()
 
 void UIManager::drawAllUI() const
 {
-	//PROJECTS/FILE EXPLORER WINDOW
-	if (ImGui::Begin("Project", nullptr, UISettings::GlobalWindowFlags))
-	{
-		ImGui::Text("UNDER CONSTRUCTION");
-		ImGui::Text("INSERT PROJECT/ASSETS PANEL HERE");
-	}
-	ImGui::End();
-
-
 	for (const auto& i : this->uiList)
 	{
 		if (i->enabled)
