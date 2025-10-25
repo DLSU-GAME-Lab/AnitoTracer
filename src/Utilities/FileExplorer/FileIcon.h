@@ -1,5 +1,9 @@
 #pragma once
 
+#include "FileTree.h"
+
+#include <string>
+
 class FileIcon {
 public:
     FileIcon(float x, float y, std::string& name, FileTreeNode& node);
