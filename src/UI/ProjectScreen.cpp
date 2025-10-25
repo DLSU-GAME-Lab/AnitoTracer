@@ -7,8 +7,8 @@
 #include "Utilities/FileExplorer/FileTree.h"
 #include "Utilities/FileExplorer/FileExplorerConstants.h"
 
-#include <fstream> // Required for file operations
-#include <iostream> // Required for input/output operations
+#include <fstream>
+#include <iostream>
 
 ProjectScreen::ProjectScreen() : AUIScreen(UINames::PROJECT_SCREEN)
 {
@@ -29,6 +29,7 @@ ProjectScreen::ProjectScreen() : AUIScreen(UINames::PROJECT_SCREEN)
     FileTree::getInstance()->populateFileMap();
     directory_entry dirEnt(FileExplorerConstants::ASSETS_DIR);
     FileTreeNode root(dirEnt);
+    root.init();
     FileTree::getInstance()->setRoot(root);
 }
 
@@ -40,7 +41,7 @@ void ProjectScreen::drawUI()
     ImGui::PushFont(nullptr);
 	if (ImGui::Begin(FileExplorerConstants::PANEL_NAME, nullptr, UISettings::GlobalWindowFlags))
 	{
-        RenderRootNode(FileTree::getInstance()->getRoot(), FileTree::getInstance()->getRoot().getName());
+        renderRootNode(FileTree::getInstance()->getRoot());
 	}
 	ImGui::End();
     ImGui::PopFont();
@@ -64,10 +65,11 @@ std::string ProjectScreen::chooseIconCode(const FileTreeNode& node) {
     std::string filename = node.getName();
 
     try {
-        if (node.isDirectory()) iconCode = ICON_MD_FOLDER;
-        else if (filename[0] == '.') iconCode = ICON_MD_APARTMENT;
+        if (node.isDirectory()) {
+            iconCode = ICON_MD_FOLDER_OPEN;
+        }
+        else if (filename[0] == '.') iconCode = ICON_MD_SHORT_TEXT;
         else iconCode = chooseIconBasedOnExtension(filename);
-
     }
     catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Error accessing entry: " << e.what() << std::endl;
@@ -98,6 +100,9 @@ std::string ProjectScreen::chooseIconBasedOnExtension(const std::string& filenam
     else if (fileExtension == "json") {
         iconCode = ICON_MD_DATA_OBJECT;
     }
+    else if (fileExtension == "meta" || fileExtension == "config") {
+        iconCode = ICON_MD_SETTINGS;
+    }
     else {
         iconCode = ICON_MD_QUIZ;
     }
@@ -107,7 +112,7 @@ std::string ProjectScreen::chooseIconBasedOnExtension(const std::string& filenam
 
 static bool deletePopup = false;
 
-void RenderDeleteConformationPrompt(FileTreeNode& toDelete) {
+void renderDeleteConfirmationPrompt(FileTreeNode& toDelete) {
     if (deletePopup) {
         ImGui::OpenPopup("File Delete Confirmation");
         deletePopup = false;
@@ -157,8 +162,7 @@ void ProjectScreen::popupWindowNode(FileTreeNode& node) {
 
 }
 
-void ProjectScreen::RenderDescendants(FileTreeNode& root) {
-    // If the root node is opened, do the following:
+void ProjectScreen::renderDescendants(FileTreeNode& root) {
     if (root.getIsOpen()) {
         for (auto& rootChild : root.getChildren()) { //root.children
 
@@ -174,66 +178,41 @@ void ProjectScreen::RenderDescendants(FileTreeNode& root) {
                 flag |= ImGuiTreeNodeFlags_Leaf;
             }
 
-
             // 2.) Render root children and listen for events on those nodes.
             ImGui::PushFont(UIManager::getInstance()->GetIconFont());
             std::string iconCode = chooseIconCode(rootChild);
             if (ImGui::TreeNodeEx((iconCode + " " + rootChild.getName()).c_str(), flag)) {
                 ImGui::PopFont();
 
-                /* Event listeners. */
-                if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-                    ImGui::OpenPopup("FileTreeNodePopup");
-                    std::cout << "Popup!" << std::endl;
-                }
-                popupWindowNode(rootChild);
-                RenderDeleteConformationPrompt(rootChild);
-
-                if (ImGui::IsItemClicked()) {
-                    rootChild.open();
-                }
-
-                if (rootChild.getIsOpen()) {
-                    RenderDescendants(rootChild);
-                }
-                /* --------------- */
+                rootChild.setIsOpen(true);
+                renderDescendants(rootChild);
 
                 ImGui::TreePop();
             }
             else {
-                rootChild.close();
+                rootChild.setIsOpen(false);
                 ImGui::PopFont();
             }
         }
     }
 }
 
-void ProjectScreen::RenderRootNode(FileTreeNode& root, const std::string& driveName) {
+void ProjectScreen::renderRootNode(FileTreeNode& root) {
     // Renders the root node with the given driveName, initializes it when clicked, and renders the root children.
     ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_None;
 
     try {
         ImGui::PushFont(nullptr);
-        if (ImGui::TreeNodeEx(driveName.c_str(), flag)) {
+        if (ImGui::TreeNodeEx(root.getName().c_str(), flag)) {
             ImGui::PopFont();
 
-            /* Event listeners. */
-            if (ImGui::IsItemClicked()) {
-                root.open();
-                std::cout << root.getIsOpen() << std::endl;
-                if (!root.getIsInitialized()) {
-                    root.init();
-                    root.setInitializedStatus(true);
-                }
-            }
-            /* ---------------- */
-
-            if (root.getIsOpen()) RenderDescendants(root);
+            root.setIsOpen(true);
+            renderDescendants(root);
 
             ImGui::TreePop();
         }
         else {
-            root.close();
+            root.setIsOpen(false);
             ImGui::PopFont();
         }
     }

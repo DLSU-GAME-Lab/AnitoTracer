@@ -10,20 +10,17 @@ bool FileTreeNode::getIsOpen() const {
     return isOpen;
 }
 
-void FileTreeNode::open() {
-    isOpen = true;
-}
-
-void FileTreeNode::close() {
-    isOpen = false;
+void FileTreeNode::setIsOpen(bool isOpen)
+{
+    this->isOpen = isOpen;
 }
 
 bool FileTreeNode::getIsInitialized() const {
     return isInitialized;
 }
 
-void FileTreeNode::setInitializedStatus(const bool status) {
-    isInitialized = status;
+void FileTreeNode::setIsInitialized(const bool isInitialized) {
+    this->isInitialized = isInitialized;
 }
 
 std::filesystem::directory_entry& FileTreeNode::getDirectoryEntry() {
@@ -77,7 +74,7 @@ void FileTreeNode::init() {
 
                 std::cout << dir_entry.path().string() << std::endl;
                 FileTreeNode child(dir_entry);
-                child.parent = this; // possible memory leak
+                child.parent = this;
                 children.push_back(child);
             }
 

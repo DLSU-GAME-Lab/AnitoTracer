@@ -20,9 +20,8 @@ public:
     directory_entry& getDirectoryEntry();
 
     // setters
-    void open();
-    void close();
-    void setInitializedStatus(bool status);
+    void setIsOpen(bool isOpen);
+    void setIsInitialized(bool isInitialized);
     void setDirectoryEntry(const directory_entry& directoryEntry);
 
     // node processes
