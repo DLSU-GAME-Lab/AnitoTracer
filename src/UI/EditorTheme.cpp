@@ -17,7 +17,7 @@ EditorTheme DarkTheme =
 	ImVec4(0.196f, 0.196f, 0.196f, 1.0f), // CHILD_BG
 	ImVec4(0.235f, 0.235f, 0.235f, 1.0f), //PopupBG
 
-	ImVec4(0.f, 0.f, 0.f, 0.f), //Border
+	ImVec4(0.f, 0.f, 0.f, 1.f), //Border
 	ImVec4(0.165f, 0.165f, 0.165f, 1.0f), //BorderShadow
 
 	ImVec4(0.165f, 0.165f, 0.165f, 1.0f), //Frame BG

@@ -285,7 +285,7 @@ add_executable(${exe_name}
 	${src_files_vulkan} 
 	${src_files_vulkan_raytracing} 
 	${src_files}
- "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp")
+ "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp" "Utilities/FileExplorer/FileTreeNode.h" "Utilities/FileExplorer/FileTree.h" "Utilities/FileExplorer/FileIcon.h" "Utilities/FileExplorer/FileTree.cpp" "Utilities/FileExplorer/FileTreeNode.cpp" "UI/ProjectScreen.h" "UI/ProjectScreen.cpp" "Utilities/FileExplorer/FileIcon.cpp" "Utilities/FileExplorer/FileExplorerConstants.h")
 
 if (UNIX)
 	# GCC8 needs an extra lib for <filesystem>.
