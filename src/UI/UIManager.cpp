@@ -361,8 +361,8 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	ImGui_ImplVulkan_NewFrame();
 	ImGui::NewFrame();
 
-	ImGui::ShowMetricsWindow();
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowMetricsWindow();
+	//ImGui::ShowDemoWindow();
 
 	//Allow docking inside the main viewport 
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
