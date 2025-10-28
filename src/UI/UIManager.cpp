@@ -284,6 +284,8 @@ void UIManager::initializeUI()
 	if (isStartup)
 	{
 		// 	Debug::Log("UI first startup");
+		String filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + "Default.ini";
+		sharedInstance->currentLayoutPath = filename;
 		loadLayout();
 	}
 	else
