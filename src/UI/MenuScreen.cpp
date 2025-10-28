@@ -227,12 +227,31 @@ void MenuScreen::drawUI()
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Window"))
+		ImGui::SetCursorPos(ImVec2(ImGui::GetWindowSize().x - 100 - 10, 0));
+
+		if (ImGui::BeginMenu("Layout"))
 		{
 			// if (ImGui::MenuItem("[DEBUG] Save Default Layout"))
 			// {
 			// 	UIManager::saveDefaultLayout();
 			// }
+			if (ImGui::MenuItem("Default"))
+			{
+				UIManager::getInstance()->loadPresetLayout(0);
+			}
+
+			if (ImGui::MenuItem("Tall"))
+			{
+				UIManager::getInstance()->loadPresetLayout(1);
+			}
+
+			if (ImGui::MenuItem("Wide"))
+			{
+				UIManager::getInstance()->loadPresetLayout(2);
+			}
+
+			ImGui::Spacing();
+
 			if (ImGui::MenuItem("Save Window Layout"))
 			{
 				this->isSaveLayoutOpen = true;
