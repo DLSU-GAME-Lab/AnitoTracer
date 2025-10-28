@@ -94,6 +94,10 @@ set(src_files_utilities
 	Utilities/StbImage.hpp
 	Utilities/FileUtils.cpp
 	Utilities/FileUtils.h
+	Utilities/HotkeyListener.hpp
+	Utilities/HotkeySystem.hpp
+	Utilities/HotkeySystem.cpp
+	Utilities/ActionMap.hpp
 )
 
 set(src_files_vulkan

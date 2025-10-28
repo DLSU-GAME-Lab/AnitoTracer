@@ -32,6 +32,8 @@
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
 
+#include "Utilities/HotkeySystem.hpp"
+
 namespace
 {
 	const bool EnableValidationLayers =
@@ -55,6 +57,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
+	HotkeySystem::initialize();
 }
 
 RayTracer::~RayTracer()
@@ -326,6 +329,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 	// Settings (toggle switches)
 	if (action == GLFW_PRESS)
 	{
+		HotkeySystem::getInstance()->processInput(key, mods);
 		isMoving = true;
 		switch (key)
 		{
