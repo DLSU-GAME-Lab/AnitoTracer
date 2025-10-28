@@ -13,6 +13,7 @@
 
 #include "ButtonTexture.hpp"
 #include "UIManager.h"
+#include "IconsMaterialDesign.h"
 
 using namespace gdeng03;
 
@@ -135,11 +136,15 @@ void MaterialEditorScreen::drawUI()
 
 	if (isColorPickerOpen)
 		showColorPickerWindow();
+
+	wasColorPickerOpen = isColorPickerOpen;
 }
 
 void MaterialEditorScreen::showColorPickerWindow()
 {
-	ImGui::SetNextWindowPos(ImGui::FindWindowByName("Material Editor")->Pos);
+	if(!wasColorPickerOpen)
+		ImGui::SetNextWindowPos(ImGui::FindWindowByName("Material Editor")->Pos);
+
 	ImGui::SetNextWindowSize(ImVec2(350, 350));
 	if (ImGui::Begin("Color Picker", &isColorPickerOpen) && selectedMaterial)
 	{
@@ -157,6 +162,7 @@ void MaterialEditorScreen::showColorPickerWindow()
 			//}
 		}
 	}
+
 	ImGui::End();
 }
 
@@ -228,66 +234,262 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 		return;
 	}
 
-
-	ImGui::NewLine();
 	//TEXTURE
 	//ImGui::Image((ImTextureID)(intptr_t)&TextureLibrary::getInstance()->getTextureLibraryList()[selectedMaterial->DiffuseTextureId], ImVec2(100, 50));
 
-	if (ImGui::ImageButton("Texture", currTexId, ImVec2(40,40)))
+	if(ImGui::CollapsingHeader("Material Inputs", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		//int newTextureId;
-		this->textureChanged = TextureLibrary::getInstance()->loadTextureFromFile(this->textureId);
-		selectedMaterial->DiffuseTextureId = this->textureId;
-
-		if (this->textureChanged) 
+		if (ImGui::BeginTable("SurfaceInputsTable", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody))
 		{
-	/*		textureimg = nullptr;
+			ImGui::TableSetupColumn("Drag_Preview", ImGuiTableColumnFlags_WidthFixed, this->previewSize);
+			ImGui::TableSetupColumn("Texture_Select", ImGuiTableColumnFlags_WidthFixed, this->buttonSize);
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, this->labelSize);
+			ImGui::TableSetupColumn("InputFields", ImGuiTableColumnFlags_WidthStretch);
 
-			if (selectedMaterial->DiffuseTextureId == -1)
-				textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
-			else
-				textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(selectedMaterial->DiffuseTextureId));
+			ImGui::TableNextRow(); // Albedo and Color
+			ImGui::TableSetColumnIndex(0);
 
-			Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
-			currTexId = 0;
-			currTexId = (ImTextureID)(newButtonimg.textureDset);*/
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+			if (ImGui::ImageButton("Texture", currTexId, ImVec2(this->previewSize, this->previewSize)))
+			{
+				this->textureChanged = TextureLibrary::getInstance()->loadTextureFromFile(this->textureId);
+				selectedMaterial->DiffuseTextureId = this->textureId;
 
+				if (this->textureChanged)
+				{
+					EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+				}
+			}
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(this->buttonSize, this->buttonSize)); //Unity has drag target + button for opening file view
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(2);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Texture");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(3);
+
+			if (ImGui::BeginTable("ColorPicker", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody))
+			{
+				float previewButtonSize = ImGui::GetContentRegionAvail().x * 0.9f;
+				float buttonSize = ImGui::GetContentRegionAvail().x * 0.1f;
+
+				ImGui::TableSetupColumn("Color_Preview_Button", ImGuiTableColumnFlags_WidthStretch, previewButtonSize);
+				ImGui::TableSetupColumn("PickerButton", ImGuiTableColumnFlags_WidthFixed, buttonSize);
+
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+
+				if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(previewButtonSize, ImGui::GetItemRectSize().y)))
+				{
+					isColorPickerOpen = !isColorPickerOpen;
+				}
+
+				ImGui::TableNextColumn();
+				ImGui::TableSetColumnIndex(1);
+				if (ImGui::Button(ICON_MD_COLORIZE, ImVec2(buttonSize, ImGui::GetItemRectSize().y)))
+				{
+					isColorPickerOpen = !isColorPickerOpen;
+				}
+				ImGui::EndTable();
+			}
+
+			ImGui::TableNextRow(); // Metallic
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Dummy(ImVec2(this->previewSize, this->previewSize));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(this->buttonSize, this->buttonSize));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(2);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Metallic");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(3);
+
+			//No Input Field
+			//ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+			//if (ImGui::SliderFloat("##Metal_Slider", &this->fuzziness, 0, 1, " %.05f", ImGuiSliderFlags_NoInput)) {}
+
+			if (ImGui::BeginTable("Metallic Slider", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody))
+			{
+				float sliderSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.8f;
+				float inputSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x - ImGui::GetStyle().FrameBorderSize) * 0.2f;
+
+				ImGui::TableSetupColumn("MetalSliderCol", ImGuiTableColumnFlags_WidthStretch, sliderSize);
+				ImGui::TableSetupColumn("MetalInputCol", ImGuiTableColumnFlags_WidthFixed, inputSize);
+
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+
+				ImGui::PushItemWidth(sliderSize);
+				ImGui::SliderFloat("##Metal_Slider", &this->fuzziness, 0, 1, " %.05f", ImGuiSliderFlags_NoInput);
+
+				ImGui::TableNextColumn();
+				ImGui::TableSetColumnIndex(1);
+				ImGui::PushItemWidth(sliderSize);
+				ImGui::InputFloat("##Metal_Input", &this->fuzziness, 0.0f, 0.0f, " %.05f");
+				ImGui::PopItemWidth();
+				ImGui::EndTable();
+			}
+
+			ImGui::TableNextRow(); // Refraction Index
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Dummy(ImVec2(this->previewSize, this->previewSize));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(this->buttonSize, this->buttonSize));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(2);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Refraction Index");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(3);
+
+			//ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+			//if (ImGui::SliderFloat("##Refraction_Slider", &this->fuzziness, 0, 1, " %.05f", ImGuiSliderFlags_NoInput)) {}
+
+			if (ImGui::BeginTable("Refraction Slider", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody))
+			{
+				float sliderSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.8f;
+				float inputSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.2f;
+
+				ImGui::TableSetupColumn("RefractionSliderCol", ImGuiTableColumnFlags_WidthStretch, sliderSize);
+				ImGui::TableSetupColumn("RefractionInputCol", ImGuiTableColumnFlags_WidthFixed, inputSize);
+
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+
+				ImGui::PushItemWidth(sliderSize);
+				ImGui::SliderFloat("##Refration_Slider", &this->refractionIndex, 0, 15, " %1.0f", ImGuiSliderFlags_NoInput);
+
+				ImGui::TableNextColumn();
+				ImGui::TableSetColumnIndex(1);
+				ImGui::PushItemWidth(sliderSize);
+				ImGui::InputFloat("##Refraction_Input", &this->refractionIndex, 0.0f, 0.0f, " %1.0f");
+				ImGui::PopItemWidth();
+				ImGui::EndTable();
+			}
+
+			ImGui::TableNextRow(); // Dielectric
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Dummy(ImVec2(this->previewSize, this->previewSize));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(this->buttonSize, this->buttonSize));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(2);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Dielectric");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(3);
+			ImGui::Checkbox("##DielectricButton", &this->dielectric);
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(2);
+
+			if (ImGui::Button("Apply"))
+			{
+				if (this->dielectric) {
+					selectedMaterial->MaterialModel = Material::Enum::Dielectric;
+					selectedMaterial->RefractionIndex = this->refractionIndex;
+				}
+				else {
+					selectedMaterial->MaterialModel = Material::Enum::Lambertian;
+				}
+
+				selectedMaterial->Fuzziness = 1 - this->fuzziness;
+
+				if (selectedMaterial->MaterialModel == Material::Enum::Metallic || selectedMaterial->MaterialModel == Material::Enum::Lambertian) {
+					if (selectedMaterial->Fuzziness < 1)
+					{
+						selectedMaterial->MaterialModel = Material::Enum::Metallic;
+					}
+					if (selectedMaterial->Fuzziness == 1)
+					{
+						selectedMaterial->MaterialModel = Material::Enum::Lambertian;
+					}
+				}
+
+				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+			}
+
+			ImGui::EndTable();
 		}
-	}
-	
-	ImGui::SameLine();
-	ImGui::Text("Texture");
 
-	ImGui::NewLine();
-	//COLOR
-	if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(50, 50)))
-	{
-		isColorPickerOpen = !isColorPickerOpen;
-	}
-	ImGui::SameLine();
-	ImGui::Text("Color");
 
-	ImGui::NewLine();
+
+	} // End Collapsing
+
+	//if (ImGui::ImageButton("Texture", currTexId, ImVec2(40,40)))
+	//{
+	//	//int newTextureId;
+	//	this->textureChanged = TextureLibrary::getInstance()->loadTextureFromFile(this->textureId);
+	//	selectedMaterial->DiffuseTextureId = this->textureId;
+
+	//	if (this->textureChanged) 
+	//	{
+	///*		textureimg = nullptr;
+
+	//		if (selectedMaterial->DiffuseTextureId == -1)
+	//			textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
+	//		else
+	//			textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(selectedMaterial->DiffuseTextureId));
+
+	//		Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
+	//		currTexId = 0;
+	//		currTexId = (ImTextureID)(newButtonimg.textureDset);*/
+	//		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+
+	//	}
+	//}
+	//
+	//ImGui::SameLine();
+	//ImGui::Text("Texture");
+
+	//ImGui::NewLine();
+	////COLOR
+	//if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(50, 50)))
+	//{
+	//	isColorPickerOpen = !isColorPickerOpen;
+	//}
+	//ImGui::SameLine();
+	//ImGui::Text("Color");
+
+	//ImGui::NewLine();
 
 	//slider size
-	ImGui::PushItemWidth(100);
-	//METALLIC
-	if (ImGui::SliderFloat("Metallic", &this->fuzziness, 0, 1, " %.05f"))
-	{
-		//EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
+	//ImGui::PushItemWidth(100);
+	////METALLIC
+	//if (ImGui::SliderFloat("Metallic", &this->fuzziness, 0, 1, " %.05f"))
+	//{
+	//	//EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	//}
 
-	ImGui::NewLine();
+	//ImGui::NewLine();
 
-	if (ImGui::Checkbox("Dielectric", &this->dielectric)) 
-	{
+	//if (ImGui::Checkbox("Dielectric", &this->dielectric)) 
+	//{
 
-	}
-	if (ImGui::SliderFloat("Refraction Index", &this->refractionIndex, 0, 15, "%1.0f"))
-	{
+	//}
+	//if (ImGui::SliderFloat("Refraction Index", &this->refractionIndex, 0, 15, "%1.0f"))
+	//{
 
-	}
+	//}
 
 
 
@@ -297,34 +499,32 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 
 	//ImGui::NewLine();
 
+	//ImGui::NewLine();
 
-	ImGui::PopItemWidth();
-	ImGui::NewLine();
+	//if (ImGui::Button("Apply")) 
+	//{
+	//	if (this->dielectric) {
+	//		selectedMaterial->MaterialModel = Material::Enum::Dielectric;
+	//		selectedMaterial->RefractionIndex = this->refractionIndex;
+	//	}
+	//	else {
+	//		selectedMaterial->MaterialModel = Material::Enum::Lambertian;
+	//	}
 
-	if (ImGui::Button("Apply")) 
-	{
-		if (this->dielectric) {
-			selectedMaterial->MaterialModel = Material::Enum::Dielectric;
-			selectedMaterial->RefractionIndex = this->refractionIndex;
-		}
-		else {
-			selectedMaterial->MaterialModel = Material::Enum::Lambertian;
-		}
+	//	selectedMaterial->Fuzziness = 1 - this->fuzziness;
 
-		selectedMaterial->Fuzziness = 1 - this->fuzziness;
+	//	if (selectedMaterial->MaterialModel == Material::Enum::Metallic || selectedMaterial->MaterialModel == Material::Enum::Lambertian) {
+	//		if (selectedMaterial->Fuzziness < 1)
+	//		{
+	//			selectedMaterial->MaterialModel = Material::Enum::Metallic;
+	//		}
+	//		if (selectedMaterial->Fuzziness == 1)
+	//		{
+	//			selectedMaterial->MaterialModel = Material::Enum::Lambertian;
+	//		}
+	//	}
 
-		if (selectedMaterial->MaterialModel == Material::Enum::Metallic || selectedMaterial->MaterialModel == Material::Enum::Lambertian) {
-			if (selectedMaterial->Fuzziness < 1)
-			{
-				selectedMaterial->MaterialModel = Material::Enum::Metallic;
-			}
-			if (selectedMaterial->Fuzziness == 1)
-			{
-				selectedMaterial->MaterialModel = Material::Enum::Lambertian;
-			}
-		}
-
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
+	//	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	//}
 
 }

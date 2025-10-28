@@ -361,6 +361,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	ImGui_ImplVulkan_NewFrame();
 	ImGui::NewFrame();
 
+	ImGui::ShowMetricsWindow();
+	ImGui::ShowDemoWindow();
+
 	//Allow docking inside the main viewport 
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
@@ -680,7 +683,7 @@ void UIManager::setupImGuiStyle()
 	style.Alpha = 1.0f;
 	style.DisabledAlpha = 0.6000000238418579f;
 	style.WindowPadding = ImVec2(15.0f, 10.10000038146973f);
-	style.WindowRounding = 10.0f;
+	style.WindowRounding = 0.0f;
 	style.WindowBorderSize = 1.0f;
 	style.WindowMinSize = ImVec2(32.0f, 32.0f);
 	style.WindowTitleAlign = ImVec2(0.0f, 0.5f);

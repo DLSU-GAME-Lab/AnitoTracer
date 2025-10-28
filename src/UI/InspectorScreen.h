@@ -50,8 +50,6 @@ private:
 	
 	float lightIntensityMultiplier = 500000.0f;
 
-	float transformInputWindowWidth = 60.0f;
-	float transformUniformScalingButtonWidth = 24.0f;
-	float transformLabelWidth = 150.0f;
+	float transformUniformScalingButtonWidth = 28.0f;
+	float transformLabelWidth = 100.0f;
 };
-
