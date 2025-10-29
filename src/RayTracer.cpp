@@ -329,7 +329,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 	// Settings (toggle switches)
 	if (action == GLFW_PRESS)
 	{
-		HotkeySystem::getInstance()->processInput(key, mods);
+		HotkeySystem::getInstance()->processInputKeys(key, mods);
 		isMoving = true;
 		switch (key)
 		{

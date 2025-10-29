@@ -24,7 +24,6 @@ struct EventKey
 	}
 };
 
-
 namespace std
 {
 	template<>
@@ -51,8 +50,13 @@ public:
 	static void initialize();
 	static void destroy();
 
+	void addListener(HotkeyListener* listener);
+	void removeListener(HotkeyListener* listener);
+
 	void bindHotkey(EventKey event, Action action);
-	void processInput(int key, int mod);
+
+	void processInputKeys(int key, int mod);
+	void processInputMouseButtons(int key, int mod);
 
 private:
 	HotkeySystem();
@@ -66,4 +70,5 @@ private:
 
 	std::unordered_set<HotkeyListener*> m_hotkeyListeners;
 	std::unordered_map<EventKey, Action> m_keyBindings;
+	std::unordered_map<EventKey, Action> m_mouseButtonBindings;
 };

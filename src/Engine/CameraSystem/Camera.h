@@ -71,12 +71,15 @@ protected:
 
 	bool mouseLeftPressed_{};
 	bool mouseRightPressed_{};
+	bool mouseMiddlePressed_{};
 
 	float windowWidth_{};
 	float windowHeight_{};
 
 	float camSpeed_ = 1.0f;
 	bool camSlowed = false;
+	bool camSpedUp = false;
 	float camNormalSpeed = 1.0f;
 	float camSlowSpeed = 0.2f;
+	float camFastSpeed = 1.5f;
 };

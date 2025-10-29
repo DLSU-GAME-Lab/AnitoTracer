@@ -46,14 +46,34 @@ GameObject::PrimitiveType GameObject::getType() const
 	return this->type;
 }
 
-bool GameObject::isEnabled()
+bool GameObject::isActive()
 {
-	return this->enabled;
+	return this->m_isActive;
 }
 
-void GameObject::setEnabled(bool flag)
+void GameObject::setActive(bool flag)
 {
-	this->enabled = flag;
+	this->m_isActive = flag;
+}
+
+bool GameObject::isVisible()
+{
+	return this->m_isVisible;
+}
+
+void GameObject::setVisibility(bool flag)
+{
+	this->m_isVisible = flag;
+}
+
+bool GameObject::isPickable()
+{
+	return this->m_isPickable;
+}
+
+void GameObject::setPickability(bool flag)
+{
+	this->m_isPickable = flag;
 }
 
 GameObject::vec3 GameObject::getLocalPosition() const
@@ -193,6 +213,44 @@ void GameObject::addChild(GameObject* child)
 	child->updateWorldTransform();
 }
 
+void GameObject::addChildFront(GameObject* child)
+{
+	if (!child || child == this || child->parent == this)
+		return;
+
+	if (child->parent)
+		child->parent->removeChild(child);
+
+	child->parent = this;
+
+	children.insert(children.begin(), child);
+
+	child->localPosition = glm::inverse(glm::translate(glm::mat4(1.0f), this->worldPosition)) * glm::vec4(child->worldPosition, 1.0f);
+	child->localRotation = child->worldRotation - this->worldRotation;
+	child->localScale = glm::inverse(glm::scale(glm::mat4(1.0f), this->worldScale)) * glm::vec4(child->worldScale, 1.0f);
+
+	child->updateWorldTransform();
+}
+
+void GameObject::addChildLast(GameObject* child)
+{
+	if (!child || child == this || child->parent == this)
+		return;
+
+	if (child->parent)
+		child->parent->removeChild(child);
+
+	child->parent = this;
+
+	children.insert(children.end(), child);
+
+	child->localPosition = glm::inverse(glm::translate(glm::mat4(1.0f), this->worldPosition)) * glm::vec4(child->worldPosition, 1.0f);
+	child->localRotation = child->worldRotation - this->worldRotation;
+	child->localScale = glm::inverse(glm::scale(glm::mat4(1.0f), this->worldScale)) * glm::vec4(child->worldScale, 1.0f);
+
+	child->updateWorldTransform();
+}
+
 
 void GameObject::removeChild(GameObject* child)
 {
@@ -209,6 +267,21 @@ void GameObject::removeChild(GameObject* child)
 std::vector<GameObject*> GameObject::getChildren() const
 {
 	return this->children;
+}
+
+std::vector<GameObject*> GameObject::getChildrenRecursive() const
+{
+	std::vector<GameObject*> res;
+
+	std::function<void(const GameObject*)> collectChildren = [&](const GameObject* obj) {
+		for (auto* child : obj->getChildren()) {
+			res.push_back(child);
+			collectChildren(child);
+		}
+		};
+
+	collectChildren(this);
+	return res;
 }
 
 GameObject* GameObject::getParent() const

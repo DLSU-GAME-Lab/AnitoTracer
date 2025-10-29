@@ -34,8 +34,8 @@ void InspectorScreen::drawUI()
 		this->updateTransformDisplays();
 		this->updateLightPropsDisplays();
 
-		bool enabled = this->selectedObject->isEnabled();
-		if (ImGui::Checkbox("Enabled", &enabled)) { this->selectedObject->setEnabled(enabled); }
+		bool enabled = this->selectedObject->isActive();
+		if (ImGui::Checkbox("Enabled", &enabled)) { this->selectedObject->setActive(enabled); }
 		ImGui::SameLine();
 		if (ImGui::Button("Delete")) {
 			ModelManager::getInstance()->deleteObject(this->selectedObject);

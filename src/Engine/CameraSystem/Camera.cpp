@@ -84,15 +84,29 @@ bool Camera::OnKey(const int key, const int scancode, const int action, const in
 		return false;
 	}
 
+	if (!mouseRightPressed_ && !mouseMiddlePressed_)
+	{
+		camSpedUp = false;
+	}
+
 	switch (key)
 	{
 		case GLFW_KEY_S: cameraMovingBackward_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_DOWN: cameraMovingBackward_ = action != GLFW_RELEASE; return true;
 		case GLFW_KEY_W: cameraMovingForward_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_UP: cameraMovingForward_ = action != GLFW_RELEASE; return true;
+
 		case GLFW_KEY_A: cameraMovingLeft_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_LEFT: cameraMovingLeft_ = action != GLFW_RELEASE; return true;
 		case GLFW_KEY_D: cameraMovingRight_ = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_RIGHT: cameraMovingRight_ = action != GLFW_RELEASE; return true;
+
 		case GLFW_KEY_Q: cameraMovingDown_ = action != GLFW_RELEASE; return true;
 		case GLFW_KEY_E: cameraMovingUp_ = action != GLFW_RELEASE; return true;
+
 		case GLFW_KEY_LEFT_ALT: camSlowed = action != GLFW_RELEASE; return true;
+		case GLFW_KEY_LEFT_SHIFT: camSpedUp = action != GLFW_RELEASE; return true;
+
 	default: return false;
 	}
 }
@@ -115,6 +129,7 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 
 		this->setLocalRotation(glm::vec3(localRotation));
 	}
+
 	//if (mouseRightPressed_)
 	//{
 	//	modelRotX_ += deltaX;
@@ -159,13 +174,13 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 		//std::cout << "Ray Origin: " << glm::to_string(rayOrigin) << std::endl;
 		//std::cout << "Ray Direction: " << glm::to_string(rayDirection) << std::endl;
 
-		auto objects = ModelManager::getInstance()->getAllObjects();
+		auto objects = ModelManager::getInstance()->getAllPickableObjects();
 		float closestT = std::numeric_limits<float>::max();
 		std::shared_ptr<GameObject> selectedObject = nullptr;
 
 		for (auto& obj : objects)
 		{
-			if (!obj->isEnabled())
+			if (!obj->isActive())
 				continue;
 
 			auto obb = obj->getOBB();
@@ -205,12 +220,18 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 		mouseRightPressed_ = action == GLFW_PRESS;
 	}
 
+	if (button == GLFW_MOUSE_BUTTON_MIDDLE)
+	{
+		mouseMiddlePressed_ = action == GLFW_PRESS;
+	}
+
 	return true;
 }
 
 bool Camera::UpdateCamera(const double speed, const double timeDelta)
 {
 	if (camSlowed) camSpeed_ = camSlowSpeed;
+	else if (camSpedUp) camSpeed_ = camFastSpeed;
 	else camSpeed_ = camNormalSpeed;
 
 	const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;

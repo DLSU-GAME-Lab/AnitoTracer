@@ -46,6 +46,24 @@ std::shared_ptr<Light> ModelManager::findLightObjectByName(String name)
 	}
 }
 
+ModelManager::List ModelManager::getAllPickableObjects() const
+{
+	ModelManager::List objectList;
+	for (int i = 0; i < this->gameObjectList.size(); i++)
+	{
+		if(this->gameObjectList[i]->isPickable())
+			objectList.push_back(this->gameObjectList[i]);
+	}
+
+	for (int i = 0; i < this->objectGroupList.size(); i++)
+	{
+		if (this->objectGroupList[i]->isPickable())
+			objectList.push_back(this->objectGroupList[i]);
+	}
+
+	return objectList;
+}
+
 ModelManager::List ModelManager::getAllObjects() const
 {
 	ModelManager::List objectList;
@@ -62,16 +80,15 @@ ModelManager::List ModelManager::getAllObjects() const
 	return objectList;
 }
 
-/**
- * \brief Returns associated model representations of objects added.
- * \return
- */
+//brief Returns associated model representations of objects added.
+//return
+
 ModelManager::ModelList ModelManager::getAllObjectModels() const
 {
 	ModelList models;
 	for (int i = 0; i < this->gameObjectList.size(); i++)
 	{
-		if (this->gameObjectList[i]->getModel())
+		if (this->gameObjectList[i]->getModel() && this->gameObjectList[i]->isActive() && this->gameObjectList[i]->isVisible())
 			models.push_back(*this->gameObjectList[i]->getModel());
 	}
 
@@ -79,7 +96,8 @@ ModelManager::ModelList ModelManager::getAllObjectModels() const
 	{
 		for (int j = 0; j < this->objectGroupList[i]->getSize(); j++)
 		{
-			models.push_back(*this->objectGroupList[i]->getModelAt(j));
+			if(this->objectGroupList[i]->isActive() && this->objectGroupList[i]->isVisible())
+				models.push_back(*this->objectGroupList[i]->getModelAt(j));
 		}
 	}
 
@@ -280,7 +298,7 @@ void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveTy
 		obj->setLocalPosition(position);
 		obj->setLocalRotation(rotation);
 		obj->setLocalScale(scale);
-		obj->setEnabled(active);
+		obj->setActive(active);
 	}
 }
 
@@ -317,7 +335,7 @@ void ModelManager::createLightFromScene(String name, GameObject::PrimitiveType t
 		light->setLocalPosition(position);
 		light->setLocalRotation(rotation);
 		light->setLocalScale(scale);
-		light->setEnabled(active);
+		light->setActive(active);
 		addLightObject(light);
 	}
 }
@@ -445,6 +463,11 @@ void ModelManager::setSelectedObject(String name)
 void ModelManager::setSelectedObject(std::shared_ptr<GameObject> gameObject)
 {
 	this->selectedObject = gameObject;
+}
+
+void ModelManager::clearSelectedObject()
+{
+	this->selectedObject = nullptr;
 }
 
 std::shared_ptr<GameObject> ModelManager::getSelectedObject()

@@ -34,6 +34,7 @@ public:
 	std::shared_ptr<GameObject> findObjectByName(String name);
 	std::shared_ptr<Light> findLightObjectByName(String name);
 	List getAllObjects() const;
+	List getAllPickableObjects() const;
 	
 	int activeObjects() const;
 	std::shared_ptr<GameObject> getLastObject();
@@ -50,6 +51,7 @@ public:
 	void deleteObjectByName(String name);
 	void setSelectedObject(String name);
 	void setSelectedObject(std::shared_ptr<GameObject> gameObject);
+	void clearSelectedObject();
 	std::shared_ptr<GameObject> getSelectedObject();
 
 	void clearAllObjects();

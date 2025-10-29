@@ -29,8 +29,15 @@ public:
     String getName() const;
     PrimitiveType getType() const;
 
-    bool isEnabled();
-    void setEnabled(bool flag);
+    bool isActive();
+    void setActive(bool flag);
+
+    bool isVisible();
+    void setVisibility(bool flag);
+
+    bool isPickable();
+    void setPickability(bool flag);
+
 
     vec3 getLocalPosition() const;
     vec3 getWorldPosition() const;
@@ -54,8 +61,11 @@ public:
     std::shared_ptr<Assets::Model> getModel();
 
     void addChild(GameObject* child);
+    void addChildFront(GameObject* child);
+    void addChildLast(GameObject* child);
     void removeChild(GameObject* child);
     std::vector<GameObject*> getChildren() const;
+    std::vector<GameObject*> getChildrenRecursive() const;
     GameObject* getParent() const;
 
     void setParent(GameObject* newParent);
@@ -67,11 +77,12 @@ public:
     void updateObjectMatrix();
     void updateWorldTransform();
 
-
 protected:
     String name;
     PrimitiveType type;
-    bool enabled = true;
+    bool m_isActive = true;
+    bool m_isVisible = true;
+    bool m_isPickable = true;
 
     std::shared_ptr<GameObject> debugCube = nullptr;
 

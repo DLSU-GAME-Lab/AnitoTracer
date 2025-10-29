@@ -6,13 +6,95 @@
 #include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
+#include "Utilities/HotkeySystem.hpp"
+#include "From-GDGRAP2/EventBroadcaster.h"
 
 HierarchyScreen::HierarchyScreen() : AUIScreen(UINames::HIERARCHY_SCREEN)
 {
+    HotkeySystem::getInstance()->addListener(this);
 }
 
 HierarchyScreen::~HierarchyScreen()
 {
+    HotkeySystem::getInstance()->removeListener(this);
+}
+
+void HierarchyScreen::OnActionPressed(Hotkey::Action action)
+{
+    // can be moved somewhere else or have if window focused with viewport
+    if (action == Hotkey::Action::Toggle_GameObjectEnabled)
+    {
+        auto currentState = ModelManager::getInstance()->getSelectedObject()->isActive();
+        ModelManager::getInstance()->getSelectedObject()->setActive(!currentState);
+        EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+    }
+
+    // can be moved somewhere else or have if window focused with viewport
+    if (action == Hotkey::Action::Delete_GameObject)
+    {
+        auto currentObj = ModelManager::getInstance()->getSelectedObject();
+        ModelManager::getInstance()->deleteObject(currentObj);
+        ModelManager::getInstance()->clearSelectedObject();
+        EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+    }
+
+    if (action == Hotkey::Action::Hierarchy_SetAsFirstSibling)
+    {
+        auto currentObj = ModelManager::getInstance()->getSelectedObject();
+        if (!currentObj) return;
+
+        auto parent = currentObj->getParent();
+        if (!parent) return;
+
+        parent->removeChild(currentObj.get());
+        parent->addChildFront(currentObj.get());
+    }
+
+    if (action == Hotkey::Action::Hierarchy_SetAsLastSibling)
+    {
+        auto currentObj = ModelManager::getInstance()->getSelectedObject();
+        if (!currentObj) return;
+
+        auto parent = currentObj->getParent();
+        if (!parent) return;
+
+        parent->removeChild(currentObj.get());
+        parent->addChildLast(currentObj.get());
+    }
+
+    if (action == Hotkey::Action::Hierarchy_ToggleVisibilityWithDescendants)
+    {
+        auto currentObj = ModelManager::getInstance()->getSelectedObject();
+        if (!currentObj) return;
+
+        auto currentState = ModelManager::getInstance()->getSelectedObject()->isVisible();
+        auto newState = !currentState;
+
+        currentObj->setVisibility(newState);
+
+        for (auto child : currentObj->getChildrenRecursive())
+        {
+            child->setVisibility(newState);
+        }
+
+        EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+    }
+
+    if (action == Hotkey::Action::Hierarchy_TogglePickabilityWithDescendants)
+    {
+        auto currentObj = ModelManager::getInstance()->getSelectedObject();
+        if (!currentObj) return;
+
+        auto currentState = ModelManager::getInstance()->getSelectedObject()->isPickable();
+        auto newState = !currentState;
+
+        currentObj->setPickability(newState);
+
+        for (auto child : currentObj->getChildrenRecursive())
+        {
+            child->setPickability(newState);
+        }
+    }
 }
 
 void HierarchyScreen::drawUI()

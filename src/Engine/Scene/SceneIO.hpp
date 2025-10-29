@@ -95,7 +95,7 @@ public:
 			// 1. Identification
 			objJson["name"] = obj->getName();
 			objJson["type"] = obj->getType();
-			objJson["enabled"] = obj->isEnabled();
+			objJson["enabled"] = obj->isActive();
 
 			objJson["position"] = { obj->getWorldPosition().x, obj->getWorldPosition().y, obj->getWorldPosition().z };
 			objJson["rotation"] = { obj->getWorldRotation().x, obj->getWorldRotation().y, obj->getWorldRotation().z };

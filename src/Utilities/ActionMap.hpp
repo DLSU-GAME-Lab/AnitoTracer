@@ -22,6 +22,14 @@ namespace Hotkey
 		SceneTool_Rotate,
 		SceneTool_Scale,
 		SceneTool_Rect,
-		SceneTool_Transform
+		SceneTool_Transform,
+		SceneTool_Cycle,
+
+		Toggle_GameObjectEnabled,
+		Delete_GameObject,
+		Hierarchy_SetAsFirstSibling,
+		Hierarchy_SetAsLastSibling,
+		Hierarchy_ToggleVisibilityWithDescendants,
+		Hierarchy_TogglePickabilityWithDescendants
 	};
 }
