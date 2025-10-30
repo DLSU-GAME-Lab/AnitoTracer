@@ -284,6 +284,8 @@ void UIManager::initializeUI()
 	if (isStartup)
 	{
 		// 	Debug::Log("UI first startup");
+		String filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + "Default.ini";
+		sharedInstance->currentLayoutPath = filename;
 		loadLayout();
 	}
 	else
@@ -300,6 +302,9 @@ void UIManager::saveLayout()
 void UIManager::saveLayout(String name)
 {
 	String filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + name + ".ini";
+
+	//COMMENTED FOR NOW WHILE SETTING UP PRESETS
+	//if (name != "Default" || name != "Tall" || name != "Wide")
 	ImGui::SaveIniSettingsToDisk(filename.c_str());
 }
 
@@ -329,6 +334,30 @@ void UIManager::loadLayoutFromFile()
 	String filename;
 	FileUtils::getLayoutFilePath(sharedInstance->currentLayoutPath, filename);
 	isLoadingLayout = true;
+}
+
+void UIManager::loadPresetLayout(int index)
+{
+	String filename;
+	switch (index) {
+		case 0:
+			filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + "Default.ini";
+			sharedInstance->currentLayoutPath = filename;
+			isLoadingLayout = true;
+			break;
+		case 1:
+			filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + "Tall.ini";
+			sharedInstance->currentLayoutPath = filename;
+			isLoadingLayout = true;
+			break;
+		case 2:
+			filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + "Wide.ini";
+			sharedInstance->currentLayoutPath = filename;
+			isLoadingLayout = true;
+			break;
+		default:
+			break;
+	}
 }
 
 void UIManager::resetLayout()
