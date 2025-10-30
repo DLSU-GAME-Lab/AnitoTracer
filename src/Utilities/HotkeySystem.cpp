@@ -35,43 +35,52 @@ void HotkeySystem::removeListener(HotkeyListener* listener)
 
 void HotkeySystem::bindHotkey(EventKey event, Action action)
 {
-	this->m_keyBindings[event] = action;
+	this->m_keyBindings[event].push_back(action);
 }
 
-void HotkeySystem::processInputKeys(int key, int mod)
+void HotkeySystem::bindMouseHotkey(EventKey event, Action action)
 {
-	Debug::Log("Key Pressed: " + std::to_string(key) + " With Mod: " + std::to_string(mod));
+	this->m_mouseButtonBindings[event].push_back(action);
+}
 
+void HotkeySystem::processInputKeys(int key, int mod, int action)
+{
 	auto it = this->m_keyBindings.find({ key, mod });
 
 	if (it != this->m_keyBindings.end())
 	{
-		Action action = it->second;
-		
-		Debug::Log("Action Detected: " + std::to_string(static_cast<int>(action)));
+		auto keyActions = it->second;
 
-		for (auto listener : this->m_hotkeyListeners)
+		for (auto keyAction : keyActions)
 		{
-			listener->OnActionPressed(action);
+			for (auto listener : this->m_hotkeyListeners)
+			{
+				if (action != GLFW_RELEASE)
+					listener->OnActionPressed(keyAction);
+				else if (action == GLFW_RELEASE)
+					listener->OnActionReleased(keyAction);
+			}
 		}
 	}
 }
 
-void HotkeySystem::processInputMouseButtons(int key, int mod)
+void HotkeySystem::processInputMouseButtons(int key, int mod, int action)
 {
-	Debug::Log("Key Pressed: " + std::to_string(key) + " With Mod: " + std::to_string(mod));
-
 	auto it = this->m_mouseButtonBindings.find({ key, mod });
 
 	if (it != this->m_mouseButtonBindings.end())
 	{
-		Action action = it->second;
+		auto buttonActions = it->second;
 
-		Debug::Log("Action Detected: " + std::to_string(static_cast<int>(action)));
-
-		for (auto listener : this->m_hotkeyListeners)
+		for (auto buttonAction : buttonActions)
 		{
-			listener->OnActionPressed(action);
+			for (auto listener : this->m_hotkeyListeners)
+			{
+				if (action != GLFW_RELEASE)
+					listener->OnActionPressed(buttonAction);
+				else if (action == GLFW_RELEASE)
+					listener->OnActionReleased(buttonAction);
+			}
 		}
 	}
 }
@@ -81,16 +90,24 @@ void HotkeySystem::setupDefaultBindings()
 	using Action = Hotkey::Action;
 
 	// Camera Movement (FPS)
-	//bindHotkey({ GLFW_KEY_UP, 0 }, Action::Camera_Up);
-	//bindHotkey({ GLFW_KEY_E, 0 }, Action::Camera_Up);
-	//bindHotkey({ GLFW_KEY_DOWN, 0 }, Action::Camera_Down);
-	//bindHotkey({ GLFW_KEY_Q, 0 }, Action::Camera_Down);
-	//bindHotkey({ GLFW_KEY_LEFT, 0 }, Action::Camera_StrafeLeft);
-	//bindHotkey({ GLFW_KEY_A, 0 }, Action::Camera_StrafeLeft);
-	//bindHotkey({ GLFW_KEY_RIGHT, 0 }, Action::Camera_StrafeRight);
-	//bindHotkey({ GLFW_KEY_D, 0 }, Action::Camera_StrafeRight);
-	//bindHotkey({ GLFW_KEY_W, 0 }, Action::Camera_Forward);
-	//bindHotkey({ GLFW_KEY_S, 0 }, Action::Camera_Backward);
+	bindHotkey({ GLFW_KEY_UP, 0 }, Action::Camera_Forward);
+	bindHotkey({ GLFW_KEY_E, 0 }, Action::Camera_Up);
+	bindHotkey({ GLFW_KEY_DOWN, 0 }, Action::Camera_Backward);
+	bindHotkey({ GLFW_KEY_Q, 0 }, Action::Camera_Down);
+	bindHotkey({ GLFW_KEY_LEFT, 0 }, Action::Camera_StrafeLeft);
+	bindHotkey({ GLFW_KEY_A, 0 }, Action::Camera_StrafeLeft);
+	bindHotkey({ GLFW_KEY_RIGHT, 0 }, Action::Camera_StrafeRight);
+	bindHotkey({ GLFW_KEY_D, 0 }, Action::Camera_StrafeRight);
+	bindHotkey({ GLFW_KEY_W, 0 }, Action::Camera_Forward);
+	bindHotkey({ GLFW_KEY_S, 0 }, Action::Camera_Backward);
+
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_RIGHT, 0 }, Action::Camera_FPSMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, 0 }, Action::Camera_NormalPanMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_LEFT, GLFW_MOD_CONTROL + GLFW_MOD_ALT }, Action::Camera_NormalPanMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, GLFW_MOD_SHIFT }, Action::Camera_FastPanMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, GLFW_MOD_ALT }, Action::Camera_SlowPanMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOD_ALT }, Action::Camera_ZoomMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_LEFT, GLFW_MOD_ALT }, Action::Camera_OrbitMode);
 
 	bindHotkey({ GLFW_KEY_W, 0 }, Action::SceneTool_Move);
 	bindHotkey({ GLFW_KEY_E, 0 }, Action::SceneTool_Rotate);

@@ -54,9 +54,10 @@ public:
 	void removeListener(HotkeyListener* listener);
 
 	void bindHotkey(EventKey event, Action action);
+	void bindMouseHotkey(EventKey event, Action action);
 
-	void processInputKeys(int key, int mod);
-	void processInputMouseButtons(int key, int mod);
+	void processInputKeys(int key, int mod, int action);
+	void processInputMouseButtons(int key, int mod, int action);
 
 private:
 	HotkeySystem();
@@ -69,6 +70,6 @@ private:
 	void setupDefaultBindings();
 
 	std::unordered_set<HotkeyListener*> m_hotkeyListeners;
-	std::unordered_map<EventKey, Action> m_keyBindings;
-	std::unordered_map<EventKey, Action> m_mouseButtonBindings;
+	std::unordered_map<EventKey, std::vector<Action>> m_keyBindings;
+	std::unordered_map<EventKey, std::vector<Action>> m_mouseButtonBindings;
 };

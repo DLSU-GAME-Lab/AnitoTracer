@@ -3,13 +3,21 @@
 namespace Hotkey
 {
 	enum class Action
-	{
+	{ 
 		Camera_Forward = 0,
 		Camera_Backward,
 		Camera_StrafeLeft,
 		Camera_StrafeRight,
 		Camera_Up,
 		Camera_Down,
+		Camera_SpeedUp,
+		Camera_SlowDown,
+		Camera_FPSMode,
+		Camera_NormalPanMode,
+		Camera_SlowPanMode,
+		Camera_FastPanMode,
+		Camera_ZoomMode,
+		Camera_OrbitMode,
 
 		Toggle_SettingsScreenVisibility,
 		Toggle_AllUIVisibility,

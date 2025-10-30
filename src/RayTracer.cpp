@@ -53,19 +53,23 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SCENE_LOADED, this);
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MARK_SCENE_DIRTY, this);
+	EventBroadcaster::getInstance()->addObserver(EventNames::ON_RESET_ACCUMULATOR, this);
 
+	HotkeySystem::initialize();
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
-	HotkeySystem::initialize();
 }
 
 RayTracer::~RayTracer()
 {
+	HotkeySystem::destroy();
+
 	scene_.reset();
 	rayScene_.reset();
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_RESET_ACCUMULATOR);
 }
 
 void RayTracer::initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig,
@@ -226,7 +230,7 @@ void RayTracer::DrawFrame()
 	}
 
 	// Check if the accumulation buffer needs to be reset.
-	if (resetAccumulation_ ||
+	if ( resetAccumulation_ ||
 		userSettings_.RequiresAccumulationReset(previousSettings_) ||
 		!userSettings_.AccumulateRays)
 	{
@@ -326,10 +330,11 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 void RayTracer::OnKey(int key, int scancode, int action, int mods)
 {
+	HotkeySystem::getInstance()->processInputKeys(key, mods, action);
+
 	// Settings (toggle switches)
 	if (action == GLFW_PRESS)
 	{
-		HotkeySystem::getInstance()->processInputKeys(key, mods);
 		isMoving = true;
 		switch (key)
 		{
@@ -405,6 +410,8 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 		mousePressed = true;
 	}
 
+	HotkeySystem::getInstance()->processInputMouseButtons(button, mods, action);
+
 	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||
 		UIManager::wantsToCaptureMouse())
@@ -461,6 +468,10 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 		this->isSceneDirty = true;
 		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, true);
 		//Debug::Log("Scene marked as dirty! \n");
+	}
+	else if (eventName == EventNames::ON_RESET_ACCUMULATOR)
+	{
+		resetAccumulation_ |= true;
 	}
 }
 

@@ -8,4 +8,5 @@ public:
 	~HotkeyListener() = default;
 
 	virtual void OnActionPressed(Hotkey::Action action) {}
+	virtual void OnActionReleased(Hotkey::Action action) {}
 };

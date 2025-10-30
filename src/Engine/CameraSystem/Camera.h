@@ -5,11 +5,13 @@
 #include "UserSettings.hpp"
 #include "From-GDGRAP2/GameObject.h"
 #include "Utilities/Glm.hpp"
+#include "Utilities/HotkeyListener.hpp"
 
-class Camera : public GameObject
+class Camera : public GameObject, public HotkeyListener
 {
 public:
 	enum ProjectionMode { orthographic = 0, perspective };
+	enum CameraMode { NONE = -1, FPS = 0, PAN, FASTPAN, SLOWPAN, ZOOM, ORBIT };
 
 	Camera(std::string name, ProjectionMode proj = perspective);
 	~Camera();
@@ -21,7 +23,10 @@ public:
 	bool OnKey(int key, int scancode, int action, int mods);
 	bool OnCursorPosition(double xpos, double ypos);
 	bool OnMouseButton(int button, int action, int mods);
+	void OBBRaycast(const int button, const int action);
 	bool UpdateCamera(double speed, double timeDelta);
+	void OnActionPressed(Hotkey::Action action) override;
+	void OnActionReleased(Hotkey::Action action) override;
 
 	glm::mat4 GetProjection(UserSettings settings, const VkExtent2D extent);
 	glm::mat4 GetProjection();
@@ -69,9 +74,7 @@ protected:
 	double mousePosX_{};
 	double mousePosY_{};
 
-	bool mouseLeftPressed_{};
-	bool mouseRightPressed_{};
-	bool mouseMiddlePressed_{};
+	CameraMode m_currentMode = NONE;
 
 	float windowWidth_{};
 	float windowHeight_{};
@@ -82,4 +85,6 @@ protected:
 	float camNormalSpeed = 1.0f;
 	float camSlowSpeed = 0.2f;
 	float camFastSpeed = 1.5f;
+
+	bool isFPSMode = false;
 };
