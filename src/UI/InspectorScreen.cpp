@@ -202,7 +202,7 @@ void InspectorScreen::drawTransformTab()
 		{
 			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, this->transformLabelWidth);
 			ImGui::TableSetupColumn("Button", ImGuiTableColumnFlags_WidthFixed, this->transformUniformScalingButtonWidth); // reserve space for link button
-			ImGui::TableSetupColumn("Fields", ImGuiTableColumnFlags_WidthStretch, this->transformInputWindowWidth *4);
+			ImGui::TableSetupColumn("Fields", ImGuiTableColumnFlags_WidthStretch);
 
 			ImGui::TableNextRow();
 			ImGui::TableSetColumnIndex(0);
@@ -261,20 +261,34 @@ void InspectorScreen::drawVector3Field(const char* label, float* values)
 {
 	ImGui::PushID(label);
 
+	//Calculate Field Width
+	float totalAvailableSpace = ImGui::GetContentRegionAvail().x;
+	float spacing = ImGui::GetStyle().ItemSpacing.x;
+
+	float labelWidth = ImGui::CalcTextSize("X").x;
+	labelWidth = std::max(labelWidth, ImGui::CalcTextSize("Y").x);
+	labelWidth = std::max(labelWidth, ImGui::CalcTextSize("Z").x);
+
+	labelWidth += ImGui::GetStyle().ItemInnerSpacing.x;
+
+	float totalLabelSpace = (labelWidth + spacing) * 3.0f - spacing;
+
+	float inputWidth = (totalAvailableSpace - totalLabelSpace) / 3.0f;
+	if (inputWidth < 1.0f) inputWidth = 1.0f; // min spacing
+
 	auto axisInput = [&](const char* name, float& v)
 		{
 			ImGui::AlignTextToFramePadding();
 			ImGui::Text(name);
-
 			ImGui::SameLine();
 
-			ImGui::PushItemWidth(this->transformInputWindowWidth);
+			ImGui::PushItemWidth(inputWidth);
 
 			std::string id = "##";
 			id += label;
 			id += name;
 
-			if (ImGui::DragFloat(id.c_str(), &v, 0.1f, 1.0f))
+			if (ImGui::DragFloat(id.c_str(), &v, 0.0f))
 			{
 				if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate();
 			}

@@ -46,6 +46,7 @@ namespace gdeng03
 
 		bool isMaterialChanged = false;
 		bool isColorPickerOpen = false;
+		bool wasColorPickerOpen = false;
 		//bool isMaterialEditorOpen = false;
 
 		ImVec4 diffuse = ImVec4(1, 1, 1, 1);
@@ -65,6 +66,10 @@ namespace gdeng03
 		 float fuzziness = 0;
 		 // Dielectric refraction index
 		 float refractionIndex = 0;
+
+		 float labelSize = 100.0f;
+		 float previewSize = 16.0f;
+		 float buttonSize = 8.0f;
 		
 		// // Which material are we dealing with
 		// Material::Enum materialModel;
