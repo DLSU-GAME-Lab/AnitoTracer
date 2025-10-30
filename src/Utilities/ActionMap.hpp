@@ -26,10 +26,15 @@ namespace Hotkey
 		SceneTool_Cycle,
 
 		Toggle_GameObjectEnabled,
-		Delete_GameObject,
+		DeleteGameObject,
+		DuplicateGameObject,
+		CutGameObject,
+		CopyGameObject,
+		PasteGameObject,
 		Hierarchy_SetAsFirstSibling,
 		Hierarchy_SetAsLastSibling,
 		Hierarchy_ToggleVisibilityWithDescendants,
-		Hierarchy_TogglePickabilityWithDescendants
+		Hierarchy_TogglePickabilityWithDescendants,
+		
 	};
 }

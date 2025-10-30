@@ -53,6 +53,9 @@ public:
 	void setSelectedObject(std::shared_ptr<GameObject> gameObject);
 	void clearSelectedObject();
 	std::shared_ptr<GameObject> getSelectedObject();
+	std::vector<std::shared_ptr<GameObject>> createDuplicateObject(std::shared_ptr<GameObject> gameObject);
+	void setCopiedObject(std::vector<std::shared_ptr<GameObject>> gameObject);
+	std::vector<std::shared_ptr<GameObject>> getCopiedObject();
 
 	void clearAllObjects();
 
@@ -73,6 +76,6 @@ private:
 	LightTable lightTable;
 
 	std::shared_ptr<GameObject> selectedObject = nullptr;
-
+	std::vector<std::shared_ptr<GameObject>> copiedObject{};
 };
 

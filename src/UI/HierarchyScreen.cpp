@@ -29,13 +29,61 @@ void HierarchyScreen::OnActionPressed(Hotkey::Action action)
         EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
     }
 
-    // can be moved somewhere else or have if window focused with viewport
-    if (action == Hotkey::Action::Delete_GameObject)
+    // Have duplicate code, but for Scene/Viewport
+    if (action == Hotkey::Action::DeleteGameObject)
     {
         auto currentObj = ModelManager::getInstance()->getSelectedObject();
         ModelManager::getInstance()->deleteObject(currentObj);
         ModelManager::getInstance()->clearSelectedObject();
         EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+    }
+
+    // Have duplicate code, but for Scene/Viewport
+    if (action == Hotkey::Action::DuplicateGameObject)
+    {
+        auto currentObj = ModelManager::getInstance()->getSelectedObject();
+        auto duplicates = ModelManager::getInstance()->createDuplicateObject(currentObj);
+        
+        for (auto gameObject : duplicates)
+        {
+            ModelManager::getInstance()->addObject(gameObject);
+        }
+
+        EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+    }
+
+    // Have duplicate code, but for Scene/Viewport
+    if (action == Hotkey::Action::CopyGameObject)
+    {
+        auto currentObj = ModelManager::getInstance()->getSelectedObject();
+        auto duplicates = ModelManager::getInstance()->createDuplicateObject(currentObj);
+        ModelManager::getInstance()->setCopiedObject(duplicates);
+    }
+
+    // Have duplicate code, but for Scene/Viewport
+    if (action == Hotkey::Action::PasteGameObject)
+    {
+        auto copiedObject = ModelManager::getInstance()->getCopiedObject();
+        auto copyOfCopy = ModelManager::getInstance()->createDuplicateObject(copiedObject[0]); //We need to preserve the original copy
+
+        for (auto gameObject : copyOfCopy)
+        {
+            ModelManager::getInstance()->addObject(gameObject);
+        }
+
+        ModelManager::getInstance()->setSelectedObject(copyOfCopy[0]);
+        EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+    }
+
+    // Have duplicate code, but for Scene/Viewport
+    if (action == Hotkey::Action::CutGameObject)
+    {
+        auto currentObj = ModelManager::getInstance()->getSelectedObject();
+        auto duplicates = ModelManager::getInstance()->createDuplicateObject(currentObj);
+        ModelManager::getInstance()->setCopiedObject(duplicates);
+
+        ModelManager::getInstance()->deleteObject(currentObj);
+        ModelManager::getInstance()->clearSelectedObject();
     }
 
     if (action == Hotkey::Action::Hierarchy_SetAsFirstSibling)

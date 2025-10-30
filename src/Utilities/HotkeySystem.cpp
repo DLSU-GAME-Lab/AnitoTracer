@@ -99,7 +99,11 @@ void HotkeySystem::setupDefaultBindings()
 	bindHotkey({ GLFW_KEY_G, 0 }, Action::SceneTool_Cycle);
 
 	bindHotkey({ GLFW_KEY_A, GLFW_MOD_SHIFT + GLFW_MOD_ALT }, Action::Toggle_GameObjectEnabled);
-	bindHotkey({ GLFW_KEY_DELETE, 0 }, Action::Delete_GameObject);
+	bindHotkey({ GLFW_KEY_DELETE, 0 }, Action::DeleteGameObject);
+	bindHotkey({ GLFW_KEY_D, GLFW_MOD_CONTROL }, Action::DuplicateGameObject);
+	bindHotkey({ GLFW_KEY_C, GLFW_MOD_CONTROL }, Action::CopyGameObject);
+	bindHotkey({ GLFW_KEY_V, GLFW_MOD_CONTROL }, Action::PasteGameObject);
+	bindHotkey({ GLFW_KEY_X, GLFW_MOD_CONTROL }, Action::CutGameObject);
 
 	bindHotkey({ GLFW_KEY_EQUAL, GLFW_MOD_CONTROL }, Action::Hierarchy_SetAsFirstSibling);
 	bindHotkey({ GLFW_KEY_MINUS, GLFW_MOD_CONTROL }, Action::Hierarchy_SetAsLastSibling);

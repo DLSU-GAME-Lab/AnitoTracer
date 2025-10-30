@@ -475,6 +475,111 @@ std::shared_ptr<GameObject> ModelManager::getSelectedObject()
 	return this->selectedObject;
 }
 
+std::vector<std::shared_ptr<GameObject>> ModelManager::createDuplicateObject(std::shared_ptr<GameObject> gameObject)
+{
+	auto copyObject = [&](GameObject* gameObject) -> std::shared_ptr<GameObject>
+		{
+			auto type = gameObject->getType();
+			auto name = gameObject->getName();
+			auto position = gameObject->getLocalPosition();
+			auto rotation = gameObject->getLocalRotation();
+			auto scale = gameObject->getLocalScale();
+			auto active = gameObject->isActive();
+			auto parent = gameObject->getParent();
+			auto material = gameObject->getModel()->getMaterial(0);
+
+			// Copy Material
+			std::shared_ptr<Assets::Material> copiedMat = std::make_shared<Assets::Material>();
+
+			copiedMat->Diffuse = material->Diffuse;
+			copiedMat->DiffuseTextureId = material->DiffuseTextureId;
+			copiedMat->Fuzziness = material->Fuzziness;
+			copiedMat->RefractionIndex = material->RefractionIndex;
+			copiedMat->MaterialModel = material->MaterialModel;
+
+			std::shared_ptr<GameObject> resultCopy;
+
+			switch (type)
+			{
+			case GameObject::CUBE:
+				{
+					Assets::Model model = Assets::Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *copiedMat);
+					resultCopy = std::make_shared<GameObject>(name, type, std::make_shared<Assets::Model>(model));
+					break;
+				}
+
+			case GameObject::SPHERE:
+				{
+					Assets::Model model = Assets::Model::CreateSphere(vec3(0), 50, *copiedMat, false);
+					resultCopy = std::make_shared<GameObject>(name, GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(model));
+					break;
+				}
+
+			case GameObject::PLANE:
+				{
+					Assets::Model model = Assets::Model::CreatePlane(vec3(0, 0, -100), vec3(100, -100, 0), *copiedMat);
+					resultCopy = std::make_shared<GameObject>(name, GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(model));
+					break;
+				}
+
+			case GameObject::CYLINDER:
+				{
+					Assets::Model model = Assets::Model::CreateCylinder(25, 50, *copiedMat);
+					resultCopy = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(model));
+					break;
+				}
+
+			case GameObject::CAPSULE:
+				{
+					Assets::Model model = Assets::Model::CreateCapsule(25, 100, *copiedMat);
+					resultCopy = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(model));
+					break;
+				}
+
+			case GameObject::CORNELL_BOX:
+				{
+					Assets::Model model = Assets::Model::CreateCornellBox(555);
+					resultCopy = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Assets::Model>(model));
+					break;
+				}
+
+			default:
+				Debug::Log("[ERROR] unable to load custom models!");
+				return nullptr;
+			}
+
+			resultCopy->setLocalPosition(position);
+			resultCopy->setLocalRotation(rotation);
+			resultCopy->setLocalScale(scale);
+			resultCopy->setParent(parent);
+
+			return resultCopy;
+		};
+
+	std::vector<std::shared_ptr<GameObject>> result;
+
+	auto parent = copyObject(gameObject.get());
+	result.push_back(parent);
+
+	for (const auto& child : parent->getChildrenRecursive())
+	{
+		std::shared_ptr<GameObject> childCopy = copyObject(child);
+		result.push_back(childCopy);
+	}
+
+	return result;
+}
+
+void ModelManager::setCopiedObject(std::vector<std::shared_ptr<GameObject>> gameObjectList)
+{
+	this->copiedObject = gameObjectList;
+}
+
+std::vector<std::shared_ptr<GameObject>> ModelManager::getCopiedObject()
+{
+	return this->copiedObject;
+}
+
 void ModelManager::clearAllObjects()
 {
 	this->gameObjectList.clear();
