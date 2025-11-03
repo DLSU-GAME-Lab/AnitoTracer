@@ -143,6 +143,7 @@ void HierarchyScreen::OnActionPressed(Hotkey::Action action)
             child->setPickability(newState);
         }
     }
+ 
 }
 
 void HierarchyScreen::drawUI()

@@ -18,6 +18,9 @@ namespace Hotkey
 		Camera_FastPanMode,
 		Camera_ZoomMode,
 		Camera_OrbitMode,
+		Camera_FocusOnGameObject,
+		Camera_FocusOnGameObject_Zoomed,
+		Camera_Reset,
 
 		Toggle_SettingsScreenVisibility,
 		Toggle_AllUIVisibility,
@@ -43,6 +46,9 @@ namespace Hotkey
 		Hierarchy_SetAsLastSibling,
 		Hierarchy_ToggleVisibilityWithDescendants,
 		Hierarchy_TogglePickabilityWithDescendants,
+
+		GameObject_MoveToView
+
 		
 	};
 }

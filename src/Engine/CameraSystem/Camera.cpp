@@ -3,6 +3,7 @@
 #include <iostream>
 #include <glm/fwd.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/matrix_access.hpp>
 
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/ModelManager.h"
@@ -17,6 +18,8 @@ Camera::Camera(std::string name, ProjectionMode proj) : GameObject(name, Primiti
 	this->projMode = proj;
 
 	HotkeySystem::getInstance()->addListener(this);
+
+	Reset(this->ModelView());
 }
 
 Camera::~Camera() 
@@ -57,20 +60,6 @@ glm::mat4 Camera::ModelView()
 
 bool Camera::OnKey(const int key, const int scancode, const int action, const int mods)
 {
-	if (key == GLFW_KEY_F && action != GLFW_REPEAT)
-	{
-		auto selected = ModelManager::getInstance()->getSelectedObject();
-
-		if (selected) {
-			this->Reset(lookAt(
-				selected->getWorldPosition() - glm::vec3(0, 0, 1000),
-				selected->getWorldPosition(),
-				glm::vec3(0, 1, 0)
-			));
-		}
-		return true;
-	}
-
 	if (key == GLFW_KEY_ESCAPE && action != GLFW_REPEAT) 
 	{
 		exit(0); // temp exit lol 
@@ -87,7 +76,6 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 	if (m_currentMode == FPS)
 	{
 		cameraRotX_ += deltaX;
-
 		this->localRotation.x -= deltaX;
 
 		cameraRotY_ += deltaY;
@@ -96,6 +84,53 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 		if (localRotation.y < -limit) { cameraRotY_ = 0; this->localRotation.y -= deltaY; }
 
 		this->setLocalRotation(glm::vec3(localRotation));
+		UpdateVectors();
+	}
+
+	if (m_currentMode == PAN)
+	{
+		// Needs Sensitivity Settings
+		MoveRight(deltaX * camSpeed_);
+		MoveUp(deltaY * camSpeed_);
+		UpdateVectors();
+	}
+
+	if (m_currentMode == ZOOM)
+	{
+		MoveForward(deltaX);
+		MoveForward(deltaY);
+		UpdateVectors();
+	}
+
+	if (m_currentMode == ORBIT)
+	{
+		//glm::vec3 orbitPivot;
+
+		//if (auto selected = ModelManager::getInstance()->getSelectedObject())
+		//	orbitPivot = selected->getWorldPosition();
+		//else
+		//	orbitPivot = this->getLocalPosition() + (glm::vec3(this->forward_) * this->m_defaultPivotDistance);
+
+		//auto r = glm::length(orbitPivot);
+
+		//cameraRotX_ += deltaX;
+		//this->localRotation.x -= deltaX;
+
+		//cameraRotY_ += deltaY;
+		//this->localRotation.y += deltaY;
+		//if (localRotation.y > limit) { cameraRotY_ = 0.00001f; this->localRotation.y -= deltaY; }
+		//if (localRotation.y < -limit) { cameraRotY_ = 0.00001f; this->localRotation.y -= deltaY; }
+
+		//this->setLocalRotation(glm::vec3(localRotation));
+		//
+		//UpdateVectors();
+
+		//this->setLocalPosition(glm::normalize(forward_) * r);
+
+		//Debug::Log("Radius: (" + std::to_string(r));
+		//Debug::Log("Forward: (" + std::to_string(forward_.x) + ", " + std::to_string(forward_.y) + ", " + std::to_string(forward_.z) + ")");
+		//Debug::Log("Position: (" + std::to_string(getLocalPosition().x) + ", " + std::to_string(getLocalPosition().y) + ", " + std::to_string(getLocalPosition().z) + ")");
+		//Debug::Log("Rotation: (" + std::to_string(localRotation.x) + ", " + std::to_string(localRotation.y) + ", " + std::to_string(localRotation.z) + ")");
 	}
 
 	//if (mouseRightPressed_)
@@ -216,11 +251,16 @@ bool Camera::UpdateCamera(const double speed, const double timeDelta)
 	cameraRotY_ = 0;
 	cameraRotX_ = 0;
 
+	if(updated)
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
+
 	return updated;
 }
 
 void Camera::OnActionPressed(Hotkey::Action action)
 {
+	UpdateVectors();
+
 	if (action == Hotkey::Action::Camera_FPSMode)
 	{
 		m_currentMode = FPS;
@@ -229,34 +269,28 @@ void Camera::OnActionPressed(Hotkey::Action action)
 	if (action == Hotkey::Action::Camera_NormalPanMode)
 	{
 		m_currentMode = PAN;
-
-		Debug::Log("PAN");
 	}
 
 	if (action == Hotkey::Action::Camera_SlowPanMode)
 	{
 		m_currentMode = PAN;
 		camSlowed = true;
-		Debug::Log("PAN");
 	}
 
 	if (action == Hotkey::Action::Camera_FastPanMode)
 	{
 		m_currentMode = PAN;
 		camSpedUp = true;
-		Debug::Log("PAN");
 	}
 
 	if (action == Hotkey::Action::Camera_ZoomMode)
 	{
 		m_currentMode = ZOOM;
-		Debug::Log("ZOOM");
 	}
 
 	if (action == Hotkey::Action::Camera_OrbitMode)
 	{
 		m_currentMode = ORBIT;
-		Debug::Log("ORBIT");
 	}
 
 	if (m_currentMode == FPS)
@@ -264,37 +298,31 @@ void Camera::OnActionPressed(Hotkey::Action action)
 		if (action == Hotkey::Action::Camera_Forward)
 		{
 			cameraMovingForward_ = true;
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 		}
 
 		if (action == Hotkey::Action::Camera_Backward)
 		{
 			cameraMovingBackward_ = true;
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 		}
 
 		if (action == Hotkey::Action::Camera_Down)
 		{
 			cameraMovingDown_ = true;
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 		}
 
 		if (action == Hotkey::Action::Camera_Up)
 		{
 			cameraMovingUp_ = true;
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 		}
 
 		if (action == Hotkey::Action::Camera_StrafeLeft)
 		{
 			cameraMovingLeft_ = true;
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 		}
 
 		if (action == Hotkey::Action::Camera_StrafeRight)
 		{
 			cameraMovingRight_ = true;
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 		}
 
 		if (action == Hotkey::Action::Camera_SpeedUp)
@@ -307,6 +335,33 @@ void Camera::OnActionPressed(Hotkey::Action action)
 			camSlowed = true;
 		}
 	}
+
+
+	if (action == Hotkey::Action::GameObject_MoveToView)
+	{
+		auto currentObj = ModelManager::getInstance()->getSelectedObject();
+		if (!currentObj) return;
+
+		currentObj->setLocalPosition(this->getWorldPosition() + glm::vec3(forward_) * 500.0f);
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
+	if (action == Hotkey::Action::Camera_Reset)
+	{
+		auto selected = ModelManager::getInstance()->getSelectedObject();
+
+		if (selected) {
+			this->Reset(glm::lookAt(
+				selected->getWorldPosition() - glm::vec3(0, 0, 1000),
+				selected->getWorldPosition(),
+				glm::vec3(0, 1, 0)
+			));
+		}
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
 }
 
 void Camera::OnActionReleased(Hotkey::Action action)

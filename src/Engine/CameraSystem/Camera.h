@@ -36,6 +36,7 @@ public:
 
 	void setLocalPosition(float x, float y, float z) override;
 	void setLocalPosition(glm::vec3 pos) override;
+	
 
 protected:
 
@@ -44,6 +45,7 @@ protected:
 	virtual void MoveUp(float d);
 	virtual void Rotate(float y, float x);
 	void UpdateVectors();
+
 
 	std::string name;
 	ProjectionMode projMode;
@@ -86,5 +88,5 @@ protected:
 	float camSlowSpeed = 0.2f;
 	float camFastSpeed = 1.5f;
 
-	bool isFPSMode = false;
+	float m_defaultPivotDistance = 1000.0f;
 };

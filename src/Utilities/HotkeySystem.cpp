@@ -101,14 +101,6 @@ void HotkeySystem::setupDefaultBindings()
 	bindHotkey({ GLFW_KEY_W, 0 }, Action::Camera_Forward);
 	bindHotkey({ GLFW_KEY_S, 0 }, Action::Camera_Backward);
 
-	bindMouseHotkey({ GLFW_MOUSE_BUTTON_RIGHT, 0 }, Action::Camera_FPSMode);
-	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, 0 }, Action::Camera_NormalPanMode);
-	bindMouseHotkey({ GLFW_MOUSE_BUTTON_LEFT, GLFW_MOD_CONTROL + GLFW_MOD_ALT }, Action::Camera_NormalPanMode);
-	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, GLFW_MOD_SHIFT }, Action::Camera_FastPanMode);
-	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, GLFW_MOD_ALT }, Action::Camera_SlowPanMode);
-	bindMouseHotkey({ GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOD_ALT }, Action::Camera_ZoomMode);
-	bindMouseHotkey({ GLFW_MOUSE_BUTTON_LEFT, GLFW_MOD_ALT }, Action::Camera_OrbitMode);
-
 	bindHotkey({ GLFW_KEY_W, 0 }, Action::SceneTool_Move);
 	bindHotkey({ GLFW_KEY_E, 0 }, Action::SceneTool_Rotate);
 	bindHotkey({ GLFW_KEY_R, 0 }, Action::SceneTool_Scale);
@@ -126,6 +118,22 @@ void HotkeySystem::setupDefaultBindings()
 	bindHotkey({ GLFW_KEY_MINUS, GLFW_MOD_CONTROL }, Action::Hierarchy_SetAsLastSibling);
 	bindHotkey({ GLFW_KEY_H, 0 }, Action::Hierarchy_ToggleVisibilityWithDescendants);
 	bindHotkey({ GLFW_KEY_L, 0 }, Action::Hierarchy_TogglePickabilityWithDescendants);
+
+	bindHotkey({ GLFW_KEY_F7, 0 }, Action::Camera_Reset);
+
+	bindHotkey({ GLFW_KEY_F, GLFW_MOD_CONTROL + GLFW_MOD_ALT }, Action::GameObject_MoveToView);
+
+	// Mouse Binds
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_RIGHT, 0 }, Action::Camera_FPSMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, 0 }, Action::Camera_NormalPanMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_LEFT, GLFW_MOD_CONTROL + GLFW_MOD_ALT }, Action::Camera_NormalPanMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, GLFW_MOD_SHIFT }, Action::Camera_FastPanMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, GLFW_MOD_ALT }, Action::Camera_SlowPanMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOD_ALT }, Action::Camera_ZoomMode);
+	bindMouseHotkey({ GLFW_MOUSE_BUTTON_LEFT, GLFW_MOD_ALT }, Action::Camera_OrbitMode);
+
+
+	bindMouseHotkey({ GLFW_KEY_F, 0 }, Action::Camera_FocusOnGameObject_Zoomed);
 
 }
 
