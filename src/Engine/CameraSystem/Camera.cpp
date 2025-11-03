@@ -18,8 +18,6 @@ Camera::Camera(std::string name, ProjectionMode proj) : GameObject(name, Primiti
 	this->projMode = proj;
 
 	HotkeySystem::getInstance()->addListener(this);
-
-	Reset(this->ModelView());
 }
 
 Camera::~Camera() 

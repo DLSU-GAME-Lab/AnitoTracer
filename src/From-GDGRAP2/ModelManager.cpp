@@ -561,9 +561,10 @@ std::vector<std::shared_ptr<GameObject>> ModelManager::createDuplicateObject(std
 	auto parent = copyObject(gameObject.get());
 	result.push_back(parent);
 
-	for (const auto& child : parent->getChildrenRecursive())
+	for (const auto& child : gameObject->getChildrenRecursive())
 	{
 		std::shared_ptr<GameObject> childCopy = copyObject(child);
+		parent->addChild(childCopy.get());
 		result.push_back(childCopy);
 	}
 

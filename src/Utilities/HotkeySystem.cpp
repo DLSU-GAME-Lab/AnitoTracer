@@ -131,10 +131,6 @@ void HotkeySystem::setupDefaultBindings()
 	bindMouseHotkey({ GLFW_MOUSE_BUTTON_MIDDLE, GLFW_MOD_ALT }, Action::Camera_SlowPanMode);
 	bindMouseHotkey({ GLFW_MOUSE_BUTTON_RIGHT, GLFW_MOD_ALT }, Action::Camera_ZoomMode);
 	bindMouseHotkey({ GLFW_MOUSE_BUTTON_LEFT, GLFW_MOD_ALT }, Action::Camera_OrbitMode);
-
-
-	bindMouseHotkey({ GLFW_KEY_F, 0 }, Action::Camera_FocusOnGameObject_Zoomed);
-
 }
 
 

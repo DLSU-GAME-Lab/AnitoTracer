@@ -63,8 +63,15 @@ void HierarchyScreen::OnActionPressed(Hotkey::Action action)
     // Have duplicate code, but for Scene/Viewport
     if (action == Hotkey::Action::PasteGameObject)
     {
-        auto copiedObject = ModelManager::getInstance()->getCopiedObject();
-        auto copyOfCopy = ModelManager::getInstance()->createDuplicateObject(copiedObject[0]); //We need to preserve the original copy
+        auto copiedObjects = ModelManager::getInstance()->getCopiedObject();
+        std::vector<std::shared_ptr<GameObject>> copyOfCopy; 
+        
+        //ModelManager::getInstance()->createDuplicateObject(copiedObjects[0]); //We need to preserve the original copy
+
+        for (int i = 0; i < copiedObjects.size(); i++)
+        {
+            copyOfCopy.push_back(ModelManager::getInstance()->createDuplicateObject(copiedObjects[i])[0]);
+        }
 
         for (auto gameObject : copyOfCopy)
         {
