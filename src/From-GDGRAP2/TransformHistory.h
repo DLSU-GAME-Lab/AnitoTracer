@@ -6,6 +6,11 @@ struct TransformState {
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale;
+
+    bool operator==(const TransformState& other) const
+    {
+        return position == other.position && rotation == other.rotation && scale == other.scale;
+    }
 };
 
 struct TransformAction {

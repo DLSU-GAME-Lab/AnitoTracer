@@ -244,6 +244,16 @@ set(src_files_from_gdgrap2
 	From-GDGRAP2/TransformHistory.h
 )
 
+
+set(src_files_statemanagement
+	StateManagement/CommandManager.hpp
+	StateManagement/CommandManager.cpp
+	StateManagement/ICommand.hpp
+	StateManagement/ConcreteCommands/GameObjectInspectorCommands.hpp
+	StateManagement/ConcreteCommands/GameObjectInspectorCommands.cpp
+)
+
+
 set(src_files
 	main.cpp
 	Options.cpp
@@ -255,6 +265,8 @@ set(src_files
 	UserSettings.hpp
 )
 
+
+
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
 
@@ -263,6 +275,7 @@ source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("Profiler" FILES ${src_files_profiler})
 source_group("Scene IO" FILES ${src_files_sceneio})
 source_group("RayVisualization" FILES ${src_files_ray_visualization})
+source_group("StateManagement" FILES ${src_files_statemanagement})
 source_group("Utilities" FILES ${src_files_utilities})
 source_group("UI" FILES ${src_files_ui})
 source_group("From-GDGRAP2" FILES ${src_files_from_gdgrap2})
@@ -279,6 +292,7 @@ add_executable(${exe_name}
 	${src_files_profiler}
 	${src_files_sceneio}
 	${src_files_ray_visualization} 
+	${src_files_statemanagement}
 	${src_files_utilities}
 	${src_files_ui}
 	${src_files_from_gdgrap2}

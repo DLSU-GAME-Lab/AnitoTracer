@@ -32,6 +32,8 @@
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
 
+#include "StateManagement/CommandManager.hpp"
+
 namespace
 {
 	const bool EnableValidationLayers =
@@ -55,10 +57,13 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
+	CommandManager::initialize();
 }
 
 RayTracer::~RayTracer()
 {
+	CommandManager::destroy();
+
 	scene_.reset();
 	rayScene_.reset();
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
@@ -350,13 +355,15 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 	{
 		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL))
 		{
-			TransformHistory::getInstance().undo();
+			//TransformHistory::getInstance().undo();
+			CommandManager::getInstance()->undo();
 			return;
 		}
 
 		if (key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL))
 		{
-			TransformHistory::getInstance().redo();
+			CommandManager::getInstance()->redo();
+			//TransformHistory::getInstance().redo();
 			return;
 		}
 	}

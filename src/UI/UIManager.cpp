@@ -38,6 +38,8 @@
 #include "Vulkan/Window.hpp"
 #include "IconsMaterialDesign.h"
 #include "EditorTheme.hpp"
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/GameObjectInspectorCommands.hpp"
 
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
@@ -492,7 +494,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 				}
 			}
 
-			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced)
+			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced) // For Rasterized Mode
 			{
 				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
 				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
@@ -500,27 +502,28 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			}
 		}
 
-		if (!isUsingGizmoNow && wasUsingGizmoLastFrame)
+		if (!isUsingGizmoNow && wasUsingGizmoLastFrame) // Stop Manipulate
 		{
 			if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
 			{
 				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
 				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
 				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
-			}
-			if (gizmoWasManipulated &&
-				!TransformHistory::getInstance().isUndoOrRedoInProgress() &&
-				!TransformHistory::getInstance().isUndoOrRedoFinished())
-			{
+
 				TransformState afterState = {
-					selectedObject->getLocalPosition(),
-					selectedObject->getLocalRotation(),
-					selectedObject->getLocalScale()
+				selectedObject->getLocalPosition(),
+				selectedObject->getLocalRotation(),
+				selectedObject->getLocalScale()
 				};
 
-				if (TransformHistory::isDifferent(gizmoBeforeState, afterState))
+				if (gizmoBeforeState != afterState)
 				{
-					TransformHistory::getInstance().recordChange(selectedObject.get(), gizmoBeforeState, afterState);
+					/* Also Records Actions */
+					CommandManager::getInstance()->executeCommand(new TransformObjectCommand(
+						selectedObject.get(), 
+						gizmoBeforeState.position, gizmoBeforeState.rotation, gizmoBeforeState.scale,
+						afterState.position, afterState.rotation, afterState.scale
+					));
 				}
 			}
 		}

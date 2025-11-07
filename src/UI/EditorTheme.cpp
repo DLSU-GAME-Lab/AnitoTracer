@@ -73,7 +73,7 @@ EditorTheme DarkTheme =
 	ImVec4(0.176f, 0.176f, 0.176f, 1.0f),	//Table Row BG
 	ImVec4(0.196f, 0.196f, 0.196f, 1.0f),	//Table Row BG ALT
 
-	ImVec4(0.769f, 0.769f, 0.769f, 1.0f), //Text Selected BG
+	ImVec4(0.275f, 0.376f, 0.486f, 0.549f), //Text Selected BG
 	ImVec4(0.267f, 0.267f, 0.267f, 1.0f), //Drag Drop Target
 
 	ImVec4(0.1647f, 0.5176f, 0.8235f, 0.45f), //Nav Highlight
