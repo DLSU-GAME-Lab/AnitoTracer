@@ -4,65 +4,27 @@
 
 #include <string>
 #include <glm/glm.hpp>
+#include <variant>
 
 class GameObject;
 
-class ModifyColorCommand : public ICommand
+
+class ModifyMaterialPropertyCommand : public ICommand
 {
 public:
-	ModifyColorCommand(Assets::Material* material, glm::vec4 color);
-	~ModifyColorCommand() = default;
+	using Variant = std::variant<glm::vec4, int, float>;
+	using Setter = std::function<void(Assets::Material*, const Variant&)>;
+
+	ModifyMaterialPropertyCommand(Assets::Material* material, Setter setter, Variant oldValue, Variant newValue);
+	~ModifyMaterialPropertyCommand() = default;
 
 	void execute() override;
 	void undo() override;
 
 private:
 	Assets::Material* material;
-	glm::vec4 newColor;
-	glm::vec4 oldColor;
-};
+	Setter apply;
+	Variant oldValue;
+	Variant newValue;
 
-class ChangeMapCommand : public ICommand
-{
-public:
-	ChangeMapCommand(Assets::Material* material, int textureId);
-	~ChangeMapCommand() = default;
-
-	void execute() override;
-	void undo() override;
-
-private:
-	Assets::Material* material;
-	int newTextureId;
-	int oldTextureId;
-};
-
-class ModifyFuzzinessCommand : public ICommand
-{
-public:
-	ModifyFuzzinessCommand(Assets::Material* material, float value);
-	~ModifyFuzzinessCommand() = default;
-
-	void execute() override;
-	void undo() override;
-
-private:
-	Assets::Material* material;
-	float newValue;
-	float oldValue;
-};
-
-class ModifyRefractionIndexCommand : public ICommand
-{
-public:
-	ModifyRefractionIndexCommand(Assets::Material* material, float value);
-	~ModifyRefractionIndexCommand() = default;
-
-	void execute() override;
-	void undo() override;
-
-private:
-	Assets::Material* material;
-	float newValue;
-	float oldValue;
 };

@@ -157,7 +157,13 @@ void MaterialEditorScreen::showColorPickerWindow()
 		{
 			isColorPickerOpen = false;
 
-			CommandManager::getInstance()->executeCommand(new ModifyColorCommand(this->selectedMaterial, { this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w }));
+			CommandManager::getInstance()->executeCommand(
+				new ModifyMaterialPropertyCommand(
+					this->selectedMaterial,
+					[](Assets::Material* m, const ModifyMaterialPropertyCommand::Variant& v) { m->SetAlbedoColor(std::get<glm::vec4>(v)); },
+					this->selectedMaterial->Diffuse,
+					glm::vec4(this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w)
+				));
 		}
 	}
 
@@ -219,7 +225,13 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 			{
 				if (TextureLibrary::getInstance()->loadTextureFromFile(this->textureId))
 				{
-					CommandManager::getInstance()->executeCommand(new ChangeMapCommand(this->selectedMaterial, this->textureId));
+					CommandManager::getInstance()->executeCommand(
+						new ModifyMaterialPropertyCommand(
+							this->selectedMaterial,
+							[](Assets::Material* m, const ModifyMaterialPropertyCommand::Variant& v) { m->SetAlbedoTexture(std::get<int>(v)); },
+							this->selectedMaterial->DiffuseTextureId,
+							this->textureId
+						));
 				}
 			}
 
@@ -346,11 +358,24 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 				if (this->dielectric) 
 				{
 					selectedMaterial->MaterialModel = Material::Enum::Dielectric;
-					CommandManager::getInstance()->executeCommand(new ModifyRefractionIndexCommand(this->selectedMaterial, this->refractionIndex));
+
+					CommandManager::getInstance()->executeCommand(
+						new ModifyMaterialPropertyCommand(
+							this->selectedMaterial,
+							[](Assets::Material* m, const ModifyMaterialPropertyCommand::Variant& v) { m->SetRefractionIndex(std::get<float>(v)); },
+							this->selectedMaterial->RefractionIndex,
+							this->refractionIndex
+						));
 				}
 				else 
 				{
-					CommandManager::getInstance()->executeCommand(new ModifyFuzzinessCommand(this->selectedMaterial, 1 - this->fuzziness));
+					CommandManager::getInstance()->executeCommand(
+						new ModifyMaterialPropertyCommand(
+							this->selectedMaterial,
+							[](Assets::Material* m, const ModifyMaterialPropertyCommand::Variant& v) { m->SetFuzziness(std::get<float>(v)); },
+							this->selectedMaterial->Fuzziness,
+							1 - this->fuzziness
+						));
 					
 					if (selectedMaterial->Fuzziness < 1)
 					{
