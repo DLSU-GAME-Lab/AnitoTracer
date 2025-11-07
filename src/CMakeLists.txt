@@ -251,6 +251,8 @@ set(src_files_statemanagement
 	StateManagement/ICommand.hpp
 	StateManagement/ConcreteCommands/GameObjectInspectorCommands.hpp
 	StateManagement/ConcreteCommands/GameObjectInspectorCommands.cpp
+	StateManagement/ConcreteCommands/MaterialCommands.hpp
+	StateManagement/ConcreteCommands/MaterialCommands.cpp
 )
 
 

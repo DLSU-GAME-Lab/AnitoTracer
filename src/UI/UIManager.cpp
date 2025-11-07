@@ -742,6 +742,7 @@ void UIManager::setupImGuiStyle()
 	style.ColorButtonPosition = ImGuiDir_Left;
 	style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
 	style.SelectableTextAlign = ImVec2(0.0f, 0.0f);
+	style.WindowMenuButtonPosition = ImGuiDir_None;
 
 	style.Colors[ImGuiCol_Text] = DarkTheme.TEXT;
 	style.Colors[ImGuiCol_TextDisabled] = DarkTheme.TEXT_DISABLED;

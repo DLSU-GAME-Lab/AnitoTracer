@@ -1,4 +1,4 @@
-#include "HierarchyScreen.h"
+ #include "HierarchyScreen.h"
 
 #include <imgui_internal.h>
 #include "imgui.h"

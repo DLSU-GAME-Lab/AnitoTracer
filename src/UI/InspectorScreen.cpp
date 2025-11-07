@@ -26,7 +26,7 @@ void InspectorScreen::drawUI()
 {
 	//setWindowAlignment(ScreenAlign::TOP_RIGHT);
 
-	ImGui::Begin(ICON_MD_INFO " Inspector", nullptr, UISettings::GlobalWindowFlags);
+	ImGui::Begin(ICON_MD_INFO " Inspector", &enabled, UISettings::GlobalWindowFlags);
 
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
 
@@ -318,7 +318,7 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 			ImGui::Text(name);
 			ImGui::SameLine();
 
-			ImGui::PushItemWidth(inputWidth - ImGui::GetStyle().ItemSpacing.x);
+			ImGui::PushItemWidth(inputWidth - ImGui::GetStyle().ItemSpacing.x / 2.0f);
 
 			std::string id = "##";
 			id += label;
