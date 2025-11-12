@@ -67,6 +67,7 @@ public:
 	void loadDynamicLayout();
 	void loadLayout();
 	void loadLayoutFromFile();
+	void loadPresetLayout(int index);
 	void resetLayout();
 
 	bool getEnabled(const std::string& name);
