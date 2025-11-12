@@ -21,7 +21,7 @@ void ModelManager::initialize()
 void ModelManager::destroy()
 {
 	sharedInstance->gameObjectMap.clear();
-	sharedInstance->gameObjectList.clear();
+	sharedInstance->objectList.clear();
 	sharedInstance->lightList.clear();
 	delete sharedInstance;
 }
@@ -49,9 +49,9 @@ std::shared_ptr<Light> ModelManager::findLightObjectByName(String name)
 ModelManager::List ModelManager::getAllObjects() const
 {
 	ModelManager::List objectList;
-	for (int i = 0; i < this->gameObjectList.size(); i++)
+	for (int i = 0; i < this->objectList.size(); i++)
 	{
-		objectList.push_back(this->gameObjectList[i]);
+		objectList.push_back(this->objectList[i]);
 	}
 
 	for (int i = 0; i < this->objectGroupList.size(); i++)
@@ -69,10 +69,10 @@ ModelManager::List ModelManager::getAllObjects() const
 ModelManager::ModelList ModelManager::getAllObjectModels() const
 {
 	ModelList models;
-	for (int i = 0; i < this->gameObjectList.size(); i++)
+	for (int i = 0; i < this->objectList.size(); i++)
 	{
-		if (this->gameObjectList[i]->getModel())
-			models.push_back(*this->gameObjectList[i]->getModel());
+		if (this->objectList[i]->getModel())
+			models.push_back(*this->objectList[i]->getModel());
 	}
 
 	for (int i = 0; i < this->objectGroupList.size(); i++)
@@ -100,12 +100,12 @@ ModelManager::LightPropsList ModelManager::getAllLightProperties() const
 
 int ModelManager::activeObjects() const
 {
-	return this->gameObjectList.size();
+	return this->objectList.size();
 }
 
 std::shared_ptr<GameObject> ModelManager::getLastObject()
 {
-	return this->gameObjectList[this->activeObjects() - 1];
+	return this->objectList[this->activeObjects() - 1];
 }
 
 void ModelManager::addLightObject(std::shared_ptr<Light> lightObj)
@@ -131,10 +131,29 @@ void ModelManager::addObject(std::shared_ptr<GameObject> gameObject)
 	else {
 		this->gameObjectMap[gameObject->getName()] = gameObject;
 	}
-	this->gameObjectList.push_back(gameObject);
+	this->objectList.push_back(gameObject);
 
 	std::string message = "Added game object in manager: " + gameObject->getName();
 	Debug::Log(message);
+}
+
+std::unique_ptr<GameObject> ModelManager::removeObject(GameObject* gameObject)
+{
+	if (!gameObject) return nullptr;
+
+	auto found = std::find_if(sceneGraph.begin(), sceneGraph.end(),
+		[gameObject](const GameObjectPtr& child)
+		{
+			return child.get() == gameObject;
+		});
+
+	if (found == sceneGraph.end())	return nullptr;
+
+	GameObjectPtr result = std::move(*found);
+
+	sceneGraph.erase(found);
+
+	return result;
 }
 
 void ModelManager::addObject(std::shared_ptr<ObjectGroup> objectGroup)
@@ -280,7 +299,7 @@ void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveTy
 		obj->setLocalPosition(position);
 		obj->setLocalRotation(rotation);
 		obj->setLocalScale(scale);
-		obj->setEnabled(active);
+		obj->setActive(active);
 	}
 }
 
@@ -317,7 +336,7 @@ void ModelManager::createLightFromScene(String name, GameObject::PrimitiveType t
 		light->setLocalPosition(position);
 		light->setLocalRotation(rotation);
 		light->setLocalScale(scale);
-		light->setEnabled(active);
+		light->setActive(active);
 		addLightObject(light);
 	}
 }
@@ -401,15 +420,15 @@ void ModelManager::deleteObject(std::shared_ptr<GameObject> gameObject)
 	this->gameObjectMap.erase(gameObject->getName());
 
 	int index = -1;
-	for (int i = 0; i < this->gameObjectList.size(); i++) {
-		if (this->gameObjectList[i] == gameObject) {
+	for (int i = 0; i < this->objectList.size(); i++) {
+		if (this->objectList[i] == gameObject) {
 			index = i;
 			break;
 		}
 	}
 
 	if (index != -1) {
-		this->gameObjectList.erase(this->gameObjectList.begin() + index);
+		this->objectList.erase(this->objectList.begin() + index);
 	}
 
 	index = -1;
@@ -454,7 +473,7 @@ std::shared_ptr<GameObject> ModelManager::getSelectedObject()
 
 void ModelManager::clearAllObjects()
 {
-	this->gameObjectList.clear();
+	this->objectList.clear();
 	this->gameObjectMap.clear();
 	this->objectGroupList.clear();
 	this->lightList.clear();

@@ -15,6 +15,8 @@
 class ModelManager
 {
 public:
+	using GameObjectPtr = std::unique_ptr<GameObject>;
+	using GameObjectList = std::vector<GameObjectPtr>;
 	typedef glm::vec3 vec3;
 	typedef std::string String;
 	typedef std::vector<std::shared_ptr<GameObject>> List;
@@ -39,6 +41,7 @@ public:
 	std::shared_ptr<GameObject> getLastObject();
 	void addLightObject(std::shared_ptr<Light> lightObj);
 	void addObject(std::shared_ptr<GameObject> gameObject);
+	GameObjectPtr removeObject(GameObject* gameObject);
 	void addObject(std::shared_ptr<ObjectGroup> objectGroup);
 	void createObject(GameObject::PrimitiveType type);
 	void createPrimitiveFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation, vec3 scale, std::vector<Assets::Material> mats);
@@ -65,8 +68,9 @@ private:
 	static ModelManager* sharedInstance;
 
 	HashTable gameObjectMap;
-	List gameObjectList;
+	List objectList;
 	ObjectGroupList objectGroupList;
+	GameObjectList sceneGraph;
 	LightList lightList;
 	LightTable lightTable;
 

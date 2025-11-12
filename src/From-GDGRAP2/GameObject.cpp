@@ -11,11 +11,12 @@
 
 GameObject::GameObject()
 {
-	this->name = "No-name";
+	this->name = "no-name";
 	this->type = NONE;
 	this->modelRef = nullptr;
 
-	this->updateWorldTransform();
+	this->setLocalDirty(true);
+	this->getWorldMatrix();
 }
 
 GameObject::GameObject(String name, PrimitiveType type)
@@ -24,7 +25,8 @@ GameObject::GameObject(String name, PrimitiveType type)
 	this->type = type;
 	this->modelRef = nullptr;
 
-	this->updateWorldTransform();
+	this->setLocalDirty(true);
+	this->getWorldMatrix();
 }
 
 GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::Model> modelRef)
@@ -33,7 +35,13 @@ GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::
 	this->type = type;
 	this->modelRef = modelRef;
 
-	this->updateWorldTransform();
+	this->setLocalDirty(true);
+	this->getWorldMatrix();
+}
+
+void GameObject::setName(std::string name)
+{
+	this->name = name;
 }
 
 GameObject::String GameObject::getName() const
@@ -46,14 +54,46 @@ GameObject::PrimitiveType GameObject::getType() const
 	return this->type;
 }
 
-bool GameObject::isEnabled()
+bool GameObject::isActive()
 {
-	return this->enabled;
+	return this->active;
 }
 
-void GameObject::setEnabled(bool flag)
+void GameObject::setActive(bool flag)
 {
-	this->enabled = flag;
+	this->active = flag;
+}
+
+bool GameObject::isVisible()
+{
+	return this->visible;
+}
+
+void GameObject::setVisible(bool flag)
+{
+	this->visible = flag;
+}
+
+bool GameObject::isPickable()
+{
+	return this->pickable;
+}
+
+void GameObject::setPickable(bool flag)
+{
+	this->pickable = flag;
+}
+
+void GameObject::setLocalPosition(vec3 newPos)
+{
+	this->localPosition = newPos;
+	this->setLocalDirty(true);
+}
+
+void GameObject::setLocalPosition(float x, float y, float z)
+{
+	this->localPosition = vec3(x, y, z);
+	this->setLocalDirty(true);
 }
 
 GameObject::vec3 GameObject::getLocalPosition() const
@@ -64,43 +104,6 @@ GameObject::vec3 GameObject::getLocalPosition() const
 GameObject::vec3 GameObject::getWorldPosition() const
 {
 	return this->worldPosition;
-}
-
-GameObject::vec3 GameObject::getLocalRotation() const
-{
-	return this->localRotation;
-}
-
-GameObject::vec3 GameObject::getWorldRotation() const
-{
-	return this->worldRotation;
-}
-
-GameObject::vec3 GameObject::getLocalScale() const
-{
-	return this->localScale;
-}
-
-GameObject::vec3 GameObject::getWorldScale() const
-{
-	return this->worldScale;
-}
-
-void GameObject::setName(std::string name)
-{
-	this->name = name;
-}
-
-void GameObject::setLocalPosition(vec3 newPos)
-{
-	this->localPosition = newPos;
-	this->updateWorldTransform();
-}
-
-void GameObject::setLocalPosition(float x, float y, float z)
-{
-	this->localPosition = vec3(x, y, z);
-	this->updateWorldTransform();
 }
 
 void GameObject::setLocalRotation(vec3 newRot)
@@ -124,7 +127,7 @@ void GameObject::setLocalRotation(vec3 newRot)
 	newRot.z -= 180.0f;
 
 	this->localRotation = newRot;
-	this->updateWorldTransform();
+	this->setLocalDirty(true);
 }
 
 void GameObject::setLocalRotation(float x, float y, float z)
@@ -150,24 +153,44 @@ void GameObject::setLocalRotation(float x, float y, float z)
 	newRot.z -= 180.0f;
 
 	this->localRotation = newRot;
-	this->updateWorldTransform();
+	this->setLocalDirty(true);
+}
+
+GameObject::vec3 GameObject::getLocalRotation() const
+{
+	return this->localRotation;
+}
+
+GameObject::vec3 GameObject::getWorldRotation() const
+{
+	return this->worldRotation;
 }
 
 void GameObject::setLocalScale(vec3 newScale)
 {
 	this->localScale = newScale;
-	this->updateWorldTransform();
+	this->setLocalDirty(true);
 }
 
 void GameObject::setLocalScale(float x, float y, float z)
 {
 	this->localScale = vec3(x, y, z);
-	this->updateWorldTransform();
+	this->setLocalDirty(true);
+}
+
+GameObject::vec3 GameObject::getLocalScale() const
+{
+	return this->localScale;
+}
+
+GameObject::vec3 GameObject::getWorldScale() const
+{
+	return this->worldScale;
 }
 
 glm::mat4& GameObject::getObjectMatrix()
 {
-	return this->mat_;
+	return this->localMatrix;
 }
 
 std::shared_ptr<Assets::Model> GameObject::getModel()
@@ -175,45 +198,84 @@ std::shared_ptr<Assets::Model> GameObject::getModel()
 	return this->modelRef;
 }
 
-void GameObject::addChild(GameObject* child)
+void GameObject::addChild(GameObject::GameObjectPtr child)
 {
-	if (!child || child == this || child->parent == this)
+	if (!child || child.get() == this || child->parent == this)
 		return;
 
 	if (child->parent)
-		child->parent->removeChild(child);
+		child->parent->removeChild(child.get());
 
 	child->parent = this;
-	children.push_back(child);
+	children.push_back(std::move(child));
 
-	child->localPosition = glm::inverse(glm::translate(glm::mat4(1.0f), this->worldPosition)) * glm::vec4(child->worldPosition, 1.0f);
-	child->localRotation = child->worldRotation - this->worldRotation;
-	child->localScale = glm::inverse(glm::scale(glm::mat4(1.0f), this->worldScale)) * glm::vec4(child->worldScale, 1.0f);
-
-	child->updateWorldTransform();
+	child->setWorldDirty(true);
 }
 
-
-void GameObject::removeChild(GameObject* child)
+std::unique_ptr<GameObject> GameObject::removeChild(GameObject* node)
 {
-	if (!child) return;
+	if (!node) return nullptr;
 
-	auto it = std::find(children.begin(), children.end(), child);
-	if (it != children.end())
-	{
-		children.erase(it);
-		child->parent = nullptr;
-	}
+	auto found = std::find_if(children.begin(), children.end(),
+		[node](const GameObjectPtr& child)
+		{
+			return child.get() == node;
+		});
+
+	if (found == children.end())	return nullptr;
+	
+	(*found)->parent = nullptr; //clear parent
+	
+	GameObjectPtr result = std::move(*found);
+
+	children.erase(found);
+
+	result->setWorldDirty(true);
+
+	return result;
 }
 
 std::vector<GameObject*> GameObject::getChildren() const
 {
-	return this->children;
+	std::vector<GameObject*> result;
+
+	for(const auto& childPtr : this->children)
+	{
+		result.push_back(childPtr.get());
+	}
+
+	return result;
 }
 
-GameObject* GameObject::getParent() const
+std::vector<GameObject*> GameObject::getChildrenRecursive() const
 {
-	return this->parent;
+	std::vector<GameObject*> result;
+	std::vector<GameObject*> stack;
+
+	for (const auto& childPtr : this->children)
+	{
+		if (childPtr)
+			stack.push_back(childPtr.get());
+	}
+
+	while (!stack.empty())
+	{
+		GameObject* node = stack.back();
+		stack.pop_back();
+
+		if (!node) continue;
+
+		result.push_back(const_cast<GameObject*>(node));
+
+		auto direct = node->getChildren();
+		for (const auto& grandChildPtr : node->children)
+		{
+			if (grandChildPtr)
+				stack.push_back(grandChildPtr.get());
+		}
+	}
+
+	return result;
 }
 
 void GameObject::setParent(GameObject* newParent)
@@ -221,29 +283,28 @@ void GameObject::setParent(GameObject* newParent)
 	if (newParent == this || (newParent && isDescendantOf(newParent)))
 		return;
 
+	GameObjectPtr thisUnique;
+
 	if (parent)
-		parent->removeChild(this);
-
-	if (newParent)
-	{
-		this->localPosition = this->worldPosition - newParent->worldPosition;
-		this->localRotation = this->worldRotation - newParent->worldRotation;
-		this->localScale = this->worldScale / this->localScale;
-
-	}
+		thisUnique = parent->removeChild(this);
 	else
-	{
-		this->localPosition = this->worldPosition;
-		this->localRotation = this->worldRotation;
-		this->localScale = this->worldScale;
-	}
+		thisUnique = ModelManager::getInstance()->removeObject(this);
 
 	parent = newParent;
 
 	if (parent)
-		parent->addChild(this);
+		parent->addChild(std::move(thisUnique));
+	else
+	{
+		ModelManager::getInstance()->addObject(std::move(thisUnique));
+	}
 
-	updateWorldTransform();
+	this->setWorldDirty(true);
+}
+
+GameObject* GameObject::getParent() const
+{
+	return this->parent;
 }
 
 bool GameObject::isDescendantOf(const GameObject* potentialParent) const
@@ -270,87 +331,131 @@ std::shared_ptr<BoundingBox> GameObject::getOBB() const
 	return this->obb;
 }
 
-void GameObject::updateObjectMatrix()
+GameObject::mat4 GameObject::getLocalMatrix()
 {
-	glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), this->worldScale);
+	if(this->localDirty)
+	{
+		glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), this->localScale);
+		glm::mat4 rotationMat = glm::yawPitchRoll(glm::radians(localRotation.y), glm::radians(localRotation.x), glm::radians(localRotation.z));
+		glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), this->localPosition);
 
-	glm::mat4 rotateZ = glm::rotate(glm::mat4(1.0f), glm::radians(this->worldRotation.z), glm::vec3(0, 0, 1));
-	glm::mat4 rotateY = glm::rotate(glm::mat4(1.0f), glm::radians(this->worldRotation.y), glm::vec3(0, 1, 0));
-	glm::mat4 rotateX = glm::rotate(glm::mat4(1.0f), glm::radians(this->worldRotation.x), glm::vec3(1, 0, 0));
+		this->localMatrix = translationMat * rotationMat * scaleMat;
+		this->localDirty = false;
+	}
 
-	glm::mat4 rotationMat = rotateZ * rotateY * rotateX;
-	glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), this->worldPosition);
+	return this->localMatrix;
+}
 
-	this->mat_ = translationMat * rotationMat * scaleMat;
+GameObject::mat4 GameObject::getWorldMatrix()
+{
+	if (this->worldDirty)
+	{
+		glm::mat4 localMat = getLocalMatrix();
+
+		if (parent) 
+		{
+			this->worldMatrix = parent->getWorldMatrix() * localMat;
+		}
+		else 
+		{
+			this->worldMatrix = localMat;
+		}
+
+		// Decompose mat_ to get world position, rotation, scale
+		glm::vec3 skew;
+		glm::vec4 perspective;
+		glm::quat rotationQuat;
+		glm::decompose(localMatrix, worldScale, rotationQuat, worldPosition, skew, perspective);
+		worldRotation = glm::degrees(glm::eulerAngles(rotationQuat));
+
+		this->worldDirty = false;
+
+		// Update bounding box and model matrix
+		if (modelRef && !modelRef->Vertices().empty()) 
+		{
+			std::vector<glm::vec3> worldPositions;
+			worldPositions.reserve(modelRef->Vertices().size());
+
+			for (const auto& vertex : modelRef->Vertices()) 
+			{
+				glm::vec3 posWorld = glm::vec3(localMatrix * glm::vec4(vertex.Position, 1.0f));
+				worldPositions.push_back(posWorld);
+			}
+
+			// Calculate OBB axes from rotation matrix
+			glm::mat3 rotMat = glm::mat3_cast(rotationQuat);
+			glm::vec3 axisX = glm::normalize(rotMat[0]);
+			glm::vec3 axisY = glm::normalize(rotMat[1]);
+			glm::vec3 axisZ = glm::normalize(rotMat[2]);
+
+			std::array<glm::vec3, 3> axes = { axisX, axisY, axisZ };
+
+			// Calculate OBB center
+			glm::vec3 computedCenter(0.0f);
+			for (const auto& pos : worldPositions) {
+				computedCenter += pos;
+			}
+			computedCenter /= static_cast<float>(worldPositions.size());
+
+			// Set the new OBB
+			BoundingBox newOBB(worldPosition, worldPositions, axes);
+			setOBB(newOBB);
+		}
+
+		// Apply transformation to model
+		if (modelRef) 
+		{
+			modelRef->Transform(localMatrix);
+
+			if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
+			{
+				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+			}
+		}
+	}
+
+	return this->worldMatrix;
 
 }
 
-
-void GameObject::updateWorldTransform()
+bool GameObject::isLocalDirty()
 {
-	// Construct local transformation matrix: T * R * S
-	glm::mat4 localMat = glm::translate(glm::mat4(1.0f), localPosition) *
-		glm::yawPitchRoll(glm::radians(localRotation.y), glm::radians(localRotation.x), glm::radians(localRotation.z)) *
-		glm::scale(glm::mat4(1.0f), localScale);
+	return this->localDirty;
+}
 
-	// Combine with parent transform if exists
-	if (parent) {
-		mat_ = parent->mat_ * localMat;
-	}
-	else {
-		mat_ = localMat;
-	}
+void GameObject::setLocalDirty(bool propagate)
+{
+	this->localDirty = true;
+	this->worldDirty = true;
 
-	// Decompose mat_ to get world position, rotation, scale
-	glm::vec3 skew;
-	glm::vec4 perspective;
-	glm::quat rotationQuat;
-	glm::decompose(mat_, worldScale, rotationQuat, worldPosition, skew, perspective);
-	worldRotation = glm::degrees(glm::eulerAngles(rotationQuat)); // Convert quat to Euler in degrees
-
-	// Update children recursively
-	for (GameObject* child : children) {
-		if (child) {
-			child->updateWorldTransform();
+	if(propagate)
+	{
+		for (auto& child : children)
+		{
+			if (child)
+			{
+				child->setLocalDirty(true);
+			}
 		}
 	}
+}
 
-	// Update bounding box and model matrix
-	if (modelRef && !modelRef->Vertices().empty()) {
-		std::vector<glm::vec3> worldPositions;
-		worldPositions.reserve(modelRef->Vertices().size());
+bool GameObject::isWorldDirty()
+{
+	return this->worldDirty;
+}
 
-		for (const auto& vertex : modelRef->Vertices()) {
-			glm::vec3 posWorld = glm::vec3(mat_ * glm::vec4(vertex.Position, 1.0f));
-			worldPositions.push_back(posWorld);
-		}
-
-		// Calculate OBB axes from rotation matrix
-		glm::mat3 rotMat = glm::mat3_cast(rotationQuat);
-		glm::vec3 axisX = glm::normalize(rotMat[0]);
-		glm::vec3 axisY = glm::normalize(rotMat[1]);
-		glm::vec3 axisZ = glm::normalize(rotMat[2]);
-
-		std::array<glm::vec3, 3> axes = { axisX, axisY, axisZ };
-
-		// Calculate OBB center
-		glm::vec3 computedCenter(0.0f);
-		for (const auto& pos : worldPositions) {
-			computedCenter += pos;
-		}
-		computedCenter /= static_cast<float>(worldPositions.size());
-
-		// Set the new OBB
-		BoundingBox newOBB(worldPosition, worldPositions, axes);
-		setOBB(newOBB);
-	}
-
-	// Apply transformation to model
-	if (modelRef) {
-		modelRef->Transform(mat_);
-
-		if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+void GameObject::setWorldDirty(bool propagate)
+{
+	this->worldDirty = true;
+	if (propagate)
+	{
+		for (auto& child : children)
+		{
+			if (child)
+			{
+				child->setWorldDirty(true);
+			}
 		}
 	}
 }
@@ -362,7 +467,6 @@ void GameObject::updateSceneView()
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 }
-
 
 /**
  * \brief Performs the model transform via model-view-projection matrix form

@@ -63,17 +63,17 @@ void ScaleObjectCommand::undo()
 
 ToggleActiveGameObject::ToggleActiveGameObject(GameObject* object, bool isActive) : gameObject(object), newActiveState(isActive)
 {
-	this->oldActiveState = this->gameObject->isEnabled();
+	this->oldActiveState = this->gameObject->isActive();
 }
 
 void ToggleActiveGameObject::execute()
 {
-	this->gameObject->setEnabled(this->newActiveState);
+	this->gameObject->setActive(this->newActiveState);
 }
 
 void ToggleActiveGameObject::undo()
 {
-	this->gameObject->setEnabled(this->oldActiveState);
+	this->gameObject->setActive(this->oldActiveState);
 }
 
 TransformObjectCommand::TransformObjectCommand(GameObject* object, vec3 oldPosition, vec3 oldRotation, vec3 oldScale, vec3 newPosition, vec3 newRotation, vec3 newScale) 

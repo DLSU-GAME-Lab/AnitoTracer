@@ -44,7 +44,7 @@ void InspectorScreen::drawUI()
 				ImGui::TableNextRow();
 				ImGui::TableSetColumnIndex(0);
 
-				bool isObjectActive = this->selectedObject->isEnabled();
+				bool isObjectActive = this->selectedObject->isActive();
 
 				if (ImGui::Checkbox("##Enabled", &isObjectActive))
 				{
@@ -79,7 +79,7 @@ void InspectorScreen::drawUI()
 		this->updateTransformDisplays();
 		this->updateLightPropsDisplays();
 
-		bool enabled = this->selectedObject->isEnabled();
+		bool enabled = this->selectedObject->isActive();
 		
 		/*ImGui::SameLine();
 		if (ImGui::Button("Delete")) {

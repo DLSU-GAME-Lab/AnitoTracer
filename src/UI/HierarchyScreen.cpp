@@ -3,6 +3,7 @@
 #include <imgui_internal.h>
 #include "imgui.h"
 #include "From-GDGRAP2/ModelManager.h"
+#include "From-GDGRAP2/GameObject.h"
 #include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
@@ -119,14 +120,20 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
             {
                 hasValidDropTarget = true;
 
+				std::unique_ptr<GameObject> draggedUniquePtr = nullptr;
+
                 // If dragged object had a parent, remove it from old parent
                 if (draggedObj->getParent())
                 {
-                    draggedObj->getParent()->removeChild(draggedObj);
+                    draggedUniquePtr = draggedObj->getParent()->removeChild(draggedObj);
+                }
+                else
+                {
+                    draggedUniquePtr = ModelManager::getInstance()->removeObject(draggedObj);
                 }
 
                 // Assign new parent
-                obj->addChild(draggedObj);
+                obj->addChild(std::move(draggedUniquePtr));
 
                 // Force the node open when an object is dropped here
                 openNodes.insert(objectName);
