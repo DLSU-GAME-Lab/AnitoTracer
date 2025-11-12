@@ -38,7 +38,7 @@
 #include "Vulkan/Window.hpp"
 #include "IconsMaterialDesign.h"
 #include "EditorTheme.hpp"
-#include "Utilities//HotkeySystem.hpp"
+#include "HotkeySystem//HotkeySystem.hpp"
 
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;

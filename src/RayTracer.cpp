@@ -32,7 +32,7 @@
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
 
-#include "Utilities/HotkeySystem.hpp"
+#include "HotkeySystem/HotkeySystem.hpp"
 
 namespace
 {
@@ -330,8 +330,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 void RayTracer::OnKey(int key, int scancode, int action, int mods)
 {
-	HotkeySystem::getInstance()->processInputKeys(key, mods, action);
-
+	
 	// Settings (toggle switches)
 	if (action == GLFW_PRESS)
 	{
@@ -409,8 +408,6 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 		isMoving = true;
 		mousePressed = true;
 	}
-
-	HotkeySystem::getInstance()->processInputMouseButtons(button, mods, action);
 
 	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||

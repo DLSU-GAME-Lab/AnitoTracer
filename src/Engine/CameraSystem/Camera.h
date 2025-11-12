@@ -5,7 +5,7 @@
 #include "UserSettings.hpp"
 #include "From-GDGRAP2/GameObject.h"
 #include "Utilities/Glm.hpp"
-#include "Utilities/HotkeyListener.hpp"
+#include "HotkeySystem/HotkeyListener.hpp"
 
 class Camera : public GameObject, public HotkeyListener
 {

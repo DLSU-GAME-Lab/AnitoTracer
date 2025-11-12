@@ -3,7 +3,7 @@
 
 #include "AUIScreen.h"
 #include "From-GDGRAP2/GameObject.h"
-#include "Utilities/HotkeyListener.hpp"
+#include "HotkeySystem/HotkeyListener.hpp"
 
 class HierarchyScreen : public AUIScreen, public HotkeyListener
 {

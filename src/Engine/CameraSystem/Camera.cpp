@@ -9,7 +9,7 @@
 #include "From-GDGRAP2/ModelManager.h"
 #include "OBB/Ray.hpp"
 #include "Vulkan/Vulkan.hpp"
-#include "Utilities\HotkeySystem.hpp"
+#include "HotkeySystem/HotkeySystem.hpp"
 #include <From-GDGRAP2/EventBroadcaster.h>
 
 Camera::Camera(std::string name, ProjectionMode proj) : GameObject(name, PrimitiveType::CAMERA)

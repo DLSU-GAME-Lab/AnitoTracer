@@ -6,7 +6,7 @@
 #include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
-#include "Utilities/HotkeySystem.hpp"
+#include "HotkeySystem/HotkeySystem.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
 
 HierarchyScreen::HierarchyScreen() : AUIScreen(UINames::HIERARCHY_SCREEN)

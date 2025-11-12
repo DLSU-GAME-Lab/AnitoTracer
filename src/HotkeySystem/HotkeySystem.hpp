@@ -1,7 +1,7 @@
 #pragma once
-#include "GLFW/glfw3.h"
 #include "ActionMap.hpp"
 #include "HotkeyListener.hpp"
+#include "KeyCodes.hpp"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -16,8 +16,8 @@ inline void hash_combine(std::size_t& s, const T& v)
 
 struct EventKey
 {
-	int key;
-	int mod;
+	KeyCode key;
+	Modifiers mod;
 
 	bool operator==(const EventKey& other) const {
 		return key == other.key && mod == other.mod;
@@ -34,17 +34,20 @@ namespace std
 			std::size_t res = 0;
 
 			hash_combine(res, ek.key);
-			hash_combine(res, ek.key);
+			hash_combine(res, ek.mod);
 
 			return res;
 		}
 	};
 };
 
+struct InputEvent;
+
 class HotkeySystem
 {
 public:
 	using Action = Hotkey::Action;
+	using BindingTable = std::unordered_map<EventKey, std::vector<Action>>;
 
 	static class HotkeySystem* getInstance();
 	static void initialize();
@@ -56,8 +59,7 @@ public:
 	void bindHotkey(EventKey event, Action action);
 	void bindMouseHotkey(EventKey event, Action action);
 
-	void processInputKeys(int key, int mod, int action);
-	void processInputMouseButtons(int key, int mod, int action);
+	void processInputEvent(const InputEvent& event);
 
 private:
 	HotkeySystem();
@@ -70,6 +72,7 @@ private:
 	void setupDefaultBindings();
 
 	std::unordered_set<HotkeyListener*> m_hotkeyListeners;
-	std::unordered_map<EventKey, std::vector<Action>> m_keyBindings;
-	std::unordered_map<EventKey, std::vector<Action>> m_mouseButtonBindings;
+	BindingTable m_keyBindings;
+	BindingTable m_mouseButtonBindings;
+	BindingTable m_gamepadButtonBindings;
 };

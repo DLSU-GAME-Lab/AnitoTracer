@@ -5,6 +5,7 @@
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "Assets/TextureImage.hpp"
 #include "Assets/RayScene.hpp"
+#include "HotkeySystem/GLFWInputAdapter.hpp"
 
 namespace Vulkan {
 	class RayVisualizationPipeline;
@@ -51,7 +52,6 @@ protected:
 	void onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters) override;
 
 private:
-
 	void LoadScene(uint32_t sceneIndex);
 	void ReloadModifiedScene();
 	void CheckAndUpdateBenchmarkState(double prevTime);

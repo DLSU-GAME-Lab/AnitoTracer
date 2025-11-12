@@ -49,6 +49,10 @@ Application::Application(const WindowConfig& windowConfig, const VkPresentModeKH
 	EventBroadcaster::initialize();
 	ModelManager::initialize();
 	SceneIO::initialize();
+
+	inputAdapter_ = new GLFWInputAdapter(Application::Window().Handle());
+	inputAdapter_->initializeCallbacks();
+
 }
 
 Application::~Application()

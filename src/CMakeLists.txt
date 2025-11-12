@@ -94,10 +94,6 @@ set(src_files_utilities
 	Utilities/StbImage.hpp
 	Utilities/FileUtils.cpp
 	Utilities/FileUtils.h
-	Utilities/HotkeyListener.hpp
-	Utilities/HotkeySystem.hpp
-	Utilities/HotkeySystem.cpp
-	Utilities/ActionMap.hpp
 )
 
 set(src_files_vulkan
@@ -189,6 +185,17 @@ set(src_files_vulkan_raytracing
 	Vulkan/RayTracing/TopLevelAccelerationStructure.hpp
 )
 
+set(src_files_hotkey_system
+	HotkeySystem/ActionMap.hpp
+	HotkeySystem/GLFWInputAdapter.cpp
+	HotkeySystem/GLFWInputAdapter.hpp
+	HotkeySystem/HotkeyListener.hpp
+	HotkeySystem/HotkeySystem.cpp
+	HotkeySystem/HotkeySystem.hpp
+	HotkeySystem/InputEvent.hpp
+	HotkeySystem/KeyCodes.hpp
+)
+
 set(src_files_ui
 	UI/AUIScreen.cpp
 	UI/AUIScreen.h
@@ -267,6 +274,7 @@ source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("Profiler" FILES ${src_files_profiler})
 source_group("Scene IO" FILES ${src_files_sceneio})
 source_group("RayVisualization" FILES ${src_files_ray_visualization})
+source_group("HotkeySystem" FILES ${src_files_hotkey_system})
 source_group("Utilities" FILES ${src_files_utilities})
 source_group("UI" FILES ${src_files_ui})
 source_group("From-GDGRAP2" FILES ${src_files_from_gdgrap2})
@@ -283,6 +291,7 @@ add_executable(${exe_name}
 	${src_files_profiler}
 	${src_files_sceneio}
 	${src_files_ray_visualization} 
+	${src_files_hotkey_system}
 	${src_files_utilities}
 	${src_files_ui}
 	${src_files_from_gdgrap2}
