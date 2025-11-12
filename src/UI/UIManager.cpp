@@ -39,7 +39,7 @@
 #include "IconsMaterialDesign.h"
 #include "EditorTheme.hpp"
 #include "StateManagement/CommandManager.hpp"
-#include "StateManagement/ConcreteCommands/GameObjectInspectorCommands.hpp"
+#include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
@@ -161,6 +161,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 		Throw(std::runtime_error("failed to load Cousine font"));
 	}
 
+	/* 1 */
 	auto defaultFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.EDITOR_FONT).data(), 18 * scaleFactor);
 	if (!defaultFont)
 	{
@@ -169,17 +170,26 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 	io.FontDefault = defaultFont;
 
+	/* 2 */
+	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.EDITOR_FONT).data(), 14 * scaleFactor);
+
 	static const ImWchar iconRanges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
+
 	ImFontConfig* iconFontConfig = new ImFontConfig();
-	iconFontConfig->MergeMode = true;
+	iconFontConfig->MergeMode = false;
 	iconFontConfig->PixelSnapH = true;
 	iconFontConfig->GlyphOffset =ImVec2(1.0f, 0.0f);
 
-	sharedInstance->iconFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 13 * scaleFactor, iconFontConfig, iconRanges);
-	if (!sharedInstance->iconFont)
-	{
-		Throw(std::runtime_error("failed to load Icon font"));
-	}
+	/* 3 */
+	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 20 * scaleFactor, iconFontConfig, iconRanges);
+
+	ImFontConfig* iconFontConfig2 = new ImFontConfig();
+	iconFontConfig2->MergeMode = false;
+	iconFontConfig2->PixelSnapH = true;
+	iconFontConfig2->GlyphOffset = ImVec2(1.0f, 3.0f);
+
+	/* 4 */
+	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 14 * scaleFactor, iconFontConfig2, iconRanges);
 
 	Vulkan::SingleTimeCommands::Submit(*commandPool, [](VkCommandBuffer commandBuffer)
 		{

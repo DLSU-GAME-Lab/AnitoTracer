@@ -6,6 +6,8 @@
 #include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
+#include "IconsMaterialDesign.h"
+#include "EditorTheme.hpp"
 
 HierarchyScreen::HierarchyScreen() : AUIScreen(UINames::HIERARCHY_SCREEN)
 {
@@ -19,15 +21,72 @@ void HierarchyScreen::drawUI()
 {
     //setWindowAlignment(ScreenAlign::TOP_RIGHT);
 
-	ImGui::Begin("Hierarchy", nullptr, UISettings::GlobalWindowFlags);
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, DarkTheme.TAB_ACTIVE);
+
+	ImGui::Begin("Hierarchy", nullptr, UISettings::GlobalWindowFlags | ImGuiWindowFlags_MenuBar);
 
 	// Search Bar
 	static char searchBuffer[128] = "";
-	ImGui::InputTextWithHint("##Search", "Search objects...", searchBuffer, IM_ARRAYSIZE(searchBuffer));
 
-	this->updateObjectList(searchBuffer);
+    if (ImGui::BeginMenuBar())
+    {
+        ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[3]);
+        if (ImGui::MenuItem(ICON_MD_ADD ICON_MD_ARROW_DROP_DOWN))
+        {
+            ImGui::OpenPopup("CreateGameObjectsPopup");
+        }
+        ImGui::PopFont();
+
+        CreateObjectPopup();
+
+        ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[4]);
+        ImGui::TextUnformatted(ICON_MD_SEARCH);
+		ImGui::PopFont();
+        ImGui::SameLine();
+
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+		ImGui::AlignTextToFramePadding();
+        ImGui::InputTextWithHint("##Search", "Search objects...", searchBuffer, IM_ARRAYSIZE(searchBuffer));
+
+
+        ImGui::EndMenuBar();
+    }
+
+    if (ImGui::CollapsingHeader("Scene Objects", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        this->updateObjectList(searchBuffer);
+    }
 
 	ImGui::End();
+    ImGui::PopStyleColor();
+}
+
+void HierarchyScreen::CreateObjectPopup()
+{
+    if (ImGui::BeginPopup("CreateGameObjectsPopup"))
+    {
+        if (ImGui::BeginMenu("3D Objects"))
+        {
+			ImGui::MenuItem("Cube");
+			ImGui::MenuItem("Sphere");
+			ImGui::MenuItem("Plane");
+			ImGui::MenuItem("Cylinder");
+			ImGui::MenuItem("Capsule");
+
+			ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Lights"))
+        {
+			ImGui::MenuItem("Point Light");
+			ImGui::MenuItem("Directional Light");
+			ImGui::MenuItem("Spot Light");
+
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndPopup();
+    }
 }
 
 void HierarchyScreen::updateObjectList(const char* filter)

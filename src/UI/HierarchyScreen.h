@@ -9,8 +9,11 @@ class HierarchyScreen :    public AUIScreen
 public:
 	HierarchyScreen();
 	~HierarchyScreen();
+
 private:
 	virtual void drawUI() override;
+
+	void CreateObjectPopup();
 	void updateObjectList(const char* filter);
 	void drawObjectNode(GameObject* obj);
 
