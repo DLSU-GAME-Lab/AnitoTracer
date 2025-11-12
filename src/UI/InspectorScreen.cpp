@@ -12,7 +12,7 @@
 #include "From-GDGRAP2/TransformHistory.h"
 #include "IconsMaterialDesign.h"
 #include "StateManagement/CommandManager.hpp"
-#include "StateManagement/ConcreteCommands/GameObjectInspectorCommands.hpp"
+#include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 
 
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
@@ -48,7 +48,13 @@ void InspectorScreen::drawUI()
 
 				if (ImGui::Checkbox("##Enabled", &isObjectActive))
 				{
-					CommandManager::getInstance()->executeCommand(new ToggleActiveGameObject(this->selectedObject.get(), isObjectActive));
+					CommandManager::getInstance()->executeCommand(
+						new AlterTransformCommand(
+							this->selectedObject.get(),
+							[](GameObject* g, AlterTransformCommand::Variant v) { g->setEnabled(std::get<bool>(v)); },
+							this->selectedObject->isEnabled(),
+							isObjectActive
+						));
 				}
 
 				ImGui::TableNextColumn();
@@ -61,7 +67,13 @@ void InspectorScreen::drawUI()
 
 				if (ImGui::InputText("##Name", nameBuf, sizeof(nameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
 				{
-					CommandManager::getInstance()->executeCommand(new RenameCommand(this->selectedObject.get(), String(nameBuf)));
+					CommandManager::getInstance()->executeCommand(
+						new AlterTransformCommand(
+							this->selectedObject.get(),
+							[](GameObject* g, AlterTransformCommand::Variant v) { g->setName(std::get<std::string>(v)); },
+							this->selectedObject->getName(),
+							String(nameBuf)
+						));
 				}
 
 				ImGui::TableNextColumn();
@@ -349,16 +361,40 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 		switch (action)
 		{
 		case EditorAction::Move: 
-			CommandManager::getInstance()->executeCommand(new MoveObjectCommand(this->selectedObject.get(), { values[0], values[1], values[2] }));
+
+			CommandManager::getInstance()->executeCommand(
+				new AlterTransformCommand(
+					this->selectedObject.get(),
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalPosition(std::get<glm::vec3>(v)); },
+					this->selectedObject->getLocalPosition(),
+					glm::vec3(values[0], values[1], values[2])
+				));
+
 			break;
 
 		case EditorAction::Rotate:
-			CommandManager::getInstance()->executeCommand(new RotateObjectCommand(this->selectedObject.get(), { values[0], values[1], values[2] }));
+
+			CommandManager::getInstance()->executeCommand(
+				new AlterTransformCommand(
+					this->selectedObject.get(),
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotation(std::get<glm::vec3>(v)); },
+					this->selectedObject->getLocalRotation(),
+					glm::vec3(values[0], values[1], values[2])
+				));
+
 			break;
 
 		case EditorAction::Scale:
 			if(IsUniformScalingEnabled()) scale = ScaleUniformly(scale, values);
-			CommandManager::getInstance()->executeCommand(new ScaleObjectCommand(this->selectedObject.get(), scale));
+
+			CommandManager::getInstance()->executeCommand(
+				new AlterTransformCommand(
+					this->selectedObject.get(),
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalScale(std::get<glm::vec3>(v)); },
+					this->selectedObject->getLocalScale(),
+					glm::vec3(values[0], values[1], values[2])
+				));
+
 			break;
 		}
 	}

@@ -6,8 +6,6 @@
 #include <glm/glm.hpp>
 #include <variant>
 
-class GameObject;
-
 
 class ModifyMaterialPropertyCommand : public ICommand
 {
