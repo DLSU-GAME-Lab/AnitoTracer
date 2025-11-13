@@ -18,6 +18,8 @@ private:
 
 	bool isDragging = false;
 
+	int tempId = 0;
+
 	friend class UIManager;
 };
 

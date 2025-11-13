@@ -48,7 +48,7 @@ void InspectorScreen::drawUI()
 
 				if (ImGui::Checkbox("##Enabled", &isObjectActive))
 				{
-					CommandManager::getInstance()->executeCommand(new ToggleActiveGameObject(this->selectedObject.get(), isObjectActive));
+					CommandManager::getInstance()->executeCommand(new ToggleActiveGameObject(this->selectedObject, isObjectActive));
 				}
 
 				ImGui::TableNextColumn();
@@ -61,7 +61,7 @@ void InspectorScreen::drawUI()
 
 				if (ImGui::InputText("##Name", nameBuf, sizeof(nameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
 				{
-					CommandManager::getInstance()->executeCommand(new RenameCommand(this->selectedObject.get(), String(nameBuf)));
+					CommandManager::getInstance()->executeCommand(new RenameCommand(this->selectedObject, String(nameBuf)));
 				}
 
 				ImGui::TableNextColumn();
@@ -170,7 +170,8 @@ void InspectorScreen::updateTransformDisplays()
 
 void InspectorScreen::updateLightPropsDisplays()
 {
-	std::shared_ptr<Light> light = ModelManager::getInstance()->findLightObjectByName(this->selectedObject->getName());
+	Light* light = dynamic_cast<Light*>(this->selectedObject);
+
 	if (light)
 	{
 		glm::vec4 lightCol = light->getLightColor();
@@ -349,16 +350,16 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 		switch (action)
 		{
 		case EditorAction::Move: 
-			CommandManager::getInstance()->executeCommand(new MoveObjectCommand(this->selectedObject.get(), { values[0], values[1], values[2] }));
+			CommandManager::getInstance()->executeCommand(new MoveObjectCommand(this->selectedObject, { values[0], values[1], values[2] }));
 			break;
 
 		case EditorAction::Rotate:
-			CommandManager::getInstance()->executeCommand(new RotateObjectCommand(this->selectedObject.get(), { values[0], values[1], values[2] }));
+			CommandManager::getInstance()->executeCommand(new RotateObjectCommand(this->selectedObject, { values[0], values[1], values[2] }));
 			break;
 
 		case EditorAction::Scale:
 			if(IsUniformScalingEnabled()) scale = ScaleUniformly(scale, values);
-			CommandManager::getInstance()->executeCommand(new ScaleObjectCommand(this->selectedObject.get(), scale));
+			CommandManager::getInstance()->executeCommand(new ScaleObjectCommand(this->selectedObject, scale));
 			break;
 		}
 	}
@@ -400,7 +401,7 @@ void InspectorScreen::onLightPropsUpdate() const
 {
 	if (this->selectedObject != nullptr)
 	{
-		std::shared_ptr<Light> light = ModelManager::getInstance()->findLightObjectByName(this->selectedObject->getName());
+		Light* light = dynamic_cast<Light*>(this->selectedObject);
 		if (light)
 		{
 			light->setLightColor(this->lightColorDisplay.x, this->lightColorDisplay.y, this->lightColorDisplay.z, intensityDisplay * lightIntensityMultiplier);

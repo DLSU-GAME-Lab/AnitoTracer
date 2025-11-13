@@ -15,50 +15,51 @@
 class ModelManager
 {
 public:
+	using vec3 = glm::vec3;
+	using String = std::string;
+
 	using GameObjectPtr = std::unique_ptr<GameObject>;
 	using GameObjectList = std::vector<GameObjectPtr>;
-	typedef glm::vec3 vec3;
-	typedef std::string String;
-	typedef std::vector<std::shared_ptr<GameObject>> List;
-	typedef std::vector<std::shared_ptr<Light>> LightList;
-	typedef std::unordered_map<std::string, std::shared_ptr<Light>> LightTable;
-	typedef std::unordered_map<String, std::shared_ptr<GameObject>> HashTable;
+
+	using LightPtr = std::unique_ptr<Light>;
+	using LightList = std::vector<Light*>;
 
 	typedef std::vector<std::shared_ptr<ObjectGroup>> ObjectGroupList;
 
-	typedef std::vector<Assets::Model> ModelList;
+	using ModelList = std::vector<Assets::Model>;
 	typedef std::vector<Assets::LightProperties> LightPropsList;
 
 	static ModelManager* getInstance();
 	static void initialize();
 	static void destroy();
 
-	std::shared_ptr<GameObject> findObjectByName(String name);
-	std::shared_ptr<Light> findLightObjectByName(String name);
-	List getAllObjects() const;
+	std::vector<GameObject*> getAllObjects() const;
+	std::vector<GameObject*> getAllActiveObjects() const;
+	std::vector<GameObject*> getSceneGraph() const;
 	
-	int activeObjects() const;
-	std::shared_ptr<GameObject> getLastObject();
-	void addLightObject(std::shared_ptr<Light> lightObj);
-	void addObject(std::shared_ptr<GameObject> gameObject);
+	int activeObjectsCount() const;
+
+	void addObject(GameObjectPtr gameObject);
 	GameObjectPtr removeObject(GameObject* gameObject);
-	void addObject(std::shared_ptr<ObjectGroup> objectGroup);
+	void deleteObject(GameObject* gameObject);
+
+	void addLightObject(LightPtr lightObj);
+
+	void setSelectedObject(GameObject* gameObject);
+	GameObject* getSelectedObject();
+
+	void clearAllObjects();
+
+	ModelList getAllObjectModels() const;
+	LightPropsList getAllLightProperties() const;
+
 	void createObject(GameObject::PrimitiveType type);
 	void createPrimitiveFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation, vec3 scale, std::vector<Assets::Material> mats);
 	void createLightFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation, vec3 scale, std::vector<Assets::Material> mats, Assets::LightProperties props);
 	void createObjectFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale); 
 	void createObjectGroupFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale);
 	void createSponza();
-	void deleteObject(std::shared_ptr<GameObject> gameObject);
-	void deleteObjectByName(String name);
-	void setSelectedObject(String name);
-	void setSelectedObject(std::shared_ptr<GameObject> gameObject);
-	std::shared_ptr<GameObject> getSelectedObject();
 
-	void clearAllObjects();
-
-	ModelList getAllObjectModels() const;
-	LightPropsList getAllLightProperties() const;
 
 private:
 	ModelManager() = default;
@@ -67,14 +68,11 @@ private:
 	ModelManager& operator=(ModelManager const&) {};  // assignment operator is private*/
 	static ModelManager* sharedInstance;
 
-	HashTable gameObjectMap;
-	List objectList;
-	ObjectGroupList objectGroupList;
 	GameObjectList sceneGraph;
+
+	ObjectGroupList objectGroupList;
 	LightList lightList;
-	LightTable lightTable;
 
-	std::shared_ptr<GameObject> selectedObject = nullptr;
-
+	GameObject* selectedObject = nullptr;
 };
 

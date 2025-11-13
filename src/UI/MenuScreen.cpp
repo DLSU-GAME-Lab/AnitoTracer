@@ -443,8 +443,8 @@ void MenuScreen::OnCreateRProbe()
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
-	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	ModelManager::getInstance()->addObject(sphere);
+	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	ModelManager::getInstance()->addObject(std::move(sphere));
 	sphere->setLocalPosition(0, 0, 0);
 }
 
@@ -454,8 +454,8 @@ void MenuScreen::OnCreateTProbe()
 
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
-	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	ModelManager::getInstance()->addObject(sphere);
+	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	ModelManager::getInstance()->addObject(std::move(sphere));
 	sphere->setLocalPosition(0, 0, 0);
 }
 
@@ -464,8 +464,8 @@ void MenuScreen::OnCreateMProbe()
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
-	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	ModelManager::getInstance()->addObject(sphere);
+	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	ModelManager::getInstance()->addObject(std::move(sphere));
 	sphere->setLocalPosition(0, 0, 0);
 }
 
@@ -481,9 +481,9 @@ void MenuScreen::onCreateBunnyClicked()
 				translate(i, vec3(1)),
 				vec3(1.0f)),
 			radians(0.0f), vec3(0, 1, 0)));
-	std::shared_ptr<GameObject> bunnyObj = std::make_shared<GameObject>("Bunny", GameObject::PrimitiveType::MESH, std::make_shared<Model>(bunny));
+	auto bunnyObj = std::make_unique<GameObject>("Bunny", GameObject::PrimitiveType::MESH, std::make_shared<Model>(bunny));
 	bunnyObj->setLocalScale(100.0f, 100.0f, 100.0f);
-	ModelManager::getInstance()->addObject(bunnyObj);
+	ModelManager::getInstance()->addObject(std::move(bunnyObj));
 }
 
 void MenuScreen::onCreateTeapotClicked()
@@ -499,9 +499,9 @@ void MenuScreen::onCreateTeapotClicked()
 				vec3(1)),
 			radians(75.0f), vec3(0, 1, 0)));
 
-	std::shared_ptr<GameObject> teapotObj = std::make_shared<GameObject>("Teapot", GameObject::PrimitiveType::MESH, std::make_shared<Model>(teapot));
+	auto teapotObj = std::make_unique<GameObject>("Teapot", GameObject::PrimitiveType::MESH, std::make_shared<Model>(teapot));
 	teapotObj->setLocalScale(5.0f, 5.0f, 5.0f);
-	ModelManager::getInstance()->addObject(teapotObj);
+	ModelManager::getInstance()->addObject(std::move(teapotObj));
 }
 
 void MenuScreen::onCreateLucyClicked()
@@ -517,8 +517,8 @@ void MenuScreen::onCreateLucyClicked()
 				vec3(0.5)),
 			radians(75.0f), vec3(0, 1, 0)));
 
-	std::shared_ptr<GameObject> lucyObj = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucy0));
-	ModelManager::getInstance()->addObject(lucyObj);
+	auto lucyObj = std::make_unique<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucy0));
+	ModelManager::getInstance()->addObject(std::move(lucyObj));
 }
 
 void MenuScreen::onCreateCornellClicked()

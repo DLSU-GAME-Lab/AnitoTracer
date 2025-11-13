@@ -59,6 +59,7 @@ public:
     std::shared_ptr<Assets::Model> getModel();
 
     void addChild(GameObjectPtr child);
+    void addChildAtIndex(GameObjectPtr child, int index);
     GameObjectPtr removeChild(GameObject* child);
     std::vector<GameObject*> getChildren() const;
     std::vector<GameObject*> getChildrenRecursive() const; // gets all descendants

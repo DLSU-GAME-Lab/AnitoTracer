@@ -62,6 +62,12 @@ bool GameObject::isActive()
 void GameObject::setActive(bool flag)
 {
 	this->active = flag;
+
+	for(const auto& child : this->children)
+	{
+		if (child)
+			child->setActive(flag);
+	}
 }
 
 bool GameObject::isVisible()
@@ -72,6 +78,12 @@ bool GameObject::isVisible()
 void GameObject::setVisible(bool flag)
 {
 	this->visible = flag;
+
+	for (const auto& child : this->children)
+	{
+		if (child)
+			child->setVisible(flag);
+	}
 }
 
 bool GameObject::isPickable()
@@ -82,6 +94,12 @@ bool GameObject::isPickable()
 void GameObject::setPickable(bool flag)
 {
 	this->pickable = flag;
+
+	for (const auto& child : this->children)
+	{
+		if (child)
+			child->setPickable(flag);
+	}
 }
 
 void GameObject::setLocalPosition(vec3 newPos)
@@ -195,6 +213,8 @@ glm::mat4& GameObject::getObjectMatrix()
 
 std::shared_ptr<Assets::Model> GameObject::getModel()
 {
+	this->getWorldMatrix(); //updates
+
 	return this->modelRef;
 }
 
@@ -207,9 +227,27 @@ void GameObject::addChild(GameObject::GameObjectPtr child)
 		child->parent->removeChild(child.get());
 
 	child->parent = this;
-	children.push_back(std::move(child));
-
 	child->setWorldDirty(true);
+	children.push_back(std::move(child));
+}
+
+void GameObject::addChildAtIndex(GameObjectPtr child, int index)
+{
+	if (!child || child.get() == this || child->parent == this)
+		return;
+
+	if (child->parent)
+		child->parent->removeChild(child.get());
+
+	// Clamp index to valid range [0, children.size()]
+	size_t idx = 0;
+	if (index > 0)
+		idx = static_cast<size_t>(index);
+	if (idx > this->children.size()) idx = this->children.size();
+
+	child->parent = this;
+	child->setWorldDirty(true);
+	children.insert(children.begin() + idx, std::move(child));
 }
 
 std::unique_ptr<GameObject> GameObject::removeChild(GameObject* node)
@@ -341,6 +379,7 @@ GameObject::mat4 GameObject::getLocalMatrix()
 
 		this->localMatrix = translationMat * rotationMat * scaleMat;
 		this->localDirty = false;
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 
 	return this->localMatrix;

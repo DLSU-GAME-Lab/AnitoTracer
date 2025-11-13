@@ -5,6 +5,7 @@
 #include <functional>
 #include <iostream>
 #include <random>
+#include <memory>
 
 #include "Assets/SphereProc.hpp"
 #include "Engine/CameraSystem/CameraManager.h"
@@ -120,8 +121,8 @@ SceneAssets SceneList::CubeAndSpheres(CameraInitialState& camera)
 
 
 	// Add light objects
-	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl);
+	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -155,8 +156,8 @@ SceneAssets SceneList::RayTracingInOneWeekend(CameraInitialState& camera)
 
 
 	// Add light objects
-	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl);
+	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -195,8 +196,8 @@ SceneAssets SceneList::PlanetsInOneWeekend(CameraInitialState& camera)
 
 
 	// Add light objects
-	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl);
+	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -261,8 +262,8 @@ SceneAssets SceneList::LucyInOneWeekend(CameraInitialState& camera)
 	models.push_back(std::move(lucy2));
 
 	// Add light objects
-	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl);
+	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -294,8 +295,8 @@ SceneAssets SceneList::CornellBox(CameraInitialState& camera)
 	models.push_back(box1);
 
 	// Add light objects
-	std::shared_ptr<Light> pl = std::make_shared<Light>("Center Light", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl);
+	auto pl = std::make_unique<Light>("Center Light", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -329,8 +330,8 @@ SceneAssets SceneList::CornellBoxLucy(CameraInitialState& camera)
 	models.push_back(lucy0);
 
 	// Add light objects
-	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl);
+	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -360,23 +361,23 @@ SceneAssets SceneList::GDGRAP2_SphereWorld(CameraInitialState& camera)
 
 	vec3 pos = vec3(0, -1000, 0); float center = 1000;
 	Model sphere1Model = Model::CreateSphere(pos, center, *Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)), isProcedural);
-	std::shared_ptr<GameObject> sphere1 = std::make_shared<GameObject>("GroundSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere1Model));
-	ModelManager::getInstance()->addObject(sphere1);
+	auto sphere1 = std::make_unique<GameObject>("GroundSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere1Model));
+	ModelManager::getInstance()->addObject(std::move(sphere1));
 
 	pos = vec3(0, 1, 0); center = 1.0f;
 	Model sphere2Model = Model::CreateSphere(pos, 1.0f, *Material::Dielectric(1.5f), isProcedural);
-	std::shared_ptr<GameObject> sphere2 = std::make_shared<GameObject>("CenterSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere2Model));
-	ModelManager::getInstance()->addObject(sphere2);
+	auto sphere2 = std::make_unique<GameObject>("CenterSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere2Model));
+	ModelManager::getInstance()->addObject(std::move(sphere2));
 
 	pos = vec3(-8, 2.5f, 1); center = 2.5f;
 	Model sphere3Model = Model::CreateSphere(pos, 2.5f, *Material::Metallic(vec3(0.4f, 0.2f, 0.1f), MathUtils::randomFloat(0.0f, 0.2f)), isProcedural);
-	std::shared_ptr<GameObject> sphere3 = std::make_shared<GameObject>("LeftSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere3Model));
-	ModelManager::getInstance()->addObject(sphere3);
+	auto sphere3 = std::make_unique<GameObject>("LeftSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere3Model));
+	ModelManager::getInstance()->addObject(std::move(sphere3));
 
 	pos = vec3(4, 1, 0); center = 1.0f;
 	Model sphere4Model = Model::CreateSphere(pos, 1.0f, *Material::Metallic(vec3(0.7f, 0.6f, 0.5f), 0.0f), isProcedural);
-	std::shared_ptr<GameObject> sphere4 = std::make_shared<GameObject>("RightSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
-	ModelManager::getInstance()->addObject(sphere4);
+	auto sphere4 = std::make_unique<GameObject>("RightSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
+	ModelManager::getInstance()->addObject(std::move(sphere4));
 
 	for (int repeats = 0; repeats < 2; repeats++)
 	{
@@ -407,8 +408,8 @@ SceneAssets SceneList::GDGRAP2_SphereWorld(CameraInitialState& camera)
 					}
 
 					Model modelInstance = Model::CreateSphere(center, MathUtils::randomFloat(0.2f, 0.4f), *materialInstance, isProcedural);
-					std::shared_ptr<GameObject> objectInstance = std::make_shared<GameObject>("SmallSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(modelInstance));
-					ModelManager::getInstance()->addObject(objectInstance);
+					auto objectInstance = std::make_unique<GameObject>("SmallSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(modelInstance));
+					ModelManager::getInstance()->addObject(std::move(objectInstance));
 				}
 			}
 		}
@@ -422,8 +423,8 @@ SceneAssets SceneList::GDGRAP2_SphereWorld(CameraInitialState& camera)
 				//add additional reflective spheres
 				std::shared_ptr<Material> materialInstance = Material::Dielectric(1.5f);
 				Model modelInstance = Model::CreateSphere(center, MathUtils::randomFloat(0.1f, 0.2f), *materialInstance, isProcedural);
-				std::shared_ptr<GameObject> objectInstance = std::make_shared<GameObject>("SmallSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(modelInstance));
-				ModelManager::getInstance()->addObject(objectInstance);
+				auto objectInstance = std::make_unique<GameObject>("SmallSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(modelInstance));
+				ModelManager::getInstance()->addObject(std::move(objectInstance));
 			}
 		}
 	}
@@ -432,8 +433,8 @@ SceneAssets SceneList::GDGRAP2_SphereWorld(CameraInitialState& camera)
 
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	// Add light objects
-	std::shared_ptr<Light> pl = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl);
+	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -461,25 +462,23 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 	Model box0 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
 	Model box1 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
 
-	std::shared_ptr<GameObject> box0_Object = std::make_shared<GameObject>("Right Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
-	ModelManager::getInstance()->addObject(box0_Object);
-	box0_Object->setLocalPosition(vec3(125, -194, 100));
-	box0_Object->setLocalRotation(vec3(0, 50, 0));
-	box0_Object->setLocalScale(glm::vec3(3, 3.3f, 3));
-
-	std::shared_ptr<GameObject> box1_Object = std::make_shared<GameObject>("Tall Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
-	ModelManager::getInstance()->addObject(box1_Object);
-	box1_Object->setLocalPosition(vec3(-100, -112, -100));
-	box1_Object->setLocalRotation(vec3(0, -60, 0));
-	box1_Object->setLocalScale(glm::vec3(3, 6.6f, 3));
+	auto box0_Object = std::make_unique<GameObject>("Right Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
+	ModelManager::getInstance()->addObject(std::move(box0_Object));
+	box0_Object = nullptr;
+	
+	// Note: box0_Object was moved; create a fresh unique for box1
+	auto box1_Object = std::make_unique<GameObject>("Tall Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
+	ModelManager::getInstance()->addObject(std::move(box1_Object));
+	box1_Object = nullptr;
 
 	Model cornellBoxModel = Model::CreateCornellBox(555);
-	std::shared_ptr<GameObject> cornellBoxObject = std::make_shared<GameObject>("Cornell Box", GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Model>(cornellBoxModel));
-	ModelManager::getInstance()->addObject(cornellBoxObject);
+	auto cornellBoxObject = std::make_unique<GameObject>("Cornell Box", GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Model>(cornellBoxModel));
+	ModelManager::getInstance()->addObject(std::move(cornellBoxObject));
+	cornellBoxObject = nullptr;
 
 	// Add light objects
-	std::shared_ptr<Light> pl = std::make_shared<Light>("Sample Point Light", Light::LightType::PointLight);
-	ModelManager::getInstance()->addLightObject(pl);
+	auto pl = std::make_unique<Light>("Sample Point Light", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
@@ -500,9 +499,11 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
-	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
-	areaLightObject->setLocalPosition(-250.0f, 600.0f, -500.0f);
-	ModelManager::getInstance()->addObject(areaLightObject);
+	auto boxGround = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+
+	boxGround->setLocalPosition(-250.0f, 600.0f, -500.0f);
+
+	ModelManager::getInstance()->addObject(std::move(boxGround));
 
 	const int boxesPerSide = 20;
 	for (int i = 0; i < boxesPerSide; i++)
@@ -517,13 +518,13 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 			float y1 = MathUtils::randomFloat(1, 201);
 			float z1 = z0 + w;
 
-			std::shared_ptr<Material> groundMat = Material::Metallic(VectorUtils::randomFloatVec3(), MathUtils::randomFloat(0.0, 0.25f));
+			std::shared_ptr<Material> groundMat = Material::Metallic(VectorUtils::randomFloatVec3(), MathUtils::randomFloat(0.0f, 0.25f));
 			Model box = Model::CreateBox(vec3(x0, y0, z0), vec3(x1, y1, z1), *groundMat);
-			std::shared_ptr<GameObject> boxGround = std::make_shared<GameObject>("GroundBox", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box));
+			auto boxGround = std::make_unique<GameObject>("GroundBox", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box));
 
 			boxGround->setLocalPosition(x0, y0, z0);
 
-			ModelManager::getInstance()->addObject(boxGround);
+			ModelManager::getInstance()->addObject(std::move(boxGround));
 
 			if (j % 8 == 0)
 			{
@@ -534,14 +535,14 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 				if (i % 2 == 0)
 				{
 					Model sphere4Model = Model::CreateSphere(randomPt, 20.0f, *groundMetalMat, false);
-					std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
-					ModelManager::getInstance()->addObject(sphere);
+					auto sphere = std::make_unique<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
+					ModelManager::getInstance()->addObject(std::move(sphere));
 				}
 				else
 				{
 					Model sphere4Model = Model::CreateSphere(randomPt, 45.0f, *groundReflectMat, false);
-					std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("ReflectedSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
-					ModelManager::getInstance()->addObject(sphere);
+					auto sphere = std::make_unique<GameObject>("ReflectedSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
+					ModelManager::getInstance()->addObject(std::move(sphere));
 				}
 
 			}
@@ -550,37 +551,37 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 
 	std::shared_ptr<Material> diffuseCheckerMat = Material::Lambertian(vec3(1), 3);
 	Model textureSphere = Model::CreateSphere(vec3(-280, 280, 300), 160, *diffuseCheckerMat, false);
-	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("CheckerSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(textureSphere));
-	ModelManager::getInstance()->addObject(sphere);
+	auto sphere = std::make_unique<GameObject>("CheckerSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(textureSphere));
+	ModelManager::getInstance()->addObject(std::move(sphere));
 
 	std::shared_ptr<Material> earthMat = Material::Lambertian(vec3(1), 4);
 	Model earthModel = Model::CreateSphere(vec3(400, 400, 400), 200, *earthMat, false);
-	std::shared_ptr<GameObject> earthObj = std::make_shared<GameObject>("EarthSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(earthModel));
-	ModelManager::getInstance()->addObject(earthObj);
+	auto earthObj = std::make_unique<GameObject>("EarthSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(earthModel));
+	ModelManager::getInstance()->addObject(std::move(earthObj));
 
 	std::shared_ptr<Material> metalMat = Material::Metallic(VectorUtils::randomFloatVec3(), 0.15f);
 	Model metalModel = Model::CreateSphere(vec3(0, 450, 145), 50, *metalMat, false);
-	std::shared_ptr<GameObject> metalObj = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(metalModel));
-	ModelManager::getInstance()->addObject(metalObj);
+	auto metalObj = std::make_unique<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(metalModel));
+	ModelManager::getInstance()->addObject(std::move(metalObj));
 
-	std::shared_ptr<ObjectGroup> sphereGroup = std::make_shared<ObjectGroup>("SphereGroup");
+	auto sphereGroup = std::make_shared<ObjectGroup>("SphereGroup");
 	for (int i = 0; i < 1000; i++)
 	{
-		std::shared_ptr<Material> metalMat = Material::Metallic(vec3(0.73, 0.73, 0.73), MathUtils::randomFloat(0.0f, 0.5f));
+		auto metalMat = Material::Metallic(vec3(0.73, 0.73, 0.73), MathUtils::randomFloat(0.0f, 0.5f));
 		Model sphereInstance = Model::CreateSphere(VectorUtils::randomFloatVec3(0, 165), 10.0f, *metalMat, false);
 		sphereGroup->addModel(std::make_shared<Model>(sphereInstance));
 	}
 
 	sphereGroup->setLocalRotation(0, -45, 0);
 	sphereGroup->setLocalPosition(vec3(-200, 300, 450));
-	ModelManager::getInstance()->addObject(sphereGroup);
+	//ModelManager::getInstance()->addObject(sphereGroup);
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 
 	// Add light objects
-	std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	ModelManager::getInstance()->addObject(pl1);
+	auto pl1 = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
+	ModelManager::getInstance()->addLightObject(std::move(pl1));
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -604,9 +605,9 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
-	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1000.0f, 500.0f);
-	ModelManager::getInstance()->addObject(areaLightObject);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -615,29 +616,24 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 	Model box0 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
 	Model box1 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
 
-	std::shared_ptr<GameObject> box0_Object = std::make_shared<GameObject>("Right Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
-	ModelManager::getInstance()->addObject(box0_Object);
-	box0_Object->setLocalPosition(vec3(125, -194, 100-500));
-	box0_Object->setLocalRotation(vec3(0, 50, 0));
-	box0_Object->setLocalScale(glm::vec3(3, 3.3f, 3));
-
-	std::shared_ptr<GameObject> box1_Object = std::make_shared<GameObject>("Tall Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
-	ModelManager::getInstance()->addObject(box1_Object);
-	box1_Object->setLocalPosition(vec3(-100, -112, -100-500));
-	box1_Object->setLocalRotation(vec3(0, -60, 0));
-	box1_Object->setLocalScale(glm::vec3(3, 6.6f, 3));
+	auto box0_Object = std::make_unique<GameObject>("Right Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
+	ModelManager::getInstance()->addObject(std::move(box0_Object));
+	box0_Object = nullptr;
+	
+	auto box1_Object = std::make_unique<GameObject>("Tall Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
+	ModelManager::getInstance()->addObject(std::move(box1_Object));
+	box1_Object = nullptr;
 
 	Model cornellBoxModel = Model::CreateCornellBox(555);
-	std::shared_ptr<GameObject> cornellBoxObject = std::make_shared<GameObject>("Cornell Box", GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Model>(cornellBoxModel));
-	ModelManager::getInstance()->addObject(cornellBoxObject);
-	cornellBoxObject->setLocalPosition(0, 0, -500);
+	auto cornellBoxObject = std::make_unique<GameObject>("Cornell Box", GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Model>(cornellBoxModel));
+	ModelManager::getInstance()->addObject(std::move(cornellBoxObject));
+	cornellBoxObject = nullptr;
 
 	Model lucy = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
-	std::shared_ptr<GameObject> lucyObject = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucy));
-	ModelManager::getInstance()->addObject(lucyObject);
-	lucyObject->setLocalPosition(vec3(-100, -170, -350));
-	lucyObject->setLocalRotation(vec3(0, 90, 0));
-	lucyObject->setLocalScale(vec3(0.25));
+	auto lucyObject = std::make_unique<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucy));
+	ModelManager::getInstance()->addObject(std::move(lucyObject));
+	
+	lucyObject = nullptr;
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
@@ -663,11 +659,11 @@ SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
-	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	std::unique_ptr<GameObject> areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1000.0f, 500.0f);
-	ModelManager::getInstance()->addObject(areaLightObject);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	/*std::shared_ptr<Camera> camObj = std::make_shared<Camera>("Camera");
+	/*std::unique_ptr<Camera> camObj = std::make_unique<Camera>("Camera");
 	ModelManager::getInstance()->addObject(camObj);
 	CameraManager::getInstance()->addCamera(camObj);
 	camObj->setLocalPosition(0, 100, 5);*/
@@ -709,16 +705,16 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	//dl->setAmbientColor(1, 1, 1, 0.05);
 	//ModelManager::getInstance()->addLightObject(dl);
 
-	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
 	areaLightObject->setLocalRotation(0, 0, 0);
-	ModelManager::getInstance()->addObject(areaLightObject);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 	 
 	//std::shared_ptr<GameObject> areaLightObject2 = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel2));
 	//areaLightObject2->setLocalPosition(-1500, 1000, -1500);
 	//ModelManager::getInstance()->addObject(areaLightObject2);
 
-	/*std::shared_ptr<Camera> cameraObj = std::make_shared<Camera>("Camera");
+	/*std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
 	ModelManager::getInstance()->addObject(cameraObj);
 	cameraObj->setLocalPosition(0, 10.0f, 0);
 	CameraManager::getInstance()->addCamera(cameraObj);*/
@@ -772,6 +768,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	//				vec3(1)),
 	//			radians(0.0f), vec3(0, 1, 0)));
 
+
 	//	std::shared_ptr<GameObject> sponzaObj;
 
 	//	if (sponza[j].GetName() == "")
@@ -792,15 +789,11 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 				vec3(1)),
 			radians(0.0f), vec3(0, 1, 0)));
 
-	std::shared_ptr<GameObject> sponzaObj;
 
-	if (sponza.GetName() == "")
-		sponzaObj = std::make_shared<GameObject>("Sponza", GameObject::PrimitiveType::MESH, std::make_shared<Model>(sponza));
-	else
-		sponzaObj = std::make_shared<GameObject>(sponza.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sponza));
+	auto sponzaObj = std::make_unique<GameObject>(sponza.GetName().empty() ? "Sponza" : sponza.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sponza));
 
-	ModelManager::getInstance()->addObject(sponzaObj);
-	sponzaObj->setLocalPosition(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(sponzaObj));
+	sponzaObj = nullptr;
 
 	////Add light objects
 	//std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
@@ -833,15 +826,16 @@ SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
-	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
 	areaLightObject->setLocalRotation(0, 0, 0);
-	ModelManager::getInstance()->addObject(areaLightObject);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	std::shared_ptr<Camera> cameraObj = std::make_shared<Camera>("Camera");
-	ModelManager::getInstance()->addObject(cameraObj);
+	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
 	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj);
+	CameraManager::getInstance()->addCamera(cameraObj.get());
+	ModelManager::getInstance()->addObject(std::move(cameraObj));
+
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -849,17 +843,10 @@ SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
 	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/San_Miguel/san-miguel.obj");
-	std::shared_ptr<GameObject> smObj;
+	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "San Miguel" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
 
-	if (sm.GetName() == "")
-		smObj = std::make_shared<GameObject>("San Miguel", GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-	else
-		smObj = std::make_shared<GameObject>(sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(smObj);
-	smObj->setLocalPosition(600, 650, -100);
-	smObj->setLocalRotation(0, -150, 0);
-	smObj->setLocalScale(50,50,50);
+	ModelManager::getInstance()->addObject(std::move(smObj));
+	smObj = nullptr;
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
@@ -905,15 +892,16 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
-	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
 	areaLightObject->setLocalRotation(0, 0, 0);
-	ModelManager::getInstance()->addObject(areaLightObject);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	std::shared_ptr<Camera> cameraObj = std::make_shared<Camera>("Camera");
-	ModelManager::getInstance()->addObject(cameraObj);
+	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
 	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj);
+	CameraManager::getInstance()->addCamera(cameraObj.get());
+	ModelManager::getInstance()->addObject(std::move(cameraObj));
+
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -921,16 +909,10 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
 	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/vokselia_spawn/vokselia_spawn.obj");
-	std::shared_ptr<GameObject> smObj;
+	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "Vokselia" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
 
-	if (sm.GetName() == "")
-		smObj = std::make_shared<GameObject>("Vokselia", GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-	else
-		smObj = std::make_shared<GameObject>(sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(smObj);
-	smObj->setLocalPosition(700, 2900, 0);
-	smObj->setLocalScale(10000, 10000, 10000);
+	ModelManager::getInstance()->addObject(std::move(smObj));
+	smObj = nullptr;
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
@@ -957,15 +939,15 @@ SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
-	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
 	areaLightObject->setLocalRotation(0, 0, 0);
-	ModelManager::getInstance()->addObject(areaLightObject);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	std::shared_ptr<Camera> cameraObj = std::make_shared<Camera>("Camera");
-	ModelManager::getInstance()->addObject(cameraObj);
+	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
 	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj);
+	CameraManager::getInstance()->addCamera(cameraObj.get());
+	ModelManager::getInstance()->addObject(std::move(cameraObj));
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -973,17 +955,10 @@ SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
 	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/breakfast_room/breakfast_room.obj");
-	std::shared_ptr<GameObject> smObj;
+	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "BfastRoom" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
 
-	if (sm.GetName() == "")
-		smObj = std::make_shared<GameObject>("BfastRoom", GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-	else
-		smObj = std::make_shared<GameObject>(sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(smObj);
-	smObj->setLocalPosition(515, 425, -200);
-	smObj->setLocalRotation(-180, -45, -180);
-	smObj->setLocalScale(50, 50, 50);
+	ModelManager::getInstance()->addObject(std::move(smObj));
+	smObj = nullptr;
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
@@ -1010,15 +985,15 @@ SceneAssets SceneList::SalleDeBain(CameraInitialState& camera)
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
-	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
 	areaLightObject->setLocalRotation(0, 0, 0);
-	ModelManager::getInstance()->addObject(areaLightObject);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	std::shared_ptr<Camera> cameraObj = std::make_shared<Camera>("Camera");
-	ModelManager::getInstance()->addObject(cameraObj);
+	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
+	ModelManager::getInstance()->addObject(std::move(cameraObj));
 	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj);
+	CameraManager::getInstance()->addCamera(cameraObj.get());
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -1031,36 +1006,23 @@ SceneAssets SceneList::SalleDeBain(CameraInitialState& camera)
 	Model box1 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *clear_mirror);
 	Model box2 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *mirror);
 
-	std::shared_ptr<GameObject> box0_Object = std::make_shared<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
-	ModelManager::getInstance()->addObject(box0_Object);
-	box0_Object->setLocalPosition(vec3(-516, 364, 431));
-	box0_Object->setLocalRotation(vec3(0, 0, 0));
-	box0_Object->setLocalScale(vec3(3.8f, 3.8f, 0.1f));
-
-	std::shared_ptr<GameObject> box1_Object = std::make_shared<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
-	ModelManager::getInstance()->addObject(box1_Object);
-	box1_Object->setLocalPosition(vec3(-157, 364, 431));
-	box1_Object->setLocalRotation(vec3(0, 0, 0));
-	box1_Object->setLocalScale(vec3(4.0f, 3.8f, 0.1f));
-
-	std::shared_ptr<GameObject> box2_Object = std::make_shared<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box2));
-	ModelManager::getInstance()->addObject(box2_Object);
-	box2_Object->setLocalPosition(vec3(-950, 385, 125));
-	box2_Object->setLocalRotation(vec3(0, 90, 0));
-	box2_Object->setLocalScale(vec3(3.8f, 5.0f, 0.1f));
+	auto box0_Object = std::make_unique<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
+	ModelManager::getInstance()->addObject(std::move(box0_Object));
+	box0_Object = nullptr;
+	
+	auto box1_Object = std::make_unique<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
+	ModelManager::getInstance()->addObject(std::move(box1_Object));
+	box1_Object = nullptr;
+	
+	auto box2_Object = std::make_unique<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box2));
+	ModelManager::getInstance()->addObject(std::move(box2_Object));
+	box2_Object = nullptr;
 
 	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/salle_de_bain/salle_de_bain.obj");
-	std::shared_ptr<GameObject> smObj;
+	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "SalleDeBain" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
 
-	if (sm.GetName() == "")
-		smObj = std::make_shared<GameObject>("SalleDeBain", GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-	else
-		smObj = std::make_shared<GameObject>(sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(smObj);
-	smObj->setLocalPosition(-500, 300, 100);
-	smObj->setLocalRotation(0, 90, 0);
-	smObj->setLocalScale(20, 20, 20);
+	ModelManager::getInstance()->addObject(std::move(smObj));
+	smObj = nullptr;
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
@@ -1087,15 +1049,16 @@ SceneAssets SceneList::Gallery(CameraInitialState& camera)
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
-	std::shared_ptr<GameObject> areaLightObject = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
 	areaLightObject->setLocalRotation(0, 0, 0);
-	ModelManager::getInstance()->addObject(areaLightObject);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	std::shared_ptr<Camera> cameraObj = std::make_shared<Camera>("Camera");
-	ModelManager::getInstance()->addObject(cameraObj);
+	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
 	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj);
+	CameraManager::getInstance()->addCamera(cameraObj.get());
+	ModelManager::getInstance()->addObject(std::move(cameraObj));
+
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -1103,17 +1066,10 @@ SceneAssets SceneList::Gallery(CameraInitialState& camera)
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
 	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/gallery/gallery.obj");
-	std::shared_ptr<GameObject> smObj;
+	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "Gallery" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
 
-	if (sm.GetName() == "")
-		smObj = std::make_shared<GameObject>("Gallery", GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-	else
-		smObj = std::make_shared<GameObject>(sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(smObj);
-	smObj->setLocalPosition(195, 345, 80);
-	smObj->setLocalRotation(0, -45, 0);
-	smObj->setLocalScale(100, 100, 100);
+	ModelManager::getInstance()->addObject(std::move(smObj));
+	smObj = nullptr;
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();

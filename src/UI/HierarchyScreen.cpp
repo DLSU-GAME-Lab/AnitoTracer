@@ -33,7 +33,7 @@ void HierarchyScreen::drawUI()
 
 void HierarchyScreen::updateObjectList(const char* filter)
 {
-    const ModelManager::List objectList = ModelManager::getInstance()->getAllObjects();
+    const auto objectList = ModelManager::getInstance()->getSceneGraph();
     std::string activeCamName = CameraManager::getInstance()->getActiveCamera()->getName();
     ImGui::Text("Active Camera: %s", activeCamName.c_str());
 
@@ -42,30 +42,30 @@ void HierarchyScreen::updateObjectList(const char* filter)
 
     for (const auto& obj : objectList)
     {
-        if (!obj->getParent())
-        {
-            std::string objName = obj->getName();
-            std::transform(objName.begin(), objName.end(), objName.begin(), ::tolower);
+		std::string objName = obj->getName();
+		std::transform(objName.begin(), objName.end(), objName.begin(), ::tolower);
 
-            if (filterStr.empty() || objName.find(filterStr) != std::string::npos)
-            {
-                drawObjectNode(obj.get());
-            }
-        }
+		if (filterStr.empty() || objName.find(filterStr) != std::string::npos)
+		{
+			drawObjectNode(obj);
+		}
     }
+
+	tempId = 0; // Reset tempId for next frame
 }
 
 void HierarchyScreen::drawObjectNode(GameObject* obj)
 {
     if (!obj) return;
 
-    String objectName = obj->getName();
+    String objectName = obj->getName() + std::to_string(tempId);
     bool hasChildren = !obj->getChildren().empty();
+	tempId++;
 
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
 
-    GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+    GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
     if (selectedObject == obj)
     {
         flags |= ImGuiTreeNodeFlags_Selected;
@@ -83,12 +83,12 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     // Selection Logic
     if (ImGui::IsItemClicked())
     {
-        ModelManager::getInstance()->setSelectedObject(objectName);
+        ModelManager::getInstance()->setSelectedObject(obj);
 
         // If Camera is selected, set main camera. If not, deactivate main camera.
         if (ModelManager::getInstance()->getSelectedObject()->getType() == GameObject::CAMERA)
         {
-            const std::shared_ptr<Camera> cam = CameraManager::getInstance()->findCameraByName(objectName);
+            Camera* cam = CameraManager::getInstance()->findCameraByName(objectName);
             CameraManager::getInstance()->setMainCamera(cam);
         }
         else
@@ -154,7 +154,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     // Handle Unparenting (Dragged to Empty Space)
     if (isDragging && ImGui::IsMouseReleased(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
     {
-        GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+        GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
         if (selectedObject)
         {
             selectedObject->setParent(nullptr);

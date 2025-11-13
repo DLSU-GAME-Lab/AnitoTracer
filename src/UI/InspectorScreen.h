@@ -49,7 +49,7 @@ private:
 
 	bool isUniformScalingEnabled = false;
 
-	std::shared_ptr<GameObject> selectedObject = nullptr;
+	GameObject* selectedObject = nullptr;
 	const String DEFAULT_MATERIAL = "None";
 	String materialPath = DEFAULT_MATERIAL;
 	String materialName = DEFAULT_MATERIAL;

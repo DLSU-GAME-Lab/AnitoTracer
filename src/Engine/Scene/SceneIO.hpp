@@ -80,7 +80,7 @@ public:
 		if (sceneName == "New Scene") sceneName = "New Scene " + std::to_string(scenes.size());
 		else if (map[sceneName] != nullptr) { /* Already exists */ }
 
-		ModelManager::List objects = ModelManager::getInstance()->getAllObjects();
+		auto objects = ModelManager::getInstance()->getAllObjects();
 		ModelManager::LightPropsList lights = ModelManager::getInstance()->getAllLightProperties();
 		int lightIndex = 0;
 
@@ -88,7 +88,7 @@ public:
 		scene["scene_name"] = sceneName;
 		scene["objects"] = json::array();
 
-		for (std::shared_ptr<GameObject> obj : objects)
+		for (auto obj : objects)
 		{
 			json objJson;
 
@@ -169,12 +169,11 @@ public:
 				model.SetMaterials(materials);
 
 				// 3. Create the object.
-				std::shared_ptr<GameObject> object = std::make_shared<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
-				ModelManager::getInstance()->addObject(object);
+				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
 				object->setLocalPosition(pos);
 				object->setLocalRotation(rot);
 				object->setLocalScale(scale);
-
+				ModelManager::getInstance()->addObject(std::move(object));
 				// 4. Family TODO
 			}
 			// Primitives, Lighting, and Camera Objects are created here.

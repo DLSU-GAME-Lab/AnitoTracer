@@ -520,7 +520,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 				{
 					/* Also Records Actions */
 					CommandManager::getInstance()->executeCommand(new TransformObjectCommand(
-						selectedObject.get(), 
+						selectedObject, 
 						gizmoBeforeState.position, gizmoBeforeState.rotation, gizmoBeforeState.scale,
 						afterState.position, afterState.rotation, afterState.scale
 					));
