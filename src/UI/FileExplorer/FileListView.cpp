@@ -13,11 +13,7 @@ FileListView::FileListView() {
 
 void FileListView::drawUI() {
     ImGui::PushFont(nullptr);
-    if (ImGui::Begin(FileExplorerConstants::PANEL_NAME, nullptr, UISettings::GlobalWindowFlags))
-    {
-        renderRootNode(FileTree::getInstance()->getRoot());
-    }
-    ImGui::End();
+    renderRootNode(FileTree::getInstance()->getRoot());
     ImGui::PopFont();
 }
 
@@ -40,7 +36,7 @@ void FileListView::renderDescendants(FileTreeNode& root) {
             // 2.) Render root children and listen for events on those nodes.
             ImGui::PushFont(UIManager::getInstance()->GetIconFont());
             std::string iconCode = chooseIconCode(rootChild);
-            if (ImGui::TreeNodeEx((iconCode + " " + rootChild.getName()).c_str(), flag)) {
+            if (ImGui::TreeNodeEx((iconCode + " " + rootChild.getName() + "##list").c_str(), flag)) {
                 ImGui::PopFont();
 
                 rootChild.setIsOpen(true);
@@ -62,7 +58,7 @@ void FileListView::renderRootNode(FileTreeNode& root) {
 
     try {
         ImGui::PushFont(nullptr);
-        if (ImGui::TreeNodeEx(root.getName().c_str(), flag)) {
+        if (ImGui::TreeNodeEx(root.getName().append("##list").c_str(), flag)) {
             ImGui::PopFont();
 
             root.setIsOpen(true);

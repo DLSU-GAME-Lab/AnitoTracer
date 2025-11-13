@@ -8,6 +8,7 @@
 #include "Utilities/FileExplorer/FileExplorerConstants.h"
 #include "Utilities/FileExplorer/FileExplorerUtils.h"
 #include "UI/FileExplorer/FileListView.h"
+#include "UI/FileExplorer/FileIconView.h"
 
 #include <fstream>
 #include <iostream>
@@ -40,7 +41,27 @@ ProjectScreen::~ProjectScreen()
 
 void ProjectScreen::drawUI()
 {
-    FileListView::drawUI();
+    if (ImGui::Begin(FileExplorerConstants::PANEL_NAME, nullptr, UISettings::GlobalWindowFlags))
+    {
+        if (ImGui::BeginTable("MyTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
+
+            ImGui::TableSetupColumn("Project Files");
+            ImGui::TableSetupColumn(FileIconView::getRootNodeRelPath().c_str());
+
+            ImGui::TableHeadersRow(); // Display table headers
+
+            ImGui::TableNextRow(); // Only 1 row
+
+            ImGui::TableSetColumnIndex(0);
+            FileListView::drawUI();
+
+            ImGui::TableSetColumnIndex(1);
+            FileIconView::drawUI();
+
+            ImGui::EndTable();
+        }
+    }
+    ImGui::End();
 }
 
 static bool deletePopup = false;
