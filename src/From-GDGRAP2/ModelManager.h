@@ -40,6 +40,7 @@ public:
 	int activeObjectsCount() const;
 
 	void addObject(GameObjectPtr gameObject);
+	void addObjectAtIndex(GameObjectPtr gameObject, int index);
 	GameObjectPtr removeObject(GameObject* gameObject);
 	void deleteObject(GameObject* gameObject);
 
@@ -52,6 +53,9 @@ public:
 
 	ModelList getAllObjectModels() const;
 	LightPropsList getAllLightProperties() const;
+
+	int getObjectIndex(GameObject* gameObject) const;
+	int getSceneGraphRootSize() const;
 
 	void createObject(GameObject::PrimitiveType type);
 	void createPrimitiveFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation, vec3 scale, std::vector<Assets::Material> mats);

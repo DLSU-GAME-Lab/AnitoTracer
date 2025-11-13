@@ -253,6 +253,8 @@ set(src_files_statemanagement
 	StateManagement/ConcreteCommands/GameObjectInspectorCommands.cpp
 	StateManagement/ConcreteCommands/MaterialCommands.hpp
 	StateManagement/ConcreteCommands/MaterialCommands.cpp
+	StateManagement/ConcreteCommands/HierarchyCommands.hpp
+	StateManagement/ConcreteCommands/HierarchyCommands.cpp
 )
 
 

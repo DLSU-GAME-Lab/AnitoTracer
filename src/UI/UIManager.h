@@ -146,6 +146,8 @@ private:
 	UIList uiList;
 	UITable uiTable;
 
+	glm::mat4 gizmoModelMatrix;
+
 	String currentLayoutPath;
 };
 

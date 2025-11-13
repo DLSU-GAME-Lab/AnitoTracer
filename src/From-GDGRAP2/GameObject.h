@@ -63,6 +63,7 @@ public:
     GameObjectPtr removeChild(GameObject* child);
     std::vector<GameObject*> getChildren() const;
     std::vector<GameObject*> getChildrenRecursive() const; // gets all descendants
+	int getChildIndex(GameObject* child) const;
 
     void setParent(GameObject* newParent);
     GameObject* getParent() const;
@@ -72,21 +73,14 @@ public:
     void setOBB(const BoundingBox& obb);
     std::shared_ptr<BoundingBox> getOBB() const;
 
-    mat4 getLocalMatrix();
-    mat4 getWorldMatrix();
-
-    bool isLocalDirty();
-	void setLocalDirty(bool propagate);
-
-    bool isWorldDirty();
-    void setWorldDirty(bool propagate);
+    void updateLocalMatrix();
+    glm::mat4 getLocalMatrix() const;
+    void updateWorldMatrix();
+    glm::mat4 getWorldMatrix() const;
 
 protected:
     String name;
     PrimitiveType type;
-
-    bool localDirty = false;
-    bool worldDirty = false;
 
     bool active = true;
     bool visible = true;

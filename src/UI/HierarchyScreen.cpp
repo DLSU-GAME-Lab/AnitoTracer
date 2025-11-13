@@ -7,6 +7,8 @@
 #include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
 
 HierarchyScreen::HierarchyScreen() : AUIScreen(UINames::HIERARCHY_SCREEN)
 {
@@ -120,20 +122,18 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
             {
                 hasValidDropTarget = true;
 
-				std::unique_ptr<GameObject> draggedUniquePtr = nullptr;
-
-                // If dragged object had a parent, remove it from old parent
-                if (draggedObj->getParent())
-                {
-                    draggedUniquePtr = draggedObj->getParent()->removeChild(draggedObj);
-                }
-                else
-                {
-                    draggedUniquePtr = ModelManager::getInstance()->removeObject(draggedObj);
-                }
+                auto oldParent = draggedObj->getParent();
 
                 // Assign new parent
-                obj->addChild(std::move(draggedUniquePtr));
+				CommandManager::getInstance()->executeCommand(
+                    new ReparentCommand(
+                        draggedObj, 
+                        oldParent,
+						oldParent ? oldParent->getChildIndex(draggedObj) : ModelManager::getInstance()->getObjectIndex(draggedObj),
+                        obj,
+                        obj->getChildren().size()
+                    )
+				);
 
                 // Force the node open when an object is dropped here
                 openNodes.insert(objectName);
@@ -155,10 +155,25 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     if (isDragging && ImGui::IsMouseReleased(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
     {
         GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
+
         if (selectedObject)
         {
-            selectedObject->setParent(nullptr);
+            auto oldParent = selectedObject->getParent();
+
+            if (oldParent) // if old parent == null (in root); do nothing
+            {
+                CommandManager::getInstance()->executeCommand(            // Assign to root
+                    new ReparentCommand(
+                        selectedObject,
+                        oldParent,
+                        oldParent->getChildIndex(selectedObject),
+                        nullptr,
+                        ModelManager::getInstance()->getSceneGraphRootSize()
+                    )
+                );
+            }
         }
+
         isDragging = false; // Reset dragging state after unparenting
     }
 

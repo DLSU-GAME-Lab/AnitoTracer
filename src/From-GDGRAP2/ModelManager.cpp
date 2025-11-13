@@ -92,6 +92,21 @@ void ModelManager::addObject(ModelManager::GameObjectPtr gameObject)
 	this->sceneGraph.push_back(std::move(gameObject));
 }
 
+void ModelManager::addObjectAtIndex(GameObjectPtr gameObject, int index)
+{
+	// Clamp index to valid range [0, sceneGraph.size()]
+	size_t idx = 0;
+	if (index > 0)
+		idx = static_cast<size_t>(index);
+	if (idx > this->sceneGraph.size()) idx = this->sceneGraph.size();
+
+	std::string message = "Added game object to root: " + gameObject->getName() + " at index " + std::to_string(idx);
+	Debug::Log(message);
+
+	this->sceneGraph.insert(this->sceneGraph.begin() + idx, std::move(gameObject));
+}
+
+/* Can be used for deletes, but might leave invalid pointers */
 std::unique_ptr<GameObject> ModelManager::removeObject(GameObject* gameObject)
 {
 	if (!gameObject) return nullptr;
@@ -174,6 +189,7 @@ std::vector<Assets::Model> ModelManager::getAllObjectModels() const
 	{
 		if (!gameObject->isActive()) continue;
 
+		gameObject->updateWorldMatrix();
 		modelList.push_back(*gameObject->getModel().get());
 
 		auto descendants = gameObject->getChildrenRecursive();
@@ -181,7 +197,7 @@ std::vector<Assets::Model> ModelManager::getAllObjectModels() const
 		for (auto descendant : descendants)
 		{
 			if (descendant->isActive())
-				modelList.push_back(*gameObject->getModel().get());
+				modelList.push_back(*descendant->getModel().get());
 		}
 	}
 
@@ -200,7 +216,23 @@ ModelManager::LightPropsList ModelManager::getAllLightProperties() const
 	return lights;
 }
 
+int ModelManager::getObjectIndex(GameObject* gameObject) const
+{
+	if(gameObject == nullptr) return -1;
 
+	for (size_t i = 0; i < this->sceneGraph.size(); i++)
+	{
+		if (this->sceneGraph[i].get() == gameObject)
+			return static_cast<int>(i);
+	}
+
+	return -1;
+}
+
+int ModelManager::getSceneGraphRootSize() const
+{
+	return this->sceneGraph.size();
+}
 
 void ModelManager::createObject(GameObject::PrimitiveType type)
 {
@@ -320,11 +352,11 @@ void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveTy
 
 	if (obj)
 	{
-		addObject(std::move(obj));
 		obj->setLocalPosition(position);
 		obj->setLocalRotation(rotation);
 		obj->setLocalScale(scale);
 		obj->setActive(active);
+		addObject(std::move(obj));
 	}
 }
 
@@ -419,7 +451,6 @@ void ModelManager::createObjectGroupFromFile(String name, GameObject::PrimitiveT
 		gameObject->setLocalScale(scale);
 		addObject(std::move(gameObject));
 	}
-
 }
 
 void ModelManager::createSponza()
