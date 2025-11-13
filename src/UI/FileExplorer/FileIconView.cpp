@@ -7,73 +7,35 @@
 #include "UI/IconsMaterialDesign.h"
 #include "UI/UIManager.h"
 
+FileTreeNode FileIconView::currentNode = FileTree::getInstance()->getRoot();
+
 FileIconView::FileIconView() {
 
 }
 
 void FileIconView::drawUI() {
     ImGui::PushFont(nullptr);
-    renderRootNode(FileTree::getInstance()->getRoot());
+    renderCurrentNode();
     ImGui::PopFont();
 }
 
-void FileIconView::renderDescendants(FileTreeNode& root) {
-    if (root.getIsOpen()) {
-        for (auto& rootChild : root.getChildren()) { //root.children
+void FileIconView::renderCurrentNode() {
 
-            // 1.) Initialize the root children nodes if they are directories, and give them render flags.
-            ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_None;
-            if (rootChild.isDirectory() && rootChild.directoryEntryExists()) {
-                // If the node is a directory, initialize it - if it doesn't have children, it's a leaf.
-                rootChild.init();
-                if (!rootChild.childrenExist()) flag |= ImGuiTreeNodeFlags_Leaf;
-            }
-            else {
-                // If the node represents a file, it's a leaf.
-                flag |= ImGuiTreeNodeFlags_Leaf;
-            }
-
-            // 2.) Render root children and listen for events on those nodes.
-            ImGui::PushFont(UIManager::getInstance()->GetIconFont());
-            std::string iconCode = chooseIconCode(rootChild);
-            if (ImGui::TreeNodeEx((iconCode + " " + rootChild.getName()).c_str(), flag)) {
-                ImGui::PopFont();
-
-                rootChild.setIsOpen(true);
-                renderDescendants(rootChild);
-
-                ImGui::TreePop();
-            }
-            else {
-                rootChild.setIsOpen(false);
-                ImGui::PopFont();
+    for (auto& rootChild : currentNode.getChildren()) {
+        if (ImGui::Button(chooseIconCode(rootChild).append("##").append(rootChild.getPathString()).c_str()))
+        {
+            if (rootChild.isDirectory() && rootChild.directoryEntryExists())
+            {
+                if (!rootChild.getIsInitialized())
+                {
+                    rootChild.init();
+                }
+                setCurrentNode(rootChild);
             }
         }
+        ImGui::Text(rootChild.getName().c_str());
     }
-}
 
-void FileIconView::renderRootNode(FileTreeNode& root) {
-    // Renders the root node with the given driveName, initializes it when clicked, and renders the root children.
-    ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_None;
-
-    try {
-        ImGui::PushFont(nullptr);
-        if (ImGui::TreeNodeEx(root.getName().c_str(), flag)) {
-            ImGui::PopFont();
-
-            root.setIsOpen(true);
-            renderDescendants(root);
-
-            ImGui::TreePop();
-        }
-        else {
-            root.setIsOpen(false);
-            ImGui::PopFont();
-        }
-    }
-    catch (const std::filesystem::filesystem_error&) {
-        ImGui::TreePop();
-    }
 }
 
 std::string FileIconView::chooseIconCode(const FileTreeNode& node) {
@@ -128,4 +90,8 @@ std::string FileIconView::chooseIconBasedOnExtension(const std::string& filename
 
 std::string FileIconView::getRootNodeRelPath() {
     return FileTree::getInstance()->getRoot().getPathString();
+}
+
+void FileIconView::setCurrentNode(FileTreeNode& node) {
+    currentNode = node;
 }

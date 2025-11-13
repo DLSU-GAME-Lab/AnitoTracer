@@ -6,6 +6,7 @@
 #include "Utilities/FileExplorer/FileTree.h"
 #include "UI/IconsMaterialDesign.h"
 #include "UI/UIManager.h"
+#include "UI/FileExplorer/FileIconView.h"
 
 FileListView::FileListView() {
 
@@ -42,6 +43,10 @@ void FileListView::renderDescendants(FileTreeNode& root) {
                 rootChild.setIsOpen(true);
                 renderDescendants(rootChild);
 
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && rootChild.isDirectory() && rootChild.directoryEntryExists()) {
+                    FileIconView::setCurrentNode(rootChild);
+                }
+
                 ImGui::TreePop();
             }
             else {
@@ -63,6 +68,10 @@ void FileListView::renderRootNode(FileTreeNode& root) {
 
             root.setIsOpen(true);
             renderDescendants(root);
+
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+                FileIconView::setCurrentNode(root);
+            }
 
             ImGui::TreePop();
         }
