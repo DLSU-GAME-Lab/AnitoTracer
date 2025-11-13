@@ -1,6 +1,7 @@
 #include "HierarchyCommands.hpp"
 #include "From-GDGRAP2/GameObject.h"
 #include "From-GDGRAP2/ModelManager.h"
+#include "Assets/GameObjectFactory.hpp"
 
 ReparentCommand::ReparentCommand(GameObject* child, GameObject* oldParent, int oldIndex, GameObject* newParent, int newIndex)
 	: child(child), oldParent(oldParent), oldIndex(oldIndex), newParent(newParent), newIndex(newIndex)
@@ -53,4 +54,37 @@ void ReparentCommand::undo()
 	{
 		oldParent->addChildAtIndex(std::move(childPtr), oldIndex);
 	}
+}
+
+CreatePrimitiveCommand::CreatePrimitiveCommand(GameObject::PrimitiveType type, std::string name) : type(type), name(name)
+{
+	this->createdObjectRef = nullptr;
+}
+
+void CreatePrimitiveCommand::execute()
+{
+	// If we already hold the created object (after an undo), re-add it (redo).
+	if (this->createdObjectStorage)
+	{
+		this->createdObjectRef = this->createdObjectStorage.get();
+		ModelManager::getInstance()->addObject(std::move(this->createdObjectStorage));
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+	// First-time execute: create and add.
+	else
+	{
+		this->createdObjectStorage = GameObjectFactory::getInstance()->CreatePrimitive(this->type);
+		this->createdObjectRef = this->createdObjectStorage.get();
+		ModelManager::getInstance()->addObject(std::move(this->createdObjectStorage));
+	}
+}
+
+void CreatePrimitiveCommand::undo()
+{
+	this->createdObjectStorage = ModelManager::getInstance()->removeObject(this->createdObjectRef);
+	// Keep the raw pointer in sync with the storage (or null if removal failed).
+	if (this->createdObjectStorage)
+		this->createdObjectRef = this->createdObjectStorage.get();
+	else
+		this->createdObjectRef = nullptr;
 }

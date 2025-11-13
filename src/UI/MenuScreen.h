@@ -12,11 +12,11 @@ public:
 private:
 	virtual void drawUI() override;
 	void OnCreateCubeClicked();
-	void OnCreateTexturedCubeClicked();
 	void OnCreateSphereClicked();
 	void onCreateCapsuleClicked();
 	void onCreateCylinderClicked();
 	void OnCreatePlaneClicked();
+
 	void OnCreateLightClicked(Light::LightType type);
 	void OnCreateRProbe();
 	void OnCreateTProbe();

@@ -34,6 +34,10 @@ set(src_files_assets
 	Assets/Ray.hpp
 	Assets/RayVertex.hpp
 	Assets/RayInfo.hpp
+	Assets/ModelLibrary.hpp
+	Assets/ModelLibrary.cpp
+	Assets/GameObjectFactory.hpp
+	Assets/GameObjectFactory.cpp
 )
 
 set(src_files_obb

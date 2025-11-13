@@ -55,7 +55,6 @@ public:
     vec3 getLocalScale() const;
     vec3 getWorldScale() const;
 
-    glm::mat4& getObjectMatrix();
     std::shared_ptr<Assets::Model> getModel();
 
     void addChild(GameObjectPtr child);

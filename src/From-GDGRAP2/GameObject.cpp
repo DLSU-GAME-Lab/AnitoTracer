@@ -200,14 +200,9 @@ GameObject::vec3 GameObject::getWorldScale() const
 	return this->worldScale;
 }
 
-glm::mat4& GameObject::getObjectMatrix()
-{
-	return this->worldMatrix;
-}
-
 std::shared_ptr<Assets::Model> GameObject::getModel()
 {
-	this->updateWorldMatrix(); //updates
+	this->updateWorldMatrix();
 
 	return this->modelRef;
 }

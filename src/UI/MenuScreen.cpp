@@ -15,7 +15,8 @@
 #include "Assets/Model.hpp"
 
 #include "Engine/Scene/SceneIO.hpp"
-// #include "GameObjectManager.h"
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
 
 using namespace Assets;
 using namespace glm;
@@ -34,8 +35,6 @@ MenuScreen::MenuScreen() : AUIScreen(UINames::MENU_SCREEN)
 
 MenuScreen::~MenuScreen()
 {
-	// delete this->openSceneDialog;
-	// delete this->saveSceneDialog;
 }
 
 void MenuScreen::drawUI()
@@ -115,7 +114,8 @@ void MenuScreen::drawUI()
 				if (ImGui::MenuItem("Capsule")) { onCreateCapsuleClicked(); }
 				if (ImGui::MenuItem("Cylinder")) { onCreateCylinderClicked(); }
 				if (ImGui::MenuItem("Plane")) { this->OnCreatePlaneClicked(); }
-				if (ImGui::BeginMenu("Reflective Spheres")) {
+
+			if (ImGui::BeginMenu("Reflective Spheres")) {
 					if (ImGui::MenuItem("Reflective Sphere")) { this->OnCreateRProbe(); } // todo: fix transparent probe to be transparent instead of reflective
 					//if (ImGui::MenuItem("Create Transparent Probe")) { this->OnCreateTProbe(); }
 					if (ImGui::MenuItem("Metallic Sphere")) { this->OnCreateMProbe(); }
@@ -314,31 +314,53 @@ void MenuScreen::drawUI()
 }
 
 void MenuScreen::OnCreateCubeClicked()
-{
-	//initialize vertex for object
-	// GameObjectManager::getInstance()->createObject(AGameObject::PrimitiveType::CUBE);
-	ModelManager::getInstance()->createObject(GameObject::PrimitiveType::CUBE);
-}
-
-void MenuScreen::OnCreateTexturedCubeClicked()
-{
-	// GameObjectManager::getInstance()->createObject(AGameObject::PrimitiveType::TEXTURED_CUBE);
+{	
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::CUBE,
+			"Cube"
+		)
+	);
 }
 
 void MenuScreen::OnCreateSphereClicked()
 {
-	//std::cout << "Creating sphere placeholder. \n";
-	ModelManager::getInstance()->createObject(GameObject::PrimitiveType::SPHERE);
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::SPHERE,
+			"Sphere"
+		)
+	);
 }
 
 void MenuScreen::onCreateCapsuleClicked()
 {
-	ModelManager::getInstance()->createObject(GameObject::PrimitiveType::CAPSULE);
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::CAPSULE,
+			"Capsule"
+		)
+	);
 }
 
 void MenuScreen::onCreateCylinderClicked()
 {
-	ModelManager::getInstance()->createObject(GameObject::PrimitiveType::CYLINDER);
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::CYLINDER,
+			"Cylinder"
+		)
+	);
+}
+
+void MenuScreen::OnCreatePlaneClicked()
+{
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::PLANE,
+			"Plane"
+		)
+	);
 }
 
 void MenuScreen::ShowLoadObjMenu()
@@ -412,13 +434,6 @@ void MenuScreen::ShowLoadObjMenu()
 	}
 
 	ImGui::End();
-}
-
-void MenuScreen::OnCreatePlaneClicked()
-{
-	//initialize vertex for object
-	ModelManager::getInstance()->createObject(GameObject::PLANE);
-	// GameObjectManager::getInstance()->createObject(AGameObject::PrimitiveType::QUAD);
 }
 
 void MenuScreen::OnCreateLightClicked(Light::LightType type)

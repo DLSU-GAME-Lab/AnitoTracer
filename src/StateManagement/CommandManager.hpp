@@ -1,6 +1,5 @@
 #pragma once
 #include "ICommand.hpp"
-
 #include <stack>
 
 class CommandManager
