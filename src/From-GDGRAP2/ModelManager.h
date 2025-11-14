@@ -50,6 +50,7 @@ public:
 	void deleteObjectByName(String name);
 	void setSelectedObject(String name);
 	void setSelectedObject(std::shared_ptr<GameObject> gameObject);
+	int getUniqueID();
 	std::shared_ptr<GameObject> getSelectedObject();
 
 	void clearAllObjects();
@@ -69,7 +70,6 @@ private:
 	ObjectGroupList objectGroupList;
 	LightList lightList;
 	LightTable lightTable;
-
 	std::shared_ptr<GameObject> selectedObject = nullptr;
 
 };

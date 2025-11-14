@@ -28,7 +28,7 @@ void InspectorScreen::drawUI()
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
 	if (this->selectedObject != nullptr)
 	{
-		String name = this->selectedObject->getName();
+		String name = this->selectedObject->getName() + " [ID " + std::to_string(this->selectedObject->modelID) + "]";
 		ImGui::TextWrapped("Selected Object: %s", name.c_str());
 
 		this->updateTransformDisplays();

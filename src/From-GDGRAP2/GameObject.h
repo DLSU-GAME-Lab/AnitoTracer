@@ -67,6 +67,8 @@ public:
     void updateObjectMatrix();
     void updateWorldTransform();
 
+    int modelID;
+
 
 protected:
     String name;

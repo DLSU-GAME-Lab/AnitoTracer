@@ -131,9 +131,10 @@ void ModelManager::addObject(std::shared_ptr<GameObject> gameObject)
 	else {
 		this->gameObjectMap[gameObject->getName()] = gameObject;
 	}
+	gameObject->modelID = this->getUniqueID();
 	this->gameObjectList.push_back(gameObject);
 
-	std::string message = "Added game object in manager: " + gameObject->getName();
+	std::string message = "Added game object in manager: " + gameObject->getName() + " [ID " + std::to_string(gameObject->modelID) + "]";
 	Debug::Log(message);
 }
 
@@ -445,6 +446,34 @@ void ModelManager::setSelectedObject(String name)
 void ModelManager::setSelectedObject(std::shared_ptr<GameObject> gameObject)
 {
 	this->selectedObject = gameObject;
+}
+
+int ModelManager::getUniqueID()
+{
+	int id = 0;
+	bool isUnique = false;
+
+	if (this->gameObjectList.empty())
+		return 0;
+
+	while (isUnique == false) 
+	{
+		isUnique = true;
+		for (int i = 0; i < this->gameObjectList.size(); i++)
+		{
+			if (gameObjectList[i]->modelID == id) 
+			{
+				isUnique = false;
+			}
+		}
+		
+		if (isUnique == true)
+			break;
+
+		id++;
+	}
+	
+	return id;
 }
 
 std::shared_ptr<GameObject> ModelManager::getSelectedObject()
