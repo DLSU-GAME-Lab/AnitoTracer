@@ -14,6 +14,7 @@ public:
 	void undo() override;
 
 private:
-	std::vector<std::unique_ptr<GameObject>> sceneGraph;
+	std::vector<std::unique_ptr<GameObject>> oldSceneGraph;
+	std::vector<std::unique_ptr<GameObject>> newSceneGraph;
 	int sceneIndex;
 };

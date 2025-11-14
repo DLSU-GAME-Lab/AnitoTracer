@@ -22,15 +22,31 @@ void LoadSceneCommand::execute()
 	for (auto rootPtr : currentRoots)
 	{ 
 		auto owned = modelMgr->removeObject(rootPtr);
-		if (owned)
-			this->sceneGraph.push_back(std::move(owned));
+		if (owned)	this->oldSceneGraph.push_back(std::move(owned));
 	}
 
-	if (sceneIndex < 0 || static_cast<size_t>(sceneIndex) >= SceneList::AllScenes.size()) return;
+	if (!this->newSceneGraph.empty())
+	{
+		// Restore previously stored scene roots (move ownership back into the ModelManager)
+		for (auto &ownedObj : newSceneGraph)
+		{
+			if (ownedObj)
+			{
+				modelMgr->addObject(std::move(ownedObj));
+			}
+		}
+		newSceneGraph.clear();
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		return;
+	}
+	else
+	{
+		if (sceneIndex < 0 || static_cast<size_t>(sceneIndex) >= SceneList::AllScenes.size()) return;
 
-	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
-	parameters->encodeInt("SCENE_INDEX", this->sceneIndex);
-	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+		std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+		parameters->encodeInt("SCENE_INDEX", this->sceneIndex);
+		EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
+	}
 }
 
 void LoadSceneCommand::undo()
@@ -39,13 +55,15 @@ void LoadSceneCommand::undo()
 	if (!modelMgr) return;
 
 	auto currentRoots = modelMgr->getSceneGraph();
-	for (auto rootPtr : currentRoots)
+
+	for (auto rootPtr : currentRoots) // record new scene roots
 	{
-		modelMgr->removeObject(rootPtr);
+		auto owned = modelMgr->removeObject(rootPtr);
+		if (owned)	this->newSceneGraph.push_back(std::move(owned));
 	}
 
 	// Restore previously stored scene roots (move ownership back into the ModelManager)
-	for (auto &ownedObj : sceneGraph)
+	for (auto &ownedObj : oldSceneGraph)
 	{
 		if (ownedObj)
 		{
@@ -53,7 +71,7 @@ void LoadSceneCommand::undo()
 		}
 	}
 
-	sceneGraph.clear();
+	oldSceneGraph.clear();
 
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
