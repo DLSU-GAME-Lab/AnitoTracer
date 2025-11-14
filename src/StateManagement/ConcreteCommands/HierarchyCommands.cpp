@@ -6,7 +6,6 @@
 ReparentCommand::ReparentCommand(GameObject* child, GameObject* oldParent, int oldIndex, GameObject* newParent, int newIndex)
 	: child(child), oldParent(oldParent), oldIndex(oldIndex), newParent(newParent), newIndex(newIndex)
 {
-
 }
 
 void ReparentCommand::execute()
@@ -30,7 +29,6 @@ void ReparentCommand::execute()
 	{
 		newParent->addChildAtIndex(std::move(childPtr), newIndex);
 	}
-
 }
 
 void ReparentCommand::undo()
@@ -56,30 +54,34 @@ void ReparentCommand::undo()
 	}
 }
 
-CreatePrimitiveCommand::CreatePrimitiveCommand(GameObject::PrimitiveType type, std::string name) : type(type), name(name)
+// ---------------- CreateObjectCommand (common create/undo/redo) ----------------
+CreateObjectCommand::CreateObjectCommand(glm::vec3 pos, glm::vec3 rot, glm::vec3 sca)
+	: storedPosition(pos), storedRotation(rot), storedScale(sca)
 {
 	this->createdObjectRef = nullptr;
 }
 
-void CreatePrimitiveCommand::execute()
+void CreateObjectCommand::execute()
 {
-	// If we already hold the created object (after an undo), re-add it (redo).
+	// Redo path: if we already own the object (from undo), re-add it preserving identity
 	if (this->createdObjectStorage)
 	{
 		this->createdObjectRef = this->createdObjectStorage.get();
+		applyPostCreation(this->createdObjectRef);
 		ModelManager::getInstance()->addObject(std::move(this->createdObjectStorage));
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		return;
 	}
-	// First-time execute: create and add.
-	else
-	{
-		this->createdObjectStorage = GameObjectFactory::getInstance()->CreatePrimitive(this->type);
-		this->createdObjectRef = this->createdObjectStorage.get();
-		ModelManager::getInstance()->addObject(std::move(this->createdObjectStorage));
-	}
+
+	// First-time creation
+	this->createdObjectStorage = createObject();
+	this->createdObjectRef = this->createdObjectStorage.get();
+	applyPostCreation(this->createdObjectRef);
+	ModelManager::getInstance()->addObject(std::move(this->createdObjectStorage));
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
-void CreatePrimitiveCommand::undo()
+void CreateObjectCommand::undo()
 {
 	this->createdObjectStorage = ModelManager::getInstance()->removeObject(this->createdObjectRef);
 	// Keep the raw pointer in sync with the storage (or null if removal failed).
@@ -88,3 +90,35 @@ void CreatePrimitiveCommand::undo()
 	else
 		this->createdObjectRef = nullptr;
 }
+
+void CreateObjectCommand::applyPostCreation(GameObject* obj)
+{
+	if (!obj) return;
+	obj->setLocalPosition(this->storedPosition);
+	obj->setLocalRotation(this->storedRotation);
+	obj->setLocalScale(this->storedScale);
+}
+
+// ---------------- CreatePrimitiveCommand ----------------
+CreatePrimitiveCommand::CreatePrimitiveCommand(GameObject::PrimitiveType type, std::string name, glm::vec3 pos, glm::vec3 rot, glm::vec3 sca)
+	: CreateObjectCommand(pos, rot, sca), type(type), name(name)
+{
+}
+
+std::unique_ptr<GameObject> CreatePrimitiveCommand::createObject()
+{
+	return GameObjectFactory::getInstance()->CreatePrimitive(this->type, this->name);
+}
+
+// ---------------- CreateMeshCommand ----------------
+CreateMeshCommand::CreateMeshCommand(std::string filePath, std::string name, glm::vec3 pos, glm::vec3 rot, glm::vec3 sca)
+	: CreateObjectCommand(pos, rot, sca), filePath(filePath), name(name)
+{
+}
+
+std::unique_ptr<GameObject> CreateMeshCommand::createObject()
+{
+	return GameObjectFactory::getInstance()->CreateFromModelFile(this->filePath, this->name);
+}
+
+

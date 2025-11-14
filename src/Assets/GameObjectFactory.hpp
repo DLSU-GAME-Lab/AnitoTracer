@@ -28,6 +28,7 @@ public:
     GameObjectPtr CreateSphere(const String& name = "Sphere");
     GameObjectPtr CreateCylinder(const String& name = "Cylinder");
     GameObjectPtr CreateCapsule(const String& name = "Capsule");
+    GameObjectPtr CreateCornellBox(const String& name = "Cornell_Box");
 
     // Convenience: create based on GameObject::PrimitiveType
     GameObjectPtr CreatePrimitive(GameObject::PrimitiveType type, const String& name = "Primitive");

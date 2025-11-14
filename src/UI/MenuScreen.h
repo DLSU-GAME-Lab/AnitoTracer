@@ -11,6 +11,7 @@ public:
 
 private:
 	virtual void drawUI() override;
+
 	void OnCreateCubeClicked();
 	void OnCreateSphereClicked();
 	void onCreateCapsuleClicked();
@@ -25,7 +26,7 @@ private:
 	void onCreateBunnyClicked();
 	void onCreateTeapotClicked(); 
 	void onCreateLucyClicked(); 
-	void onCreateCornellClicked();
+
 	void ShowSaveSceneAsMenu();
 	void ShowSaveLayoutAsMenu();
 	void ShowLoadLayoutAsMenu();

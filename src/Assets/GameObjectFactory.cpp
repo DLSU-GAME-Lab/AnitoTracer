@@ -71,6 +71,12 @@ GameObject::GameObjectPtr GameObjectFactory::CreateCapsule(const String& name)
     return std::make_unique<GameObject>(name, GameObject::CAPSULE, modelPtr);
 }
 
+GameObject::GameObjectPtr GameObjectFactory::CreateCornellBox(const String& name)
+{
+    auto modelPtr = library_->GetModel("CORNELL_BOX");
+    return std::make_unique<GameObject>(name, GameObject::CORNELL_BOX, modelPtr);
+}
+
 GameObject::GameObjectPtr GameObjectFactory::CreatePrimitive(GameObject::PrimitiveType type, const String& name)
 {
     switch (type)
@@ -86,6 +92,8 @@ GameObject::GameObjectPtr GameObjectFactory::CreatePrimitive(GameObject::Primiti
         return CreateCylinder();
     case GameObject::CAPSULE:
         return CreateCapsule();
+    case GameObject::CORNELL_BOX:
+        return CreateCornellBox();
     case GameObject::MESH:
     case GameObject::NONE:
     default:

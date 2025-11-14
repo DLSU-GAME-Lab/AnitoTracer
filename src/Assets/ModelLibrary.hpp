@@ -14,7 +14,7 @@ namespace Assets
     {
     public:
         using String = std::string;
-		using ModelPtr = std::shared_ptr<Model>;
+		using ModelPtr = std::shared_ptr<Model>; // Should be a unique_ptr but due to how proliferate it was used, we stick to shared_ptr; can also send shared in the future if Rendering methods is changed
         using ModelMap = std::unordered_map<String, ModelPtr>;
 
         ModelLibrary();
@@ -30,6 +30,7 @@ namespace Assets
         ModelPtr LoadSphere();
         ModelPtr LoadCapsule();
         ModelPtr LoadCylinder();
+        ModelPtr LoadCornellBox();
 
         /* Cube Properties */
         glm::vec3 m_cube_p0 = glm::vec3(0, 0, -50);
@@ -50,6 +51,9 @@ namespace Assets
         /* Capsule Properties */
         float m_capsule_radius = 25.0f;
         float m_capsule_height = 100.0f;
+
+        /* Cornell Properties */
+        float m_cornell_scale = 555.0f;
 
         ModelMap m_meshMap;
 		std::shared_ptr<Material> defaultMat;
