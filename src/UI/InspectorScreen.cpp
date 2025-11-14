@@ -50,9 +50,9 @@ void InspectorScreen::drawUI()
 				{
 					CommandManager::getInstance()->executeCommand(
 						new AlterTransformCommand(
-							this->selectedObject.get(),
-							[](GameObject* g, AlterTransformCommand::Variant v) { g->setEnabled(std::get<bool>(v)); },
-							this->selectedObject->isEnabled(),
+							this->selectedObject,
+							[](GameObject* g, AlterTransformCommand::Variant v) { g->setActive(std::get<bool>(v)); },
+							this->selectedObject->isActive(),
 							isObjectActive
 						));
 				}
@@ -69,7 +69,7 @@ void InspectorScreen::drawUI()
 				{
 					CommandManager::getInstance()->executeCommand(
 						new AlterTransformCommand(
-							this->selectedObject.get(),
+							this->selectedObject,
 							[](GameObject* g, AlterTransformCommand::Variant v) { g->setName(std::get<std::string>(v)); },
 							this->selectedObject->getName(),
 							String(nameBuf)
@@ -365,7 +365,7 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
-					this->selectedObject.get(),
+					this->selectedObject,
 					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalPosition(std::get<glm::vec3>(v)); },
 					this->selectedObject->getLocalPosition(),
 					glm::vec3(values[0], values[1], values[2])
@@ -377,7 +377,7 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
-					this->selectedObject.get(),
+					this->selectedObject,
 					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotation(std::get<glm::vec3>(v)); },
 					this->selectedObject->getLocalRotation(),
 					glm::vec3(values[0], values[1], values[2])
@@ -390,7 +390,7 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
-					this->selectedObject.get(),
+					this->selectedObject,
 					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalScale(std::get<glm::vec3>(v)); },
 					this->selectedObject->getLocalScale(),
 					glm::vec3(values[0], values[1], values[2])
