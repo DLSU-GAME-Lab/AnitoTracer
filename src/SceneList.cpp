@@ -20,6 +20,8 @@
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 
+#include "Assets/GameObjectFactory.hpp"
+
 using namespace glm;
 using Assets::Material;
 using Assets::Model;
@@ -451,33 +453,23 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
 
-	std::mt19937 engine(1);
-	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
-
-	bool isProcedural = false;
-
-	const auto i = mat4(1);
-	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-
-	Model box0 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
-	Model box1 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
-
-	auto box0_Object = std::make_unique<GameObject>("Right Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
-	ModelManager::getInstance()->addObject(std::move(box0_Object));
-	box0_Object = nullptr;
+	auto box0 = GameObjectFactory::getInstance()->CreateCube("Right Box");
+	box0->setLocalPosition(vec3(125, -194, 100));
+	box0->setLocalRotation(vec3(0, 50, 0));
+	box0->setLocalScale(glm::vec3(3, 3.3f, 3));
+	ModelManager::getInstance()->addObject(std::move(box0));
 	
-	// Note: box0_Object was moved; create a fresh unique for box1
-	auto box1_Object = std::make_unique<GameObject>("Tall Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
-	ModelManager::getInstance()->addObject(std::move(box1_Object));
-	box1_Object = nullptr;
+	auto box1 = GameObjectFactory::getInstance()->CreateCube("Tall Box");
+	box1->setLocalPosition(vec3(-100, -112, -100));
+	box1->setLocalRotation(vec3(0, -60, 0));
+	box1->setLocalScale(glm::vec3(3, 6.6f, 3));
+	ModelManager::getInstance()->addObject(std::move(box1));
 
-	Model cornellBoxModel = Model::CreateCornellBox(555);
-	auto cornellBoxObject = std::make_unique<GameObject>("Cornell Box", GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Model>(cornellBoxModel));
+	auto cornellBoxObject = GameObjectFactory::getInstance()->CreateCornellBox();
 	ModelManager::getInstance()->addObject(std::move(cornellBoxObject));
-	cornellBoxObject = nullptr;
 
 	// Add light objects
-	auto pl = std::make_unique<Light>("Sample Point Light", Light::LightType::PointLight);
+	auto pl = GameObjectFactory::getInstance()->CreateLight(Light::LightType::PointLight, "Sample Point Light");
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
@@ -598,42 +590,34 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
 
-	std::mt19937 engine(1);
-	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
-
-	bool isProcedural = false;
-
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1000.0f, 500.0f);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	const auto i = mat4(1);
-	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-	const auto mirror = MaterialLibrary::getInstance()->getMaterial(L"Mirror");
+	auto box0 = GameObjectFactory::getInstance()->CreateCube("Right Box");
+	box0->setLocalPosition(vec3(125, -194, -400));
+	box0->setLocalRotation(vec3(0, 50, 0));
+	box0->setLocalScale(glm::vec3(3, 3.3f, 3));
+	ModelManager::getInstance()->addObject(std::move(box0));
 
-	Model box0 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
-	Model box1 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
+	auto box1 = GameObjectFactory::getInstance()->CreateCube("Tall Box");
+	box1->setLocalPosition(vec3(-100, -112, -500));
+	box1->setLocalRotation(vec3(0, -60, 0));
+	box1->setLocalScale(glm::vec3(3, 6.6f, 3));
+	ModelManager::getInstance()->addObject(std::move(box1));
 
-	auto box0_Object = std::make_unique<GameObject>("Right Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
-	ModelManager::getInstance()->addObject(std::move(box0_Object));
-	box0_Object = nullptr;
-	
-	auto box1_Object = std::make_unique<GameObject>("Tall Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
-	ModelManager::getInstance()->addObject(std::move(box1_Object));
-	box1_Object = nullptr;
-
-	Model cornellBoxModel = Model::CreateCornellBox(555);
-	auto cornellBoxObject = std::make_unique<GameObject>("Cornell Box", GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Model>(cornellBoxModel));
+	auto cornellBoxObject = GameObjectFactory::getInstance()->CreateCornellBox();
+	cornellBoxObject->setLocalPosition(0, 0, -500);
 	ModelManager::getInstance()->addObject(std::move(cornellBoxObject));
-	cornellBoxObject = nullptr;
 
-	Model lucy = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
-	auto lucyObject = std::make_unique<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucy));
-	ModelManager::getInstance()->addObject(std::move(lucyObject));
-	
-	lucyObject = nullptr;
+	auto lucy = GameObjectFactory::getInstance()->CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj", "Lucy");
+	lucy->setLocalPosition(vec3(-100, -170, -350));
+	lucy->setLocalRotation(vec3(0, 90, 0));
+	lucy->setLocalScale(vec3(0.25));
+
+	ModelManager::getInstance()->addObject(std::move(lucy));
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();

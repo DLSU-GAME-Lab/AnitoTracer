@@ -259,6 +259,8 @@ set(src_files_statemanagement
 	StateManagement/ConcreteCommands/MaterialCommands.cpp
 	StateManagement/ConcreteCommands/HierarchyCommands.hpp
 	StateManagement/ConcreteCommands/HierarchyCommands.cpp
+	StateManagement/ConcreteCommands/MenuBarCommands.hpp
+	StateManagement/ConcreteCommands/MenuBarCommands.cpp
 )
 
 

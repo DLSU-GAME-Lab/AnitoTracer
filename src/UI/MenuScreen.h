@@ -50,6 +50,8 @@ private:
 	void OnLoadEmpty();
 	void ShowColorPickerWindow();
 
+	void OnLoadSceneByIndex(int sceneIndex);
+
 	friend class UIManager;
 
 	bool isLoadObjOpen = false;

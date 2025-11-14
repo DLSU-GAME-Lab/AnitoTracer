@@ -99,3 +99,9 @@ GameObject::GameObjectPtr GameObjectFactory::CreatePrimitive(GameObject::Primiti
         return CreateEmpty(name);
     }
 }
+
+GameObjectFactory::LightPtr GameObjectFactory::CreateLight(Light::LightType type, const String& name)
+{
+    auto light = std::make_unique<Light>(name, type);
+    return std::move(light);
+}

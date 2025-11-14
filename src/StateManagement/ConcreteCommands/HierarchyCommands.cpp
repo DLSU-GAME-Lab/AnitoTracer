@@ -139,6 +139,11 @@ CreateLightCommand::CreateLightCommand(Light::LightType type, std::string name, 
 {
 }
 
+CreateLightCommand::~CreateLightCommand()
+{
+	delete createdObjectRef;
+}
+
 void CreateLightCommand::execute()
 {
 	// Redo path: if we already own the object (from undo), re-add it preserving identity
@@ -154,8 +159,11 @@ void CreateLightCommand::execute()
 	}
 
 	// First-time creation
-	this->createdObjectStorage = std::make_unique<Light>(this->name, this->type, this->storedPosition, this->ambientColor, this->lightColor);
+	this->createdObjectStorage = GameObjectFactory::getInstance()->CreateLight(this->type, this->name);
 	this->createdObjectRef = this->createdObjectStorage.get();
+	this->createdObjectRef->setLocalPosition(this->storedPosition);
+	this->createdObjectRef->setLocalRotation(this->storedRotation);
+	this->createdObjectRef->setLocalScale(this->storedScale);
 	ModelManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
@@ -170,7 +178,3 @@ void CreateLightCommand::undo()
 		this->createdObjectRef = nullptr;
 }
 
-CreateLightCommand::~CreateLightCommand()
-{
-	delete createdObjectRef;
-}

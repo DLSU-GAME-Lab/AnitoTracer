@@ -35,6 +35,8 @@ public:
     // Convenience: create based on GameObject::PrimitiveType
     GameObjectPtr CreatePrimitive(GameObject::PrimitiveType type, const String& name = "Primitive");
 
+    LightPtr CreateLight(Light::LightType type, const String& name = "Light_Source");
+
 private:
     GameObjectFactory(const std::shared_ptr<Assets::ModelLibrary>& library);
     ~GameObjectFactory() = default;

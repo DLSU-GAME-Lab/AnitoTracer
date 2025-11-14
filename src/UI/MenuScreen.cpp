@@ -17,6 +17,7 @@
 #include "Engine/Scene/SceneIO.hpp"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
+#include "StateManagement/ConcreteCommands/MenuBarCommands.hpp"
 
 using namespace Assets;
 using namespace glm;
@@ -76,10 +77,10 @@ void MenuScreen::drawUI()
 		if (ImGui::BeginMenu("Scene"))
 		{
 			if (ImGui::BeginMenu("Demo Scenes")) {
-				if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox();  ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo();  ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase();  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadSceneByIndex(1);; ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadSceneByIndex(7);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadSceneByIndex(9);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadSceneByIndex(10);  ShowLoadingPopUp(); }
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Sample Scenes")) {
@@ -666,12 +667,6 @@ void MenuScreen::ShowLoadingPopUp()
 
 void MenuScreen::OnLoadSphereWorld()
 {
-	// GameObjectManager::getInstance()->clearAll();
-	// RayTracingProper::getInstance()->generateSphereWorld();
-	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
-	// while (!isLoading) {}
-	// isLoading = false;
-
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 6);
@@ -789,13 +784,7 @@ void MenuScreen::OnLoadGallery()
 
 void MenuScreen::OnLoadEmpty()
 {
-	// while (!isLoading) {}
-	// isLoading = false;
-
 	ModelManager::getInstance()->clearAllObjects();
-	// std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
-	// parameters->encodeInt("SCENE_INDEX", 11);
-	// EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 
 void MenuScreen::ShowColorPickerWindow()
@@ -807,4 +796,9 @@ void MenuScreen::ShowColorPickerWindow()
 		ImGui::ColorPicker4("MyColor##4", reinterpret_cast<float*>(&color), 0);
 	}
 	ImGui::End();
+}
+
+void MenuScreen::OnLoadSceneByIndex(int sceneIndex)
+{
+	CommandManager::getInstance()->executeCommand(new LoadSceneCommand(sceneIndex));
 }
