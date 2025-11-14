@@ -85,12 +85,12 @@ void MenuScreen::drawUI()
 			}
 			if (ImGui::BeginMenu("Sample Scenes")) {
 				//if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSponza(); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSanMiguel();  ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Vokselia")) { this->OnLoadVokselia(); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Breakfast Room")) { this->OnLoadBreakfast(); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Salle De Bain")) { this->OnLoadBathroom(); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Gallery")) { this->OnLoadGallery();  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSceneByIndex(11); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSceneByIndex(12);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Vokselia")) { this->OnLoadSceneByIndex(13); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Breakfast Room")) { this->OnLoadSceneByIndex(14); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Salle De Bain")) { this->OnLoadSceneByIndex(15); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Gallery")) { this->OnLoadSceneByIndex(16);  ShowLoadingPopUp(); }
 
 				ImGui::EndMenu();
 			}

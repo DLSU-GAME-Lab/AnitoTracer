@@ -28,24 +28,9 @@ void LoadSceneCommand::execute()
 
 	if (sceneIndex < 0 || static_cast<size_t>(sceneIndex) >= SceneList::AllScenes.size()) return;
 
-	SceneList::CameraInitialState camState{
-	};
-
-	if (auto rt = RayTracer::getInstance())
-	{
-		auto userSettings = rt->getUserSettings();
-		camState.FieldOfView = userSettings.FieldOfView;
-		camState.Aperture = userSettings.Aperture;
-		camState.FocusDistance = userSettings.FocusDistance;
-	}
-
-	auto factory = std::get<1>(SceneList::AllScenes[sceneIndex]);
-	if (factory)
-	{
-		factory(camState);
-	}
-
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
+	parameters->encodeInt("SCENE_INDEX", this->sceneIndex);
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 
 void LoadSceneCommand::undo()
