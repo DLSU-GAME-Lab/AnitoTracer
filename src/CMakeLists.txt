@@ -34,6 +34,10 @@ set(src_files_assets
 	Assets/Ray.hpp
 	Assets/RayVertex.hpp
 	Assets/RayInfo.hpp
+	Assets/ModelLibrary.hpp
+	Assets/ModelLibrary.cpp
+	Assets/GameObjectFactory.hpp
+	Assets/GameObjectFactory.cpp
 )
 
 set(src_files_obb
@@ -255,6 +259,8 @@ set(src_files_statemanagement
 	StateManagement/ConcreteCommands/MaterialCommands.cpp
 	StateManagement/ConcreteCommands/HierarchyCommands.hpp
 	StateManagement/ConcreteCommands/HierarchyCommands.cpp
+	StateManagement/ConcreteCommands/MenuBarCommands.hpp
+	StateManagement/ConcreteCommands/MenuBarCommands.cpp
 )
 
 

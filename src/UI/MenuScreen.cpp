@@ -15,7 +15,9 @@
 #include "Assets/Model.hpp"
 
 #include "Engine/Scene/SceneIO.hpp"
-// #include "GameObjectManager.h"
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
+#include "StateManagement/ConcreteCommands/MenuBarCommands.hpp"
 
 using namespace Assets;
 using namespace glm;
@@ -34,8 +36,6 @@ MenuScreen::MenuScreen() : AUIScreen(UINames::MENU_SCREEN)
 
 MenuScreen::~MenuScreen()
 {
-	// delete this->openSceneDialog;
-	// delete this->saveSceneDialog;
 }
 
 void MenuScreen::drawUI()
@@ -77,10 +77,10 @@ void MenuScreen::drawUI()
 		if (ImGui::BeginMenu("Scene"))
 		{
 			if (ImGui::BeginMenu("Demo Scenes")) {
-				if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadCornellBox();  ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadAnitoTracerDemo();  ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadShowcase();  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadSceneByIndex(1);; ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadSceneByIndex(7);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadSceneByIndex(9);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadSceneByIndex(10);  ShowLoadingPopUp(); }
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Sample Scenes")) {
@@ -108,14 +108,18 @@ void MenuScreen::drawUI()
 
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Objects")) {
-			if (ImGui::BeginMenu("Primitives")) {
+		if (ImGui::BeginMenu("Objects")) 
+		{
+			if (ImGui::BeginMenu("Primitives")) 
+			{
 				if (ImGui::MenuItem("Sphere")) { this->OnCreateSphereClicked(); }
 				if (ImGui::MenuItem("Cube")) { this->OnCreateCubeClicked(); }
 				if (ImGui::MenuItem("Capsule")) { onCreateCapsuleClicked(); }
 				if (ImGui::MenuItem("Cylinder")) { onCreateCylinderClicked(); }
 				if (ImGui::MenuItem("Plane")) { this->OnCreatePlaneClicked(); }
-				if (ImGui::BeginMenu("Reflective Spheres")) {
+
+				if (ImGui::BeginMenu("Reflective Spheres")) 
+				{
 					if (ImGui::MenuItem("Reflective Sphere")) { this->OnCreateRProbe(); } // todo: fix transparent probe to be transparent instead of reflective
 					//if (ImGui::MenuItem("Create Transparent Probe")) { this->OnCreateTProbe(); }
 					if (ImGui::MenuItem("Metallic Sphere")) { this->OnCreateMProbe(); }
@@ -123,11 +127,12 @@ void MenuScreen::drawUI()
 				}
 				ImGui::EndMenu();
 			} 
-			if (ImGui::BeginMenu("Meshes")) {													// todo: add benchmark/basic meshes
+
+			if (ImGui::BeginMenu("Meshes")) 
+			{													// todo: add benchmark/basic meshes
 				if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
 				if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
 				if (ImGui::MenuItem("Lucy")) { onCreateLucyClicked(); }
-				//if (ImGui::MenuItem("CornellBox")) { onCreateCornellClicked(); }
 
 				ImGui::Separator();
 				if (ImGui::MenuItem("Import Mesh From File...", nullptr, isLoadObjOpen))
@@ -140,6 +145,7 @@ void MenuScreen::drawUI()
 				}
 				ImGui::EndMenu();
 			}
+
 			if (ImGui::BeginMenu("Lights")) {
 				if (ImGui::MenuItem("Point Light")) { OnCreateLightClicked(Light::PointLight); }
 				if (ImGui::MenuItem("Directional Light")) { OnCreateLightClicked(Light::DirectionalLight); }
@@ -314,31 +320,53 @@ void MenuScreen::drawUI()
 }
 
 void MenuScreen::OnCreateCubeClicked()
-{
-	//initialize vertex for object
-	// GameObjectManager::getInstance()->createObject(AGameObject::PrimitiveType::CUBE);
-	ModelManager::getInstance()->createObject(GameObject::PrimitiveType::CUBE);
-}
-
-void MenuScreen::OnCreateTexturedCubeClicked()
-{
-	// GameObjectManager::getInstance()->createObject(AGameObject::PrimitiveType::TEXTURED_CUBE);
+{	
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::CUBE,
+			"Cube"
+		)
+	);
 }
 
 void MenuScreen::OnCreateSphereClicked()
 {
-	//std::cout << "Creating sphere placeholder. \n";
-	ModelManager::getInstance()->createObject(GameObject::PrimitiveType::SPHERE);
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::SPHERE,
+			"Sphere"
+		)
+	);
 }
 
 void MenuScreen::onCreateCapsuleClicked()
 {
-	ModelManager::getInstance()->createObject(GameObject::PrimitiveType::CAPSULE);
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::CAPSULE,
+			"Capsule"
+		)
+	);
 }
 
 void MenuScreen::onCreateCylinderClicked()
 {
-	ModelManager::getInstance()->createObject(GameObject::PrimitiveType::CYLINDER);
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::CYLINDER,
+			"Cylinder"
+		)
+	);
+}
+
+void MenuScreen::OnCreatePlaneClicked()
+{
+	CommandManager::getInstance()->executeCommand(
+		new CreatePrimitiveCommand(
+			GameObject::PrimitiveType::PLANE,
+			"Plane"
+		)
+	);
 }
 
 void MenuScreen::ShowLoadObjMenu()
@@ -414,25 +442,37 @@ void MenuScreen::ShowLoadObjMenu()
 	ImGui::End();
 }
 
-void MenuScreen::OnCreatePlaneClicked()
-{
-	//initialize vertex for object
-	ModelManager::getInstance()->createObject(GameObject::PLANE);
-	// GameObjectManager::getInstance()->createObject(AGameObject::PrimitiveType::QUAD);
-}
-
 void MenuScreen::OnCreateLightClicked(Light::LightType type)
 {
 	switch (type)
 	{
 	case Light::PointLight:
-		ModelManager::getInstance()->createObject(GameObject::POINT_LIGHT);
+
+		CommandManager::getInstance()->executeCommand(
+			new CreateLightCommand(
+				Light::PointLight,
+				"Point Light"
+			)
+		);
 		break;
+
 	case Light::DirectionalLight:
-		ModelManager::getInstance()->createObject(GameObject::DIRECTIONAL_LIGHT);
+
+		CommandManager::getInstance()->executeCommand(
+			new CreateLightCommand(
+				Light::DirectionalLight,
+				"Directional Light"
+			)
+		);
 		break;
 	case Light::SpotLight:
-		ModelManager::getInstance()->createObject(GameObject::SPOT_LIGHT);
+
+		CommandManager::getInstance()->executeCommand(
+			new CreateLightCommand(
+				Light::SpotLight,
+				"Spot Light"
+			)
+		);
 		break;
 	}
 }
@@ -443,9 +483,9 @@ void MenuScreen::OnCreateRProbe()
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
-	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	ModelManager::getInstance()->addObject(sphere);
+	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
 	sphere->setLocalPosition(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
 void MenuScreen::OnCreateTProbe()
@@ -454,9 +494,9 @@ void MenuScreen::OnCreateTProbe()
 
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
-	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	ModelManager::getInstance()->addObject(sphere);
+	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
 	sphere->setLocalPosition(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
 void MenuScreen::OnCreateMProbe()
@@ -464,65 +504,74 @@ void MenuScreen::OnCreateMProbe()
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
-	std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	ModelManager::getInstance()->addObject(sphere);
+	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
 	sphere->setLocalPosition(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
 void MenuScreen::onCreateBunnyClicked()
 {
-	const auto i = mat4(1);
-	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-	Model bunny = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/bunny.obj");
-	bunny.SetMaterial(*white);
-	bunny.Transform(
-		rotate(
-			scale(
-				translate(i, vec3(1)),
-				vec3(1.0f)),
-			radians(0.0f), vec3(0, 1, 0)));
-	std::shared_ptr<GameObject> bunnyObj = std::make_shared<GameObject>("Bunny", GameObject::PrimitiveType::MESH, std::make_shared<Model>(bunny));
-	bunnyObj->setLocalScale(100.0f, 100.0f, 100.0f);
-	ModelManager::getInstance()->addObject(bunnyObj);
+	auto filePath = FileUtils::getAssetsFolderPath().generic_string() + "/models/bunny.obj";
+
+	CommandManager::getInstance()->executeCommand(
+		new CreateMeshCommand(
+			filePath,
+			"Bunny",
+			glm::vec3(0),
+			glm::vec3(0),
+			glm::vec3(100)
+		)
+	);
 }
 
 void MenuScreen::onCreateTeapotClicked()
 {
-	const auto i = mat4(1);
-	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-	auto teapot = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/teapot.obj");
+	auto filePath = FileUtils::getAssetsFolderPath().generic_string() + "/models/teapot.obj";
 
-	teapot.Transform(
-		rotate(
-			scale(
-				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
-				vec3(1)),
-			radians(75.0f), vec3(0, 1, 0)));
+	CommandManager::getInstance()->executeCommand(
+		new CreateMeshCommand(
+			filePath,
+			"Teapot",
+			glm::vec3(172.5f, -9, -212.5f),
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			glm::vec3(5.0f)
+		)
+	);
 
-	std::shared_ptr<GameObject> teapotObj = std::make_shared<GameObject>("Teapot", GameObject::PrimitiveType::MESH, std::make_shared<Model>(teapot));
-	teapotObj->setLocalScale(5.0f, 5.0f, 5.0f);
-	ModelManager::getInstance()->addObject(teapotObj);
+	/* Reference intial position */
+
+	//teapot.Transform(
+	//	rotate(
+	//		scale(
+	//			translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
+	//			vec3(1)),
+	//		radians(75.0f), vec3(0, 1, 0)));
+
+	//teapotObj->setLocalScale(5.0f, 5.0f, 5.0f);
 }
 
 void MenuScreen::onCreateLucyClicked()
 {
-	const auto i = mat4(1);
-	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-	auto lucy0 = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
+	auto filePath = FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj";
 
-	lucy0.Transform(
-		rotate(
-			scale(
-				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
-				vec3(0.5)),
-			radians(75.0f), vec3(0, 1, 0)));
+	CommandManager::getInstance()->executeCommand(
+		new CreateMeshCommand(
+			filePath,
+			"Lucy",
+			glm::vec3(172.5f, -9, -212.5f),
+			glm::vec3(0.0f, 75.0f, 0.0f),
+			glm::vec3(0.5f)
+		)
+	);
 
-	std::shared_ptr<GameObject> lucyObj = std::make_shared<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucy0));
-	ModelManager::getInstance()->addObject(lucyObj);
-}
+	/* Reference intial position */
 
-void MenuScreen::onCreateCornellClicked()
-{
+	//lucy0.Transform(
+	//	rotate(
+	//		scale(
+	//			translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
+	//			vec3(0.5)),
+	//		radians(75.0f), vec3(0, 1, 0)));
 }
 
 void MenuScreen::ShowSaveSceneAsMenu()
@@ -618,12 +667,6 @@ void MenuScreen::ShowLoadingPopUp()
 
 void MenuScreen::OnLoadSphereWorld()
 {
-	// GameObjectManager::getInstance()->clearAll();
-	// RayTracingProper::getInstance()->generateSphereWorld();
-	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
-	// while (!isLoading) {}
-	// isLoading = false;
-
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 6);
@@ -656,16 +699,6 @@ void MenuScreen::OnLoadBoxWorld()
 
 void MenuScreen::OnLoadCornellBox()
 {
-	// GameObjectManager::getInstance()->clearAll();
-	// RayTracingProper::getInstance()->generateCornellBox();
-	//
-	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
-	// while (!isLoading)
-	// {
-	// 	Debug::Log("Waiting for loading to finish in MenuScreen::OnLoadCornellBox()...");
-	// }
-	// isLoading = false;
-
 	ModelManager::getInstance()->clearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 7);
@@ -751,13 +784,7 @@ void MenuScreen::OnLoadGallery()
 
 void MenuScreen::OnLoadEmpty()
 {
-	// while (!isLoading) {}
-	// isLoading = false;
-
 	ModelManager::getInstance()->clearAllObjects();
-	// std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
-	// parameters->encodeInt("SCENE_INDEX", 11);
-	// EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
 }
 
 void MenuScreen::ShowColorPickerWindow()
@@ -769,4 +796,9 @@ void MenuScreen::ShowColorPickerWindow()
 		ImGui::ColorPicker4("MyColor##4", reinterpret_cast<float*>(&color), 0);
 	}
 	ImGui::End();
+}
+
+void MenuScreen::OnLoadSceneByIndex(int sceneIndex)
+{
+	CommandManager::getInstance()->executeCommand(new LoadSceneCommand(sceneIndex));
 }

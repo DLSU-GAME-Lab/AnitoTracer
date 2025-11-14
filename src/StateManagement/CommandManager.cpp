@@ -1,4 +1,5 @@
 #include "CommandManager.hpp"
+#include "From-GDGRAP2/EventBroadcaster.h"
 
 CommandManager* CommandManager::sharedInstance = nullptr;
 
@@ -35,6 +36,7 @@ void CommandManager::executeCommand(ICommand* command)
 	command->execute();
 	undoStack.push(command);
 	clearStack(this->redoStack);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void CommandManager::undo()
@@ -45,6 +47,7 @@ void CommandManager::undo()
 	this->undoStack.pop();
 	command->undo();
 	this->redoStack.push(command);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void CommandManager::redo()

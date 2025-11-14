@@ -33,6 +33,7 @@
 #include "Vulkan/PipelineLayout.hpp"
 
 #include "StateManagement/CommandManager.hpp"
+#include "Assets/GameObjectFactory.hpp"
 
 namespace
 {
@@ -57,11 +58,13 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
+	GameObjectFactory::initialize();
 	CommandManager::initialize();
 }
 
 RayTracer::~RayTracer()
 {
+	GameObjectFactory::destroy();
 	CommandManager::destroy();
 
 	scene_.reset();

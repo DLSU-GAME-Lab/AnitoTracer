@@ -3,11 +3,14 @@
 #include <imgui_internal.h>
 #include "imgui.h"
 #include "From-GDGRAP2/ModelManager.h"
+#include "From-GDGRAP2/GameObject.h"
 #include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
 #include "IconsMaterialDesign.h"
 #include "EditorTheme.hpp"
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
 
 HierarchyScreen::HierarchyScreen() : AUIScreen(UINames::HIERARCHY_SCREEN)
 {
@@ -91,7 +94,7 @@ void HierarchyScreen::CreateObjectPopup()
 
 void HierarchyScreen::updateObjectList(const char* filter)
 {
-    const ModelManager::List objectList = ModelManager::getInstance()->getAllObjects();
+    const auto objectList = ModelManager::getInstance()->getSceneGraph();
     std::string activeCamName = CameraManager::getInstance()->getActiveCamera()->getName();
     ImGui::Text("Active Camera: %s", activeCamName.c_str());
 
@@ -100,30 +103,30 @@ void HierarchyScreen::updateObjectList(const char* filter)
 
     for (const auto& obj : objectList)
     {
-        if (!obj->getParent())
-        {
-            std::string objName = obj->getName();
-            std::transform(objName.begin(), objName.end(), objName.begin(), ::tolower);
+		std::string objName = obj->getName();
+		std::transform(objName.begin(), objName.end(), objName.begin(), ::tolower);
 
-            if (filterStr.empty() || objName.find(filterStr) != std::string::npos)
-            {
-                drawObjectNode(obj.get());
-            }
-        }
+		if (filterStr.empty() || objName.find(filterStr) != std::string::npos)
+		{
+			drawObjectNode(obj);
+		}
     }
+
+	tempId = 0; // Reset tempId for next frame
 }
 
 void HierarchyScreen::drawObjectNode(GameObject* obj)
 {
     if (!obj) return;
 
-    String objectName = obj->getName();
+    String objectName = obj->getName() + std::to_string(tempId);
     bool hasChildren = !obj->getChildren().empty();
+	tempId++;
 
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
 
-    GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+    GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
     if (selectedObject == obj)
     {
         flags |= ImGuiTreeNodeFlags_Selected;
@@ -141,12 +144,12 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     // Selection Logic
     if (ImGui::IsItemClicked())
     {
-        ModelManager::getInstance()->setSelectedObject(objectName);
+        ModelManager::getInstance()->setSelectedObject(obj);
 
         // If Camera is selected, set main camera. If not, deactivate main camera.
         if (ModelManager::getInstance()->getSelectedObject()->getType() == GameObject::CAMERA)
         {
-            const std::shared_ptr<Camera> cam = CameraManager::getInstance()->findCameraByName(objectName);
+            Camera* cam = CameraManager::getInstance()->findCameraByName(objectName);
             CameraManager::getInstance()->setMainCamera(cam);
         }
         else
@@ -178,14 +181,18 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
             {
                 hasValidDropTarget = true;
 
-                // If dragged object had a parent, remove it from old parent
-                if (draggedObj->getParent())
-                {
-                    draggedObj->getParent()->removeChild(draggedObj);
-                }
+                auto oldParent = draggedObj->getParent();
 
                 // Assign new parent
-                obj->addChild(draggedObj);
+				CommandManager::getInstance()->executeCommand(
+                    new ReparentCommand(
+                        draggedObj, 
+                        oldParent,
+						oldParent ? oldParent->getChildIndex(draggedObj) : ModelManager::getInstance()->getObjectIndex(draggedObj),
+                        obj,
+                        obj->getChildren().size()
+                    )
+				);
 
                 // Force the node open when an object is dropped here
                 openNodes.insert(objectName);
@@ -206,11 +213,26 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     // Handle Unparenting (Dragged to Empty Space)
     if (isDragging && ImGui::IsMouseReleased(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
     {
-        GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+        GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
+
         if (selectedObject)
         {
-            selectedObject->setParent(nullptr);
+            auto oldParent = selectedObject->getParent();
+
+            if (oldParent) // if old parent == null (in root); do nothing
+            {
+                CommandManager::getInstance()->executeCommand(            // Assign to root
+                    new ReparentCommand(
+                        selectedObject,
+                        oldParent,
+                        oldParent->getChildIndex(selectedObject),
+                        nullptr,
+                        ModelManager::getInstance()->getSceneGraphRootSize()
+                    )
+                );
+            }
         }
+
         isDragging = false; // Reset dragging state after unparenting
     }
 

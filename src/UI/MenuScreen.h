@@ -11,12 +11,13 @@ public:
 
 private:
 	virtual void drawUI() override;
+
 	void OnCreateCubeClicked();
-	void OnCreateTexturedCubeClicked();
 	void OnCreateSphereClicked();
 	void onCreateCapsuleClicked();
 	void onCreateCylinderClicked();
 	void OnCreatePlaneClicked();
+
 	void OnCreateLightClicked(Light::LightType type);
 	void OnCreateRProbe();
 	void OnCreateTProbe();
@@ -25,7 +26,7 @@ private:
 	void onCreateBunnyClicked();
 	void onCreateTeapotClicked(); 
 	void onCreateLucyClicked(); 
-	void onCreateCornellClicked();
+
 	void ShowSaveSceneAsMenu();
 	void ShowSaveLayoutAsMenu();
 	void ShowLoadLayoutAsMenu();
@@ -48,6 +49,8 @@ private:
 	void OnLoadGallery();
 	void OnLoadEmpty();
 	void ShowColorPickerWindow();
+
+	void OnLoadSceneByIndex(int sceneIndex);
 
 	friend class UIManager;
 

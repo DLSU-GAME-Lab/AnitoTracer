@@ -431,6 +431,11 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
 		bool isUsingGizmoNow = ImGuizmo::IsUsing();
 
+		if (!wasUsingGizmoLastFrame) // set gizmo origin
+		{
+			this->gizmoModelMatrix = selectedObject->getWorldMatrix();
+		}
+
 		// Store the 'before' state when manipulation starts
 		if (isUsingGizmoNow && !wasUsingGizmoLastFrame)
 		{
@@ -450,11 +455,11 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		glm::mat4 projMatrix = CameraManager::getInstance()->getActiveCamera()->GetProjection();
 
 		if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
-			mCurrentGizmoOperation, ImGuizmo::WORLD, glm::value_ptr(selectedObject->getObjectMatrix())))
+			mCurrentGizmoOperation, ImGuizmo::WORLD, glm::value_ptr(gizmoModelMatrix)))
 		{
 			gizmoWasManipulated = true;
 
-			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(selectedObject->getObjectMatrix()), translation, rotation, scale);
+			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(gizmoModelMatrix), translation, rotation, scale);
 
 			if (auto* parent = selectedObject->getParent())
 			{
@@ -530,7 +535,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 				{
 					/* Also Records Actions */
 					CommandManager::getInstance()->executeCommand(new TransformObjectCommand(
-						selectedObject.get(), 
+						selectedObject, 
 						gizmoBeforeState.position, gizmoBeforeState.rotation, gizmoBeforeState.scale,
 						afterState.position, afterState.rotation, afterState.scale
 					));

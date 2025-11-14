@@ -44,7 +44,7 @@ void InspectorScreen::drawUI()
 				ImGui::TableNextRow();
 				ImGui::TableSetColumnIndex(0);
 
-				bool isObjectActive = this->selectedObject->isEnabled();
+				bool isObjectActive = this->selectedObject->isActive();
 
 				if (ImGui::Checkbox("##Enabled", &isObjectActive))
 				{
@@ -91,7 +91,7 @@ void InspectorScreen::drawUI()
 		this->updateTransformDisplays();
 		this->updateLightPropsDisplays();
 
-		bool enabled = this->selectedObject->isEnabled();
+		bool enabled = this->selectedObject->isActive();
 		
 		/*ImGui::SameLine();
 		if (ImGui::Button("Delete")) {
@@ -182,7 +182,8 @@ void InspectorScreen::updateTransformDisplays()
 
 void InspectorScreen::updateLightPropsDisplays()
 {
-	std::shared_ptr<Light> light = ModelManager::getInstance()->findLightObjectByName(this->selectedObject->getName());
+	Light* light = dynamic_cast<Light*>(this->selectedObject);
+
 	if (light)
 	{
 		glm::vec4 lightCol = light->getLightColor();
@@ -436,7 +437,7 @@ void InspectorScreen::onLightPropsUpdate() const
 {
 	if (this->selectedObject != nullptr)
 	{
-		std::shared_ptr<Light> light = ModelManager::getInstance()->findLightObjectByName(this->selectedObject->getName());
+		Light* light = dynamic_cast<Light*>(this->selectedObject);
 		if (light)
 		{
 			light->setLightColor(this->lightColorDisplay.x, this->lightColorDisplay.y, this->lightColorDisplay.z, intensityDisplay * lightIntensityMultiplier);

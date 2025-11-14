@@ -161,11 +161,11 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 
 		auto objects = ModelManager::getInstance()->getAllObjects();
 		float closestT = std::numeric_limits<float>::max();
-		std::shared_ptr<GameObject> selectedObject = nullptr;
+		GameObject* selectedObject = nullptr;
 
 		for (auto& obj : objects)
 		{
-			if (!obj->isEnabled())
+			if (!obj->isActive())
 				continue;
 
 			auto obb = obj->getOBB();
