@@ -105,11 +105,13 @@ void GameObject::setPickable(bool flag)
 void GameObject::setLocalPosition(vec3 newPos)
 {
 	this->localPosition = newPos;
+	this->setLocalDirty();
 }
 
 void GameObject::setLocalPosition(float x, float y, float z)
 {
 	this->localPosition = vec3(x, y, z);
+	this->setLocalDirty();
 }
 
 GameObject::vec3 GameObject::getLocalPosition() const
@@ -143,6 +145,7 @@ void GameObject::setLocalRotation(vec3 newRot)
 	newRot.z -= 180.0f;
 
 	this->localRotation = newRot;
+	this->setLocalDirty();
 }
 
 void GameObject::setLocalRotation(float x, float y, float z)
@@ -168,6 +171,7 @@ void GameObject::setLocalRotation(float x, float y, float z)
 	newRot.z -= 180.0f;
 
 	this->localRotation = newRot;
+	this->setLocalDirty();
 }
 
 GameObject::vec3 GameObject::getLocalRotation() const
@@ -183,11 +187,13 @@ GameObject::vec3 GameObject::getWorldRotation() const
 void GameObject::setLocalScale(vec3 newScale)
 {
 	this->localScale = newScale;
+	this->setLocalDirty();
 }
 
 void GameObject::setLocalScale(float x, float y, float z)
 {
 	this->localScale = vec3(x, y, z);
+	this->setLocalDirty();
 }
 
 GameObject::vec3 GameObject::getLocalScale() const
@@ -203,7 +209,6 @@ GameObject::vec3 GameObject::getWorldScale() const
 std::shared_ptr<Assets::Model> GameObject::getModel()
 {
 	this->updateWorldMatrix();
-
 	return this->modelRef;
 }
 
@@ -216,6 +221,7 @@ void GameObject::addChild(GameObject::GameObjectPtr child)
 		child->parent->removeChild(child.get());
 
 	child->parent = this;
+	child->setWorldDirty();
 	children.push_back(std::move(child));
 }
 
@@ -234,6 +240,7 @@ void GameObject::addChildAtIndex(GameObjectPtr child, int index)
 	if (idx > this->children.size()) idx = this->children.size();
 
 	child->parent = this;
+	child->setWorldDirty();
 	children.insert(children.begin() + idx, std::move(child));
 }
 
@@ -250,6 +257,7 @@ std::unique_ptr<GameObject> GameObject::removeChild(GameObject* node)
 	if (found == children.end())	return nullptr;
 	
 	(*found)->parent = nullptr; //clear parent
+	(*found)->setWorldDirty();
 	
 	GameObjectPtr result = std::move(*found);
 
@@ -329,6 +337,7 @@ void GameObject::setParent(GameObject* newParent)
 		thisUnique = ModelManager::getInstance()->removeObject(this);
 
 	parent = newParent;
+	this->setWorldDirty();
 
 	if (parent)
 		parent->addChild(std::move(thisUnique));
@@ -369,11 +378,14 @@ std::shared_ptr<BoundingBox> GameObject::getOBB() const
 
 void GameObject::updateLocalMatrix()
 {
+	if (this->localDirty == false)	return;
+
 	glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), this->localScale);
 	glm::mat4 rotationMat = glm::yawPitchRoll(glm::radians(localRotation.y), glm::radians(localRotation.x), glm::radians(localRotation.z));
 	glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), this->localPosition);
 
 	this->localMatrix = translationMat * rotationMat * scaleMat;
+	this->localDirty = false;
 }
 
 glm::mat4 GameObject::getLocalMatrix() const
@@ -383,7 +395,10 @@ glm::mat4 GameObject::getLocalMatrix() const
 
 void GameObject::updateWorldMatrix()
 {
+	if(this->worldDirty == false)	return;
+
 	this->updateLocalMatrix();
+	
 	auto localMat = this->localMatrix;
 
 	if (parent)
@@ -394,6 +409,8 @@ void GameObject::updateWorldMatrix()
 	{
 		this->worldMatrix = localMat;
 	}
+
+	this->worldDirty = false;
 
 	// Decompose mat_ to get world position, rotation, scale
 	glm::vec3 skew;
@@ -438,13 +455,7 @@ void GameObject::updateWorldMatrix()
 	if (modelRef)
 	{
 		modelRef->Transform(worldMatrix);
-
-		/*if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
-		{
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-		}*/
 	}
-
 }
 
 glm::mat4 GameObject::getWorldMatrix() const
@@ -512,3 +523,34 @@ void GameObject::performModelScale()
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
+void GameObject::setLocalDirty()
+{
+	this->localDirty = true;
+	this->worldDirty = true;
+
+	for(const auto& child : this->children)
+	{
+		if (child)
+			child->setLocalDirty();
+	}
+}
+
+bool GameObject::isLocalDirty() const
+{
+	return localDirty;
+}
+
+void GameObject::setWorldDirty()
+{
+	this->worldDirty = true;
+	for (const auto& child : this->children)
+	{
+		if (child)
+			child->setWorldDirty();
+	}
+}
+
+bool GameObject::isWorldDirty() const
+{
+	return this->worldDirty;
+}

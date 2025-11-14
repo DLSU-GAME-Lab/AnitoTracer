@@ -77,6 +77,11 @@ public:
     void updateWorldMatrix();
     glm::mat4 getWorldMatrix() const;
 
+	void setLocalDirty();
+	bool isLocalDirty() const;
+	void setWorldDirty();
+	bool isWorldDirty() const;
+
 protected:
     String name;
     PrimitiveType type;
@@ -113,6 +118,9 @@ protected:
     virtual void performModelScale();
 
     void updateSceneView();
+
+	bool localDirty = true;
+	bool worldDirty = true;
 
     friend class ModelManager;
 };
