@@ -95,8 +95,11 @@ Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::GetModel(const String& mesh
 	if (it != this->m_meshMap.end())
 	{
 		result = std::make_shared<Model>(*(it->second)); // Due to how the Model is used, we need to return a copy
+	}
+
 	if(result == nullptr)
 	{
+		Debug::Log("Model: '" + meshName + "' not found in ModelLibrary.");
 	}
 
 	return result;
