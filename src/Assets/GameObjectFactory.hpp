@@ -5,13 +5,15 @@
 #include <glm/vec3.hpp>
 
 #include "From-GDGRAP2/GameObject.h"
-#include "Assets/ModelLibrary.hpp"
+#include "Engine/LightSystem/Light.h"
 #include "Assets/Material.hpp"
+#include "Assets/ModelLibrary.hpp"
 
 class GameObjectFactory
 {
 public:
     using GameObjectPtr = GameObject::GameObjectPtr;
+    using LightPtr = std::unique_ptr<Light>;
     using vec3 = glm::vec3;
     using String = std::string;
 

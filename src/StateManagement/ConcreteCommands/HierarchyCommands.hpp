@@ -4,12 +4,13 @@
 #include <memory>
 #include <glm/glm.hpp>
 #include "From-GDGRAP2/GameObject.h"
+#include "Engine/LightSystem/Light.h"
 
 class ReparentCommand : public ICommand
 {
 public:
 	ReparentCommand(GameObject* child, GameObject* oldParent, int oldIndex, GameObject* newParent, int newIndex);
-	~ReparentCommand() = default;
+	~ReparentCommand();
 
 	void execute() override;
 	void undo() override;
@@ -26,7 +27,7 @@ class CreateObjectCommand : public ICommand
 {
 public:
 	CreateObjectCommand(glm::vec3 pos = glm::vec3(0), glm::vec3 rot = glm::vec3(0), glm::vec3 sca = glm::vec3(1));
-	virtual ~CreateObjectCommand() = default;
+	virtual ~CreateObjectCommand();
 
 	void execute() override;
 	void undo() override;
@@ -72,4 +73,30 @@ protected:
 private:
 	std::string filePath;
 	std::string name;
+};
+
+class CreateLightCommand : public ICommand
+{
+public:
+	CreateLightCommand(Light::LightType type, std::string name, 
+		glm::vec3 pos = glm::vec3(0), glm::vec3 rot = glm::vec3(0), glm::vec3 sca = glm::vec3(1), 
+		glm::vec4 lightCol = glm::vec4(1.0f), glm::vec4 ambientCol = glm::vec4(1.0f));
+	~CreateLightCommand();
+
+	void execute() override;
+	void undo() override;
+
+private:
+	std::unique_ptr<Light> createdObjectStorage;
+	Light* createdObjectRef = nullptr;
+
+	glm::vec3 storedPosition;
+	glm::vec3 storedRotation;
+	glm::vec3 storedScale;
+
+	Light::LightType type;
+	std::string name;
+
+	glm::vec4 lightColor;
+	glm::vec4 ambientColor;
 };

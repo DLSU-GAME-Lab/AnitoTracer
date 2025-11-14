@@ -106,7 +106,6 @@ void ModelManager::addObjectAtIndex(GameObjectPtr gameObject, int index)
 	this->sceneGraph.insert(this->sceneGraph.begin() + idx, std::move(gameObject));
 }
 
-/* Can be used for deletes, but might leave invalid pointers */
 std::unique_ptr<GameObject> ModelManager::removeObject(GameObject* gameObject)
 {
 	if (!gameObject) return nullptr;
@@ -160,6 +159,37 @@ void ModelManager::addLightObject(LightPtr lightObj)
 	this->sceneGraph.push_back(std::move(lightObj));
 }
 
+ModelManager::LightPtr ModelManager::removeLightObject(Light* light)
+{
+	if (!light) return nullptr;
+
+	// Remove raw pointer from lightList if present
+	auto itLight = std::find(this->lightList.begin(), this->lightList.end(), light);
+	if (itLight != this->lightList.end())
+	{
+		this->lightList.erase(itLight);
+	}
+
+	// Find the owning unique_ptr in sceneGraph
+	auto it = std::find_if(this->sceneGraph.begin(), this->sceneGraph.end(),
+		[light](const GameObjectPtr& obj)
+		{
+			return obj.get() == light;
+		});
+
+	if (it == this->sceneGraph.end()) return nullptr;
+
+	// Ensure the object is a Light, then extract and return a unique_ptr<Light>
+	if (dynamic_cast<Light*>(it->get()) == nullptr) return nullptr;
+
+	GameObjectPtr ownedObj = std::move(*it);
+	this->sceneGraph.erase(it);
+
+	// Transfer ownership from unique_ptr<GameObject> to unique_ptr<Light>
+	LightPtr result(static_cast<Light*>(ownedObj.release()));
+	return result;
+}
+
 void ModelManager::setSelectedObject(GameObject* gameObject)
 {
 	this->selectedObject = gameObject;
@@ -190,7 +220,11 @@ std::vector<Assets::Model> ModelManager::getAllObjectModels() const
 		if (!gameObject->isActive()) continue;
 
 		gameObject->updateWorldMatrix();
-		modelList.push_back(*gameObject->getModel().get());
+
+		auto model = gameObject->getModel();
+
+		if (model) // lights and emptyies have no models
+			modelList.push_back(*model);
 
 		auto descendants = gameObject->getChildrenRecursive();
 

@@ -446,13 +446,32 @@ void MenuScreen::OnCreateLightClicked(Light::LightType type)
 	switch (type)
 	{
 	case Light::PointLight:
-		ModelManager::getInstance()->createObject(GameObject::POINT_LIGHT);
+
+		CommandManager::getInstance()->executeCommand(
+			new CreateLightCommand(
+				Light::PointLight,
+				"Point Light"
+			)
+		);
 		break;
+
 	case Light::DirectionalLight:
-		ModelManager::getInstance()->createObject(GameObject::DIRECTIONAL_LIGHT);
+
+		CommandManager::getInstance()->executeCommand(
+			new CreateLightCommand(
+				Light::DirectionalLight,
+				"Directional Light"
+			)
+		);
 		break;
 	case Light::SpotLight:
-		ModelManager::getInstance()->createObject(GameObject::SPOT_LIGHT);
+
+		CommandManager::getInstance()->executeCommand(
+			new CreateLightCommand(
+				Light::SpotLight,
+				"Spot Light"
+			)
+		);
 		break;
 	}
 }
@@ -464,8 +483,8 @@ void MenuScreen::OnCreateRProbe()
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
 	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	ModelManager::getInstance()->addObject(std::move(sphere));
 	sphere->setLocalPosition(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
 void MenuScreen::OnCreateTProbe()
@@ -475,8 +494,8 @@ void MenuScreen::OnCreateTProbe()
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
 	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	ModelManager::getInstance()->addObject(std::move(sphere));
 	sphere->setLocalPosition(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
 void MenuScreen::OnCreateMProbe()
@@ -485,8 +504,8 @@ void MenuScreen::OnCreateMProbe()
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
 	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	ModelManager::getInstance()->addObject(std::move(sphere));
 	sphere->setLocalPosition(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
 void MenuScreen::onCreateBunnyClicked()

@@ -45,6 +45,7 @@ public:
 	void deleteObject(GameObject* gameObject);
 
 	void addLightObject(LightPtr lightObj);
+	LightPtr removeLightObject(Light* gameObject);
 
 	void setSelectedObject(GameObject* gameObject);
 	GameObject* getSelectedObject();

@@ -8,6 +8,13 @@ ReparentCommand::ReparentCommand(GameObject* child, GameObject* oldParent, int o
 {
 }
 
+ReparentCommand::~ReparentCommand()
+{
+	if(child) delete child;
+	if(oldParent) delete oldParent;
+	if(newParent) delete newParent;
+}
+
 void ReparentCommand::execute()
 {
 	std::unique_ptr<GameObject> childPtr;
@@ -59,6 +66,11 @@ CreateObjectCommand::CreateObjectCommand(glm::vec3 pos, glm::vec3 rot, glm::vec3
 	: storedPosition(pos), storedRotation(rot), storedScale(sca)
 {
 	this->createdObjectRef = nullptr;
+}
+
+CreateObjectCommand::~CreateObjectCommand()
+{
+	delete createdObjectRef;
 }
 
 void CreateObjectCommand::execute()
@@ -121,4 +133,44 @@ std::unique_ptr<GameObject> CreateMeshCommand::createObject()
 	return GameObjectFactory::getInstance()->CreateFromModelFile(this->filePath, this->name);
 }
 
+// ---------------- CreateLightCommand ----------------
+CreateLightCommand::CreateLightCommand(Light::LightType type, std::string name, glm::vec3 pos, glm::vec3 rot, glm::vec3 sca, glm::vec4 lightCol, glm::vec4 ambientCol)
+	: type(type), name(name), storedPosition(pos), storedRotation(rot), storedScale(sca), lightColor(lightCol), ambientColor(ambientCol)
+{
+}
 
+void CreateLightCommand::execute()
+{
+	// Redo path: if we already own the object (from undo), re-add it preserving identity
+	if (this->createdObjectStorage)
+	{
+		this->createdObjectRef = this->createdObjectStorage.get();
+		this->createdObjectRef->setLocalPosition(this->storedPosition);
+		this->createdObjectRef->setLocalRotation(this->storedRotation);
+		this->createdObjectRef->setLocalScale(this->storedScale);
+		ModelManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		return;
+	}
+
+	// First-time creation
+	this->createdObjectStorage = std::make_unique<Light>(this->name, this->type, this->storedPosition, this->ambientColor, this->lightColor);
+	this->createdObjectRef = this->createdObjectStorage.get();
+	ModelManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void CreateLightCommand::undo()
+{
+	this->createdObjectStorage = ModelManager::getInstance()->removeLightObject(this->createdObjectRef);
+	// Keep the raw pointer in sync with the storage (or null if removal failed).
+	if (this->createdObjectStorage)
+		this->createdObjectRef = this->createdObjectStorage.get();
+	else
+		this->createdObjectRef = nullptr;
+}
+
+CreateLightCommand::~CreateLightCommand()
+{
+	delete createdObjectRef;
+}

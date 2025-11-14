@@ -1,5 +1,4 @@
 #include "GameObjectFactory.hpp"
-#include <memory>
 
 using namespace Assets;
 
