@@ -17,18 +17,17 @@ namespace Vulkan
 	class RenderPass;
 	class SwapChain;
 
-
-	class RayVisualizationPipeline final
+	class ObjectPickingPipeline final
 	{
 	public:
-		VULKAN_NON_COPIABLE(RayVisualizationPipeline)
+		VULKAN_NON_COPIABLE(ObjectPickingPipeline)
 
-		RayVisualizationPipeline(
+		ObjectPickingPipeline(
 			const SwapChain& swapChain,
 			const DepthBuffer& depthBuffer,
 			const std::vector<Assets::UniformBuffer>& uniformBuffers,
 			const Assets::Scene& scene);
-		~RayVisualizationPipeline();
+		~ObjectPickingPipeline();
 
 		VkDescriptorSet DescriptorSet(uint32_t index) const;
 		const class PipelineLayout& PipelineLayout() const { return *pipelineLayout_; }

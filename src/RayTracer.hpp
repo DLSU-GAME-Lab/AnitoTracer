@@ -8,6 +8,7 @@
 
 namespace Vulkan {
 	class RayVisualizationPipeline;
+	class ObjectPickingPipeline;
 }
 class RayTracer final : public Vulkan::RayTracing::Application, public Observer
 {
@@ -92,4 +93,5 @@ private:
 	static RayTracer* sharedInstance;
 
 	std::unique_ptr<class Vulkan::RayVisualizationPipeline> rayVisualizationPipeline_;
+	std::unique_ptr<class Vulkan::ObjectPickingPipeline> objectPickingPipeline_;
 };

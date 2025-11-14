@@ -28,6 +28,7 @@
 #include "Utilities/FileUtils.h"
 
 #include "RayVisualization/RayVisualizationPipeline.h"
+#include "ObjectPicking/ObjectPickingPipeline.h"
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
@@ -148,6 +149,7 @@ void RayTracer::CreateSwapChain()
 {
 	Application::CreateSwapChain();
 
+	objectPickingPipeline_.reset(new class Vulkan::ObjectPickingPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
 	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
 	//UIManager::reset();
@@ -172,6 +174,7 @@ void RayTracer::DeleteSwapChain()
 {
 	//userInterface_.reset();
 	rayVisualizationPipeline_.reset();
+	objectPickingPipeline_.reset();
 	UIManager::reset();
 
 	Application::DeleteSwapChain();
@@ -256,6 +259,42 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 	// Check the current state of the benchmark, update it for the new frame.
 	CheckAndUpdateBenchmarkState(prevTime);
+
+	// Renderpass for object picking
+	std::array<VkClearValue, 2> clearValues = {};
+	clearValues[1].depthStencil = { 1.0f, 0 };
+
+	VkRenderPassBeginInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = objectPickingPipeline_->RenderPass().Handle();
+	renderPassInfo.framebuffer = SwapChainFrameBuffer(imageIndex).Handle();
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = SwapChain().Extent();
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	{
+		const auto& rayScene = GetRayScene();
+
+		VkDescriptorSet descriptorSets[] = { objectPickingPipeline_->DescriptorSet(imageIndex) };
+		VkDeviceSize offsets[] = { 0 };
+
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, objectPickingPipeline_->Handle());
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, objectPickingPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
+
+		for (const auto& rays : rayScene.Rays())
+		{
+			VkBuffer vertexBuffer = rays->VertexBuffer().Handle();
+
+			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
+			vkCmdSetLineWidth(commandBuffer, 5);
+
+			vkCmdDraw(commandBuffer, rays->NumberOfVertices(), 1, 0, 0);
+		}
+	}
+
+	vkCmdEndRenderPass(commandBuffer);
 
 	// Render the scene
 	userSettings_.IsRayTraced

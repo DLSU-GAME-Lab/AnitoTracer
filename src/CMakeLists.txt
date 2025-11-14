@@ -67,6 +67,11 @@ set(src_files_sceneio
 	Engine/Scene/SceneIO.hpp
 )
 
+set(src_files_object_picking
+	ObjectPicking/ObjectPickingPipeline.cpp
+	ObjectPicking/ObjectPickingPipeline.h
+)
+
 set(src_files_ray_visualization
 	RayVisualization/RayVisualizationPipeline.cpp
 	RayVisualization/RayVisualizationPipeline.h
@@ -285,7 +290,7 @@ add_executable(${exe_name}
 	${src_files_vulkan} 
 	${src_files_vulkan_raytracing} 
 	${src_files}
- "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp" "Utilities/FileExplorer/FileTreeNode.h" "Utilities/FileExplorer/FileTree.h" "Utilities/FileExplorer/FileIcon.h" "Utilities/FileExplorer/FileTree.cpp" "Utilities/FileExplorer/FileTreeNode.cpp" "UI/ProjectScreen.h" "UI/ProjectScreen.cpp" "Utilities/FileExplorer/FileIcon.cpp" "Utilities/FileExplorer/FileExplorerConstants.h")
+ "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp" "Utilities/FileExplorer/FileTreeNode.h" "Utilities/FileExplorer/FileTree.h" "Utilities/FileExplorer/FileIcon.h" "Utilities/FileExplorer/FileTree.cpp" "Utilities/FileExplorer/FileTreeNode.cpp" "UI/ProjectScreen.h" "UI/ProjectScreen.cpp" "Utilities/FileExplorer/FileIcon.cpp" "Utilities/FileExplorer/FileExplorerConstants.h" "ObjectPicking/ObjectPickingPipeline.h" "ObjectPicking/ObjectPickingPipeline.cpp")
 
 if (UNIX)
 	# GCC8 needs an extra lib for <filesystem>.
