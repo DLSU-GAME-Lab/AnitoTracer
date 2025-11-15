@@ -23,7 +23,7 @@ void FileListView::renderDescendants(FileTreeNode& root) {
         for (auto& rootChild : root.getChildren()) { //root.children
 
             // 1.) Initialize the root children nodes if they are directories, and give them render flags.
-            ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_None;
+            ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow;
             if (rootChild.isDirectory() && rootChild.directoryEntryExists()) {
                 // If the node is a directory, initialize it - if it doesn't have children, it's a leaf.
                 rootChild.init();
@@ -37,15 +37,16 @@ void FileListView::renderDescendants(FileTreeNode& root) {
             // 2.) Render root children and listen for events on those nodes.
             ImGui::PushFont(UIManager::getInstance()->GetIconFont());
             std::string iconCode = chooseIconCode(rootChild);
-            if (ImGui::TreeNodeEx((iconCode + " " + rootChild.getName() + "##list").c_str(), flag)) {
+
+            bool isNodeOpen = ImGui::TreeNodeEx((iconCode + " " + rootChild.getName() + "##list").c_str(), flag);
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && rootChild.isDirectory() && rootChild.directoryEntryExists()) {
+                FileIconView::setCurrentNode(rootChild);
+            }
+            if (isNodeOpen) {
                 ImGui::PopFont();
 
                 rootChild.setIsOpen(true);
                 renderDescendants(rootChild);
-
-                if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && rootChild.isDirectory() && rootChild.directoryEntryExists()) {
-                    FileIconView::setCurrentNode(rootChild);
-                }
 
                 ImGui::TreePop();
             }
@@ -59,19 +60,21 @@ void FileListView::renderDescendants(FileTreeNode& root) {
 
 void FileListView::renderRootNode(FileTreeNode& root) {
     // Renders the root node with the given driveName, initializes it when clicked, and renders the root children.
-    ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_None;
+    ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow;
 
     try {
         ImGui::PushFont(nullptr);
-        if (ImGui::TreeNodeEx(root.getName().append("##list").c_str(), flag)) {
+
+        bool isNodeOpen = ImGui::TreeNodeEx(root.getName().append("##list").c_str(), flag);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+            FileIconView::setCurrentNode(root);
+        }
+
+        if (isNodeOpen) {
             ImGui::PopFont();
 
             root.setIsOpen(true);
             renderDescendants(root);
-
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-                FileIconView::setCurrentNode(root);
-            }
 
             ImGui::TreePop();
         }

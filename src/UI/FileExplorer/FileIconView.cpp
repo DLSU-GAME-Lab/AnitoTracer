@@ -15,11 +15,11 @@ FileIconView::FileIconView() {
 
 void FileIconView::drawUI() {
     ImGui::PushFont(nullptr);
-    renderCurrentNode();
+    renderCurrentNodeChildrenIcons();
     ImGui::PopFont();
 }
 
-void FileIconView::renderCurrentNode() {
+void FileIconView::renderCurrentNodeChildrenIcons() {
 
     for (auto& rootChild : currentNode.getChildren()) {
         if (ImGui::Button(chooseIconCode(rootChild).append("##").append(rootChild.getPathString()).c_str()))

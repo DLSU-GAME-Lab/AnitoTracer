@@ -14,7 +14,7 @@ private:
 	static std::string chooseIconBasedOnExtension(const std::string& filename);
 	static std::string chooseIconCode(const FileTreeNode& node);
 
-	static void renderCurrentNode();
+	static void renderCurrentNodeChildrenIcons();
 
 	static FileTreeNode currentNode;
 };
