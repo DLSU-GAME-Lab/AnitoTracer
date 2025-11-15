@@ -40,7 +40,7 @@ void FileListView::renderDescendants(FileTreeNode& root) {
 
             bool isNodeOpen = ImGui::TreeNodeEx((iconCode + " " + rootChild.getName() + "##list").c_str(), flag);
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && rootChild.isDirectory() && rootChild.directoryEntryExists()) {
-                FileIconView::setCurrentNode(rootChild);
+                FileIconView::setCurrentNode(&rootChild);
             }
             if (isNodeOpen) {
                 ImGui::PopFont();
@@ -67,7 +67,7 @@ void FileListView::renderRootNode(FileTreeNode& root) {
 
         bool isNodeOpen = ImGui::TreeNodeEx(root.getName().append("##list").c_str(), flag);
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-            FileIconView::setCurrentNode(root);
+            FileIconView::setCurrentNode(&root);
         }
 
         if (isNodeOpen) {

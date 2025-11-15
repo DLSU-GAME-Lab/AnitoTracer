@@ -8,7 +8,7 @@ public:
 
 	static void drawUI();
 	static std::string getRootNodeRelPath();
-	static void setCurrentNode(FileTreeNode& node);
+	static void setCurrentNode(FileTreeNode* node);
 
 private:
 	static std::string chooseIconBasedOnExtension(const std::string& filename);
@@ -16,5 +16,5 @@ private:
 
 	static void renderCurrentNodeChildrenIcons();
 
-	static FileTreeNode currentNode;
+	static FileTreeNode* currentNode;
 };

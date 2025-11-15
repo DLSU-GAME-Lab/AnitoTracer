@@ -7,7 +7,7 @@
 #include "UI/IconsMaterialDesign.h"
 #include "UI/UIManager.h"
 
-FileTreeNode FileIconView::currentNode = FileTree::getInstance()->getRoot();
+FileTreeNode* FileIconView::currentNode = &(FileTree::getInstance()->getRoot());
 
 FileIconView::FileIconView() {
 
@@ -21,7 +21,7 @@ void FileIconView::drawUI() {
 
 void FileIconView::renderCurrentNodeChildrenIcons() {
 
-    for (auto& rootChild : currentNode.getChildren()) {
+    for (FileTreeNode &rootChild : currentNode->getChildren()) {
         if (ImGui::Button(chooseIconCode(rootChild).append("##").append(rootChild.getPathString()).c_str()))
         {
             if (rootChild.isDirectory() && rootChild.directoryEntryExists())
@@ -30,7 +30,7 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
                 {
                     rootChild.init();
                 }
-                setCurrentNode(rootChild);
+                setCurrentNode(&rootChild);
             }
         }
         ImGui::Text(rootChild.getName().c_str());
@@ -92,6 +92,6 @@ std::string FileIconView::getRootNodeRelPath() {
     return FileTree::getInstance()->getRoot().getPathString();
 }
 
-void FileIconView::setCurrentNode(FileTreeNode& node) {
+void FileIconView::setCurrentNode(FileTreeNode* node) {
     currentNode = node;
 }

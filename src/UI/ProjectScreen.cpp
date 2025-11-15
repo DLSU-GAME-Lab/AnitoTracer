@@ -34,7 +34,7 @@ ProjectScreen::ProjectScreen() : AUIScreen(UINames::PROJECT_SCREEN)
     FileTreeNode root(dirEnt);
     root.init();
     FileTree::getInstance()->setRoot(root);
-    FileIconView::setCurrentNode(root);
+    FileIconView::setCurrentNode(&root);
 }
 
 ProjectScreen::~ProjectScreen()
