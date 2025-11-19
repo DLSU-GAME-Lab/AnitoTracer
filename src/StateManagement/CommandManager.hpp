@@ -15,6 +15,8 @@ public:
     void undo();
     void redo();
 
+    void clearTopUndo();
+
 private:
     CommandManager();
     ~CommandManager();

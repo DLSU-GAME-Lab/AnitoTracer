@@ -1,5 +1,6 @@
 #include "CommandManager.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
+#include "StateManagement/ConcreteCommands/GUICommands.hpp"
 
 CommandManager* CommandManager::sharedInstance = nullptr;
 
@@ -28,7 +29,12 @@ CommandManager::~CommandManager()
 
 void CommandManager::clearStack(CommandStack stack)
 {
-	while (!stack.empty()) stack.pop();
+	while (!stack.empty())
+	{
+		auto command = stack.top();
+		stack.pop();
+		delete command;
+	}
 }
 
 void CommandManager::executeCommand(ICommand* command)
@@ -56,4 +62,16 @@ void CommandManager::redo()
 	this->redoStack.pop();
 	command->execute();
 	this->undoStack.push(command);
+}
+
+void CommandManager::clearTopUndo()
+{
+	if (this->undoStack.empty()) return;
+	auto command = this->undoStack.top();
+
+	if ((ModifyLayoutCommand*)command != nullptr)
+	{
+		this->undoStack.pop();
+		delete command;
+	}
 }
