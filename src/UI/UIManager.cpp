@@ -193,6 +193,14 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	/* 4 */
 	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 14 * scaleFactor, iconFontConfig2, iconRanges);
 
+	ImFontConfig* iconFontConfig3 = new ImFontConfig();
+	iconFontConfig3->MergeMode = false;
+	iconFontConfig3->PixelSnapH = true;
+	iconFontConfig3->GlyphOffset = ImVec2(1.0f, 0.0f);
+
+	/* 5 */
+	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 14 * scaleFactor, iconFontConfig3, iconRanges);
+
 	Vulkan::SingleTimeCommands::Submit(*commandPool, [](VkCommandBuffer commandBuffer)
 		{
 			if (!ImGui_ImplVulkan_CreateFontsTexture())

@@ -25,7 +25,7 @@ void InspectorScreen::drawUI()
 {
 	//setWindowAlignment(ScreenAlign::TOP_RIGHT);
 
-	ImGui::Begin(ICON_MD_INFO " Inspector", &enabled, UISettings::GlobalWindowFlags);
+	ImGui::Begin("Inspector", &enabled, UISettings::GlobalWindowFlags);
 
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
 
@@ -286,10 +286,12 @@ void InspectorScreen::drawTransformTab()
 
 			ImGui::PushFont(UIManager::getInstance()->GetIconFont());
 
+			ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[3]);
 			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
 			{
 				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
 			}
+			ImGui::PopFont();
 
 			ImGui::PopFont();
 			ImGui::PopID();

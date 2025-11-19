@@ -119,7 +119,8 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
 {
     if (!obj) return;
 
-    String objectName = obj->getName() + std::to_string(tempId);
+    String objectName = obj->getName();
+	String objectId = objectName + std::to_string(tempId); // Unique ID for ImGui
     bool hasChildren = !obj->getChildren().empty();
 	tempId++;
 
@@ -136,6 +137,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     bool isNodeOpen = openNodes.count(objectName) > 0;
     if (isNodeOpen) flags |= ImGuiTreeNodeFlags_DefaultOpen;
 
+    ImGui::PushID(objectId.c_str());
     bool open = ImGui::TreeNodeEx(objectName.c_str(), flags);
 
     static bool hasValidDropTarget = false;
@@ -253,5 +255,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     {
         openNodes.erase(objectName);
     }
+
+    ImGui::PopID();
 }
 
