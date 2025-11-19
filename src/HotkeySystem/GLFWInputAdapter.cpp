@@ -1,5 +1,4 @@
-#include "pch.h"
-#include "GLFWInputAdapter.h"
+#include "GLFWInputAdapter.hpp"
 
 #include <iostream>
 

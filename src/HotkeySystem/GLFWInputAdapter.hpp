@@ -1,6 +1,6 @@
 #pragma once
-//#include <GLFW/glfw3.h>
-#include "InputEvent.h"
+#include <GLFW/glfw3.h>
+#include "InputEvent.hpp"
 #include "HotkeySystem.hpp"
 
 class GLFWInputAdapter

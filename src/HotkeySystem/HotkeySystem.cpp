@@ -1,7 +1,6 @@
-#include "pch.h"
 #include "HotkeySystem.hpp"
-#include "InputEvent.h"
-#include "Debug.h"
+#include "InputEvent.hpp"
+#include "From-GDGRAP2/Debug.h"
 
 HotkeySystem* HotkeySystem::sharedInstance = nullptr;
 
