@@ -159,7 +159,7 @@ void RayTracer::CreateSwapChain()
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
 	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
 	//UIManager::reset();
-	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_);
+	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
 	UIManager::getInstance()->SetProfiler(profiler_.get());
 
 	if (!initializedUI)

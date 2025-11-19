@@ -14,7 +14,6 @@
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 
-
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
 }
@@ -431,6 +430,12 @@ glm::vec3 InspectorScreen::ScaleUniformly(const glm::vec3& beforeScale, const fl
 	}
 
 	return result;
+}
+
+void InspectorScreen::setUniformScalingEnabled(bool flag)
+{
+	this->isUniformScalingEnabled = flag;
+	UIManager::getInstance()->config()->inspectorUniformScaling = flag;
 }
 
 void InspectorScreen::onLightPropsUpdate() const

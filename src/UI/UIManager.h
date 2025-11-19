@@ -16,6 +16,7 @@
 #include "Engine/Profiler/Profiler.h"
 
 #include "From-GDGRAP2/TransformHistory.h"
+#include "UIConfig.hpp"
 
 typedef std::string String;
 
@@ -56,7 +57,7 @@ public:
 	~UIManager();
 
 	static UIManager* getInstance();
-	static void initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings);
+	static void initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings, UIConfig* uiConfig);
 	static void reset();
 
 	void initializeUI();
@@ -76,6 +77,7 @@ public:
 	std::shared_ptr<AUIScreen> findUIByName(const String& uiName);
 
 	UserSettings* settings() const { return userSettings; }
+	UIConfig* config() const { return uiConfig; }
 
 	void toggleAllUI();
 	void hideAllUI() const;
@@ -136,6 +138,7 @@ private:
 	bool isLoadingDynamicLayout = false;
 	bool isResettingLayout = false;
 	UserSettings* userSettings = nullptr;
+	UIConfig* uiConfig = nullptr;
 	const Vulkan::SwapChain* swapChain = nullptr;
 
 	static bool wasUsingGizmoLastFrame;

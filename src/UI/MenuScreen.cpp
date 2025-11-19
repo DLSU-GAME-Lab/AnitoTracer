@@ -164,8 +164,6 @@ void MenuScreen::drawUI()
 		{
 			if (ImGui::MenuItem("Editor Settings", nullptr, UIManager::getInstance()->getEnabled(UINames::SETTINGS_SCREEN)))
 			{
-
-				UIManager::getInstance()->settingsActive = !UIManager::getInstance()->settingsActive;
 				UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN);
 			}
 			if (ImGui::MenuItem("Statistics", nullptr, UIManager::getInstance()->getEnabled("Statistics")))
@@ -174,24 +172,23 @@ void MenuScreen::drawUI()
 			}
 			if (ImGui::MenuItem("Inspector", nullptr, UIManager::getInstance()->getEnabled(UINames::INSPECTOR_SCREEN)))
 			{
-				UIManager::getInstance()->toggleEnabled(UINames::INSPECTOR_SCREEN);
+				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::INSPECTOR_SCREEN));
 			}
 			if (ImGui::MenuItem("Hierarchy", nullptr, UIManager::getInstance()->getEnabled(UINames::HIERARCHY_SCREEN)))
 			{
-				UIManager::getInstance()->toggleEnabled(UINames::HIERARCHY_SCREEN);
+				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::HIERARCHY_SCREEN));
 			}
 			if (ImGui::MenuItem("Profiler", nullptr, UIManager::getInstance()->getEnabled(UINames::PROFILER_SCREEN)))
 			{
-				UIManager::getInstance()->profilerActive = !UIManager::getInstance()->profilerActive;
-				UIManager::getInstance()->toggleEnabled(UINames::PROFILER_SCREEN);
+				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::PROFILER_SCREEN));
 			}
 			if (ImGui::MenuItem("Debug Console", nullptr, UIManager::getInstance()->getEnabled(UINames::CONSOLE_SCREEN)))
 			{
-				UIManager::getInstance()->toggleEnabled(UINames::CONSOLE_SCREEN);
+				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::CONSOLE_SCREEN));
 			}
 			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
 			{
-				UIManager::getInstance()->toggleEnabled(UINames::MATERIAL_EDITOR_SCREEN);
+				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::MATERIAL_EDITOR_SCREEN));
 			}
 			//if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
 			//{

@@ -80,7 +80,7 @@ UIManager* UIManager::getInstance()
 }
 
 void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain,
-	const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings)
+	const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings, UIConfig* uiConfig)
 {
 
 	sharedInstance = new UIManager();
@@ -91,6 +91,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	sharedInstance->userSettings = userSettings;
 	sharedInstance->swapChain = swapChain;
 	sharedInstance->commandPool = commandPool;
+	sharedInstance->uiConfig = uiConfig;
 
 	// Initialise descriptor pool and render pass for ImGui.
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
@@ -218,6 +219,7 @@ void UIManager::initializeUI()
 
 	const std::shared_ptr<HierarchyScreen> hierarchyScreen = std::make_shared<HierarchyScreen>();
 	this->uiTable[UINames::HIERARCHY_SCREEN] = hierarchyScreen;
+	hierarchyScreen->setEnabled(this->uiConfig->isHierarchyEnabled);
 	this->uiList.push_back(hierarchyScreen);
 
 	//PROJECTS/FILE EXPLORER WINDOW
@@ -231,22 +233,27 @@ void UIManager::initializeUI()
 
 	const std::shared_ptr<InspectorScreen> inspectorScreen = std::make_shared<InspectorScreen>();
 	this->uiTable[UINames::INSPECTOR_SCREEN] = inspectorScreen;
+	inspectorScreen->setEnabled(this->uiConfig->isInspectorEnabled);
+	inspectorScreen->setUniformScalingEnabled(this->uiConfig->inspectorUniformScaling);
 	this->uiList.push_back(inspectorScreen);
 
 	const std::shared_ptr<ProjectScreen> projectScreen = std::make_shared<ProjectScreen>();
 	this->uiTable[UINames::PROJECT_SCREEN] = projectScreen;
+	projectScreen->setEnabled(this->uiConfig->isProjectEnabled);
 	this->uiList.push_back(projectScreen);
 
 	const std::shared_ptr<ConsoleScreen> consoleScreen = std::make_shared<ConsoleScreen>();
 	this->uiTable[UINames::CONSOLE_SCREEN] = consoleScreen;
+	consoleScreen->setEnabled(this->uiConfig->isConsoleEnabled);
+	consoleScreen->setText(this->uiConfig->consoleTextLog, this->uiConfig->consoleLogCount);
 	this->uiList.push_back(consoleScreen);
 	Debug::assignConsole(consoleScreen);
 
 	const std::shared_ptr<ProfilerScreen> profilerScreen = std::make_shared<ProfilerScreen>();
 	this->uiTable[UINames::PROFILER_SCREEN] = profilerScreen;
 	this->uiList.push_back(profilerScreen);
-	profilerScreen->setEnabled(false);
-	sharedInstance->profilerActive = false;
+	profilerScreen->setEnabled(this->uiConfig->isProfilerEnabled);
+	sharedInstance->profilerActive = this->uiConfig->isProfilerEnabled;
 
 	//std::shared_ptr<gdeng03::PlaybackScreen> playbackScreen = std::make_shared<gdeng03::PlaybackScreen>();
 	//this->uiTable[uiNames.PLAYBACK_SCREEN] = playbackScreen;
@@ -255,13 +262,14 @@ void UIManager::initializeUI()
 	// nawt working yet lol!
 	const std::shared_ptr<gdeng03::MaterialEditorScreen> materialEditorScreen = std::make_shared<gdeng03::MaterialEditorScreen>();
 	this->uiTable[UINames::MATERIAL_EDITOR_SCREEN] = materialEditorScreen;
+	materialEditorScreen->setEnabled(this->uiConfig->isMaterialEditorEnabled);
 	this->uiList.push_back(materialEditorScreen);
 
 	const std::shared_ptr<SettingsScreen> settingsScreen = std::make_shared<SettingsScreen>();
 	this->uiTable[UINames::SETTINGS_SCREEN] = settingsScreen;
 	this->uiList.push_back(settingsScreen);
-	settingsScreen->setEnabled(false);
-	sharedInstance->settingsActive = false;
+	settingsScreen->setEnabled(this->uiConfig->isSettingsEnabled);
+	sharedInstance->settingsActive = this->uiConfig->isSettingsEnabled;
 
 	// std::shared_ptr<AssetExplorerScreen> assetExplorerScreen = std::make_shared<AssetExplorerScreen>();
 	// this->uiTable[uiNames.ASSET_EXPLORER_SCREEN] = assetExplorerScreen;

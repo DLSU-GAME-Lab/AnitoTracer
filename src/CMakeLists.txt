@@ -215,6 +215,7 @@ set(src_files_ui
 	UI/EditorTheme.hpp
 	UI/EditorTheme.cpp
 	UI/IconsMaterialDesign.h
+	UI/UIConfig.hpp
 )
 
 set(src_files_from_gdgrap2

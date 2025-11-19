@@ -7,6 +7,8 @@ public:
 	ConsoleScreen();
 	~ConsoleScreen();
 	void appendText(String text);
+	void setText(String log, int lineCount);
+
 private:
 	virtual void drawUI() override;
 	friend class UIManager;
