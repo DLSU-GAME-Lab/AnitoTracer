@@ -5,7 +5,7 @@
 GLFWInputAdapter::GLFWInputAdapter(GLFWwindow* window)
     : m_window(window)
 {
-    initializeCallbacks();
+
 }
 
 void GLFWInputAdapter::initializeCallbacks()
