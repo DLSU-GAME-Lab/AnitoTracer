@@ -9,9 +9,11 @@ ModifyMaterialPropertyCommand::ModifyMaterialPropertyCommand(Assets::Material* m
 void ModifyMaterialPropertyCommand::execute()
 {
 	this->apply(material, newValue);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void ModifyMaterialPropertyCommand::undo()
 {
 	this->apply(material, oldValue);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
