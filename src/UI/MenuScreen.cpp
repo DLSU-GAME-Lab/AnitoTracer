@@ -45,12 +45,10 @@ void MenuScreen::drawUI()
 			if (ImGui::MenuItem("Undo", "Ctrl+Z"))
 			{
 				CommandManager::getInstance()->undo();
-				CommandManager::getInstance()->clearTopUndo(); // to prevent LayoutChanges on popup
 			}
 			if (ImGui::MenuItem("Redo", "Ctrl+Y"))
 			{
 				CommandManager::getInstance()->redo();
-				CommandManager::getInstance()->clearTopUndo(); // to prevent LayoutChanges on popup
 			}
 			//if (ImGui::MenuItem("Open..", "Ctrl+O")) {
 			//	//this->openSceneDialog->Open();
@@ -79,20 +77,20 @@ void MenuScreen::drawUI()
 		if (ImGui::BeginMenu("Scene"))
 		{
 			if (ImGui::BeginMenu("Demo Scenes")) {
-				if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { CommandManager::getInstance()->clearTopUndo();  this->OnLoadSceneByIndex(1);; ShowLoadingPopUp();  }
-				if (ImGui::MenuItem("Load Cornell Box")) { CommandManager::getInstance()->clearTopUndo(); this->OnLoadSceneByIndex(7);  ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load AnitoTracer Demo")) { CommandManager::getInstance()->clearTopUndo(); this->OnLoadSceneByIndex(9);  ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Model Showcase")) { CommandManager::getInstance()->clearTopUndo(); this->OnLoadSceneByIndex(10);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadSceneByIndex(1);; ShowLoadingPopUp();  }
+				if (ImGui::MenuItem("Load Cornell Box")) { this->OnLoadSceneByIndex(7);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load AnitoTracer Demo")) { this->OnLoadSceneByIndex(9);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Model Showcase")) { this->OnLoadSceneByIndex(10);  ShowLoadingPopUp(); }
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Sample Scenes")) {
 				//if (ImGui::MenuItem("Load Ray Tracing In One Weekend")) { this->OnLoadRTIOW(); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Sponza Scene")) { CommandManager::getInstance()->clearTopUndo();  this->OnLoadSceneByIndex(11); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load San Miguel Scene")) { CommandManager::getInstance()->clearTopUndo(); this->OnLoadSceneByIndex(12);  ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Vokselia")) { CommandManager::getInstance()->clearTopUndo(); this->OnLoadSceneByIndex(13); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Breakfast Room")) { CommandManager::getInstance()->clearTopUndo(); this->OnLoadSceneByIndex(14); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Salle De Bain")) { CommandManager::getInstance()->clearTopUndo(); this->OnLoadSceneByIndex(15); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Gallery")) { CommandManager::getInstance()->clearTopUndo(); this->OnLoadSceneByIndex(16);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Sponza Scene")) { this->OnLoadSceneByIndex(11); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSceneByIndex(12);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Vokselia")) { this->OnLoadSceneByIndex(13); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Breakfast Room")) { this->OnLoadSceneByIndex(14); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Salle De Bain")) { this->OnLoadSceneByIndex(15); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Gallery")) { this->OnLoadSceneByIndex(16);  ShowLoadingPopUp(); }
 
 				ImGui::EndMenu();
 			}
@@ -100,7 +98,7 @@ void MenuScreen::drawUI()
 			{
 				for (std::string name : SceneIO::getInstance()->getSceneNames())
 				{
-					if (ImGui::MenuItem(name.c_str())) { CommandManager::getInstance()->clearTopUndo(); this->OnLoadEmpty(); ShowLoadingPopUp(); SceneIO::getInstance()->LoadScene(name); }
+					if (ImGui::MenuItem(name.c_str())) { this->OnLoadEmpty(); ShowLoadingPopUp(); SceneIO::getInstance()->LoadScene(name); }
 				}
 				ImGui::EndMenu();
 			}
@@ -114,11 +112,11 @@ void MenuScreen::drawUI()
 		{
 			if (ImGui::BeginMenu("Primitives")) 
 			{
-				if (ImGui::MenuItem("Sphere")) { CommandManager::getInstance()->clearTopUndo(); this->OnCreateSphereClicked(); }
-				if (ImGui::MenuItem("Cube")) { CommandManager::getInstance()->clearTopUndo(); this->OnCreateCubeClicked(); }
-				if (ImGui::MenuItem("Capsule")) { CommandManager::getInstance()->clearTopUndo(); onCreateCapsuleClicked(); }
-				if (ImGui::MenuItem("Cylinder")) { CommandManager::getInstance()->clearTopUndo(); onCreateCylinderClicked(); }
-				if (ImGui::MenuItem("Plane")) { CommandManager::getInstance()->clearTopUndo(); this->OnCreatePlaneClicked(); }
+				if (ImGui::MenuItem("Sphere")) { this->OnCreateSphereClicked(); }
+				if (ImGui::MenuItem("Cube")) { this->OnCreateCubeClicked(); }
+				if (ImGui::MenuItem("Capsule")) { onCreateCapsuleClicked(); }
+				if (ImGui::MenuItem("Cylinder")) { onCreateCylinderClicked(); }
+				if (ImGui::MenuItem("Plane")) { this->OnCreatePlaneClicked(); }
 
 				if (ImGui::BeginMenu("Reflective Spheres")) 
 				{
@@ -132,9 +130,9 @@ void MenuScreen::drawUI()
 
 			if (ImGui::BeginMenu("Meshes")) 
 			{													// todo: add benchmark/basic meshes
-				if (ImGui::MenuItem("Bunny")) { CommandManager::getInstance()->clearTopUndo(); onCreateBunnyClicked(); }
-				if (ImGui::MenuItem("Teapot")) { CommandManager::getInstance()->clearTopUndo(); onCreateTeapotClicked(); }
-				if (ImGui::MenuItem("Lucy")) { CommandManager::getInstance()->clearTopUndo(); onCreateLucyClicked(); }
+				if (ImGui::MenuItem("Bunny")) { onCreateBunnyClicked(); }
+				if (ImGui::MenuItem("Teapot")) { onCreateTeapotClicked(); }
+				if (ImGui::MenuItem("Lucy")) { onCreateLucyClicked(); }
 
 				ImGui::Separator();
 				if (ImGui::MenuItem("Import Mesh From File...", nullptr, isLoadObjOpen))
@@ -149,9 +147,9 @@ void MenuScreen::drawUI()
 			}
 
 			if (ImGui::BeginMenu("Lights")) {
-				if (ImGui::MenuItem("Point Light")) { CommandManager::getInstance()->clearTopUndo(); OnCreateLightClicked(Light::PointLight); }
-				if (ImGui::MenuItem("Directional Light")) { CommandManager::getInstance()->clearTopUndo(); OnCreateLightClicked(Light::DirectionalLight); }
-				if (ImGui::MenuItem("Spot Light")) { CommandManager::getInstance()->clearTopUndo(); OnCreateLightClicked(Light::SpotLight); }
+				if (ImGui::MenuItem("Point Light")) { OnCreateLightClicked(Light::PointLight); }
+				if (ImGui::MenuItem("Directional Light")) { OnCreateLightClicked(Light::DirectionalLight); }
+				if (ImGui::MenuItem("Spot Light")) { OnCreateLightClicked(Light::SpotLight); }
 				ImGui::EndMenu();
 			}
 			ImGui::EndMenu();
@@ -166,37 +164,30 @@ void MenuScreen::drawUI()
 		{
 			if (ImGui::MenuItem("Editor Settings", nullptr, UIManager::getInstance()->getEnabled(UINames::SETTINGS_SCREEN)))
 			{
-				CommandManager::getInstance()->clearTopUndo();
 				UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN);
 			}
 			if (ImGui::MenuItem("Statistics", nullptr, UIManager::getInstance()->getEnabled("Statistics")))
 			{
-				CommandManager::getInstance()->clearTopUndo();
 				UIManager::getInstance()->toggleEnabled("Statistics");
 			}
 			if (ImGui::MenuItem("Inspector", nullptr, UIManager::getInstance()->getEnabled(UINames::INSPECTOR_SCREEN)))
 			{
-				CommandManager::getInstance()->clearTopUndo();
 				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::INSPECTOR_SCREEN));
 			}
 			if (ImGui::MenuItem("Hierarchy", nullptr, UIManager::getInstance()->getEnabled(UINames::HIERARCHY_SCREEN)))
 			{
-				CommandManager::getInstance()->clearTopUndo();
 				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::HIERARCHY_SCREEN));
 			}
 			if (ImGui::MenuItem("Profiler", nullptr, UIManager::getInstance()->getEnabled(UINames::PROFILER_SCREEN)))
 			{
-				CommandManager::getInstance()->clearTopUndo();
 				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::PROFILER_SCREEN));
 			}
 			if (ImGui::MenuItem("Debug Console", nullptr, UIManager::getInstance()->getEnabled(UINames::CONSOLE_SCREEN)))
 			{
-				CommandManager::getInstance()->clearTopUndo();
 				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::CONSOLE_SCREEN));
 			}
 			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
 			{
-				CommandManager::getInstance()->clearTopUndo();
 				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::MATERIAL_EDITOR_SCREEN));
 			}
 			//if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))

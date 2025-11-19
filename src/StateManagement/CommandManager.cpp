@@ -29,12 +29,8 @@ CommandManager::~CommandManager()
 
 void CommandManager::clearStack(CommandStack stack)
 {
-	while (!stack.empty())
-	{
-		auto command = stack.top();
-		stack.pop();
-		delete command;
-	}
+	while (!stack.empty()) stack.pop();
+
 }
 
 void CommandManager::executeCommand(ICommand* command)
@@ -64,14 +60,3 @@ void CommandManager::redo()
 	this->undoStack.push(command);
 }
 
-void CommandManager::clearTopUndo()
-{
-	if (this->undoStack.empty()) return;
-	auto command = this->undoStack.top();
-
-	if ((ModifyLayoutCommand*)command != nullptr)
-	{
-		this->undoStack.pop();
-		delete command;
-	}
-}

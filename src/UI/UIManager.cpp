@@ -747,17 +747,20 @@ void UIManager::detectAndRecordLayoutChanges()
 		return;
 	}
 
-	if (!this->m_isFirstFrame && !this->m_isLeftMouseDown && this->m_isRecording)
-	{
-		this->m_isRecording = false;
-		std::string currentLayoutSnapshot = GetIniDump();
+	/* Statemanagement on imgui layout changes disabled as there are currently too many UI changes that are not detected */
+	/* Will return with better way to detect layout changes */
 
-		if (currentLayoutSnapshot != this->m_lastLayoutSnapshot)
-		{
-			CommandManager::getInstance()->executeCommand(new ModifyLayoutCommand(this->m_lastLayoutSnapshot, currentLayoutSnapshot));
-			this->m_lastLayoutSnapshot = currentLayoutSnapshot;
-		}
-	}
+	//if (!this->m_isFirstFrame && !this->m_isLeftMouseDown && this->m_isRecording)
+	//{
+	//	this->m_isRecording = false;
+	//	std::string currentLayoutSnapshot = GetIniDump();
+
+	//	if (currentLayoutSnapshot != this->m_lastLayoutSnapshot)
+	//	{
+	//		CommandManager::getInstance()->executeCommand(new ModifyLayoutCommand(this->m_lastLayoutSnapshot, currentLayoutSnapshot));
+	//		this->m_lastLayoutSnapshot = currentLayoutSnapshot;
+	//	}
+	//}
 }
 
 void UIManager::onLMBPressed()
