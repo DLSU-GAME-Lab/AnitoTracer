@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include "imgui.h"
+#include "ImGuizmo.h"
 #include "AUIScreen.h"
 #include "UserSettings.hpp"
 #include "Vulkan/Image.hpp"
@@ -16,6 +17,8 @@
 #include "Engine/Profiler/Profiler.h"
 
 #include "From-GDGRAP2/TransformHistory.h"
+#include "HotkeySystem/HotkeyListener.hpp"
+
 
 typedef std::string String;
 
@@ -42,7 +45,7 @@ struct Statistics final
 };
 
 class Viewport;
-class UIManager
+class UIManager : HotkeyListener
 {
 public:
 	typedef std::string String;
@@ -102,6 +105,7 @@ public:
 	static bool wantsToCaptureMouse();
 
 	ImFont* GetIconFont();
+	void OnActionPressed(Hotkey::Action action) override;
 
 	bool settingsActive = false;
 	bool profilerActive = false;
@@ -142,6 +146,7 @@ private:
 
 	ImFont* iconFont = nullptr;
 	bool isCTRLHeld = false;
+	ImGuizmo::OPERATION m_currentGizmoOperation = ImGuizmo::TRANSLATE;
 
 	UIList uiList;
 	UITable uiTable;

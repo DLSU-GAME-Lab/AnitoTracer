@@ -5,6 +5,11 @@
 
 #include "Debug.h"
 #include "Utilities/FileUtils.h"
+#include "HotkeySystem/HotkeySystem.hpp"
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
+#include "Assets/GameObjectFactory.hpp"
 
 ModelManager* ModelManager::sharedInstance = nullptr;
 
@@ -25,6 +30,16 @@ void ModelManager::destroy()
 	sharedInstance->objectGroupList.clear();
 
 	delete sharedInstance;
+}
+
+ModelManager::ModelManager()
+{
+	HotkeySystem::getInstance()->addListener(this);
+}
+
+ModelManager::~ModelManager()
+{
+	HotkeySystem::getInstance()->removeListener(this);
 }
 
 std::vector<GameObject*> ModelManager::getAllObjects() const
@@ -106,25 +121,45 @@ void ModelManager::addObjectAtIndex(GameObjectPtr gameObject, int index)
 	this->sceneGraph.insert(this->sceneGraph.begin() + idx, std::move(gameObject));
 }
 
-std::unique_ptr<GameObject> ModelManager::removeObject(GameObject* gameObject)
+std::unique_ptr<GameObject> ModelManager::removeObject(GameObject* target)
 {
-	if (!gameObject) return nullptr;
+	if (!target) return nullptr;
 
-	auto found = std::find_if(sceneGraph.begin(), sceneGraph.end(),
-		[gameObject](const GameObjectPtr& child)
+	for (auto it = this->sceneGraph.begin(); it != this->sceneGraph.end(); it++)
+	{
+		if (it->get() == target)
 		{
-			return child.get() == gameObject;
-		});
+			std::unique_ptr<GameObject> removed = std::move(*it);
+			this->sceneGraph.erase(it);
+			return removed;
+		}
+	
+		std::unique_ptr<GameObject> result = removeInSubtree(it->get(), target);
+		if (result)	return result;
+	}
 
-	if (found == sceneGraph.end())	return nullptr;
-
-	GameObjectPtr result = std::move(*found);
-
-	sceneGraph.erase(found);
-
-	return result;
+	return nullptr;
 }
 
+ModelManager::GameObjectPtr ModelManager::removeInSubtree(GameObject* parent, GameObject* target)
+{
+	for (auto it = parent->children.begin(); it != parent->children.end(); it++)
+	{
+		if (it->get() == target)
+		{
+			std::unique_ptr<GameObject> removed = std::move(*it);
+			parent->children.erase(it);
+			return removed;
+		}
+
+		std::unique_ptr<GameObject> result = removeInSubtree(it->get(), target);
+		if (result)	return result;
+	}
+
+	return nullptr;
+}
+
+/* Only Searches Root */
 void ModelManager::deleteObject(GameObject* gameObject)
 {
 	if (!gameObject) return;
@@ -148,6 +183,93 @@ void ModelManager::deleteObject(GameObject* gameObject)
 		this->sceneGraph.erase(it);
 	}
 
+}
+
+ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* original)
+{
+	auto copyObject = [&](GameObject* gameObject) -> std::unique_ptr<GameObject>
+		{
+			auto type = gameObject->getType();
+			auto name = gameObject->getName();
+			auto position = gameObject->getLocalPosition();
+			auto rotation = gameObject->getLocalRotation();
+			auto scale = gameObject->getLocalScale();
+			auto active = gameObject->isActive();
+			auto visible = gameObject->isVisible();
+			auto pickable = gameObject->isPickable();
+			auto parent = gameObject->getParent();
+			auto material = gameObject->getModel()->getMaterial(0);
+
+			// Copy Material
+			std::shared_ptr<Assets::Material> copiedMat = std::make_shared<Assets::Material>();
+
+			copiedMat->Diffuse = material->Diffuse;
+			copiedMat->DiffuseTextureId = material->DiffuseTextureId;
+			copiedMat->Fuzziness = material->Fuzziness;
+			copiedMat->RefractionIndex = material->RefractionIndex;
+			copiedMat->MaterialModel = material->MaterialModel;
+
+			std::unique_ptr<GameObject> resultCopy;
+
+			switch (type)
+			{
+			case GameObject::CUBE:
+				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				break;
+
+			case GameObject::SPHERE:
+				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				break;
+
+			case GameObject::PLANE:
+				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				break;
+
+			case GameObject::CYLINDER:
+				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				break;
+
+			case GameObject::CAPSULE:
+				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				break;
+
+			case GameObject::CORNELL_BOX:
+				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				break;
+
+			case GameObject::MESH:
+				resultCopy = GameObjectFactory::getInstance()->CreateFromModelFile(original->getModel()->filepath, name);
+				break;
+
+			default:
+				Debug::Log("[ERROR] unable to load game object!");
+				return nullptr;
+			}
+			
+			if (!resultCopy) return nullptr;
+	
+			resultCopy->setName(name);
+			resultCopy->setLocalPosition(position);
+			resultCopy->setLocalRotation(rotation);
+			resultCopy->setLocalScale(scale);
+			resultCopy->setActive(active);
+			resultCopy->setVisible(visible);
+			resultCopy->setPickable(pickable);
+			resultCopy->setParent(parent);
+			resultCopy->getModel()->SetMaterial(*copiedMat);
+
+			return resultCopy;
+		};
+
+	auto parent = std::move(copyObject(original));
+
+	for (const auto& child : original->getChildrenRecursive())
+	{
+		std::unique_ptr<GameObject> childCopy = copyObject(child);
+		childCopy->getParent()->addChild(std::move(childCopy));
+	}
+
+	return std::move(parent);
 }
 
 void ModelManager::addLightObject(LightPtr lightObj)
@@ -499,6 +621,133 @@ void ModelManager::createSponza()
 		gameObject->setLocalRotation(0,0,0);
 		gameObject->setLocalScale(1,1,1);
 		addObject(std::move(gameObject));
+	}
+}
+
+void ModelManager::OnActionPressed(Hotkey::Action action)
+{
+	if (!this->selectedObject) return; // all actions involve selected object
+
+	if (action == Hotkey::Action::GameObject_ToggleActive)
+	{
+		auto currentState = this->selectedObject->isActive();
+
+		CommandManager::getInstance()->executeCommand(
+			new AlterTransformCommand(
+				this->selectedObject,
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->setActive(std::get<bool>(v)); },
+				currentState,
+				!currentState
+			));
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
+	if (action == Hotkey::Action::GameObject_Delete)
+	{
+		CommandManager::getInstance()->executeCommand(
+			new DeleteObjectCommand(this->selectedObject)
+		);
+		this->selectedObject = nullptr;
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
+	if (action == Hotkey::Action::GameObject_Duplicate)
+	{
+		auto duplicate = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
+
+		CommandManager::getInstance()->executeCommand(
+			new AddObjectCommand(std::move(duplicate))
+		);
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
+	if (action == Hotkey::Action::GameObject_Copy)
+	{
+		this->copiedObject = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
+	}
+
+	if (action == Hotkey::Action::GameObject_Cut)
+	{
+		this->copiedObject = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
+		CommandManager::getInstance()->executeCommand(
+			new DeleteObjectCommand(this->selectedObject)
+		);
+		this->selectedObject = nullptr;
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
+	if (action == Hotkey::Action::GameObject_Paste)
+	{
+		if (!this->copiedObject) return;
+
+		CommandManager::getInstance()->executeCommand(
+			new AddObjectCommand(std::move(this->copiedObject))
+		);
+
+		this->copiedObject = nullptr;
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
+	if (action == Hotkey::Action::GameObject_SetAsFirstSibling)
+	{
+		auto parent = this->selectedObject->getParent();
+
+		CommandManager::getInstance()->executeCommand(
+			new ReparentCommand(
+				this->selectedObject,
+				parent,
+				parent ? parent->getChildIndex(this->selectedObject) : this->getObjectIndex(this->selectedObject),
+				parent,
+				0
+			)
+		);
+	}
+
+	if (action == Hotkey::Action::GameObject_SetAsLastSibling)
+	{
+		auto parent = this->selectedObject->getParent();
+
+		CommandManager::getInstance()->executeCommand(
+			new ReparentCommand(
+				this->selectedObject,
+				parent,
+				parent ? parent->getChildIndex(this->selectedObject) : this->getObjectIndex(this->selectedObject),
+				parent,
+				parent ? parent->getChildren().size() : this->getSceneGraphRootSize()
+			)
+		);
+	}
+
+	if (action == Hotkey::Action::GameObject_TogglePickabilityWithDescendants)
+	{
+		auto currentState = this->selectedObject->isPickable();
+
+		CommandManager::getInstance()->executeCommand(
+			new AlterTransformCommand(
+				this->selectedObject,
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->setPickable(std::get<bool>(v)); },
+				currentState,
+				!currentState
+			));
+	}
+
+	if (action == Hotkey::Action::GameObject_ToggleVisibilityWithDescendants)
+	{
+		auto currentState = this->selectedObject->isVisible();
+
+		CommandManager::getInstance()->executeCommand(
+			new AlterTransformCommand(
+				this->selectedObject,
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->setVisible(std::get<bool>(v)); },
+				currentState,
+				!currentState
+			));
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 }
 

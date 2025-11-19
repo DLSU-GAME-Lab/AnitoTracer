@@ -178,3 +178,69 @@ void CreateLightCommand::undo()
 		this->createdObjectRef = nullptr;
 }
 
+DeleteObjectCommand::DeleteObjectCommand(GameObject* objectToDelete) : objectRef(objectToDelete)
+{
+
+}
+
+DeleteObjectCommand::~DeleteObjectCommand()
+{
+	if(objectRef) delete objectRef;
+}
+
+void DeleteObjectCommand::execute()
+{
+	if (!objectRef) return;
+	auto objectPtr = ModelManager::getInstance()->removeObject(this->objectRef);
+	this->objectStorage = std::move(objectPtr);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void DeleteObjectCommand::undo()
+{
+	if (!this->objectStorage) return;
+	this->objectRef = this->objectStorage.get();
+	ModelManager::getInstance()->addObject(std::move(this->objectStorage));
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+AddObjectCommand::AddObjectCommand(std::unique_ptr<GameObject> gameObject)
+{
+	this->objectStorage = std::move(gameObject);
+	this->objectRef = this->objectStorage.get();
+}
+
+AddObjectCommand::~AddObjectCommand()
+{
+	if (objectRef) delete objectRef;
+}
+
+void AddObjectCommand::execute()
+{
+	if (!this->objectStorage) return;
+
+	if (!this->objectRef->getParent())
+	{
+		ModelManager::getInstance()->addObject(std::move(this->objectStorage));
+	}
+	else
+	{
+		this->objectStorage->getParent()->addChild(std::move(this->objectStorage));
+	}
+
+	this->objectStorage = nullptr;
+} 
+
+void AddObjectCommand::undo()
+{
+	if (!this->objectRef) return;
+
+	if (!this->objectRef->getParent())
+	{
+		this->objectStorage = ModelManager::getInstance()->removeObject(this->objectRef);
+	}
+	else
+	{
+		this->objectStorage = this->objectRef->getParent()->removeChild(this->objectRef);
+	}
+}

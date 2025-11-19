@@ -102,3 +102,32 @@ private:
 	glm::vec4 lightColor;
 	glm::vec4 ambientColor;
 };
+
+/* For Existing Objects */
+class AddObjectCommand : public ICommand
+{
+public:
+	AddObjectCommand(std::unique_ptr<GameObject> gameObject);
+	~AddObjectCommand();
+
+	void execute() override;
+	void undo() override;
+
+private:
+	std::unique_ptr<GameObject> objectStorage;
+	GameObject* objectRef = nullptr;
+};
+
+class DeleteObjectCommand : public ICommand
+{
+public:
+	DeleteObjectCommand(GameObject* objectToDelete);
+	~DeleteObjectCommand();
+
+	void execute() override;
+	void undo() override;
+
+private:
+	std::unique_ptr<GameObject> objectStorage;
+	GameObject* objectRef = nullptr;
+};

@@ -354,23 +354,6 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		}
 	}
 
-	if (action == GLFW_PRESS)
-	{
-		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL))
-		{
-			//TransformHistory::getInstance().undo();
-			CommandManager::getInstance()->undo();
-			return;
-		}
-
-		if (key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL))
-		{
-			CommandManager::getInstance()->redo();
-			//TransformHistory::getInstance().redo();
-			return;
-		}
-	}
-
 	if (UIManager::wantsToCaptureKeyboard())
 	{
 		return;

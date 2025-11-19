@@ -9,13 +9,21 @@
 #include "OBB/Ray.hpp"
 #include "Vulkan/Vulkan.hpp"
 
+#include "HotkeySystem\HotkeySystem.hpp"
+#include <From-GDGRAP2/EventBroadcaster.h>
+
 Camera::Camera(std::string name, ProjectionMode proj) : GameObject(name, PrimitiveType::CAMERA)
 {
 	this->name = name;
 	this->projMode = proj;
+
+	HotkeySystem::getInstance()->addListener(this);
 }
 
-Camera::~Camera() {}
+Camera::~Camera() 
+{
+	HotkeySystem::getInstance()->removeListener(this);
+}
 
 void Camera::Reset(const glm::mat4& modelView)
 {
@@ -53,47 +61,9 @@ glm::mat4 Camera::ModelView()
 
 bool Camera::OnKey(const int key, const int scancode, const int action, const int mods)
 {
-	if (key == GLFW_KEY_F && action != GLFW_REPEAT)
-	{
-		auto selected = ModelManager::getInstance()->getSelectedObject();
-
-		if (selected) {
-			this->Reset(lookAt(
-				selected->getWorldPosition() - glm::vec3(0, 0, 1000),
-				selected->getWorldPosition(),
-				glm::vec3(0, 1, 0)
-			));
-		}
-		return true;
-	}
-
 	if (key == GLFW_KEY_ESCAPE && action != GLFW_REPEAT) 
 	{
 		exit(0); // temp exit lol 
-	}
-
-	if (!mouseRightPressed_) 
-	{
-		cameraMovingForward_ = false;
-		cameraMovingBackward_ = false;
-		cameraMovingLeft_ = false;
-		cameraMovingRight_ = false;
-		cameraMovingUp_ = false;
-		cameraMovingDown_ = false;
-		camSlowed = false;
-		return false;
-	}
-
-	switch (key)
-	{
-		case GLFW_KEY_S: cameraMovingBackward_ = action != GLFW_RELEASE; return true;
-		case GLFW_KEY_W: cameraMovingForward_ = action != GLFW_RELEASE; return true;
-		case GLFW_KEY_A: cameraMovingLeft_ = action != GLFW_RELEASE; return true;
-		case GLFW_KEY_D: cameraMovingRight_ = action != GLFW_RELEASE; return true;
-		case GLFW_KEY_Q: cameraMovingDown_ = action != GLFW_RELEASE; return true;
-		case GLFW_KEY_E: cameraMovingUp_ = action != GLFW_RELEASE; return true;
-		case GLFW_KEY_LEFT_ALT: camSlowed = action != GLFW_RELEASE; return true;
-	default: return false;
 	}
 }
 
@@ -103,7 +73,8 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 	const auto deltaY = static_cast<float>(ypos - mousePosY_);
 
 	const auto limit = 360 * 2;
-	if (mouseRightPressed_)
+
+	if (m_currentMode == FPS)
 	{
 		cameraRotX_ += deltaX;
 		this->localRotation.x -= deltaX;
@@ -114,17 +85,28 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 		if (localRotation.y < -limit) { cameraRotY_ = 0; this->localRotation.y -= deltaY; }
 
 		this->setLocalRotation(glm::vec3(localRotation));
+		UpdateVectors();
 	}
-	//if (mouseRightPressed_)
-	//{
-	//	modelRotX_ += deltaX;
-	//	modelRotY_ += deltaY;
-	//}
+
+	if (m_currentMode == PAN)
+	{
+		// Needs Sensitivity Settings
+		MoveRight(deltaX * camSpeed_);
+		MoveUp(deltaY * camSpeed_);
+		UpdateVectors();
+	}
+
+	if (m_currentMode == ZOOM)
+	{
+		MoveForward(deltaX);
+		MoveForward(deltaY);
+		UpdateVectors();
+	}
 
 	mousePosX_ = xpos;
 	mousePosY_ = ypos;
 
-	return mouseLeftPressed_ || mouseRightPressed_;
+	return m_currentMode != NONE;
 }
 
 bool Camera::OnMouseButton(const int button, const int action, const int mods)
@@ -194,23 +176,13 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 		}
 	}
 
-	if (button == GLFW_MOUSE_BUTTON_LEFT)
-	{
-		mouseLeftPressed_ = action == GLFW_PRESS;
-	}
-
-
-	if (button == GLFW_MOUSE_BUTTON_RIGHT)
-	{
-		mouseRightPressed_ = action == GLFW_PRESS;
-	}
-
 	return true;
 }
 
 bool Camera::UpdateCamera(const double speed, const double timeDelta)
 {
 	if (camSlowed) camSpeed_ = camSlowSpeed;
+	else if (camSpedUp) camSpeed_ = camFastSpeed;
 	else camSpeed_ = camNormalSpeed;
 
 	const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;
@@ -238,7 +210,202 @@ bool Camera::UpdateCamera(const double speed, const double timeDelta)
 	cameraRotY_ = 0;
 	cameraRotX_ = 0;
 
+	if (updated)
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
+
 	return updated;
+}
+
+void Camera::OnActionPressed(Hotkey::Action action)
+{
+	UpdateVectors();
+
+	if (action == Hotkey::Action::Camera_FPSMode)
+	{
+		m_currentMode = FPS;
+	}
+
+	if (action == Hotkey::Action::Camera_NormalPanMode)
+	{
+		m_currentMode = PAN;
+	}
+
+	if (action == Hotkey::Action::Camera_SlowPanMode)
+	{
+		m_currentMode = PAN;
+		camSlowed = true;
+	}
+
+	if (action == Hotkey::Action::Camera_FastPanMode)
+	{
+		m_currentMode = PAN;
+		camSpedUp = true;
+	}
+
+	if (action == Hotkey::Action::Camera_ZoomMode)
+	{
+		m_currentMode = ZOOM;
+	}
+
+	if (action == Hotkey::Action::Camera_OrbitMode)
+	{
+		m_currentMode = ORBIT;
+	}
+
+	if (m_currentMode == FPS)
+	{
+		if (action == Hotkey::Action::Camera_Forward)
+		{
+			cameraMovingForward_ = true;
+		}
+
+		if (action == Hotkey::Action::Camera_Backward)
+		{
+			cameraMovingBackward_ = true;
+		}
+
+		if (action == Hotkey::Action::Camera_Down)
+		{
+			cameraMovingDown_ = true;
+		}
+
+		if (action == Hotkey::Action::Camera_Up)
+		{
+			cameraMovingUp_ = true;
+		}
+
+		if (action == Hotkey::Action::Camera_StrafeLeft)
+		{
+			cameraMovingLeft_ = true;
+		}
+
+		if (action == Hotkey::Action::Camera_StrafeRight)
+		{
+			cameraMovingRight_ = true;
+		}
+
+		if (action == Hotkey::Action::Camera_SpeedUp)
+		{
+			camSpedUp = true;
+		}
+
+		if (action == Hotkey::Action::Camera_SlowDown)
+		{
+			camSlowed = true;
+		}
+	}
+
+	if (action == Hotkey::Action::Camera_MoveObjectToView)
+	{
+		auto currentObj = ModelManager::getInstance()->getSelectedObject();
+		if (!currentObj) return;
+
+		currentObj->setLocalPosition(this->getWorldPosition() + glm::vec3(forward_) * 500.0f);
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
+	if (action == Hotkey::Action::Camera_Reset)
+	{
+		auto selected = ModelManager::getInstance()->getSelectedObject();
+
+		if (selected) {
+			this->Reset(glm::lookAt(
+				selected->getWorldPosition() - glm::vec3(0, 0, 1000),
+				selected->getWorldPosition(),
+				glm::vec3(0, 1, 0)
+			));
+		}
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+}
+
+void Camera::OnActionReleased(Hotkey::Action action)
+{
+	if (action == Hotkey::Action::Camera_FPSMode)
+	{
+		m_currentMode = NONE;
+	}
+
+	if (action == Hotkey::Action::Camera_NormalPanMode)
+	{
+		m_currentMode = NONE;
+		cameraMovingLeft_ = false;
+		cameraMovingRight_ = false;
+		cameraMovingUp_ = false;
+		cameraMovingDown_ = false;
+	}
+
+	if (action == Hotkey::Action::Camera_SlowPanMode)
+	{
+		m_currentMode = NONE;
+		camSlowed = false;
+		cameraMovingLeft_ = false;
+		cameraMovingRight_ = false;
+		cameraMovingUp_ = false;
+		cameraMovingDown_ = false;
+	}
+
+	if (action == Hotkey::Action::Camera_FastPanMode)
+	{
+		m_currentMode = NONE;
+		camSpedUp = false;
+		cameraMovingLeft_ = false;
+		cameraMovingRight_ = false;
+		cameraMovingUp_ = false;
+		cameraMovingDown_ = false;
+	}
+
+	if (action == Hotkey::Action::Camera_ZoomMode)
+	{
+		m_currentMode = NONE;
+	}
+
+	if (action == Hotkey::Action::Camera_OrbitMode)
+	{
+		m_currentMode = NONE;
+	}
+
+	if (action == Hotkey::Action::Camera_Forward)
+	{
+		cameraMovingForward_ = false;
+	}
+
+	if (action == Hotkey::Action::Camera_Backward)
+	{
+		cameraMovingBackward_ = false;
+	}
+
+	if (action == Hotkey::Action::Camera_Down)
+	{
+		cameraMovingDown_ = false;
+	}
+
+	if (action == Hotkey::Action::Camera_Up)
+	{
+		cameraMovingUp_ = false;
+	}
+
+	if (action == Hotkey::Action::Camera_StrafeLeft)
+	{
+		cameraMovingLeft_ = false;
+	}
+
+	if (action == Hotkey::Action::Camera_StrafeRight)
+	{
+		cameraMovingRight_ = false;
+	}
+
+	if (action == Hotkey::Action::Camera_SpeedUp)
+	{
+		camSpedUp = false;
+	}
+
+	if (action == Hotkey::Action::Camera_SlowDown)
+	{
+		camSlowed = false;
+	}
 }
 
 glm::mat4 Camera::GetProjection(UserSettings settings, const VkExtent2D extent)

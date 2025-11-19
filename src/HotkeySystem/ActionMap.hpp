@@ -21,6 +21,7 @@ namespace Hotkey
 		Camera_FocusOnGameObject,
 		Camera_FocusOnGameObject_Zoomed,
 		Camera_Reset,
+		Camera_MoveObjectToView,
 
 		Toggle_SettingsScreenVisibility,
 		Toggle_AllUIVisibility,
@@ -36,22 +37,18 @@ namespace Hotkey
 		SceneTool_Transform,
 		SceneTool_Cycle,
 
-		Toggle_GameObjectEnabled,
-		DeleteGameObject,
-		DuplicateGameObject,
-		CutGameObject,
-		CopyGameObject,
-		PasteGameObject,
-		Hierarchy_SetAsFirstSibling,
-		Hierarchy_SetAsLastSibling,
-		Hierarchy_ToggleVisibilityWithDescendants,
-		Hierarchy_TogglePickabilityWithDescendants,
-
-		GameObject_MoveToView,
+		GameObject_ToggleActive,
+		GameObject_Delete,
+		GameObject_Duplicate,
+		GameObject_Cut,
+		GameObject_Copy,
+		GameObject_Paste,
+		GameObject_SetAsFirstSibling,
+		GameObject_SetAsLastSibling,
+		GameObject_ToggleVisibilityWithDescendants,
+		GameObject_TogglePickabilityWithDescendants,
 
 		Undo,
 		Redo
-
-		
 	};
 }

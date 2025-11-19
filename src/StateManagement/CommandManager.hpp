@@ -1,8 +1,9 @@
 #pragma once
 #include "ICommand.hpp"
+#include "HotkeySystem/HotkeyListener.hpp"
 #include <stack>
 
-class CommandManager
+class CommandManager : public HotkeyListener
 {
 public:
     using CommandStack = std::stack<ICommand*>;
@@ -14,6 +15,8 @@ public:
     void executeCommand(ICommand* command);
     void undo();
     void redo();
+
+    void OnActionPressed(Hotkey::Action action) override;
 
 private:
     CommandManager();

@@ -26,6 +26,7 @@
 #include "From-GDGRAP2/ModelManager.h"
 
 #include "Engine/Scene/SceneIO.hpp"
+#include "HotkeySystem/HotkeySystem.hpp"
 
 namespace Vulkan {
 
@@ -46,9 +47,14 @@ Application::Application(const WindowConfig& windowConfig, const VkPresentModeKH
 	//initialize libs
 	Debug::initialize();
 	GlobalConfig::initialize();
+	HotkeySystem::initialize();
 	EventBroadcaster::initialize();
 	ModelManager::initialize();
 	SceneIO::initialize();
+
+
+	inputAdapter_ = new GLFWInputAdapter(Application::Window().Handle());
+	inputAdapter_->initializeCallbacks();
 }
 
 Application::~Application()
@@ -63,6 +69,7 @@ Application::~Application()
 	window_.reset();
 
 	ModelManager::destroy();
+	HotkeySystem::destroy();
 	EventBroadcaster::destroy();
 	GlobalConfig::destroy();
 	Debug::destroy();

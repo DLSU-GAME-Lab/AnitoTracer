@@ -1,5 +1,6 @@
 #include "CommandManager.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
+#include "HotkeySystem/HotkeySystem.hpp"
 
 CommandManager* CommandManager::sharedInstance = nullptr;
 
@@ -18,10 +19,14 @@ void CommandManager::destroy()
 	delete sharedInstance;
 }
 
-CommandManager::CommandManager() {}
+CommandManager::CommandManager() 
+{
+	HotkeySystem::getInstance()->addListener(this);
+}
 
 CommandManager::~CommandManager()
 {
+	HotkeySystem::getInstance()->removeListener(this);
 	clearStack(sharedInstance->undoStack);
 	clearStack(sharedInstance->redoStack);
 }
@@ -58,4 +63,10 @@ void CommandManager::redo()
 	this->redoStack.pop();
 	command->execute();
 	this->undoStack.push(command);
+}
+
+void CommandManager::OnActionPressed(Hotkey::Action action)
+{
+	if (action == Hotkey::Action::Undo)	this->undo();
+	if (action == Hotkey::Action::Redo) this->redo();
 }

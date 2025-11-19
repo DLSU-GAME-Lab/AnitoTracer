@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include "Engine/Profiler/Profiler.h"
+#include "HotkeySystem/GLFWInputAdapter.hpp"
 
 namespace Assets
 {
@@ -99,6 +100,7 @@ namespace Vulkan
 		std::vector<class Semaphore> renderFinishedSemaphores_;
 		std::vector<class Fence> inFlightFences_;
 		size_t currentFrame_{};
+		GLFWInputAdapter* inputAdapter_;
 	};
 
 }

@@ -8,11 +8,12 @@
 #include "Assets/Texture.hpp"
 #include "Engine/LightSystem/Light.h"
 #include "From-GDGRAP2/GameObject.h"
+#include "HotkeySystem/HotkeyListener.hpp"
 
 /**
  * \brief Similar to the game object manager, this class stores model instances
  */
-class ModelManager
+class ModelManager : public HotkeyListener
 {
 public:
 	using vec3 = glm::vec3;
@@ -41,8 +42,10 @@ public:
 
 	void addObject(GameObjectPtr gameObject);
 	void addObjectAtIndex(GameObjectPtr gameObject, int index);
-	GameObjectPtr removeObject(GameObject* gameObject);
+	GameObjectPtr removeObject(GameObject* target);
 	void deleteObject(GameObject* gameObject);
+
+	GameObjectPtr CreateCopyOfObject(GameObject* original);
 
 	void addLightObject(LightPtr lightObj);
 	LightPtr removeLightObject(Light* gameObject);
@@ -65,10 +68,11 @@ public:
 	void createObjectGroupFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale);
 	void createSponza();
 
+	void OnActionPressed(Hotkey::Action action) override;
 
 private:
-	ModelManager() = default;
-	~ModelManager() = default;
+	ModelManager();
+	~ModelManager();
 	ModelManager(ModelManager const&) {};             // copy constructor is private
 	ModelManager& operator=(ModelManager const&) {};  // assignment operator is private*/
 	static ModelManager* sharedInstance;
@@ -79,5 +83,8 @@ private:
 	LightList lightList;
 
 	GameObject* selectedObject = nullptr;
+	GameObjectPtr copiedObject = nullptr;
+
+	GameObjectPtr removeInSubtree(GameObject* parent, GameObject* target);
 };
 

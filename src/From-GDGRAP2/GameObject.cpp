@@ -324,27 +324,14 @@ int GameObject::getChildIndex(GameObject* child) const
 	return -1;
 }
 
+/* Only adds parent ref, unique ptr still needs to be moved to children of parent */
 void GameObject::setParent(GameObject* newParent)
 {
 	if (newParent == this || (newParent && isDescendantOf(newParent)))
 		return;
 
-	GameObjectPtr thisUnique;
-
-	if (parent)
-		thisUnique = parent->removeChild(this);
-	else
-		thisUnique = ModelManager::getInstance()->removeObject(this);
-
 	parent = newParent;
 	this->setWorldDirty();
-
-	if (parent)
-		parent->addChild(std::move(thisUnique));
-	else
-	{
-		ModelManager::getInstance()->addObject(std::move(thisUnique));
-	}
 }
 
 GameObject* GameObject::getParent() const

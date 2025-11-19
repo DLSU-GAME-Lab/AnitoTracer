@@ -94,21 +94,21 @@ void HotkeySystem::setupDefaultBindings()
     bindHotkey({ KeyCode::T, Modifiers::None }, Action::SceneTool_Transform);
     bindHotkey({ KeyCode::G, Modifiers::None }, Action::SceneTool_Cycle);
 
-    bindHotkey({ KeyCode::A, Modifiers::Shift | Modifiers::Alt }, Action::Toggle_GameObjectEnabled);
-    bindHotkey({ KeyCode::Delete, Modifiers::None }, Action::DeleteGameObject);
-    bindHotkey({ KeyCode::D, Modifiers::Ctrl }, Action::DuplicateGameObject);
-    bindHotkey({ KeyCode::C, Modifiers::Ctrl }, Action::CopyGameObject);
-    bindHotkey({ KeyCode::V, Modifiers::Ctrl }, Action::PasteGameObject);
-    bindHotkey({ KeyCode::X, Modifiers::Ctrl }, Action::CutGameObject);
+    bindHotkey({ KeyCode::A, Modifiers::Shift | Modifiers::Alt }, Action::GameObject_ToggleActive);
+    bindHotkey({ KeyCode::Delete, Modifiers::None }, Action::GameObject_Delete);
+    bindHotkey({ KeyCode::D, Modifiers::Ctrl }, Action::GameObject_Duplicate);
+    bindHotkey({ KeyCode::C, Modifiers::Ctrl }, Action::GameObject_Copy);
+    bindHotkey({ KeyCode::V, Modifiers::Ctrl }, Action::GameObject_Paste);
+    bindHotkey({ KeyCode::X, Modifiers::Ctrl }, Action::GameObject_Cut);
 
-    bindHotkey({ KeyCode::Equal, Modifiers::Ctrl }, Action::Hierarchy_SetAsFirstSibling);
-    bindHotkey({ KeyCode::Minus, Modifiers::Ctrl }, Action::Hierarchy_SetAsLastSibling);
-    bindHotkey({ KeyCode::H, Modifiers::None }, Action::Hierarchy_ToggleVisibilityWithDescendants);
-    bindHotkey({ KeyCode::L, Modifiers::None }, Action::Hierarchy_TogglePickabilityWithDescendants);
+    bindHotkey({ KeyCode::Equal, Modifiers::Ctrl }, Action::GameObject_SetAsFirstSibling);
+    bindHotkey({ KeyCode::Minus, Modifiers::Ctrl }, Action::GameObject_SetAsLastSibling);
+    bindHotkey({ KeyCode::H, Modifiers::None }, Action::GameObject_ToggleVisibilityWithDescendants);
+    bindHotkey({ KeyCode::L, Modifiers::None }, Action::GameObject_TogglePickabilityWithDescendants);
 
     bindHotkey({ KeyCode::F7, Modifiers::None }, Action::Camera_Reset);
 
-    bindHotkey({ KeyCode::F, Modifiers::Ctrl | Modifiers::Alt }, Action::GameObject_MoveToView);
+    bindHotkey({ KeyCode::F, Modifiers::Ctrl | Modifiers::Alt }, Action::Camera_MoveObjectToView);
 
     // Mouse binds (also need agnostic enum)
     bindMouseHotkey({ KeyCode::RightMouse, Modifiers::None }, Action::Camera_FPSMode);

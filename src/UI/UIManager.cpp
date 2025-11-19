@@ -40,6 +40,7 @@
 #include "EditorTheme.hpp"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
+#include "HotkeySystem/HotkeySystem.hpp"
 
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
@@ -63,11 +64,13 @@ namespace
 
 UIManager::UIManager()
 {
-
+	HotkeySystem::getInstance()->addListener(this);
 }
 
 UIManager::~UIManager()
 {
+	HotkeySystem::getInstance()->removeListener(this);
+
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
@@ -417,15 +420,6 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	//Start ImGuizmo frame.
 	if (ModelManager::getInstance()->getSelectedObject() != nullptr)
 	{
-		static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
-
-		if (!ImGui::IsMouseDown(ImGuiMouseButton_Right))
-		{
-			if (ImGui::IsKeyPressed(ImGuiKey_W)) mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-			if (ImGui::IsKeyPressed(ImGuiKey_E)) mCurrentGizmoOperation = ImGuizmo::ROTATE;
-			if (ImGui::IsKeyPressed(ImGuiKey_R)) mCurrentGizmoOperation = ImGuizmo::SCALE;
-		}
-
 		if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) isCTRLHeld = true;
 
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
@@ -455,7 +449,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		glm::mat4 projMatrix = CameraManager::getInstance()->getActiveCamera()->GetProjection();
 
 		if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
-			mCurrentGizmoOperation, ImGuizmo::WORLD, glm::value_ptr(gizmoModelMatrix)))
+			m_currentGizmoOperation, ImGuizmo::WORLD, glm::value_ptr(gizmoModelMatrix)))
 		{
 			gizmoWasManipulated = true;
 
@@ -485,7 +479,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 			// Uniform Scaling
 			// Check from InspectorWindow if uniform scaling is enabled
-			if (inspector->IsUniformScalingEnabled() || (mCurrentGizmoOperation == ImGuizmo::SCALE && isCTRLHeld))
+			if (inspector->IsUniformScalingEnabled() || (m_currentGizmoOperation == ImGuizmo::SCALE && isCTRLHeld))
 			{
 				if (scale[0] != gizmoBeforeState.scale.x) // check which value was manipulated
 				{
@@ -720,6 +714,29 @@ bool UIManager::wantsToCaptureMouse()
 ImFont* UIManager::GetIconFont()
 {
 	return this->iconFont;
+}
+
+void UIManager::OnActionPressed(Hotkey::Action action)
+{
+	if (ModelManager::getInstance()->getSelectedObject() == nullptr) return;
+
+	using Action = Hotkey::Action;
+
+	if (action == Action::SceneTool_Move) m_currentGizmoOperation = ImGuizmo::TRANSLATE;
+	if (action == Action::SceneTool_Rotate) m_currentGizmoOperation = ImGuizmo::ROTATE;
+	if (action == Action::SceneTool_Scale) m_currentGizmoOperation = ImGuizmo::SCALE;
+	if (action == Action::SceneTool_Transform) m_currentGizmoOperation = ImGuizmo::UNIVERSAL;
+	if (action == Action::SceneTool_Cycle)
+	{
+		switch (m_currentGizmoOperation)
+		{
+		case ImGuizmo::TRANSLATE: m_currentGizmoOperation = ImGuizmo::ROTATE; break;
+		case ImGuizmo::ROTATE: m_currentGizmoOperation = ImGuizmo::SCALE; break;
+		case ImGuizmo::SCALE: m_currentGizmoOperation = ImGuizmo::UNIVERSAL; break;
+		case ImGuizmo::UNIVERSAL:
+		default: m_currentGizmoOperation = ImGuizmo::TRANSLATE; break;
+		}
+	}
 }
 
 void UIManager::setupImGuiStyle()
