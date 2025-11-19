@@ -40,6 +40,7 @@
 #include "EditorTheme.hpp"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
+#include "StateManagement/ConcreteCommands/GUICommands.hpp"
 
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
@@ -408,6 +409,12 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	//Allow docking inside the main viewport 
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
+	if (this->m_isFirstFrame) // Record the initial layout snapshot
+	{
+		this->m_lastLayoutSnapshot = GetIniDump();
+		this->m_isFirstFrame = false;
+	}
+
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
 	drawAllUI();
@@ -575,6 +582,8 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	//ImGui::RenderPlatformWindowsDefault();
 
 	TransformHistory::getInstance().resetUndoRedoFlag();
+
+	this->detectAndRecordLayoutChanges(); // detect layout changes for recording after docking is set
 }
 
 void UIManager::drawOverlay(const Statistics& statistics) const
@@ -720,6 +729,46 @@ bool UIManager::wantsToCaptureMouse()
 ImFont* UIManager::GetIconFont()
 {
 	return this->iconFont;
+}
+
+void UIManager::detectAndRecordLayoutChanges()
+{
+	if (m_recordNextFrame) // need to wait for next frame so docking changes apply
+	{
+		m_recordNextFrame = false;
+		return;
+	}
+
+	if (!this->m_isFirstFrame && !this->m_isLeftMouseDown && this->m_isRecording)
+	{
+		this->m_isRecording = false;
+		std::string currentLayoutSnapshot = GetIniDump();
+
+		if (currentLayoutSnapshot != this->m_lastLayoutSnapshot)
+		{
+			CommandManager::getInstance()->executeCommand(new ModifyLayoutCommand(this->m_lastLayoutSnapshot, currentLayoutSnapshot));
+			this->m_lastLayoutSnapshot = currentLayoutSnapshot;
+		}
+	}
+}
+
+void UIManager::onLMBPressed()
+{
+	this->m_isLeftMouseDown = true;
+	this->m_isRecording = true; // start recording if potential layout change
+}
+
+void UIManager::onLMBReleased()
+{
+	this->m_isLeftMouseDown = false;
+	this->m_recordNextFrame = true; //set flag for actual recording
+}
+
+std::string UIManager::GetIniDump() const
+{
+	size_t size = 0;
+	const char* data = ImGui::SaveIniSettingsToMemory(&size);
+	return std::string(data, size);
 }
 
 void UIManager::setupImGuiStyle()

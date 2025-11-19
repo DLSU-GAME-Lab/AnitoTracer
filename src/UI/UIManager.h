@@ -101,6 +101,10 @@ public:
 	static bool wantsToCaptureKeyboard();
 	static bool wantsToCaptureMouse();
 
+	void detectAndRecordLayoutChanges();
+	void onLMBPressed();
+	void onLMBReleased();
+
 	ImFont* GetIconFont();
 
 	bool settingsActive = false;
@@ -117,10 +121,9 @@ private:
 
 	void drawAllUI() const;
 	void drawOverlay(const Statistics& statistics) const;
-
+	std::string GetIniDump() const;
 
 	std::unique_ptr<Vulkan::RenderPass> renderPass;
-
 
 	float translation[3] = {}, rotation[3] = {}, scale[3] = {};
 	bool isUsingImguizmo = false;
@@ -139,6 +142,13 @@ private:
 	static TransformState gizmoBeforeState;
 	
 	static bool gizmoWasManipulated;
+
+	std::string m_lastLayoutSnapshot;
+
+	bool m_isFirstFrame = true;
+	bool m_isLeftMouseDown = false;
+	bool m_isRecording = false;
+	bool m_recordNextFrame = false;
 
 	ImFont* iconFont = nullptr;
 	bool isCTRLHeld = false;

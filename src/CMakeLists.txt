@@ -261,8 +261,19 @@ set(src_files_statemanagement
 	StateManagement/ConcreteCommands/HierarchyCommands.cpp
 	StateManagement/ConcreteCommands/MenuBarCommands.hpp
 	StateManagement/ConcreteCommands/MenuBarCommands.cpp
+	StateManagement/ConcreteCommands/GUICommands.hpp
+	StateManagement/ConcreteCommands/GUICommands.cpp
 )
 
+set(src_files_hotkeysytem
+	HotkeySystem/HotkeySystem.hpp
+	HotkeySystem/HotkeySystem.cpp
+	HotkeySystem/HotkeyListener.hpp
+	HotkeySystem/GLFWInputAdapter.hpp
+	HotkeySystem/GLFWInputAdapter.cpp
+	HotkeySystem/KeyCodes.hpp
+	HotkeySystem/ActionMap.hpp
+)
 
 set(src_files
 	main.cpp
@@ -282,6 +293,7 @@ source_group("OBB" FILES ${src_files_obb})
 
 source_group("CameraSystem" FILES ${src_files_camerasystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
+source_group("HotkeySystem" FILES ${src_files_hotkeysytem})
 source_group("Profiler" FILES ${src_files_profiler})
 source_group("Scene IO" FILES ${src_files_sceneio})
 source_group("RayVisualization" FILES ${src_files_ray_visualization})
@@ -299,6 +311,7 @@ add_executable(${exe_name}
 
 	${src_files_camerasystem} 
 	${src_files_lightsystem} 
+	${stc_files_hotkeysystem}
 	${src_files_profiler}
 	${src_files_sceneio}
 	${src_files_ray_visualization} 
