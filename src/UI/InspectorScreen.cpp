@@ -290,6 +290,7 @@ void InspectorScreen::drawTransformTab()
 			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
 			{
 				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
+				UIManager::getInstance()->config()->inspectorUniformScaling = this->isUniformScalingEnabled;
 			}
 			ImGui::PopFont();
 
