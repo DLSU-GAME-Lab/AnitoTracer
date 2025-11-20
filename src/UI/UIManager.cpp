@@ -42,6 +42,7 @@
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 #include "HotkeySystem/HotkeySystem.hpp"
 #include "StateManagement/ConcreteCommands/GUICommands.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
 
 #include "glm/fwd.hpp"
 #include "Assets/Model.hpp"
@@ -180,10 +181,21 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 	io.FontDefault = defaultFont;
 
+	static const ImWchar iconRanges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
+	ImFontConfig* iconMergedFontConfig = new ImFontConfig();
+	iconMergedFontConfig->MergeMode = true;
+	iconMergedFontConfig->PixelSnapH = true;
+	iconMergedFontConfig->GlyphOffset = ImVec2(1.0f, 0.0f);
+
+	sharedInstance->iconFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 13 * scaleFactor, iconMergedFontConfig, iconRanges);
+
+	if (!sharedInstance->iconFont)
+	{
+		Throw(std::runtime_error("failed to load Icon font"));
+	}
+
 	/* 2 */
 	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.EDITOR_FONT).data(), 14 * scaleFactor);
-
-	static const ImWchar iconRanges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
 
 	ImFontConfig* iconFontConfig = new ImFontConfig();
 	iconFontConfig->MergeMode = false;
@@ -442,9 +454,17 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			{
 				const auto i = glm::mat4(1);
 				const char* path = (const char*)payload->Data;
-				Assets::Model draggedModel = Assets::Model::LoadModel(path);
-				std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
-				ModelManager::getInstance()->addObject(draggedObj);
+
+				CommandManager::getInstance()->executeCommand(
+					new CreateMeshCommand(
+						path,
+						"GameObject"
+					)
+				);
+
+				//Assets::Model draggedModel = Assets::Model::LoadModel(path);
+				//std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
+				//ModelManager::getInstance()->addObject(draggedObj);
 			}
 			ImGui::EndDragDropTarget();
 		}
