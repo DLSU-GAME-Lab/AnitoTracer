@@ -39,6 +39,11 @@
 #include "IconsMaterialDesign.h"
 #include "EditorTheme.hpp"
 
+#include "glm/fwd.hpp"
+#include "Assets/Model.hpp"
+#include "From-GDGRAP2/MaterialLibrary.h"
+
+
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
 
@@ -396,6 +401,24 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	//Allow docking inside the main viewport 
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
+	if(ImGui::Begin("TEST", nullptr, 0)) {
+		ImGui::Button("DROP HERE");
+		if (ImGui::BeginDragDropTarget())
+		{
+
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PATH_DRAGGABLE"))
+			{
+				const auto i = glm::mat4(1);
+				const char* path = (const char*)payload->Data;
+				Assets::Model draggedModel = Assets::Model::LoadModel(path);
+				std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
+				ModelManager::getInstance()->addObject(draggedObj);
+			}
+			ImGui::EndDragDropTarget();
+		}
+	}
+	ImGui::End();
+	
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
 	drawAllUI();

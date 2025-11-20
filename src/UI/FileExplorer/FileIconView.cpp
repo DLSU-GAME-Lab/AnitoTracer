@@ -21,7 +21,9 @@ void FileIconView::drawUI() {
 
 void FileIconView::renderCurrentNodeChildrenIcons() {
 
+    int i = 0;
     for (FileTreeNode &rootChild : currentNode->getChildren()) {
+        ImGui::PushID(i++);
         if (ImGui::Button(chooseIconCode(rootChild).append("##").append(rootChild.getPathString()).c_str()))
         {
             if (rootChild.isDirectory() && rootChild.directoryEntryExists())
@@ -33,7 +35,31 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
                 setCurrentNode(&rootChild);
             }
         }
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+        {
+            if (FileExplorerUtils::getFileExtension(rootChild.getName()) == "obj") {
+                std::string modelPath = rootChild.getPathString();
+                ImGui::SetDragDropPayload("MODEL_PATH_DRAGGABLE", modelPath.c_str(), (strlen(modelPath.c_str()) + 1) * sizeof(char));
+            }
+
+            ImGui::Text(rootChild.getName().c_str());
+
+            ImGui::EndDragDropSource();
+        }
+
         ImGui::Text(rootChild.getName().c_str());
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+        {
+            if (FileExplorerUtils::getFileExtension(rootChild.getName()) == "obj") {
+                std::string modelPath = rootChild.getPathString();
+                ImGui::SetDragDropPayload("MODEL_PATH_DRAGGABLE", modelPath.c_str(), (strlen(modelPath.c_str()) + 1) * sizeof(char));
+            }
+
+            ImGui::Text(rootChild.getName().c_str());
+            
+            ImGui::EndDragDropSource();
+        }
+        ImGui::PopID();
     }
 
 }
@@ -80,6 +106,9 @@ std::string FileIconView::chooseIconBasedOnExtension(const std::string& filename
     }
     else if (fileExtension == "meta" || fileExtension == "config") {
         iconCode = ICON_MD_SETTINGS;
+    }
+    else if (fileExtension == "obj") {
+        iconCode = ICON_MD_LANDSCAPE;
     }
     else {
         iconCode = ICON_MD_QUIZ;

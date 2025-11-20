@@ -20,7 +20,9 @@ void FileListView::drawUI() {
 
 void FileListView::renderDescendants(FileTreeNode& root) {
     if (root.getIsOpen()) {
+        int i = 0;
         for (auto& rootChild : root.getChildren()) { //root.children
+            ImGui::PushID(i++);
 
             // 1.) Initialize the root children nodes if they are directories, and give them render flags.
             ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow;
@@ -54,6 +56,19 @@ void FileListView::renderDescendants(FileTreeNode& root) {
                 rootChild.setIsOpen(false);
                 ImGui::PopFont();
             }
+
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+            {
+                if (FileExplorerUtils::getFileExtension(rootChild.getName()) == "obj") {
+                    std::string modelPath = rootChild.getPathString();
+                    ImGui::SetDragDropPayload("MODEL_PATH_DRAGGABLE", modelPath.c_str(), (strlen(modelPath.c_str()) + 1) * sizeof(char));
+                }
+
+                ImGui::Text(rootChild.getName().c_str());
+
+                ImGui::EndDragDropSource();
+            }
+            ImGui::PopID();
         }
     }
 }
@@ -130,6 +145,9 @@ std::string FileListView::chooseIconBasedOnExtension(const std::string& filename
     }
     else if (fileExtension == "meta" || fileExtension == "config") {
         iconCode = ICON_MD_SETTINGS;
+    }
+    else if (fileExtension == "obj") {
+        iconCode = ICON_MD_LANDSCAPE;
     }
     else {
         iconCode = ICON_MD_QUIZ;
