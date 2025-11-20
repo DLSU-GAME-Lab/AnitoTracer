@@ -662,6 +662,7 @@ void UIManager::toggleEnabled(const String& uiName)
 	if (this->uiTable[uiName] != nullptr)
 	{
 		this->uiTable[uiName]->toggleEnabled();
+		this->m_windowWasToggled = true;
 	}
 }
 
@@ -758,7 +759,15 @@ void UIManager::OnActionPressed(Hotkey::Action action)
 
 void UIManager::detectAndRecordLayoutChanges()
 {
-	if (this->m_scheduleNextFrame)
+	/* we do this so we don't record layout changes due to other docking spaces stretch */
+	if (m_windowWasToggled)
+	{
+		this->m_windowWasToggled = false;
+		this->m_scheduleRecording = false;
+		return;
+	}
+
+	if (this->m_scheduleNextFrame) // need to record next frame to save docking changes
 	{
 		this->m_scheduleNextFrame = false;
 		return;
@@ -769,7 +778,6 @@ void UIManager::detectAndRecordLayoutChanges()
 		this->m_currentLayoutSnapshot = GetIniDump();
 		if (this->compareStrippedIni(this->m_currentLayoutSnapshot))
 		{
-			Debug::Log("Recorded Layout");
 			CommandManager::getInstance()->executeCommand(new ModifyLayoutCommand(this->m_lastLayoutSnapshot, this->m_currentLayoutSnapshot));
 		}
 		this->m_scheduleRecording = false;

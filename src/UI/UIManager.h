@@ -155,6 +155,7 @@ private:
 
 	bool m_scheduleRecording = false;
 	bool m_scheduleNextFrame = false;
+	bool m_windowWasToggled = false;
 
 	ImFont* iconFont = nullptr;
 	bool isCTRLHeld = false;

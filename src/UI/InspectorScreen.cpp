@@ -16,6 +16,7 @@
 
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
+	this->isUniformScalingEnabled = UIManager::getInstance()->config()->inspectorUniformScaling;
 }
 
 InspectorScreen::~InspectorScreen()
@@ -388,15 +389,16 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 			break;
 
 		case EditorAction::Scale:
-			if(IsUniformScalingEnabled()) scale = ScaleUniformly(scale, values);
+			if(IsUniformScalingEnabled()) 
+				scale = ScaleUniformly(scale, values);
 
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
 					this->selectedObject,
 					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalScale(std::get<glm::vec3>(v)); },
 					this->selectedObject->getLocalScale(),
-					glm::vec3(values[0], values[1], values[2])
-				));
+					scale)
+				);
 
 			break;
 		}
