@@ -36,6 +36,8 @@ void ReparentCommand::execute()
 	{
 		newParent->addChildAtIndex(std::move(childPtr), newIndex);
 	}
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void ReparentCommand::undo()
@@ -59,6 +61,8 @@ void ReparentCommand::undo()
 	{
 		oldParent->addChildAtIndex(std::move(childPtr), oldIndex);
 	}
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 // ---------------- CreateObjectCommand (common create/undo/redo) ----------------
@@ -101,6 +105,8 @@ void CreateObjectCommand::undo()
 		this->createdObjectRef = this->createdObjectStorage.get();
 	else
 		this->createdObjectRef = nullptr;
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void CreateObjectCommand::applyPostCreation(GameObject* obj)
@@ -176,6 +182,8 @@ void CreateLightCommand::undo()
 		this->createdObjectRef = this->createdObjectStorage.get();
 	else
 		this->createdObjectRef = nullptr;
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 DeleteObjectCommand::DeleteObjectCommand(GameObject* objectToDelete) : objectRef(objectToDelete)

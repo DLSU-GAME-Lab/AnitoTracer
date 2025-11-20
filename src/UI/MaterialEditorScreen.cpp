@@ -258,10 +258,12 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 
 				ImGui::SameLine();
 
+				ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[5]);
 				if (ImGui::Button(ICON_MD_COLORIZE, ImVec2(buttonSize, 20.0f)))
 				{
 					isColorPickerOpen = !isColorPickerOpen;
 				}
+				ImGui::PopFont();
 			}
 
 			/* Metallic */

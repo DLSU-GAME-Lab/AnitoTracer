@@ -3,6 +3,8 @@
 #include "From-GDGRAP2/ModelManager.h"
 #include "SceneList.hpp"
 #include "RayTracer.hpp"
+
+#include "UI/UIManager.h"
 #include <tuple>
 
 LoadSceneCommand::LoadSceneCommand(int sceneIndex) : sceneIndex(sceneIndex)
@@ -74,4 +76,39 @@ void LoadSceneCommand::undo()
 	oldSceneGraph.clear();
 
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+ToggleWindowVisibiltyCommand::ToggleWindowVisibiltyCommand(std::string windowName)
+	: windowName(windowName)
+{
+}
+
+void ToggleWindowVisibiltyCommand::execute()
+{
+	if (this->windowName == UINames::SETTINGS_SCREEN)
+	{
+		UIManager::getInstance()->settingsActive = !UIManager::getInstance()->settingsActive;
+	}
+
+	if (this->windowName == UINames::PROFILER_SCREEN)
+	{
+		UIManager::getInstance()->profilerActive = !UIManager::getInstance()->profilerActive;
+	}
+
+	UIManager::getInstance()->toggleEnabled(windowName);
+}
+
+void ToggleWindowVisibiltyCommand::undo()
+{
+	if (this->windowName == UINames::SETTINGS_SCREEN)
+	{
+		UIManager::getInstance()->settingsActive = !UIManager::getInstance()->settingsActive;
+	}
+
+	if (this->windowName == UINames::PROFILER_SCREEN)
+	{
+		UIManager::getInstance()->profilerActive = !UIManager::getInstance()->profilerActive;
+	}
+
+	UIManager::getInstance()->toggleEnabled(windowName);
 }

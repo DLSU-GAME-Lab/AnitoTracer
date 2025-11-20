@@ -32,6 +32,7 @@ private:
 	void drawTransformTab();
 	void drawVector3Field(const char* label, float* values, EditorAction action);
 	glm::vec3 ScaleUniformly(const glm::vec3& beforeScale, const float* values);
+	void setUniformScalingEnabled(bool flag);
 
 	friend class UIManager;
 
@@ -59,4 +60,6 @@ private:
 
 	float transformUniformScalingButtonWidth = 28.0f;
 	float transformLabelWidth = 100.0f;
+
+	
 };

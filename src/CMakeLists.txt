@@ -215,6 +215,7 @@ set(src_files_ui
 	UI/EditorTheme.hpp
 	UI/EditorTheme.cpp
 	UI/IconsMaterialDesign.h
+	UI/UIConfig.hpp
 )
 
 set(src_files_from_gdgrap2
@@ -261,6 +262,8 @@ set(src_files_statemanagement
 	StateManagement/ConcreteCommands/HierarchyCommands.cpp
 	StateManagement/ConcreteCommands/MenuBarCommands.hpp
 	StateManagement/ConcreteCommands/MenuBarCommands.cpp
+	StateManagement/ConcreteCommands/GUICommands.hpp
+	StateManagement/ConcreteCommands/GUICommands.cpp
 )
 
 set(src_files_hotkeysytem
@@ -272,6 +275,7 @@ set(src_files_hotkeysytem
 	HotkeySystem/KeyCodes.hpp
 	HotkeySystem/ActionMap.hpp
 	HotkeySystem/InputEvent.hpp
+
 )
 
 set(src_files
@@ -309,6 +313,7 @@ add_executable(${exe_name}
 
 	${src_files_camerasystem} 
 	${src_files_lightsystem} 
+	${stc_files_hotkeysystem}
 	${src_files_profiler}
 	${src_files_sceneio}
 	${src_files_hotkeysytem}

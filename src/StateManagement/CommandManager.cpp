@@ -1,6 +1,7 @@
 #include "CommandManager.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "HotkeySystem/HotkeySystem.hpp"
+#include "StateManagement/ConcreteCommands/GUICommands.hpp"
 
 CommandManager* CommandManager::sharedInstance = nullptr;
 
@@ -34,6 +35,7 @@ CommandManager::~CommandManager()
 void CommandManager::clearStack(CommandStack stack)
 {
 	while (!stack.empty()) stack.pop();
+
 }
 
 void CommandManager::executeCommand(ICommand* command)
@@ -41,7 +43,6 @@ void CommandManager::executeCommand(ICommand* command)
 	command->execute();
 	undoStack.push(command);
 	clearStack(this->redoStack);
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void CommandManager::undo()
@@ -52,7 +53,6 @@ void CommandManager::undo()
 	this->undoStack.pop();
 	command->undo();
 	this->redoStack.push(command);
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void CommandManager::redo()
@@ -70,3 +70,4 @@ void CommandManager::OnActionPressed(Hotkey::Action action)
 	if (action == Hotkey::Action::Undo)	this->undo();
 	if (action == Hotkey::Action::Redo) this->redo();
 }
+

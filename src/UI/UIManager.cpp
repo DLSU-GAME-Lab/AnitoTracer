@@ -41,6 +41,7 @@
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 #include "HotkeySystem/HotkeySystem.hpp"
+#include "StateManagement/ConcreteCommands/GUICommands.hpp"
 
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
@@ -82,7 +83,7 @@ UIManager* UIManager::getInstance()
 }
 
 void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain,
-	const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings)
+	const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings, UIConfig* uiConfig)
 {
 
 	sharedInstance = new UIManager();
@@ -93,6 +94,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	sharedInstance->userSettings = userSettings;
 	sharedInstance->swapChain = swapChain;
 	sharedInstance->commandPool = commandPool;
+	sharedInstance->uiConfig = uiConfig;
 
 	// Initialise descriptor pool and render pass for ImGui.
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
@@ -194,6 +196,14 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	/* 4 */
 	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 14 * scaleFactor, iconFontConfig2, iconRanges);
 
+	ImFontConfig* iconFontConfig3 = new ImFontConfig();
+	iconFontConfig3->MergeMode = false;
+	iconFontConfig3->PixelSnapH = true;
+	iconFontConfig3->GlyphOffset = ImVec2(1.0f, 0.0f);
+
+	/* 5 */
+	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 14 * scaleFactor, iconFontConfig3, iconRanges);
+
 	Vulkan::SingleTimeCommands::Submit(*commandPool, [](VkCommandBuffer commandBuffer)
 		{
 			if (!ImGui_ImplVulkan_CreateFontsTexture())
@@ -220,6 +230,7 @@ void UIManager::initializeUI()
 
 	const std::shared_ptr<HierarchyScreen> hierarchyScreen = std::make_shared<HierarchyScreen>();
 	this->uiTable[UINames::HIERARCHY_SCREEN] = hierarchyScreen;
+	hierarchyScreen->setEnabled(this->uiConfig->isHierarchyEnabled);
 	this->uiList.push_back(hierarchyScreen);
 
 	//PROJECTS/FILE EXPLORER WINDOW
@@ -233,22 +244,27 @@ void UIManager::initializeUI()
 
 	const std::shared_ptr<InspectorScreen> inspectorScreen = std::make_shared<InspectorScreen>();
 	this->uiTable[UINames::INSPECTOR_SCREEN] = inspectorScreen;
+	inspectorScreen->setEnabled(this->uiConfig->isInspectorEnabled);
+	inspectorScreen->setUniformScalingEnabled(this->uiConfig->inspectorUniformScaling);
 	this->uiList.push_back(inspectorScreen);
 
 	const std::shared_ptr<ProjectScreen> projectScreen = std::make_shared<ProjectScreen>();
 	this->uiTable[UINames::PROJECT_SCREEN] = projectScreen;
+	projectScreen->setEnabled(this->uiConfig->isProjectEnabled);
 	this->uiList.push_back(projectScreen);
 
 	const std::shared_ptr<ConsoleScreen> consoleScreen = std::make_shared<ConsoleScreen>();
 	this->uiTable[UINames::CONSOLE_SCREEN] = consoleScreen;
+	consoleScreen->setEnabled(this->uiConfig->isConsoleEnabled);
+	consoleScreen->setText(this->uiConfig->consoleTextLog, this->uiConfig->consoleLogCount);
 	this->uiList.push_back(consoleScreen);
 	Debug::assignConsole(consoleScreen);
 
 	const std::shared_ptr<ProfilerScreen> profilerScreen = std::make_shared<ProfilerScreen>();
 	this->uiTable[UINames::PROFILER_SCREEN] = profilerScreen;
 	this->uiList.push_back(profilerScreen);
-	profilerScreen->setEnabled(false);
-	sharedInstance->profilerActive = false;
+	profilerScreen->setEnabled(this->uiConfig->isProfilerEnabled);
+	sharedInstance->profilerActive = this->uiConfig->isProfilerEnabled;
 
 	//std::shared_ptr<gdeng03::PlaybackScreen> playbackScreen = std::make_shared<gdeng03::PlaybackScreen>();
 	//this->uiTable[uiNames.PLAYBACK_SCREEN] = playbackScreen;
@@ -257,13 +273,14 @@ void UIManager::initializeUI()
 	// nawt working yet lol!
 	const std::shared_ptr<gdeng03::MaterialEditorScreen> materialEditorScreen = std::make_shared<gdeng03::MaterialEditorScreen>();
 	this->uiTable[UINames::MATERIAL_EDITOR_SCREEN] = materialEditorScreen;
+	materialEditorScreen->setEnabled(this->uiConfig->isMaterialEditorEnabled);
 	this->uiList.push_back(materialEditorScreen);
 
 	const std::shared_ptr<SettingsScreen> settingsScreen = std::make_shared<SettingsScreen>();
 	this->uiTable[UINames::SETTINGS_SCREEN] = settingsScreen;
 	this->uiList.push_back(settingsScreen);
-	settingsScreen->setEnabled(false);
-	sharedInstance->settingsActive = false;
+	settingsScreen->setEnabled(this->uiConfig->isSettingsEnabled);
+	sharedInstance->settingsActive = this->uiConfig->isSettingsEnabled;
 
 	// std::shared_ptr<AssetExplorerScreen> assetExplorerScreen = std::make_shared<AssetExplorerScreen>();
 	// this->uiTable[uiNames.ASSET_EXPLORER_SCREEN] = assetExplorerScreen;
@@ -540,8 +557,6 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		wasUsingGizmoLastFrame = isUsingGizmoNow;
 	}
 
-
-
 	ImGui::Render();
 
 	VkRenderPassBeginInfo renderPassInfo = {};
@@ -569,6 +584,8 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	//ImGui::RenderPlatformWindowsDefault();
 
 	TransformHistory::getInstance().resetUndoRedoFlag();
+
+	this->detectAndRecordLayoutChanges(); // detect layout changes for recording after docking is set
 }
 
 void UIManager::drawOverlay(const Statistics& statistics) const
@@ -737,6 +754,78 @@ void UIManager::OnActionPressed(Hotkey::Action action)
 		default: m_currentGizmoOperation = ImGuizmo::TRANSLATE; break;
 		}
 	}
+}
+
+void UIManager::detectAndRecordLayoutChanges()
+{
+	if (this->m_scheduleNextFrame)
+	{
+		this->m_scheduleNextFrame = false;
+		return;
+	}
+
+	if (this->m_scheduleRecording)
+	{
+		this->m_currentLayoutSnapshot = GetIniDump();
+		if (this->compareStrippedIni(this->m_currentLayoutSnapshot))
+		{
+			Debug::Log("Recorded Layout");
+			CommandManager::getInstance()->executeCommand(new ModifyLayoutCommand(this->m_lastLayoutSnapshot, this->m_currentLayoutSnapshot));
+		}
+		this->m_scheduleRecording = false;
+	}
+}
+
+void UIManager::onLMBPressed()
+{
+	this->m_lastLayoutSnapshot = GetIniDump();
+}
+
+void UIManager::onLMBReleased()
+{
+	this->m_scheduleRecording = this->m_scheduleNextFrame = true;
+}
+
+std::string UIManager::GetIniDump() const
+{
+	size_t size = 0;
+	const char* data = ImGui::SaveIniSettingsToMemory(&size);
+	return std::string(data, size);
+}
+
+std::string UIManager::stripIni(std::string iniString)
+{
+	std::string filtered;
+	filtered.reserve(iniString.size());
+
+	size_t start = 0;
+
+	for (size_t i = 0; i <= iniString.size(); i++)
+	{
+		if (i == iniString.size() || iniString[i] == '\n')
+		{
+			size_t len = i - start;
+			std::string line = iniString.substr(start, len);
+
+			// skip collapsed line
+			if (line.find("Collapsed=") == std::string::npos)
+			{
+				filtered += line + "\n";
+			}
+
+			start = i + 1;
+		}
+	}
+
+	return filtered;
+}
+
+bool UIManager::compareStrippedIni(std::string currentIniState)
+{
+	auto newState = this->stripIni(currentIniState);
+	auto oldState = this->stripIni(this->m_lastLayoutSnapshot);
+
+	return oldState != newState;
 }
 
 void UIManager::setupImGuiStyle()

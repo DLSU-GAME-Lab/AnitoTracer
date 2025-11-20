@@ -159,7 +159,7 @@ void RayTracer::CreateSwapChain()
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
 	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
 	//UIManager::reset();
-	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_);
+	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
 	UIManager::getInstance()->SetProfiler(profiler_.get());
 
 	if (!initializedUI)
@@ -388,6 +388,16 @@ void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 
 void RayTracer::OnMouseButton(const int button, const int action, const int mods)
 {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+	{
+		UIManager::getInstance()->onLMBPressed();
+	}
+	
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+	{
+		UIManager::getInstance()->onLMBReleased();
+	}
+
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 	{
 		isMoving = true;
