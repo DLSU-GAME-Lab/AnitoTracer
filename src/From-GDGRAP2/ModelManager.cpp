@@ -10,6 +10,8 @@
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 #include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
 #include "Assets/GameObjectFactory.hpp"
+#include "Engine/CameraSystem/CameraManager.h"
+#include "Engine/CameraSystem/Camera.h"
 
 ModelManager* ModelManager::sharedInstance = nullptr;
 
@@ -626,6 +628,23 @@ void ModelManager::createSponza()
 
 void ModelManager::OnActionPressed(Hotkey::Action action)
 {
+	if (action == Hotkey::Action::GameObject_Paste)
+	{
+		if (!this->copiedObject) return;
+
+		auto sceneCamera = CameraManager::getInstance()->getActiveCamera();
+
+		this->copiedObject->setLocalPosition(sceneCamera->getForward() * 500.0f);
+
+		CommandManager::getInstance()->executeCommand(
+			new AddObjectCommand(std::move(this->copiedObject))
+		);
+
+		this->copiedObject = nullptr;
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+
 	if (!this->selectedObject) return; // all actions involve selected object
 
 	if (action == Hotkey::Action::GameObject_ToggleActive)
@@ -679,18 +698,6 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 
-	if (action == Hotkey::Action::GameObject_Paste)
-	{
-		if (!this->copiedObject) return;
-
-		CommandManager::getInstance()->executeCommand(
-			new AddObjectCommand(std::move(this->copiedObject))
-		);
-
-		this->copiedObject = nullptr;
-
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
 
 	if (action == Hotkey::Action::GameObject_SetAsFirstSibling)
 	{

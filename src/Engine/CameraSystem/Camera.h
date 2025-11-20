@@ -37,6 +37,8 @@ public:
 	void setLocalPosition(float x, float y, float z) override;
 	void setLocalPosition(glm::vec3 pos) override;
 
+	glm::vec3 getForward() { return this->forward_; }
+
 protected:
 
 	virtual void MoveForward(float d);

@@ -300,7 +300,7 @@ void Camera::OnActionPressed(Hotkey::Action action)
 		auto currentObj = ModelManager::getInstance()->getSelectedObject();
 		if (!currentObj) return;
 
-		currentObj->setLocalPosition(this->getWorldPosition() + glm::vec3(forward_) * 500.0f);
+		currentObj->setLocalPosition(this->getLocalPosition() + glm::normalize(glm::vec3(forward_)) * m_defaultPivotDistance );
 
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
@@ -458,18 +458,21 @@ void Camera::MoveForward(const float d)
 {
 	position_ += d * forward_;
 	GameObject::setLocalPosition(position_.x, position_.y, position_.z);
+	UpdateVectors();
 }
 
 void Camera::MoveRight(const float d)
 {
 	position_ += d * right_;
 	GameObject::setLocalPosition(position_.x, position_.y, position_.z);
+	UpdateVectors();
 }
 
 void Camera::MoveUp(const float d)
 {
 	position_ += d * up_;
 	GameObject::setLocalPosition(position_.x, position_.y, position_.z);
+	UpdateVectors();
 }
 
 void Camera::Rotate(const float y, const float x)
