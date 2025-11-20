@@ -11,10 +11,12 @@
 #include "From-GDGRAP2/GameObject.h"
 #include "From-GDGRAP2/TransformHistory.h"
 #include "IconsMaterialDesign.h"
-
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
+	this->isUniformScalingEnabled = UIManager::getInstance()->config()->inspectorUniformScaling;
 }
 
 InspectorScreen::~InspectorScreen()
@@ -24,24 +26,79 @@ void InspectorScreen::drawUI()
 {
 	//setWindowAlignment(ScreenAlign::TOP_RIGHT);
 
-	ImGui::Begin("Inspector Window", nullptr, UISettings::GlobalWindowFlags);
+	ImGui::Begin("Inspector", &enabled, UISettings::GlobalWindowFlags);
+
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
+
 	if (this->selectedObject != nullptr)
 	{
-		String name = this->selectedObject->getName();
-		ImGui::TextWrapped("Selected Object: %s", name.c_str());
+		if (ImGui::BeginTable("GameObject Quick Options", 3))
+		{
+			float labelWidth = ImGui::CalcTextSize("Static").x;
+
+			ImGui::TableSetupColumn("ActiveToggle", ImGuiTableColumnFlags_WidthFixed, 30.0f);
+			ImGui::TableSetupColumn("GameObjectName", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("StaticToggle", ImGuiTableColumnFlags_WidthFixed, 30.0f + labelWidth);
+
+			{ // Name, Active, and Static Row
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+
+				bool isObjectActive = this->selectedObject->isActive();
+
+				if (ImGui::Checkbox("##Enabled", &isObjectActive))
+				{
+					CommandManager::getInstance()->executeCommand(
+						new AlterTransformCommand(
+							this->selectedObject,
+							[](GameObject* g, AlterTransformCommand::Variant v) { g->setActive(std::get<bool>(v)); },
+							this->selectedObject->isActive(),
+							isObjectActive
+						));
+				}
+
+				ImGui::TableNextColumn();
+				ImGui::TableSetColumnIndex(1);
+
+				char nameBuf[256];
+				std::strncpy(nameBuf, this->selectedObject->getName().c_str(), sizeof(nameBuf));
+				nameBuf[sizeof(nameBuf) - 1] = '\0';
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+
+				if (ImGui::InputText("##Name", nameBuf, sizeof(nameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
+				{
+					CommandManager::getInstance()->executeCommand(
+						new AlterTransformCommand(
+							this->selectedObject,
+							[](GameObject* g, AlterTransformCommand::Variant v) { g->setName(std::get<std::string>(v)); },
+							this->selectedObject->getName(),
+							String(nameBuf)
+						));
+				}
+
+				ImGui::TableNextColumn();
+				ImGui::TableSetColumnIndex(2);
+
+				bool tempStatic = false;
+				ImGui::Checkbox("Static", &tempStatic);
+			}
+
+			ImGui::EndTable();
+		}
+
+		ImGui::Separator();
 
 		this->updateTransformDisplays();
 		this->updateLightPropsDisplays();
 
-		bool enabled = this->selectedObject->isEnabled();
-		if (ImGui::Checkbox("Enabled", &enabled)) { this->selectedObject->setEnabled(enabled); }
-		ImGui::SameLine();
+		bool enabled = this->selectedObject->isActive();
+		
+		/*ImGui::SameLine();
 		if (ImGui::Button("Delete")) {
 			ModelManager::getInstance()->deleteObject(this->selectedObject);
 			ModelManager::getInstance()->setSelectedObject(static_cast<std::shared_ptr<GameObject>>(nullptr));
 			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-		}
+		}*/
 
 		this->drawTransformTab();
 
@@ -125,7 +182,8 @@ void InspectorScreen::updateTransformDisplays()
 
 void InspectorScreen::updateLightPropsDisplays()
 {
-	std::shared_ptr<Light> light = ModelManager::getInstance()->findLightObjectByName(this->selectedObject->getName());
+	Light* light = dynamic_cast<Light*>(this->selectedObject);
+
 	if (light)
 	{
 		glm::vec4 lightCol = light->getLightColor();
@@ -211,7 +269,7 @@ void InspectorScreen::drawTransformTab()
 			ImGui::TableSetColumnIndex(1);
 			ImGui::Dummy(ImVec2(this->transformUniformScalingButtonWidth, 0.0f)); // placeholder to keep alignment
 			ImGui::TableSetColumnIndex(2);
-			this->drawVector3Field("Pos", this->positionDisplay);
+			this->drawVector3Field("Pos", this->positionDisplay, EditorAction::Move);
 
 			ImGui::TableNextRow();
 			ImGui::TableSetColumnIndex(0);
@@ -219,7 +277,7 @@ void InspectorScreen::drawTransformTab()
 			ImGui::TableSetColumnIndex(1);
 			ImGui::Dummy(ImVec2(this->transformUniformScalingButtonWidth, 0.0f));
 			ImGui::TableSetColumnIndex(2);
-			this->drawVector3Field("Rot", this->rotationDisplay);
+			this->drawVector3Field("Rot", this->rotationDisplay, EditorAction::Rotate);
 
 			ImGui::TableNextRow();
 			ImGui::TableSetColumnIndex(0);
@@ -229,37 +287,31 @@ void InspectorScreen::drawTransformTab()
 
 			ImGui::PushFont(UIManager::getInstance()->GetIconFont());
 
+			ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[3]);
 			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
 			{
 				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
+				UIManager::getInstance()->config()->inspectorUniformScaling = this->isUniformScalingEnabled;
 			}
+			ImGui::PopFont();
 
 			ImGui::PopFont();
 			ImGui::PopID();
 
 			ImGui::TableSetColumnIndex(2);
-			this->drawVector3Field("Sca", this->scaleDisplay);
+			this->drawVector3Field("Sca", this->scaleDisplay, EditorAction::Scale);
 
 			ImGui::EndTable();
 		}
 	}
-
-
-	/*if (ImGui::InputFloat3("Position", &this->positionDisplay[0], "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
-	if (ImGui::InputFloat3("Rotation", this->rotationDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
-
-	if (this->selectedObject->getType() == GameObject::PrimitiveType::SPHERE)
-	{
-		if (ImGui::InputFloat("Resize", this->scaleDisplay, 0, 0, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate(); }
-	}
-	else {
-		if (ImGui::InputFloat3("Scale", this->scaleDisplay, "%.3f")) { if (ImGui::IsItemDeactivatedAfterEdit()) this->onTransformUpdate(); }
-	}*/
 }
 
-void InspectorScreen::drawVector3Field(const char* label, float* values)
+void InspectorScreen::drawVector3Field(const char* label, float* values, EditorAction action)
 {
 	ImGui::PushID(label);
+
+	bool isUpdated = false;
+	glm::vec3 scale;
 
 	//Calculate Field Width
 	float totalAvailableSpace = ImGui::GetContentRegionAvail().x;
@@ -282,15 +334,16 @@ void InspectorScreen::drawVector3Field(const char* label, float* values)
 			ImGui::Text(name);
 			ImGui::SameLine();
 
-			ImGui::PushItemWidth(inputWidth);
+			ImGui::PushItemWidth(inputWidth - ImGui::GetStyle().ItemSpacing.x / 2.0f);
 
 			std::string id = "##";
 			id += label;
 			id += name;
 
-			if (ImGui::DragFloat(id.c_str(), &v, 0.0f))
+			if (ImGui::InputFloat(id.c_str(), &v, 0.0f, 0.0f, "%0.3f"))
 			{
-				if (ImGui::IsItemDeactivatedAfterEdit())this->onTransformUpdate();
+				if (ImGui::IsItemDeactivatedAfterEdit())
+					isUpdated = true;
 			}
 
 			ImGui::PopItemWidth();
@@ -298,88 +351,103 @@ void InspectorScreen::drawVector3Field(const char* label, float* values)
 			ImGui::SameLine();
 		};
 
+	if (action == EditorAction::Scale) //record old scale for uniform scaling
+	{
+		scale = { values[0], values[1], values[2] };
+	}
+
 	axisInput("X", values[0]);
 	axisInput("Y", values[1]);
 	axisInput("Z", values[2]);
 
-	ImGui::NewLine();
+	if (isUpdated)
+	{
+		switch (action)
+		{
+		case EditorAction::Move: 
+
+			CommandManager::getInstance()->executeCommand(
+				new AlterTransformCommand(
+					this->selectedObject,
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalPosition(std::get<glm::vec3>(v)); },
+					this->selectedObject->getLocalPosition(),
+					glm::vec3(values[0], values[1], values[2])
+				));
+
+			break;
+
+		case EditorAction::Rotate:
+
+			CommandManager::getInstance()->executeCommand(
+				new AlterTransformCommand(
+					this->selectedObject,
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotation(std::get<glm::vec3>(v)); },
+					this->selectedObject->getLocalRotation(),
+					glm::vec3(values[0], values[1], values[2])
+				));
+
+			break;
+
+		case EditorAction::Scale:
+			if(IsUniformScalingEnabled()) 
+				scale = ScaleUniformly(scale, values);
+
+			CommandManager::getInstance()->executeCommand(
+				new AlterTransformCommand(
+					this->selectedObject,
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalScale(std::get<glm::vec3>(v)); },
+					this->selectedObject->getLocalScale(),
+					scale)
+				);
+
+			break;
+		}
+	}
+
 	ImGui::PopID();
 }
 
-void InspectorScreen::onTransformUpdate() const
+// Helper function
+glm::vec3 InspectorScreen::ScaleUniformly(const glm::vec3& beforeScale, const float* values)
 {
-	if (this->selectedObject != nullptr)
+	glm::vec3 result = beforeScale;
+
+	if (values[0] != beforeScale.x)
 	{
-		TransformState before{
-			this->selectedObject->getLocalPosition(),
-			this->selectedObject->getLocalRotation(),
-			this->selectedObject->getLocalScale()
-		};
-
-		this->selectedObject->setLocalPosition(this->positionDisplay[0], this->positionDisplay[1], this->positionDisplay[2]);
-		this->selectedObject->setLocalRotation(this->rotationDisplay[0], this->rotationDisplay[1], this->rotationDisplay[2]);
-
-		if (this->selectedObject->getType() == GameObject::PrimitiveType::SPHERE)
-		{
-			this->selectedObject->setLocalScale(this->scaleDisplay[0], this->scaleDisplay[0], this->scaleDisplay[0]);
-		}
-		else
-		{
-			// Uniform Scaling
-			if (IsUniformScalingEnabled())
-			{
-				float x = before.scale.x;
-				float y = before.scale.y;
-				float z = before.scale.z;
-
-				if (this->scaleDisplay[0] != before.scale.x) // check which value was manipulated
-				{
-					float ratio = this->scaleDisplay[0] / before.scale.x; //New / Old scale
-					x = this->scaleDisplay[0];
-					y = before.scale.y * ratio;
-					z = before.scale.z * ratio;
-				}
-
-				else if (this->scaleDisplay[1] != before.scale.y)
-				{
-					float ratio = this->scaleDisplay[1] / before.scale.y;
-					x = before.scale.x * ratio;
-					y = this->scaleDisplay[1];
-					z = before.scale.z * ratio;
-				}
-
-				else if (this->scaleDisplay[2] != before.scale.z)
-				{
-					float ratio = this->scaleDisplay[2] / before.scale.z;
-					x = before.scale.x * ratio;
-					y = before.scale.y * ratio;
-					z = this->scaleDisplay[2];
-				}
-
-				this->selectedObject->setLocalScale(x, y, z);
-			}
-
-			else
-			{
-				this->selectedObject->setLocalScale(this->scaleDisplay[0], this->scaleDisplay[1], this->scaleDisplay[2]);
-			}
-		}
-
-		TransformState after{
-			this->selectedObject->getLocalPosition(),
-			this->selectedObject->getLocalRotation(),
-			this->selectedObject->getLocalScale()
-		};
-
-		TransformHistory::getInstance().recordChange(this->selectedObject.get(), before, after);
+		float ratio = values[0] / beforeScale.x;
+		result.x = values[0];
+		result.y = beforeScale.y * ratio;
+		result.z = beforeScale.z * ratio;
 	}
+	else if (values[1] != beforeScale.y)
+	{
+		float ratio = values[1] / beforeScale.y;
+		result.x = beforeScale.x * ratio;
+		result.y = values[1];
+		result.z = beforeScale.z * ratio;
+	}
+	else if (values[2] != beforeScale.z)
+	{
+		float ratio = values[2] / beforeScale.z;
+		result.x = beforeScale.x * ratio;
+		result.y = beforeScale.y * ratio;
+		result.z = values[2];
+	}
+
+	return result;
+}
+
+void InspectorScreen::setUniformScalingEnabled(bool flag)
+{
+	this->isUniformScalingEnabled = flag;
+	UIManager::getInstance()->config()->inspectorUniformScaling = flag;
 }
 
 void InspectorScreen::onLightPropsUpdate() const
 {
 	if (this->selectedObject != nullptr)
 	{
-		std::shared_ptr<Light> light = ModelManager::getInstance()->findLightObjectByName(this->selectedObject->getName());
+		Light* light = dynamic_cast<Light*>(this->selectedObject);
 		if (light)
 		{
 			light->setLightColor(this->lightColorDisplay.x, this->lightColorDisplay.y, this->lightColorDisplay.z, intensityDisplay * lightIntensityMultiplier);

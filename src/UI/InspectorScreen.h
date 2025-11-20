@@ -3,10 +3,16 @@
 #include "Engine/LightSystem/Light.h"
 #include "From-GDGRAP2/GameObject.h"
 
+enum EditorAction
+{
+	Move = 0,
+	Rotate,
+	Scale
+};
+
 class Texture;
 class InspectorScreen :    public AUIScreen
 {
-
 public:
 	InspectorScreen();
 	~InspectorScreen();
@@ -16,7 +22,6 @@ public:
 	
 private:
 
-	void onTransformUpdate() const;
 	void onLightPropsUpdate() const;
 	void showColorPickerWindow();
 	virtual void drawUI() override;
@@ -25,7 +30,10 @@ private:
 	void FormatMatImage();
 	void drawMaterialsTab();
 	void drawTransformTab();
-	void drawVector3Field(const char* label, float* values);
+	void drawVector3Field(const char* label, float* values, EditorAction action);
+	glm::vec3 ScaleUniformly(const glm::vec3& beforeScale, const float* values);
+	void setUniformScalingEnabled(bool flag);
+
 	friend class UIManager;
 
 	float positionDisplay[3] = {0.0f, 0.0f, 0.0f};
@@ -42,7 +50,7 @@ private:
 
 	bool isUniformScalingEnabled = false;
 
-	std::shared_ptr<GameObject> selectedObject = nullptr;
+	GameObject* selectedObject = nullptr;
 	const String DEFAULT_MATERIAL = "None";
 	String materialPath = DEFAULT_MATERIAL;
 	String materialName = DEFAULT_MATERIAL;
@@ -52,4 +60,6 @@ private:
 
 	float transformUniformScalingButtonWidth = 28.0f;
 	float transformLabelWidth = 100.0f;
+
+	
 };

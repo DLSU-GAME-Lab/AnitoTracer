@@ -1,4 +1,5 @@
 #include "ConsoleScreen.h"
+#include "UIManager.h"
 
 #include <imgui_internal.h>
 #include <sstream>
@@ -11,6 +12,13 @@ void ConsoleScreen::appendText(String text)
 	this->lineCount++;
 }
 
+void ConsoleScreen::setText(String log, int lineCount)
+{
+	this->textLog->clear();
+	this->textLog->appendf(log.c_str());
+	this->lineCount = lineCount;
+}
+
 ConsoleScreen::ConsoleScreen() : AUIScreen(UINames::CONSOLE_SCREEN)
 {
 	this->textLog = new ImGuiTextBuffer();
@@ -18,6 +26,9 @@ ConsoleScreen::ConsoleScreen() : AUIScreen(UINames::CONSOLE_SCREEN)
 
 ConsoleScreen::~ConsoleScreen()
 {
+	String currentLog = this->textLog->c_str();
+	UIManager::getInstance()->config()->consoleTextLog = currentLog; // save logs before destruction
+	UIManager::getInstance()->config()->consoleLogCount = this->lineCount;
 	delete this->textLog;
 }
 

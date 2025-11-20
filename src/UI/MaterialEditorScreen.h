@@ -66,10 +66,6 @@ namespace gdeng03
 		 float fuzziness = 0;
 		 // Dielectric refraction index
 		 float refractionIndex = 0;
-
-		 float labelSize = 100.0f;
-		 float previewSize = 16.0f;
-		 float buttonSize = 8.0f;
 		
 		// // Which material are we dealing with
 		// Material::Enum materialModel;
