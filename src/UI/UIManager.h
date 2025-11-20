@@ -124,6 +124,8 @@ private:
 	void drawAllUI() const;
 	void drawOverlay(const Statistics& statistics) const;
 	std::string GetIniDump() const;
+	std::string stripIni(std::string iniString);
+	bool compareStrippedIni(std::string currentIniState);
 
 	std::unique_ptr<Vulkan::RenderPass> renderPass;
 
@@ -147,11 +149,10 @@ private:
 	static bool gizmoWasManipulated;
 
 	std::string m_lastLayoutSnapshot;
+	std::string m_currentLayoutSnapshot;
 
-	bool m_isFirstFrame = true;
-	bool m_isLeftMouseDown = false;
-	bool m_isRecording = false;
-	bool m_recordNextFrame = false;
+	bool m_scheduleRecording = false;
+	bool m_scheduleNextFrame = false;
 
 	ImFont* iconFont = nullptr;
 	bool isCTRLHeld = false;

@@ -425,12 +425,6 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	//Allow docking inside the main viewport 
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
-	if (this->m_isFirstFrame) // Record the initial layout snapshot
-	{
-		this->m_lastLayoutSnapshot = GetIniDump();
-		this->m_isFirstFrame = false;
-	}
-
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
 	drawAllUI();
@@ -568,8 +562,6 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 		wasUsingGizmoLastFrame = isUsingGizmoNow;
 	}
-
-
 
 	ImGui::Render();
 
@@ -749,38 +741,32 @@ ImFont* UIManager::GetIconFont()
 
 void UIManager::detectAndRecordLayoutChanges()
 {
-	if (m_recordNextFrame) // need to wait for next frame so docking changes apply
+	if (this->m_scheduleNextFrame)
 	{
-		m_recordNextFrame = false;
+		this->m_scheduleNextFrame = false;
 		return;
 	}
 
-	/* Statemanagement on imgui layout changes disabled as there are currently too many UI changes that are not detected */
-	/* Will return with better way to detect layout changes */
-
-	//if (!this->m_isFirstFrame && !this->m_isLeftMouseDown && this->m_isRecording)
-	//{
-	//	this->m_isRecording = false;
-	//	std::string currentLayoutSnapshot = GetIniDump();
-
-	//	if (currentLayoutSnapshot != this->m_lastLayoutSnapshot)
-	//	{
-	//		CommandManager::getInstance()->executeCommand(new ModifyLayoutCommand(this->m_lastLayoutSnapshot, currentLayoutSnapshot));
-	//		this->m_lastLayoutSnapshot = currentLayoutSnapshot;
-	//	}
-	//}
+	if (this->m_scheduleRecording)
+	{
+		this->m_currentLayoutSnapshot = GetIniDump();
+		if (this->compareStrippedIni(this->m_currentLayoutSnapshot))
+		{
+			Debug::Log("Recorded Layout");
+			CommandManager::getInstance()->executeCommand(new ModifyLayoutCommand(this->m_lastLayoutSnapshot, this->m_currentLayoutSnapshot));
+		}
+		this->m_scheduleRecording = false;
+	}
 }
 
 void UIManager::onLMBPressed()
 {
-	this->m_isLeftMouseDown = true;
-	this->m_isRecording = true; // start recording if potential layout change
+	this->m_lastLayoutSnapshot = GetIniDump();
 }
 
 void UIManager::onLMBReleased()
 {
-	this->m_isLeftMouseDown = false;
-	this->m_recordNextFrame = true; //set flag for actual recording
+	this->m_scheduleRecording = this->m_scheduleNextFrame = true;
 }
 
 std::string UIManager::GetIniDump() const
@@ -788,6 +774,41 @@ std::string UIManager::GetIniDump() const
 	size_t size = 0;
 	const char* data = ImGui::SaveIniSettingsToMemory(&size);
 	return std::string(data, size);
+}
+
+std::string UIManager::stripIni(std::string iniString)
+{
+	std::string filtered;
+	filtered.reserve(iniString.size());
+
+	size_t start = 0;
+
+	for (size_t i = 0; i <= iniString.size(); i++)
+	{
+		if (i == iniString.size() || iniString[i] == '\n')
+		{
+			size_t len = i - start;
+			std::string line = iniString.substr(start, len);
+
+			// skip collapsed line
+			if (line.find("Collapsed=") == std::string::npos)
+			{
+				filtered += line + "\n";
+			}
+
+			start = i + 1;
+		}
+	}
+
+	return filtered;
+}
+
+bool UIManager::compareStrippedIni(std::string currentIniState)
+{
+	auto newState = this->stripIni(currentIniState);
+	auto oldState = this->stripIni(this->m_lastLayoutSnapshot);
+
+	return oldState != newState;
 }
 
 void UIManager::setupImGuiStyle()
