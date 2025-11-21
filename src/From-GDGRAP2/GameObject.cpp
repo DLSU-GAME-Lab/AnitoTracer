@@ -208,7 +208,6 @@ GameObject::vec3 GameObject::getWorldScale() const
 
 std::shared_ptr<Assets::Model> GameObject::getModel()
 {
-	this->updateWorldMatrix();
 	return this->modelRef;
 }
 

@@ -75,7 +75,7 @@ public:
 	void CutSelectedObject();
 	void CopySelectedObject();
 	void DuplicateSelectedObject();
-	void DeleteSelectedObject();
+	void DeleteSelectedObject(); 
 
 private:
 	ModelManager();

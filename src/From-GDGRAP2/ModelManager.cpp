@@ -342,7 +342,7 @@ std::vector<Assets::Model> ModelManager::getAllObjectModels() const
 
 	for (const auto& gameObject : this->sceneGraph)
 	{
-		if (!gameObject->isActive()) continue;
+		if (!gameObject->isActive() && gameObject->isVisible()) continue;
 
 		gameObject->updateWorldMatrix();
 
@@ -355,8 +355,13 @@ std::vector<Assets::Model> ModelManager::getAllObjectModels() const
 
 		for (auto descendant : descendants)
 		{
-			if (descendant->isActive())
-				modelList.push_back(*descendant->getModel().get());
+			if (descendant->isActive() && descendant->isVisible())
+			{
+				descendant->updateWorldMatrix();
+				if(descendant->getModel())
+					modelList.push_back(*descendant->getModel());
+			}
+				
 		}
 	}
 

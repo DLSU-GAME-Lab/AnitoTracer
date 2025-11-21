@@ -147,7 +147,7 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 
 		for (auto& obj : objects)
 		{
-			if (!obj->isActive())
+			if (!obj->isActive() && !obj->isPickable())
 				continue;
 
 			auto obb = obj->getOBB();
