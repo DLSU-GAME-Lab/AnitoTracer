@@ -70,6 +70,13 @@ public:
 
 	void OnActionPressed(Hotkey::Action action) override;
 
+	/* For Hierarchy Actions and Scene View Menu */
+	void PasteObject();
+	void CutSelectedObject();
+	void CopySelectedObject();
+	void DuplicateSelectedObject();
+	void DeleteSelectedObject();
+
 private:
 	ModelManager();
 	~ModelManager();

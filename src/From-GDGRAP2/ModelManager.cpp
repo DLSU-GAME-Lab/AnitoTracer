@@ -268,7 +268,8 @@ ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* origina
 	for (const auto& child : original->getChildrenRecursive())
 	{
 		std::unique_ptr<GameObject> childCopy = copyObject(child);
-		childCopy->getParent()->addChild(std::move(childCopy));
+		auto childCopyRef = childCopy.get();
+		childCopyRef->getParent()->addChild(std::move(childCopy));
 	}
 
 	return std::move(parent);
@@ -628,22 +629,8 @@ void ModelManager::createSponza()
 
 void ModelManager::OnActionPressed(Hotkey::Action action)
 {
-	if (action == Hotkey::Action::GameObject_Paste)
-	{
-		if (!this->copiedObject) return;
-
-		auto sceneCamera = CameraManager::getInstance()->getActiveCamera();
-
-		this->copiedObject->setLocalPosition(sceneCamera->getForward() * 500.0f);
-
-		CommandManager::getInstance()->executeCommand(
-			new AddObjectCommand(std::move(this->copiedObject))
-		);
-
-		this->copiedObject = nullptr;
-
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
+	/* paste only needs valid copied object */
+	if (action == Hotkey::Action::GameObject_Paste)	PasteObject();
 
 	if (!this->selectedObject) return; // all actions involve selected object
 
@@ -662,42 +649,10 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 
-	if (action == Hotkey::Action::GameObject_Delete)
-	{
-		CommandManager::getInstance()->executeCommand(
-			new DeleteObjectCommand(this->selectedObject)
-		);
-		this->selectedObject = nullptr;
-
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
-
-	if (action == Hotkey::Action::GameObject_Duplicate)
-	{
-		auto duplicate = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
-
-		CommandManager::getInstance()->executeCommand(
-			new AddObjectCommand(std::move(duplicate))
-		);
-
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
-
-	if (action == Hotkey::Action::GameObject_Copy)
-	{
-		this->copiedObject = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
-	}
-
-	if (action == Hotkey::Action::GameObject_Cut)
-	{
-		this->copiedObject = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
-		CommandManager::getInstance()->executeCommand(
-			new DeleteObjectCommand(this->selectedObject)
-		);
-		this->selectedObject = nullptr;
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
-
+	if (action == Hotkey::Action::GameObject_Delete)	DeleteSelectedObject();
+	if (action == Hotkey::Action::GameObject_Duplicate)	DuplicateSelectedObject();
+	if (action == Hotkey::Action::GameObject_Copy)		CopySelectedObject();
+	if (action == Hotkey::Action::GameObject_Cut)		CutSelectedObject();
 
 	if (action == Hotkey::Action::GameObject_SetAsFirstSibling)
 	{
@@ -756,6 +711,63 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
+}
+
+void ModelManager::CutSelectedObject()
+{
+	this->copiedObject = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
+	CommandManager::getInstance()->executeCommand(
+		new DeleteObjectCommand(this->selectedObject)
+	);
+	this->selectedObject = nullptr;
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void ModelManager::CopySelectedObject()
+{
+	this->copiedObject = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
+}
+
+void ModelManager::DuplicateSelectedObject()
+{
+	auto duplicate = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
+
+	glm::vec3 offset = { 10.0f, 10.0f, 10.0 }; //offset spawn
+	duplicate->setLocalPosition(this->selectedObject->getLocalPosition() + offset);
+
+	CommandManager::getInstance()->executeCommand(
+		new AddObjectCommand(std::move(duplicate))
+	);
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void ModelManager::DeleteSelectedObject()
+{
+	CommandManager::getInstance()->executeCommand(
+		new DeleteObjectCommand(this->selectedObject)
+	);
+	this->selectedObject = nullptr;
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); //AnitoTracer Specific
+}
+
+/* Where the object is spawned needs to be decided  (world origin vs infront of camera vs beside copy) */
+void ModelManager::PasteObject()
+{
+	if (!this->copiedObject) return;
+
+	auto sceneCamera = CameraManager::getInstance()->getActiveCamera();
+
+	this->copiedObject->setLocalPosition(sceneCamera->getForward() * 500.0f);
+
+	CommandManager::getInstance()->executeCommand(
+		new AddObjectCommand(std::move(this->copiedObject))
+	);
+
+	this->copiedObject = nullptr;
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 

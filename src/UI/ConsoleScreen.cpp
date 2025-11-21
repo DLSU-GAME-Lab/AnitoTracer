@@ -1,6 +1,6 @@
 #include "ConsoleScreen.h"
 #include "UIManager.h"
-
+#include "IconsMaterialDesign.h"
 #include <imgui_internal.h>
 #include <sstream>
 void ConsoleScreen::appendText(String text)
@@ -36,7 +36,7 @@ void ConsoleScreen::drawUI()
 {
 	//setWindowAlignment(ScreenAlign::BOT_CENTER);
 
-	ImGui::Begin("Console", 0, UISettings::GlobalWindowFlags);
+	ImGui::Begin(ICON_MD_TEXT_SNIPPET " Console", 0, UISettings::GlobalWindowFlags);
 	ImGui::SetWindowSize(ImVec2(1200, 300));
 	if (ImGui::Button("Clear")) { this->textLog->clear(); this->lineCount = 0; }
 

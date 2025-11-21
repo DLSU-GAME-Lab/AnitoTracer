@@ -26,7 +26,7 @@ void HierarchyScreen::drawUI()
 
     ImGui::PushStyleColor(ImGuiCol_MenuBarBg, DarkTheme.TAB_ACTIVE);
 
-	ImGui::Begin("Hierarchy", nullptr, UISettings::GlobalWindowFlags | ImGuiWindowFlags_MenuBar);
+	ImGui::Begin(ICON_MD_SORT " Hierarchy", nullptr, UISettings::GlobalWindowFlags | ImGuiWindowFlags_MenuBar);
 
 	// Search Bar
 	static char searchBuffer[128] = "";
@@ -58,10 +58,88 @@ void HierarchyScreen::drawUI()
     if (ImGui::CollapsingHeader("Scene Objects", ImGuiTreeNodeFlags_DefaultOpen))
     {
         this->updateObjectList(searchBuffer);
+
+        if (ImGui::BeginPopupContextWindow())
+        {
+            HierarchyMenuPopup();
+            ImGui::EndPopup();
+        }
     }
 
 	ImGui::End();
     ImGui::PopStyleColor();
+}
+
+void HierarchyScreen::HierarchyMenuPopup()
+{
+    bool isThereSelected = !ModelManager::getInstance()->getSelectedObject();
+
+    if (isThereSelected) //grey out and unselectable if no selected object
+    {
+        ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+    }
+
+    if (ImGui::Selectable("Cut"))       ModelManager::getInstance()->CutSelectedObject();
+    if (ImGui::Selectable("Copy"))      ModelManager::getInstance()->CopySelectedObject();
+    if (ImGui::Selectable("Paste"))     ModelManager::getInstance()->PasteObject();
+    if (ImGui::Selectable("Duplicate")) ModelManager::getInstance()->DuplicateSelectedObject();
+    if (ImGui::Selectable("Delete"))    ModelManager::getInstance()->DeleteSelectedObject();
+
+    if (isThereSelected)
+    {
+        ImGui::PopItemFlag();
+        ImGui::PopStyleVar();
+    }
+
+	ImGui::Separator();
+
+	if (ImGui::BeginMenu("3D Objects"))
+	{
+        if (ImGui::MenuItem("Cube"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::CUBE, "Cube");
+        }
+
+		if(ImGui::MenuItem("Sphere"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::SPHERE, "Sphere");
+        }
+
+        if (ImGui::MenuItem("Plane"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::PLANE, "Plane");
+        }
+
+        if (ImGui::MenuItem("Cylinder"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::CYLINDER, "Cylinder");
+        }
+
+        if (ImGui::MenuItem("Capsule"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::CAPSULE, "Capsule");
+        }
+
+		ImGui::EndMenu();
+	}
+
+	if (ImGui::BeginMenu("Lights"))
+	{
+		ImGui::MenuItem("Point Light");
+		ImGui::MenuItem("Directional Light");
+		ImGui::MenuItem("Spot Light");
+
+		ImGui::EndMenu();
+	}
+}
+
+/* Helper */
+void HierarchyScreen::CreatePrimitive(GameObject::PrimitiveType type, String name)
+{
+    CommandManager::getInstance()->executeCommand(
+        new CreatePrimitiveCommand(type, name)
+    );
 }
 
 void HierarchyScreen::CreateObjectPopup()
@@ -70,13 +148,32 @@ void HierarchyScreen::CreateObjectPopup()
     {
         if (ImGui::BeginMenu("3D Objects"))
         {
-			ImGui::MenuItem("Cube");
-			ImGui::MenuItem("Sphere");
-			ImGui::MenuItem("Plane");
-			ImGui::MenuItem("Cylinder");
-			ImGui::MenuItem("Capsule");
+            if (ImGui::MenuItem("Cube"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::CUBE, "Cube");
+            }
 
-			ImGui::EndMenu();
+            if (ImGui::MenuItem("Sphere"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::SPHERE, "Sphere");
+            }
+
+            if (ImGui::MenuItem("Plane"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::PLANE, "Plane");
+            }
+
+            if (ImGui::MenuItem("Cylinder"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::CYLINDER, "Cylinder");
+            }
+
+            if (ImGui::MenuItem("Capsule"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::CAPSULE, "Capsule");
+            }
+
+            ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("Lights"))

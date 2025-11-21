@@ -42,7 +42,7 @@ ProjectScreen::~ProjectScreen()
 
 void ProjectScreen::drawUI()
 {
-    if (ImGui::Begin(FileExplorerConstants::PANEL_NAME, nullptr, UISettings::GlobalWindowFlags))
+    if (ImGui::Begin(ICON_MD_FOLDER " Project", nullptr, UISettings::GlobalWindowFlags))
     {
         if (ImGui::BeginTable("MyTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
 

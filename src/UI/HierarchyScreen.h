@@ -13,6 +13,8 @@ public:
 private:
 	virtual void drawUI() override;
 
+	void HierarchyMenuPopup();
+	void CreatePrimitive(GameObject::PrimitiveType type, String name);
 	void CreateObjectPopup();
 	void updateObjectList(const char* filter);
 	void drawObjectNode(GameObject* obj);

@@ -26,7 +26,7 @@ void InspectorScreen::drawUI()
 {
 	//setWindowAlignment(ScreenAlign::TOP_RIGHT);
 
-	ImGui::Begin("Inspector", &enabled, UISettings::GlobalWindowFlags);
+	ImGui::Begin(ICON_MD_ERROR " Inspector", &enabled, UISettings::GlobalWindowFlags);
 
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
 
@@ -288,7 +288,7 @@ void InspectorScreen::drawTransformTab()
 			ImGui::PushFont(UIManager::getInstance()->GetIconFont());
 
 			ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[3]);
-			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
+			if (ImGui::Selectable(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF))
 			{
 				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
 				UIManager::getInstance()->config()->inspectorUniformScaling = this->isUniformScalingEnabled;
@@ -304,6 +304,13 @@ void InspectorScreen::drawTransformTab()
 			ImGui::EndTable();
 		}
 	}
+}
+
+
+inline bool isFloatInteger(float value)
+{
+	double integral;
+	return std::modf(value, &integral) == 0.00;
 }
 
 void InspectorScreen::drawVector3Field(const char* label, float* values, EditorAction action)
@@ -340,10 +347,21 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 			id += label;
 			id += name;
 
-			if (ImGui::InputFloat(id.c_str(), &v, 0.0f, 0.0f, "%0.3f"))
+			if (isFloatInteger(v))
 			{
-				if (ImGui::IsItemDeactivatedAfterEdit())
-					isUpdated = true;
+				if (ImGui::InputFloat(id.c_str(), &v, 0.0f, 0.0f, "%0.0f"))
+				{
+					if (ImGui::IsItemDeactivatedAfterEdit())
+						isUpdated = true;
+				}
+			}
+			else
+			{
+				if (ImGui::InputFloat(id.c_str(), &v, 0.0f, 0.0f, "%0.2f"))
+				{
+					if (ImGui::IsItemDeactivatedAfterEdit())
+						isUpdated = true;
+				}
 			}
 
 			ImGui::PopItemWidth();
