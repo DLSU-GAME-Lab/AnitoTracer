@@ -342,26 +342,27 @@ std::vector<Assets::Model> ModelManager::getAllObjectModels() const
 
 	for (const auto& gameObject : this->sceneGraph)
 	{
-		if (!gameObject->isActive() && gameObject->isVisible()) continue;
-
-		gameObject->updateWorldMatrix();
-
-		auto model = gameObject->getModel();
-
-		if (model) // lights and emptyies have no models
-			modelList.push_back(*model);
-
-		auto descendants = gameObject->getChildrenRecursive();
-
-		for (auto descendant : descendants)
+		if (gameObject->isActive() && gameObject->isVisible())
 		{
-			if (descendant->isActive() && descendant->isVisible())
+			gameObject->updateWorldMatrix();
+
+			auto model = gameObject->getModel();
+
+			if (model) // lights and emptyies have no models
+				modelList.push_back(*model);
+
+			auto descendants = gameObject->getChildrenRecursive();
+
+			for (auto descendant : descendants)
 			{
-				descendant->updateWorldMatrix();
-				if(descendant->getModel())
-					modelList.push_back(*descendant->getModel());
+				if (descendant->isActive() && descendant->isVisible())
+				{
+					descendant->updateWorldMatrix();
+					if (descendant->getModel())
+						modelList.push_back(*descendant->getModel());
+				}
+
 			}
-				
 		}
 	}
 
