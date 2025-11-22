@@ -6,6 +6,7 @@
 #include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
+#include "Utilities/DragAndDrop/DragAndDropUtils.h"
 
 HierarchyScreen::HierarchyScreen() : AUIScreen(UINames::HIERARCHY_SCREEN)
 {
@@ -20,6 +21,22 @@ void HierarchyScreen::drawUI()
     //setWindowAlignment(ScreenAlign::TOP_RIGHT);
 
 	ImGui::Begin("Hierarchy", nullptr, UISettings::GlobalWindowFlags);
+
+    DragAndDropUtils::createFullPanelDummy();
+
+    if (ImGui::BeginDragDropTarget())
+    {
+
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PATH_DRAGGABLE"))
+        {
+            const auto i = glm::mat4(1);
+            const char* path = (const char*)payload->Data;
+            Assets::Model draggedModel = Assets::Model::LoadModel(path);
+            std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
+            ModelManager::getInstance()->addObject(draggedObj);
+        }
+        ImGui::EndDragDropTarget();
+    }
 
 	// Search Bar
 	static char searchBuffer[128] = "";
