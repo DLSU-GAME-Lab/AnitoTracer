@@ -14,4 +14,6 @@ private:
 
 	static void renderDescendants(FileTreeNode& root);
 	static void renderRootNode(FileTreeNode& root);
+
+	static void renderDeleteConfirmationPrompt(FileTreeNode& toDelete);
 };

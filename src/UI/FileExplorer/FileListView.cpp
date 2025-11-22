@@ -9,6 +9,8 @@
 #include "UI/UIManager.h"
 #include "UI/FileExplorer/FileIconView.h"
 
+static bool deletePopup = false;
+
 FileListView::FileListView() {
 
 }
@@ -62,6 +64,13 @@ void FileListView::renderDescendants(FileTreeNode& root) {
             DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString());
             DragAndDropUtils::attachFileMoveTarget(rootChild.getPathString());
 
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Delete")) {
+                    deletePopup = true;
+                }
+                ImGui::EndPopup();
+            }
+            renderDeleteConfirmationPrompt(rootChild);
 
             ImGui::PopID();
         }
@@ -153,4 +162,33 @@ std::string FileListView::chooseIconBasedOnExtension(const std::string& filename
     }
 
     return iconCode;
+}
+
+void FileListView::renderDeleteConfirmationPrompt(FileTreeNode& toDelete) {
+    if (deletePopup) {
+        ImGui::OpenPopup("File Delete Confirmation");
+        deletePopup = false;
+    }
+    if (ImGui::BeginPopupModal("File Delete Confirmation", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Are you sure you want to delete this file?");
+        ImGui::Text(toDelete.getPathString().c_str());
+        ImGui::Spacing();
+
+        // Calculate centering offset
+        float windowWidth = ImGui::GetWindowSize().x;
+        float buttonWidth = 120.0f * 2 + ImGui::GetStyle().ItemSpacing.x; // Two buttons + spacing
+        float offsetX = (windowWidth - buttonWidth) * 0.5f;
+
+        ImGui::SetCursorPosX(offsetX);
+        if (ImGui::Button("Yes", ImVec2(120, 0))) {
+            FileTree::getInstance()->deleteFile(toDelete);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
 }
