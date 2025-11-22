@@ -46,6 +46,8 @@ void FileListView::renderDescendants(FileTreeNode& root) {
                 FileIconView::setCurrentNode(&rootChild);
             }
             if (isNodeOpen) {
+                DragAndDropUtils::attachFileMoveTarget(rootChild.getPathString());
+
                 ImGui::PopFont();
 
                 rootChild.setIsOpen(true);
@@ -57,7 +59,8 @@ void FileListView::renderDescendants(FileTreeNode& root) {
                 rootChild.setIsOpen(false);
                 ImGui::PopFont();
             }
-            DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString(), rootChild.getName());
+            DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString());
+            DragAndDropUtils::attachFileMoveTarget(rootChild.getPathString());
 
 
             ImGui::PopID();
@@ -78,6 +81,8 @@ void FileListView::renderRootNode(FileTreeNode& root) {
         }
 
         if (isNodeOpen) {
+            DragAndDropUtils::attachFileMoveTarget(root.getPathString());
+
             ImGui::PopFont();
 
             root.setIsOpen(true);
@@ -89,6 +94,8 @@ void FileListView::renderRootNode(FileTreeNode& root) {
             root.setIsOpen(false);
             ImGui::PopFont();
         }
+
+        DragAndDropUtils::attachFileMoveTarget(root.getPathString());
     }
     catch (const std::filesystem::filesystem_error&) {
         ImGui::TreePop();

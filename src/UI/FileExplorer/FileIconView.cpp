@@ -36,10 +36,12 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
                 setCurrentNode(&rootChild);
             }
         }
-        DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString(), rootChild.getName());
+        DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString());
+        DragAndDropUtils::attachFileMoveTarget(rootChild.getPathString());
 
         ImGui::Text(rootChild.getName().c_str());
-        DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString(), rootChild.getName());
+        DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString());
+        DragAndDropUtils::attachFileMoveTarget(rootChild.getPathString());
 
         ImGui::PopID();
     }
