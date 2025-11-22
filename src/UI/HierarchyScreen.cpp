@@ -23,20 +23,7 @@ void HierarchyScreen::drawUI()
 	ImGui::Begin("Hierarchy", nullptr, UISettings::GlobalWindowFlags);
 
     DragAndDropUtils::createFullPanelDummy();
-
-    if (ImGui::BeginDragDropTarget())
-    {
-
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PATH_DRAGGABLE"))
-        {
-            const auto i = glm::mat4(1);
-            const char* path = (const char*)payload->Data;
-            Assets::Model draggedModel = Assets::Model::LoadModel(path);
-            std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
-            ModelManager::getInstance()->addObject(draggedObj);
-        }
-        ImGui::EndDragDropTarget();
-    }
+    DragAndDropUtils::attachModelInstantiateTarget();
 
 	// Search Bar
 	static char searchBuffer[128] = "";

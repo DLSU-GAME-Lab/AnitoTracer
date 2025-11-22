@@ -1,6 +1,7 @@
 #include "FileIconView.h"
 
 #include "imgui.h"
+#include "Utilities/DragAndDrop/DragAndDropUtils.h"
 #include "Utilities/FileExplorer/FileExplorerConstants.h"
 #include "Utilities/FileExplorer/FileExplorerUtils.h"
 #include "Utilities/FileExplorer/FileTree.h"
@@ -35,30 +36,11 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
                 setCurrentNode(&rootChild);
             }
         }
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
-        {
-            if (FileExplorerUtils::getFileExtension(rootChild.getName()) == "obj") {
-                std::string modelPath = rootChild.getPathString();
-                ImGui::SetDragDropPayload("MODEL_PATH_DRAGGABLE", modelPath.c_str(), (strlen(modelPath.c_str()) + 1) * sizeof(char));
-            }
-
-            ImGui::Text(rootChild.getName().c_str());
-
-            ImGui::EndDragDropSource();
-        }
+        DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString(), rootChild.getName());
 
         ImGui::Text(rootChild.getName().c_str());
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
-        {
-            if (FileExplorerUtils::getFileExtension(rootChild.getName()) == "obj") {
-                std::string modelPath = rootChild.getPathString();
-                ImGui::SetDragDropPayload("MODEL_PATH_DRAGGABLE", modelPath.c_str(), (strlen(modelPath.c_str()) + 1) * sizeof(char));
-            }
+        DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString(), rootChild.getName());
 
-            ImGui::Text(rootChild.getName().c_str());
-            
-            ImGui::EndDragDropSource();
-        }
         ImGui::PopID();
     }
 
