@@ -95,6 +95,7 @@ Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::GetModel(const String& mesh
 	if (it != this->m_meshMap.end())
 	{
 		result = std::make_shared<Model>(*(it->second)); // Due to how the Model is used, we need to return a copy
+		result->SetId(GetInstanceId());
 	}
 
 	if(result == nullptr)
@@ -116,6 +117,11 @@ void Assets::ModelLibrary::LoadInitialModels()
 	this->m_meshMap.insert({ "CORNELL_BOX", std::move(this->LoadCornellBox()) });
 }
 
+int Assets::ModelLibrary::GetInstanceId()
+{
+	return this->instancesIdCount++;
+}
+
 Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::LoadBox()
 {
 	std::vector<Vertex> vertices;
@@ -127,7 +133,8 @@ Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::LoadBox()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr);
+		nullptr,
+		GetInstanceId());
 
 	return std::move(model);
 }
@@ -143,7 +150,8 @@ Assets::ModelLibrary::ModelPtr  Assets::ModelLibrary::LoadPlane()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr);
+		nullptr,
+		GetInstanceId());
 
 	return std::move(model);
 }
@@ -159,7 +167,8 @@ Assets::ModelLibrary::ModelPtr  Assets::ModelLibrary::LoadSphere()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr);
+		nullptr,
+		GetInstanceId());
 
 	return std::move(model);
 }
@@ -175,7 +184,8 @@ Assets::ModelLibrary::ModelPtr  Assets::ModelLibrary::LoadCapsule()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr);
+		nullptr,
+		GetInstanceId());
 
 	return std::move(model);
 }
@@ -191,7 +201,8 @@ Assets::ModelLibrary::ModelPtr  Assets::ModelLibrary::LoadCylinder()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr);
+		nullptr,
+		GetInstanceId());
 
 	return std::move(model);
 }
@@ -208,7 +219,8 @@ Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::LoadCornellBox()
 		std::move(vertices),
 		std::move(indices),
 		std::move(materials),
-		nullptr);
+		nullptr,
+		GetInstanceId());
 
 	return std::move(model);
 }
@@ -381,7 +393,7 @@ Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::LoadModel(const std::string
 		std::cout << "(" << totalvertices << " vertices, " << uniqueVertices.size() << " unique vertices, " << materials.size() << " materials) ";
 		std::cout << elapsed << "s" << std::endl;
 
-		auto model = std::make_shared<Model>(name, std::move(vertices), std::move(indices), std::move(materials), nullptr);
+		auto model = std::make_shared<Model>(name, std::move(vertices), std::move(indices), std::move(materials), nullptr, GetInstanceId());
 		model->filepath = filePath;
 
 		this->m_meshMap.insert({ filePath, model });

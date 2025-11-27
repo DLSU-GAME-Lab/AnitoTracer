@@ -610,11 +610,12 @@ void Model::ResetVertices()
 	}
 }
 
-Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural) :
+Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural, int id) :
 	vertices_(std::move(vertices)), 
 	indices_(std::move(indices)),
 	materials_(std::move(materials)),
-	procedural_(procedural)
+	procedural_(procedural),
+	instanceId(id)
 
 {
 	this->name = name;
