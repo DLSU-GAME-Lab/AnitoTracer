@@ -278,6 +278,17 @@ set(src_files_hotkeysytem
 
 )
 
+set(src_files_raypicker
+	RayPicker/RayPicker.hpp
+	RayPicker/RayPicker.cpp
+	RayPicker/RayPickerPipeline.hpp
+	RayPicker/RayPickerPipeline.cpp
+	RayPicker/RayPickerPipelineLayout.hpp
+	RayPicker/RayPickerPipelineLayout.cpp
+	RayPicker/RayPickerUBO.hpp
+	RayPicker/RayPickerUBO.cpp
+)
+
 set(src_files
 	main.cpp
 	Options.cpp
@@ -288,8 +299,6 @@ set(src_files
 	SceneList.hpp
 	UserSettings.hpp
 )
-
-
 
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
@@ -305,6 +314,7 @@ source_group("UI" FILES ${src_files_ui})
 source_group("From-GDGRAP2" FILES ${src_files_from_gdgrap2})
 source_group("Vulkan" FILES ${src_files_vulkan})
 source_group("Vulkan.RayTracing" FILES ${src_files_vulkan_raytracing})
+source_group("RayPicker" FILES ${src_files_raypicker})
 source_group("Main" FILES ${src_files})
 
 add_executable(${exe_name} 
@@ -312,7 +322,7 @@ add_executable(${exe_name}
 	${src_files_obb}
 
 	${src_files_camerasystem} 
-	${src_files_lightsystem} 
+	${src_files_lightsystem}
 	${stc_files_hotkeysystem}
 	${src_files_profiler}
 	${src_files_sceneio}
@@ -324,6 +334,7 @@ add_executable(${exe_name}
 	${src_files_from_gdgrap2}
 	${src_files_vulkan} 
 	${src_files_vulkan_raytracing} 
+	${src_files_raypicker}
 	${src_files}
  "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp" "Utilities/FileExplorer/FileTreeNode.h" "Utilities/FileExplorer/FileTree.h" "Utilities/FileExplorer/FileIcon.h" "Utilities/FileExplorer/FileTree.cpp" "Utilities/FileExplorer/FileTreeNode.cpp" "UI/ProjectScreen.h" "UI/ProjectScreen.cpp" "Utilities/FileExplorer/FileIcon.cpp" "Utilities/FileExplorer/FileExplorerConstants.h" "UI/FileExplorer/FileListView.h" "UI/FileExplorer/FileIconView.h" "UI/FileExplorer/FileListView.cpp" "Utilities/FileExplorer/FileExplorerUtils.h" "Utilities/FileExplorer/FileExplorerUtils.cpp" "UI/FileExplorer/FileIconView.cpp")
 

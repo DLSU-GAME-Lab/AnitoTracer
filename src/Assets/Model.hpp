@@ -33,7 +33,7 @@ namespace Assets
 		Model(const Model&) = default;
 		Model(Model&&) = default;
 		~Model() = default;
-		Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural);
+		Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural, int id);
 
 		void SetName(std::string name);
 		void SetMaterial(const Material& material);
@@ -63,6 +63,9 @@ namespace Assets
 		glm::mat4 GetWorldMatrix() const { return worldMatrix_; };
 		std::string FilePath() const { return filepath; }
 
+		void SetId(int id) { this->instanceId = id; }
+		int GetId() const { return this->instanceId; }
+
 	public:
 
 		std::string name;
@@ -74,6 +77,7 @@ namespace Assets
 		std::shared_ptr<const class Procedural> procedural_;
 		glm::mat4 worldMatrix_;
 		std::string filepath;
+		int instanceId = 0;
 	};
 
 }

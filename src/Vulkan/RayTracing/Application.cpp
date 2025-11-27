@@ -317,8 +317,7 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 	for (const auto& model : scene.Models())
 	{
 		instances.push_back(TopLevelAccelerationStructure::CreateInstance(
-			bottomAs_[instanceId], glm::mat4(1), instanceId, model.Procedural() ? 1 : 0));
-		instanceId++;
+			bottomAs_[instanceId], glm::mat4(1), model.GetId(), model.Procedural() ? 1 : 0));
 	}
 
 	// Create and copy instances buffer (do it in a separate one-time synchronous command buffer).

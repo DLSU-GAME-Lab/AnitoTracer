@@ -25,6 +25,7 @@ namespace Assets
 
     private:
         void LoadInitialModels();
+        int GetInstanceId();
         ModelPtr LoadBox();
         ModelPtr LoadPlane();
         ModelPtr LoadSphere();
@@ -57,5 +58,6 @@ namespace Assets
 
         ModelMap m_meshMap;
 		std::shared_ptr<Material> defaultMat;
+        int instancesIdCount;
     };
 }

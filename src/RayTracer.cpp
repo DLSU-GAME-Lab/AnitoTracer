@@ -34,6 +34,8 @@
 
 #include "StateManagement/CommandManager.hpp"
 #include "Assets/GameObjectFactory.hpp"
+#include "RayPicker/RayPickerUBO.hpp"
+#include "Vulkan/RayTracing/TopLevelAccelerationStructure.hpp" 
 
 namespace
 {
@@ -113,6 +115,18 @@ Assets::PushConstantModel RayTracer::GetPushConstantModel(const Assets::Model& m
 {
 	Assets::PushConstantModel ubo = {};
 	ubo.WorldMatrix = model.GetWorldMatrix();
+
+	return ubo;
+}
+
+RayPickerUBO RayTracer::GetRayPickerUBO(const VkExtent2D extent) const
+{
+	RayPickerUBO ubo = {};
+	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->ModelView();
+	ubo.Projection = CameraManager::getInstance()->getActiveCamera()->GetProjection(userSettings_, extent);
+	ubo.Projection[1][1] *= -1; // Inverting Y for Vulkan, https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
+	ubo.ModelViewInverse = glm::inverse(ubo.ModelView);
+	ubo.ProjectionInverse = glm::inverse(ubo.Projection);
 
 	return ubo;
 }
@@ -212,6 +226,7 @@ void RayTracer::DrawFrame()
 		LoadScene(userSettings_.SceneIndex);
 		CreateAccelerationStructures();
 		CreateSwapChain();
+		ResetPicker();
 		this->isSceneDirty = false;
 		return;
 	}
@@ -227,6 +242,7 @@ void RayTracer::DrawFrame()
 		ReloadModifiedScene();
 		CreateAccelerationStructures();
 		CreateSwapChain();
+		ResetPicker();
 		return;
 	}
 
@@ -247,6 +263,7 @@ void RayTracer::DrawFrame()
 
 	rayScene_->Update(CommandPool());
 	
+	ExecuteScheduledPick();
 	Application::DrawFrame();
 }
 
@@ -348,7 +365,11 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 			// case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 			// case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 			//case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
-
+		case GLFW_KEY_SPACE:
+		{
+			SchedulePick();
+		}
+		return;
 
 		default: break;
 		}
@@ -622,5 +643,36 @@ void RayTracer::CheckFramebufferSize() const
 		out << fbSize.width << "x" << fbSize.height << ")";
 
 		Throw(std::runtime_error(out.str()));
+	}
+}
+
+void RayTracer::ResetPicker()
+{
+	rayPicker_.reset(new class RayPicker(*deviceProcedures_, SwapChain(), CommandPool(), topAs_[0], RayPickerUniformBuffers(), GetScene(), *rayTracingProperties_));
+}
+
+void RayTracer::SchedulePick()
+{
+	this->isPickScheduled = true;
+}
+
+void RayTracer::ExecuteScheduledPick()
+{
+	if (this->isPickScheduled && rayPicker_)
+	{
+		this->isPickScheduled = false;
+		auto result = rayPicker_->pick(*deviceProcedures_, Device(), glm::vec3(0, 0, 0), glm::vec3(0, 0, 1), currentFrame_);
+
+		int pickedId = result.instanceID;
+		auto modelList = ModelManager::getInstance()->getAllObjectModels();
+
+		for (const auto& model : modelList)
+		{
+			if (model.GetId() == pickedId)
+			{
+				Debug::Log(model.name);
+				break;
+			}
+		}
 	}
 }
