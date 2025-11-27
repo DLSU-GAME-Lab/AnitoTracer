@@ -256,6 +256,25 @@ set(src_files
 )
 
 set(src_files_imgui
+	Dependencies/include/imconfig.h
+	Dependencies/include/imgui.cpp
+	Dependencies/include/imgui.h
+	Dependencies/include/imgui_draw.cpp
+	Dependencies/include/imgui_freetype.cpp
+	Dependencies/include/imgui_freetype.h
+	Dependencies/include/imgui_impl_glfw.cpp
+	Dependencies/include/imgui_impl_glfw.h
+	Dependencies/include/imgui_impl_vulkan.cpp
+	Dependencies/include/imgui_impl_vulkan.h
+	Dependencies/include/imgui_internal.h
+	Dependencies/include/imgui_widgets.cpp
+	Dependencies/include/imstb_rectpack.h
+	Dependencies/include/imstb_textedit.h
+	Dependencies/include/imstb_truetype.h
+	Dependencies/include/ImGuizmo.cpp
+	Dependencies/include/ImGuizmo.h
+)
+
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
 
@@ -306,10 +325,11 @@ target_include_directories(
 	${glfw3_INCLUDE_DIRS} 
 	${glm_INCLUDE_DIRS} 
 	${STB_INCLUDE_DIRS} 
-	${Vulkan_INCLUDE_DIRS})
 	${Vulkan_INCLUDE_DIRS}
+	Dependencies/include
+)
 target_link_directories(${exe_name} PRIVATE Assimp/lib ${Vulkan_LIBRARY})
-target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm imgui::imgui imguizmo::imguizmo ${Vulkan_LIBRARIES} ${extra_libs})
+target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm ${Vulkan_LIBRARIES} ${extra_libs})
 
 #if(${WIN32})
 #add_custom_command(TARGET ${exe_name} POST_BUILD
