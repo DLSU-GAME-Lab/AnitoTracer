@@ -268,6 +268,9 @@ set(src_files_imgui
 	Dependencies/include/imgui_impl_vulkan.h
 	Dependencies/include/imgui_internal.h
 	Dependencies/include/imgui_widgets.cpp
+	Dependencies/include/imgui_stdlib.h
+	Dependencies/include/imgui_stdlib.cpp
+	Dependencies/include/imgui_tables.cpp
 	Dependencies/include/imstb_rectpack.h
 	Dependencies/include/imstb_textedit.h
 	Dependencies/include/imstb_truetype.h
