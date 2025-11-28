@@ -681,103 +681,19 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
-	//std::shared_ptr<Material> areaLight2 = Material::DiffuseLight(vec3(0, 0, 0.80) * 7.0f);
-	//Model areaLightModel2 = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight2);
-
-	//std::shared_ptr<Light> dl = std::make_shared<Light>("Light Source", Light::LightType::DirectionalLight);
-	//dl->setLocalPosition(0,10000, 0);
-	//dl->setAmbientColor(1, 1, 1, 0.05);
-	//ModelManager::getInstance()->addLightObject(dl);
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
 	areaLightObject->setLocalRotation(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
-	 
-	//std::shared_ptr<GameObject> areaLightObject2 = std::make_shared<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel2));
-	//areaLightObject2->setLocalPosition(-1500, 1000, -1500);
-	//ModelManager::getInstance()->addObject(areaLightObject2);
-
-	/*std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
-	ModelManager::getInstance()->addObject(cameraObj);
-	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj);*/
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
-	//Model sphere4Model = Model::CreateSphere(vec3(0,0,0), 100.0f, *groundReflectMat, false);
-	//std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere4Model));
-	//ModelManager::getInstance()->addObject(sphere);
-	//sphere->setLocalPosition(-350, 200, -45);
-
-	//Model sphere2Model = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
-	//std::shared_ptr<GameObject> sphere2 = std::make_shared<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphere2Model));
-	//ModelManager::getInstance()->addObject(sphere2);
-	//sphere2->setLocalPosition(-500, 500, -45);
-
-
-	/*auto rath = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/Rosa.blend");
-
-	rath.Transform(
-			rotate(
-				scale(
-					translate(i, vec3(0, 0, 0)),
-					vec3(50.0f)),
-				radians(105.0f), vec3(0, 1, 0)));
-
-		std::shared_ptr<GameObject> rathObj;
-
-		if (rath.GetName() == "")
-			rathObj = std::make_shared<GameObject>("Sponza", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(rath));
-		else
-			rathObj = std::make_shared<GameObject>(rath.GetName(), GameObject::PrimitiveType::CUBE, std::make_shared<Model>(rath));
-
-		ModelManager::getInstance()->addObject(rathObj);
-		rathObj->setLocalPosition(100, 850, 0);*/
-	 
-	 
-	//std::vector<Model> sponza = Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj");
-	////sponza.SetMaterial(white);
-
-	//for (int j = 0; j < sponza.size(); j++) 
-	//{
-	//	
-	//	sponza[j].Transform(
-	//		rotate(
-	//			scale(
-	//				translate(i, vec3(0, 0, 0)),
-	//				vec3(1)),
-	//			radians(0.0f), vec3(0, 1, 0)));
-
-
-	//	std::shared_ptr<GameObject> sponzaObj;
-
-	//	if (sponza[j].GetName() == "")
-	//		sponzaObj = std::make_shared<GameObject>("Sponza" + j, GameObject::PrimitiveType::MESH, std::make_shared<Model>(sponza[j]));
-	//	else
-	//		sponzaObj = std::make_shared<GameObject>(sponza[j].GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sponza[j]));
-
-	//	ModelManager::getInstance()->addObject(sponzaObj);
-	//	sponzaObj->setLocalPosition(0, 0, 0);
-	//}
-
-
-	Model sponza = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj");
-	sponza.Transform(
-		rotate(
-			scale(
-				translate(i, vec3(0, 0, 0)),
-				vec3(1)),
-			radians(0.0f), vec3(0, 1, 0)));
-
-
-	auto sponzaObj = std::make_unique<GameObject>(sponza.GetName().empty() ? "Sponza" : sponza.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sponza));
-
-	ModelManager::getInstance()->addObject(std::move(sponzaObj));
-	sponzaObj = nullptr;
+	auto gameObject = GameObjectFactory::getInstance()->CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj", "sponza");
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
 	////Add light objects
 	//std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);

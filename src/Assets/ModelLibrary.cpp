@@ -85,19 +85,22 @@ Assets::ModelLibrary::ModelLibrary()
 	LoadInitialModels();
 }
 
-Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::GetModel(const String& meshName)
+Assets::ModelLibrary::ModelList Assets::ModelLibrary::GetModel(const String& meshName)
 {
-	ModelPtr result = nullptr;
+	ModelList result;
 
 	auto it = this->m_meshMap.find(meshName);
-
 	if (it != this->m_meshMap.end())
 	{
-		result = std::make_shared<Model>(*(it->second)); // Due to how the Model is used, we need to return a copy
-		result->SetId(GetInstanceId());
+		// Return copies with new instance IDs
+		for (const auto& cachedModel : it->second)
+		{
+			auto copy = std::make_shared<Model>(*cachedModel);
+			copy->SetId(GetInstanceId());
+			result.push_back(copy);
+		}
 	}
-
-	if(result == nullptr)
+	else
 	{
 		Debug::Log("Model: '" + meshName + "' not found in ModelLibrary.");
 	}
@@ -108,12 +111,12 @@ Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::GetModel(const String& mesh
 void Assets::ModelLibrary::LoadInitialModels()
 {
 	/* Primitives */
-	this->m_meshMap.insert({ "CUBE", std::move(this->LoadBox()) });
-	this->m_meshMap.insert({ "PLANE", std::move(this->LoadPlane()) });
-	this->m_meshMap.insert({ "SPHERE", std::move(this->LoadSphere()) });
-	this->m_meshMap.insert({ "CYLINDER", std::move(this->LoadCylinder()) });
-	this->m_meshMap.insert({ "CAPSULE", std::move(this->LoadCapsule()) });
-	this->m_meshMap.insert({ "CORNELL_BOX", std::move(this->LoadCornellBox()) });
+	this->m_meshMap.insert({ "CUBE", {std::move(this->LoadBox())} });
+	this->m_meshMap.insert({ "PLANE", {std::move(this->LoadPlane())}  });
+	this->m_meshMap.insert({ "SPHERE", {std::move(this->LoadSphere())} });
+	this->m_meshMap.insert({ "CYLINDER", {std::move(this->LoadCylinder())} });
+	this->m_meshMap.insert({ "CAPSULE", {std::move(this->LoadCapsule())} });
+	this->m_meshMap.insert({ "CORNELL_BOX", {std::move(this->LoadCornellBox())} });
 }
 
 int Assets::ModelLibrary::GetInstanceId()
@@ -239,182 +242,177 @@ void Assets::ModelLibrary::destroy()
 	delete sharedInstance;
 }
 
-Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::LoadModel(const std::string& filePath)
+Assets::ModelLibrary::ModelList Assets::ModelLibrary::LoadModel(const std::string& filePath)
 {
-	ModelPtr result = this->GetModel(filePath); //Look if it already exists
+    ModelList result = GetModel(filePath);
+    if (!result.empty()) return result;
 
-	if (!result)
-	{
-		std::cout << "- loading '" << filePath << "'... " << std::flush;
+    std::cout << "- loading '" << filePath << "'... " << std::flush;
 
-		const auto timer = std::chrono::high_resolution_clock::now();
-		const std::string materialPath = std::filesystem::path(filePath).parent_path().string();
+    const auto timer = std::chrono::high_resolution_clock::now();
+    const std::string materialPath = std::filesystem::path(filePath).parent_path().string();
 
-		Assimp::Importer objectImporter;
-		const aiScene* scene = objectImporter.ReadFile(filePath, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
-			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_Triangulate |
-			aiProcess_GenUVCoords | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs | 0);
-		// read file and return an aiScene containing model attributes
+    Assimp::Importer objectImporter;
+    const aiScene* scene = objectImporter.ReadFile(filePath,
+        aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
+        aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes |
+        aiProcess_Triangulate | aiProcess_GenUVCoords | aiProcess_SortByPType |
+        aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs);
 
-		if (scene == nullptr)
-		{
-			Debug::Log("failed to load model '" + filePath + "':\n" + objectImporter.GetErrorString());
-		}
+    if (scene == nullptr)
+    {
+        Debug::Log("failed to load model '" + filePath + "':\n" + objectImporter.GetErrorString());
+        return result;
+    }
 
-		std::string name;
-		int totalvertices = 0;
+    // Load all materials from the scene
+    std::vector<Material> allMaterials;
+    for (unsigned int i = 0; i < scene->mNumMaterials; i++)
+    {
+        Material material{};
+        aiColor4D diffuse;
 
-		for (int i = 0; i < scene->mNumMeshes; i++)
-		{
-			totalvertices += scene->mMeshes[i]->mNumVertices;
-		}
+        if (AI_SUCCESS != scene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse))
+        {
+            material.Diffuse = glm::vec4(0.7f, 0.7f, 0.7f, 1.0);
+            material.DiffuseTextureId = -1;
+            std::cout << "No Texture in Material " << i << std::endl;
+        }
+        else
+        {
+            material.Diffuse = glm::vec4(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
 
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
-		std::unordered_map<Vertex, uint32_t> uniqueVertices;
-		uniqueVertices.reserve(totalvertices);
-		size_t faceId = 0;
+            int texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_DIFFUSE);
+            if (texcount > 0)
+            {
+                aiString texture_file;
+                scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0), texture_file);
+                std::string texName = scene->mMaterials[i]->GetName().C_Str();
 
-		std::vector<Material> materials;
-		aiColor4D diffuse;
-		Material material{};
-		for (int i = 0; i < scene->mNumMaterials; i++)
-		{
-			if (AI_SUCCESS != scene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse))
-			{
+                if (!TextureLibrary::getInstance()->doesTextureExist(texName))
+                {
+                    TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
+                    std::cout << "Initialized Texture " << texName << std::endl;
+                }
+                material.DiffuseTextureId = TextureLibrary::getInstance()->getTextureId(texName);
+            }
+            else
+            {
+                material.DiffuseTextureId = -1;
+            }
+        }
+        allMaterials.push_back(material);
+    }
 
-				material.Diffuse = glm::vec4(0.7f, 0.7f, 0.7f, 1.0);
-				material.DiffuseTextureId = -1;
+    // Process each mesh separately
+    size_t totalVertices = 0;
+    size_t totalUniqueVertices = 0;
+    std::vector<std::shared_ptr<Model>> models; // Store all models
 
-				std::cout << "No Texture in Mesh!" << std::endl;
+    for (unsigned int m = 0; m < scene->mNumMeshes; m++)
+    {
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
+        std::unordered_map<Vertex, uint32_t> uniqueVertices; // Per-mesh unique vertices
 
-			}
-			else
-			{
-				material.Diffuse = glm::vec4(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
+        const aiMesh* mesh = scene->mMeshes[m];
 
-				//diffuse/albedo
-				int texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_DIFFUSE);
+        // Process all faces in this mesh
+        for (unsigned int f = 0; f < mesh->mNumFaces; f++)
+        {
+            for (unsigned int i = 0; i < mesh->mFaces[f].mNumIndices; i++)
+            {
+                unsigned int v = mesh->mFaces[f].mIndices[i];
+                Vertex vertex = {};
 
-				if (texcount > 0) {
-					aiString texture_file;
-					scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0), texture_file);
-					std::string texName = scene->mMaterials[i]->GetName().C_Str();
-					if (!TextureLibrary::getInstance()->doesTextureExist(texName))
-					{
-						TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
-						std::cout << "Initialized Texture " << texName << std::endl;
-					}
+                vertex.Position = {
+                    mesh->mVertices[v].x,
+                    mesh->mVertices[v].y,
+                    mesh->mVertices[v].z
+                };
 
-					material.DiffuseTextureId = TextureLibrary::getInstance()->getTextureId(texName);
+                if (mesh->HasNormals())
+                {
+                    vertex.Normal = {
+                        mesh->mNormals[v].x,
+                        mesh->mNormals[v].y,
+                        mesh->mNormals[v].z
+                    };
+                }
+                else
+                {
+                    // Note: This normalization approach may not be correct
+                    glm::vec3 normalized = glm::normalize(vertex.Position);
+                    vertex.Normal = normalized;
+                }
 
-				}
-				else
-				{
-					material.DiffuseTextureId = -1;
-				}
-			}
+                if (mesh->HasTextureCoords(0))
+                {
+                    vertex.TexCoord = {
+                        mesh->mTextureCoords[0][v].x,
+                        mesh->mTextureCoords[0][v].y
+                    };
+                }
 
-			materials.emplace_back(material);
-		}
+                vertex.MaterialIndex = 0; // This mesh only has one material
 
+                // Check if this vertex already exists
+                if (uniqueVertices.find(vertex) == uniqueVertices.end())
+                {
+                    uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                    vertices.push_back(vertex);
+                }
 
-		for (int m = 0; m < scene->mNumMeshes; m++)
-		{
-			// Geometry
-			for (int f = 0; f < scene->mMeshes[m]->mNumFaces; f++)
-			{
+                indices.push_back(uniqueVertices[vertex]);
+            }
+        }
 
-				for (int i = 0; i < scene->mMeshes[m]->mFaces[f].mNumIndices; i++)
-				{
+        totalVertices += mesh->mNumVertices;
+        totalUniqueVertices += vertices.size();
 
-					Vertex vertex = {};
-					int v = scene->mMeshes[m]->mFaces[f].mIndices[i];
+        // Get the material for this mesh
+        std::vector<Material> meshMaterial;
+        if (mesh->mMaterialIndex < allMaterials.size())
+        {
+            meshMaterial.push_back(allMaterials[mesh->mMaterialIndex]);
+        }
+        else
+        {
+            // Fallback material
+            Material defaultMat{};
+            defaultMat.Diffuse = glm::vec4(0.7f, 0.7f, 0.7f, 1.0);
+            defaultMat.DiffuseTextureId = -1;
+            meshMaterial.push_back(defaultMat);
+        }
 
-					vertex.Position =
-					{
-						scene->mMeshes[m]->mVertices[v].x,
-						scene->mMeshes[m]->mVertices[v].y,
-						scene->mMeshes[m]->mVertices[v].z,
-					};
+        // Create model for this mesh with its own material
+        auto model = std::make_shared<Model>(
+            "",
+            std::move(vertices),
+            std::move(indices),
+            std::move(meshMaterial),  // Each mesh gets its own material copy
+            nullptr,
+            ModelLibrary::getInstance()->GetInstanceId()
+        );
 
-					if (scene->mMeshes[m]->HasNormals())
-					{
-						vertex.Normal =
-						{
-							scene->mMeshes[m]->mNormals[v].x,
-							scene->mMeshes[m]->mNormals[v].y,
-							scene->mMeshes[m]->mNormals[v].z,
-						};
-					}
-					else
-					{
-						vertex.Normal =
-						{
-							scene->mMeshes[m]->mVertices[v].Normalize().x,
-							scene->mMeshes[m]->mVertices[v].Normalize().y,
-							scene->mMeshes[m]->mVertices[v].Normalize().z,
-						};
-					}
+        model->filepath = filePath;
+        models.push_back(model);
+    }
 
-					if (scene->mMeshes[m]->HasTextureCoords(0))
-					{
-						vertex.TexCoord =
-						{
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].x,
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].y
-						};
-					}
+    const auto elapsed = std::chrono::duration<float, std::chrono::seconds::period>(
+        std::chrono::high_resolution_clock::now() - timer).count();
 
-					//vertex.MaterialIndex = std::max(0, mesh.material_ids[faceId++ / 3]);
+    std::cout << "(" << totalVertices << " vertices, "
+        << totalUniqueVertices << " unique vertices, "
+        << models.size() << " meshes, "
+        << allMaterials.size() << " materials) "
+        << elapsed << "s" << std::endl;
 
-					vertex.MaterialIndex = scene->mMeshes[m]->mMaterialIndex;
+    // Store the list of models
+    this->m_meshMap.insert({ filePath, models });
 
-					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-					vertices.push_back(vertex);
-
-
-					indices.push_back(uniqueVertices[vertex]);
-				}
-
-			}
-			name = scene->mName.C_Str();
-			if (name == "")
-				name = "Imported Object";
-		}
-
-		//// --- Centering the model at (0,0,0) ---
-			//// Compute bounding box (min and max points)
-		glm::vec3 minPos(FLT_MAX);
-		glm::vec3 maxPos(-FLT_MAX);
-		for (const auto& vertex : vertices)
-		{
-			minPos = glm::min(minPos, vertex.Position);
-			maxPos = glm::max(maxPos, vertex.Position);
-		}
-
-		glm::vec3 center = (minPos + maxPos) * 0.5f;
-
-		// Shift all vertices so that the model is centered at the origin.
-		for (auto& vertex : vertices)
-		{
-			vertex.Position -= center;
-		}
-
-		//// --- End centering ---
-		const auto elapsed = std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - timer).count();
-
-		std::cout << "(" << totalvertices << " vertices, " << uniqueVertices.size() << " unique vertices, " << materials.size() << " materials) ";
-		std::cout << elapsed << "s" << std::endl;
-
-		auto model = std::make_shared<Model>(name, std::move(vertices), std::move(indices), std::move(materials), nullptr, GetInstanceId());
-		model->filepath = filePath;
-
-		this->m_meshMap.insert({ filePath, model });
-
-		return model;
-	}
-
-	return result;
+    return models;
 }
+
+	
 
