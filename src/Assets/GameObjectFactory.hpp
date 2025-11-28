@@ -18,7 +18,7 @@ public:
     using String = std::string;
 
     static GameObjectFactory* getInstance();
-    static void initialize(const std::shared_ptr<Assets::ModelLibrary>& library = nullptr);
+    static void initialize();
     static void destroy();
 
     // Create an empty game object (no model)
@@ -38,12 +38,10 @@ public:
     LightPtr CreateLight(Light::LightType type, const String& name = "Light_Source");
 
 private:
-    GameObjectFactory(const std::shared_ptr<Assets::ModelLibrary>& library);
+    GameObjectFactory();
     ~GameObjectFactory() = default;
     GameObjectFactory(GameObjectFactory const&) {};             // copy constructor is private
     GameObjectFactory& operator=(GameObjectFactory const&) {};  // assignment operator is private*/
 
     static GameObjectFactory* sharedInstance;
-
-    std::shared_ptr<Assets::ModelLibrary> library_;
 };

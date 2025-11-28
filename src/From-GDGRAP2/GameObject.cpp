@@ -34,6 +34,7 @@ GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::
 	this->name = name;
 	this->type = type;
 	this->modelRef = modelRef;
+	this->modelRef->SetOwner(this);
 
 	this->updateWorldMatrix();
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);

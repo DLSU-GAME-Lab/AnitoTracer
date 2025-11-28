@@ -34,6 +34,7 @@
 
 #include "StateManagement/CommandManager.hpp"
 #include "Assets/GameObjectFactory.hpp"
+#include "Assets/ModelLibrary.hpp"
 #include "RayPicker/RayPickerUBO.hpp"
 #include "Vulkan/RayTracing/TopLevelAccelerationStructure.hpp" 
 
@@ -60,6 +61,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
+	Assets::ModelLibrary::initialize();
 	GameObjectFactory::initialize();
 	CommandManager::initialize();
 }
@@ -67,6 +69,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 RayTracer::~RayTracer()
 {
 	GameObjectFactory::destroy();
+	Assets::ModelLibrary::destroy();
 	CommandManager::destroy();
 
 	scene_.reset();
@@ -663,16 +666,9 @@ void RayTracer::ExecuteScheduledPick()
 		this->isPickScheduled = false;
 		auto result = rayPicker_->pick(*deviceProcedures_, Device(), glm::vec3(0, 0, 0), glm::vec3(0, 0, 1), currentFrame_);
 
-		int pickedId = result.instanceID;
-		auto modelList = ModelManager::getInstance()->getAllObjectModels();
+		int pickedId = result.objectID;
+		auto gameObject = ModelManager::getInstance()->FindGameObject(pickedId);
 
-		for (const auto& model : modelList)
-		{
-			if (model.GetId() == pickedId)
-			{
-				Debug::Log(model.name);
-				break;
-			}
-		}
+		if (gameObject)	Debug::Log(gameObject->getName());
 	}
 }

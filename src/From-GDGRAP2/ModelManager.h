@@ -70,6 +70,17 @@ public:
 
 	void OnActionPressed(Hotkey::Action action) override;
 
+	/* For Hierarchy Actions and Scene View Menu */
+	void PasteObject();
+	void CutSelectedObject();
+	void CopySelectedObject();
+	void DuplicateSelectedObject();
+	void DeleteSelectedObject();
+
+	void ClearInstanceToObjectMap();
+	void RegisterInstance(uint32_t instanceId, GameObject* gameObject);
+	GameObject* FindGameObject(uint32_t instanceId) const;
+
 private:
 	ModelManager();
 	~ModelManager();
@@ -84,6 +95,8 @@ private:
 
 	GameObject* selectedObject = nullptr;
 	GameObjectPtr copiedObject = nullptr;
+
+	std::unordered_map<uint32_t, GameObject*> instanceIdToGameObjectMap;
 
 	GameObjectPtr removeInSubtree(GameObject* parent, GameObject* target);
 };

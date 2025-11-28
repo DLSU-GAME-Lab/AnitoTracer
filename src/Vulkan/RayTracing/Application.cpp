@@ -17,9 +17,7 @@
 #include "Vulkan/SwapChain.hpp"
 #include <chrono>
 #include <iostream>
-#include <numeric>
-
-#include "UI/UIManager.h"
+#include "From-GDGRAP2/ModelManager.h"
 
 
 namespace Vulkan::RayTracing {
@@ -314,10 +312,14 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 	// Hit group 1: procedurals
 	uint32_t instanceId = 0;
 
+	ModelManager::getInstance()->ClearInstanceToObjectMap();
+
 	for (const auto& model : scene.Models())
 	{
+		ModelManager::getInstance()->RegisterInstance(instanceId, model.GetOwner());
 		instances.push_back(TopLevelAccelerationStructure::CreateInstance(
-			bottomAs_[instanceId], glm::mat4(1), model.GetId(), model.Procedural() ? 1 : 0));
+			bottomAs_[instanceId], glm::mat4(1), instanceId, model.Procedural() ? 1 : 0));
+		instanceId++;
 	}
 
 	// Create and copy instances buffer (do it in a separate one-time synchronous command buffer).

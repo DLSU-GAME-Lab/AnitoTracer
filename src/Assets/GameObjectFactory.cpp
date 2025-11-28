@@ -1,4 +1,5 @@
 #include "GameObjectFactory.hpp"
+#include "ModelLibrary.hpp"
 
 using namespace Assets;
 
@@ -9,11 +10,11 @@ GameObjectFactory* GameObjectFactory::getInstance()
     return sharedInstance;
 }
 
-void GameObjectFactory::initialize(const std::shared_ptr<Assets::ModelLibrary>& library)
+void GameObjectFactory::initialize()
 {
     if (!sharedInstance)
     {
-        sharedInstance = new GameObjectFactory(library);
+        sharedInstance = new GameObjectFactory();
     }
 }
 
@@ -23,9 +24,8 @@ void GameObjectFactory::destroy()
     sharedInstance = nullptr;
 }
 
-GameObjectFactory::GameObjectFactory(const std::shared_ptr<Assets::ModelLibrary>& library)
+GameObjectFactory::GameObjectFactory()
 {
-    library_ = library ? library : std::make_shared<ModelLibrary>();
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateEmpty(const String& name)
@@ -35,44 +35,44 @@ GameObject::GameObjectPtr GameObjectFactory::CreateEmpty(const String& name)
 
 GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& filepath, const String& name)
 {
-    auto modelPtr = library_->LoadModel(filepath);
+    auto modelPtr = ModelLibrary::getInstance()->LoadModel(filepath);
     String finalName = name.empty() ? (modelPtr ? modelPtr->GetName() : "mesh") : name;
     return std::make_unique<GameObject>(finalName, GameObject::MESH, modelPtr);
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCube(const String& name)
 {
-    auto modelPtr = library_->GetModel("CUBE");
+    auto modelPtr = ModelLibrary::getInstance()->GetModel("CUBE");
     return std::make_unique<GameObject>(name, GameObject::CUBE, modelPtr);
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreatePlane(const String& name)
 {
-    auto modelPtr = library_->GetModel("PLANE");
+    auto modelPtr = ModelLibrary::getInstance()->GetModel("PLANE");
     return std::make_unique<GameObject>(name, GameObject::PLANE, modelPtr);
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateSphere(const String& name)
 {
-    auto modelPtr = library_->GetModel("SPHERE");
+    auto modelPtr = ModelLibrary::getInstance()->GetModel("SPHERE");
     return std::make_unique<GameObject>(name, GameObject::SPHERE, modelPtr);
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCylinder(const String& name)
 {
-    auto modelPtr = library_->GetModel("CYLINDER");
+    auto modelPtr = ModelLibrary::getInstance()->GetModel("CYLINDER");
     return std::make_unique<GameObject>(name, GameObject::CYLINDER, modelPtr);
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCapsule(const String& name)
 {
-    auto modelPtr = library_->GetModel("CAPSULE");
+    auto modelPtr = ModelLibrary::getInstance()->GetModel("CAPSULE");
     return std::make_unique<GameObject>(name, GameObject::CAPSULE, modelPtr);
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCornellBox(const String& name)
 {
-    auto modelPtr = library_->GetModel("CORNELL_BOX");
+    auto modelPtr = ModelLibrary::getInstance()->GetModel("CORNELL_BOX");
     return std::make_unique<GameObject>(name, GameObject::CORNELL_BOX, modelPtr);
 }
 
