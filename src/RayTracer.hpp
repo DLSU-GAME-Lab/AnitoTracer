@@ -59,8 +59,10 @@ private:
 	void CheckAndUpdateBenchmarkState(double prevTime);
 	void CheckFramebufferSize() const;
 	void ResetPicker();
-	void SchedulePick();
+	void SchedulePick(const glm::vec2& mousePos);
 	void ExecuteScheduledPick();
+
+	void ScreenToWorldRay(const glm::vec2& mousePos, glm::vec3& outOrigin, glm::vec3& outDirection);
 
 	uint32_t sceneIndex_{};
 	UserSettings userSettings_{};
@@ -101,4 +103,5 @@ private:
 
 	std::unique_ptr<class Vulkan::RayVisualizationPipeline> rayVisualizationPipeline_;
 	std::unique_ptr<class RayPicker> rayPicker_;
+	glm::vec2 scheduledMousePos;
 };

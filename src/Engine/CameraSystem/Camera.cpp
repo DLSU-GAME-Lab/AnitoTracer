@@ -111,72 +111,7 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 
 bool Camera::OnMouseButton(const int button, const int action, const int mods)
 {
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
-	{
-		float ndcX = (2.0f * static_cast<float>(mousePosX_)) / windowWidth_ - 1.0f;
-		float ndcY = 1.0f - (2.0f * static_cast<float>(mousePosY_)) / windowHeight_;
-		glm::vec2 mouseNDC(ndcX, ndcY);
-
-		glm::mat4 view = orientation_ * glm::translate(glm::mat4(1), -glm::vec3(position_));
-		;
-		glm::mat4 proj = projection_;
-		proj[1][1] *= -1;
-
-		glm::mat4 invVP = glm::inverse(proj * view);
-
-		glm::vec4 rayStartNDC(mouseNDC, 0.0f, 1.0f);
-		glm::vec4 rayEndNDC(mouseNDC, 1.0f, 1.0f);
-
-		glm::vec4 rayStartWorld = invVP * rayStartNDC;
-		glm::vec4 rayEndWorld = invVP * rayEndNDC;
-		rayStartWorld /= rayStartWorld.w;
-		rayEndWorld /= rayEndWorld.w;
-
-		glm::vec3 rayOrigin = glm::vec3(rayStartWorld);
-		glm::vec rayEnd = glm::vec3(rayEndWorld);
-		glm::vec3 rayDirection = glm::normalize(glm::vec3(rayEndWorld - rayStartWorld));
-
-		Ray pickingRay(rayOrigin, rayDirection);
-
-		//std::cout << "Ray Origin: " << glm::to_string(rayOrigin) << std::endl;
-		//std::cout << "Ray Direction: " << glm::to_string(rayDirection) << std::endl;
-
-		auto objects = ModelManager::getInstance()->getAllObjects();
-		float closestT = std::numeric_limits<float>::max();
-		GameObject* selectedObject = nullptr;
-
-		for (auto& obj : objects)
-		{
-			if (!obj->isActive())
-				continue;
-
-			auto obb = obj->getOBB();
-			if (obb)
-			{
-
-				glm::vec3 minCorner = obb->center - obb->halfExtents;
-				glm::vec3 maxCorner = obb->center + obb->halfExtents;
-
-				float tHit = 0.0f;
-				if (pickingRay.intersects(*obb, tHit))
-				{
-					if (tHit < closestT)
-					{
-						closestT = tHit;
-						selectedObject = obj;
-					}
-				}
-			}
-		}
-
-		if (selectedObject)
-		{
-			glm::vec3 hitPoint = rayOrigin + rayDirection * closestT;
-			ModelManager::getInstance()->setSelectedObject(selectedObject);
-		}
-	}
-
-	return true;
+	return false;
 }
 
 bool Camera::UpdateCamera(const double speed, const double timeDelta)
