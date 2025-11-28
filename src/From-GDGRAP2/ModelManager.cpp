@@ -758,6 +758,22 @@ void ModelManager::DeleteSelectedObject()
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); //AnitoTracer Specific
 }
 
+void ModelManager::ClearInstanceToObjectMap()
+{
+	this->instanceIdToGameObjectMap.clear();
+}
+
+void ModelManager::RegisterInstance(uint32_t instanceId, GameObject* gameObject)
+{
+	this->instanceIdToGameObjectMap[instanceId] = gameObject;
+}
+
+GameObject* ModelManager::FindGameObject(uint32_t instanceId) const
+{
+	auto it = this->instanceIdToGameObjectMap.find(instanceId);
+	return (it != this->instanceIdToGameObjectMap.end()) ? it->second : nullptr;
+}
+
 /* Where the object is spawned needs to be decided  (world origin vs infront of camera vs beside copy) */
 void ModelManager::PasteObject()
 {

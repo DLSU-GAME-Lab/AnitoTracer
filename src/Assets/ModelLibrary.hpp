@@ -17,15 +17,23 @@ namespace Assets
 		using ModelPtr = std::shared_ptr<Model>; // Should be a unique_ptr but due to how proliferate it was used, we stick to shared_ptr; can also send shared in the future if Rendering methods is changed
         using ModelMap = std::unordered_map<String, ModelPtr>;
 
-        ModelLibrary();
-        ~ModelLibrary() = default;
+        static ModelLibrary* getInstance();
+        static void initialize();
+        static void destroy();
 
         ModelPtr LoadModel(const std::string& filePath);
         ModelPtr GetModel(const String& meshName);
 
-    private:
-        void LoadInitialModels();
         int GetInstanceId();
+    private:
+        ModelLibrary();
+        ~ModelLibrary() = default;
+        ModelLibrary(ModelLibrary const&) {};             // copy constructor is private
+        ModelLibrary& operator=(ModelLibrary const&) {};  // assignment operator is private*/
+
+        static Assets::ModelLibrary* sharedInstance;
+
+        void LoadInitialModels();
         ModelPtr LoadBox();
         ModelPtr LoadPlane();
         ModelPtr LoadSphere();
@@ -58,6 +66,6 @@ namespace Assets
 
         ModelMap m_meshMap;
 		std::shared_ptr<Material> defaultMat;
-        int instancesIdCount;
+        int instancesIdCount = 0;
     };
 }

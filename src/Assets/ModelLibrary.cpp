@@ -6,17 +6,14 @@
 #include "Capsule.hpp"
 #include "Cylinder.hpp"
 #include "Sphere.hpp"
-#include "SphereProc.hpp"
 #include "CornellBox.hpp"
 
 #include "Utilities/FileUtils.h"
-#include "Procedural.hpp"
 #include "From-GDGRAP2/MaterialLibrary.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <Assimp/postprocess.h>
-#include <Assimp/texture.h>
 
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/TextureLibrary.h"
@@ -79,6 +76,8 @@ namespace std
 		}
 	};
 }
+
+Assets::ModelLibrary* Assets::ModelLibrary::sharedInstance = nullptr;
 
 Assets::ModelLibrary::ModelLibrary()
 {
@@ -144,7 +143,7 @@ Assets::ModelLibrary::ModelPtr  Assets::ModelLibrary::LoadPlane()
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
 
-	Box::Create(this->m_plane_p0, this->m_plane_p1, vertices, indices);
+	Plane::Create(this->m_plane_p0, this->m_plane_p1, vertices, indices);
 
 	ModelPtr model = std::make_shared<Model>("Plane",
 		std::move(vertices),
@@ -223,6 +222,21 @@ Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::LoadCornellBox()
 		GetInstanceId());
 
 	return std::move(model);
+}
+
+Assets::ModelLibrary* Assets::ModelLibrary::getInstance()
+{
+	return sharedInstance;
+}
+
+void Assets::ModelLibrary::initialize()
+{
+	sharedInstance = new ModelLibrary();
+}
+
+void Assets::ModelLibrary::destroy()
+{
+	delete sharedInstance;
 }
 
 Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::LoadModel(const std::string& filePath)
