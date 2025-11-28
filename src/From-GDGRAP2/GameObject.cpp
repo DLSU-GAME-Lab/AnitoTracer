@@ -387,7 +387,7 @@ void GameObject::updateWorldMatrix()
 
 	this->updateLocalMatrix();
 	
-	auto localMat = this->localMatrix;
+	auto localMat = this->getLocalMatrix();
 
 	if (parent)
 	{

@@ -15,14 +15,15 @@ namespace Assets
     public:
         using String = std::string;
 		using ModelPtr = std::shared_ptr<Model>; // Should be a unique_ptr but due to how proliferate it was used, we stick to shared_ptr; can also send shared in the future if Rendering methods is changed
-        using ModelMap = std::unordered_map<String, ModelPtr>;
+        using ModelList = std::vector<ModelPtr>;
+        using ModelMap = std::unordered_map<String, ModelList>;
 
         static ModelLibrary* getInstance();
         static void initialize();
         static void destroy();
 
-        ModelPtr LoadModel(const std::string& filePath);
-        ModelPtr GetModel(const String& meshName);
+        ModelList LoadModel(const std::string& filePath);
+        ModelList GetModel(const String& meshName);
 
         int GetInstanceId();
     private:
