@@ -4,16 +4,20 @@
 
 class FileListView {
 public:
-	FileListView();
+	static FileListView* getInstance();
 
-	static void drawUI();
+	void drawUI();
 
 private:
-	static std::string chooseIconBasedOnExtension(const std::string& filename);
-	static std::string chooseIconCode(const FileTreeNode& node);
+	static FileListView* instance;
 
-	static void renderDescendants(FileTreeNode& root);
-	static void renderRootNode(FileTreeNode& root);
+	FileListView();
 
-	static void renderDeleteConfirmationPrompt(FileTreeNode& toDelete);
+	std::string chooseIconBasedOnExtension(const std::string& filename);
+	std::string chooseIconCode(const FileTreeNode& node);
+
+	void renderDescendants(FileTreeNode& root);
+	void renderRootNode(FileTreeNode& root);
+
+	void renderDeleteConfirmationPrompt(FileTreeNode& toDelete);
 };

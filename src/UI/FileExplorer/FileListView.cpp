@@ -11,8 +11,17 @@
 
 static bool deletePopup = false;
 
+FileListView* FileListView::instance = nullptr;
+
 FileListView::FileListView() {
 
+}
+
+FileListView* FileListView::getInstance() {
+    if (instance == nullptr) {
+        instance = new FileListView();
+    }
+    return instance;
 }
 
 void FileListView::drawUI() {
@@ -48,7 +57,7 @@ void FileListView::renderDescendants(FileTreeNode& root) {
                 FileIconView::setCurrentNode(&rootChild);
             }
             if (isNodeOpen) {
-                DragAndDropUtils::attachFileMoveTarget(rootChild.getPathString());
+                DragAndDropUtils::attachFileMoveTarget(&rootChild);
 
                 ImGui::PopFont();
 
@@ -61,8 +70,8 @@ void FileListView::renderDescendants(FileTreeNode& root) {
                 rootChild.setIsOpen(false);
                 ImGui::PopFont();
             }
-            DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString());
-            DragAndDropUtils::attachFileMoveTarget(rootChild.getPathString());
+            DragAndDropUtils::attachFileTreeNodeSource(&rootChild);
+            DragAndDropUtils::attachFileMoveTarget(&rootChild);
 
             if (ImGui::BeginPopupContextItem()) {
                 if (ImGui::MenuItem("Delete")) {
@@ -90,7 +99,7 @@ void FileListView::renderRootNode(FileTreeNode& root) {
         }
 
         if (isNodeOpen) {
-            DragAndDropUtils::attachFileMoveTarget(root.getPathString());
+            DragAndDropUtils::attachFileMoveTarget(&root);
 
             ImGui::PopFont();
 
@@ -104,7 +113,7 @@ void FileListView::renderRootNode(FileTreeNode& root) {
             ImGui::PopFont();
         }
 
-        DragAndDropUtils::attachFileMoveTarget(root.getPathString());
+        DragAndDropUtils::attachFileMoveTarget(&root);
     }
     catch (const std::filesystem::filesystem_error&) {
         ImGui::TreePop();

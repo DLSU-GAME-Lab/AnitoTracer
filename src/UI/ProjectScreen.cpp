@@ -49,7 +49,7 @@ void ProjectScreen::drawUI()
             ImGui::TableNextRow(); // Only 1 row
 
             ImGui::TableSetColumnIndex(0);
-            FileListView::drawUI();
+            FileListView::getInstance()->drawUI();
 
             ImGui::TableSetColumnIndex(1);
             FileIconView::drawUI();
