@@ -21,11 +21,11 @@ void DragAndDropUtils::createFullPanelDummy() {
     ImGui::SetCursorScreenPos(dummyStartPos);
 }
 
-void DragAndDropUtils::attachModelInstantiateSource(std::string sourcePath) {
+void DragAndDropUtils::attachFileTreeNodeSource(FileTreeNode* srcNode) {
     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
     {
-        ImGui::SetDragDropPayload(DragAndDropConstants::MODEL_PATH, sourcePath.c_str(), (strlen(sourcePath.c_str()) + 1) * sizeof(char));
-        ImGui::Text(fs::path(sourcePath).filename().string().c_str());
+        ImGui::SetDragDropPayload(DragAndDropConstants::MODEL_PATH, &srcNode, sizeof(FileTreeNode*));
+        ImGui::Text(srcNode->getName().c_str());
         ImGui::EndDragDropSource();
     }
 }
@@ -66,21 +66,27 @@ void DragAndDropUtils::attachModelInstantiateTargetToViewport(ImGuiViewport* vie
     }
 }
 
-void DragAndDropUtils::attachFileMoveTarget(std::string destPath) {
+void DragAndDropUtils::attachFileMoveTarget(FileTreeNode* destNode) {
     if (ImGui::BeginDragDropTarget())
     {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(DragAndDropConstants::MODEL_PATH))
         {
-            const auto i = glm::mat4(1);
-            const char* sourcePath = (const char*)payload->Data;
+            IM_ASSERT(payload->DataSize == sizeof(FileTreeNode*));
+            FileTreeNode* srcNode = *(FileTreeNode**)payload->Data;
 
-            fs::path fsSourcePath(sourcePath);
-            fs::path fsDestDir(destPath);
+            fs::path fsSourcePath(srcNode->getPathString());
+            fs::path fsDestDir(destNode->getPathString());
             fs::path fsNewPath = fsDestDir / fsSourcePath.filename();
 
-            if (fs::is_directory(fs::path(destPath))) {
+            if (destNode->isDirectory()) {
                 fs::rename(fsSourcePath, fsNewPath);
             }
+
+            destNode->addChild(*srcNode);
+
+            auto newEnd = std::remove(srcNode->getParent()->getChildren().begin(), srcNode->getParent()->getChildren().end(), *srcNode);
+            srcNode->getParent()->getChildren().erase(newEnd, srcNode->getParent()->getChildren().end());
+            srcNode->setParent(&*destNode);
         }
 
         ImGui::EndDragDropTarget();

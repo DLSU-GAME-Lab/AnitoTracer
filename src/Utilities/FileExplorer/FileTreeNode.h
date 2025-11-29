@@ -21,6 +21,7 @@ public:
 
     // setters
     void setIsOpen(bool isOpen);
+    void setParent(FileTreeNode* parent);
 
     // node processes
     void addChild(const FileTreeNode& child);

@@ -55,6 +55,10 @@ FileTreeNode* FileTreeNode::getParent() const {
     return parent;
 }
 
+void FileTreeNode::setParent(FileTreeNode* parent) {
+    this->parent = parent;
+}
+
 void FileTreeNode::init() {
     if (!isInitialized) {
         try {

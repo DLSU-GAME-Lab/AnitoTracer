@@ -16,7 +16,7 @@ FileIconView::FileIconView() {
 
 void FileIconView::drawUI() {
     ImGui::PushFont(nullptr);
-    renderCurrentNodeChildrenIcons();
+    //renderCurrentNodeChildrenIcons();
     ImGui::PopFont();
 }
 
@@ -36,12 +36,12 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
                 setCurrentNode(&rootChild);
             }
         }
-        DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString());
-        DragAndDropUtils::attachFileMoveTarget(rootChild.getPathString());
+        DragAndDropUtils::attachFileTreeNodeSource(&rootChild);
+        DragAndDropUtils::attachFileMoveTarget(&rootChild);
 
         ImGui::Text(rootChild.getName().c_str());
-        DragAndDropUtils::attachModelInstantiateSource(rootChild.getPathString());
-        DragAndDropUtils::attachFileMoveTarget(rootChild.getPathString());
+        DragAndDropUtils::attachFileTreeNodeSource(&rootChild);
+        DragAndDropUtils::attachFileMoveTarget(&rootChild);
 
         ImGui::PopID();
     }
