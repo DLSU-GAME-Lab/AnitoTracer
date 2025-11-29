@@ -120,7 +120,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	vulkanInit.QueueFamily = device.GraphicsFamilyIndex();
 	vulkanInit.Queue = device.GraphicsQueue();
 	vulkanInit.PipelineCache = nullptr;
-	//vulkanInit.RenderPass = sharedInstance->renderPass->Handle(); // REMOVED FROM IMGUI
+	vulkanInit.PipelineInfoMain.RenderPass = sharedInstance->renderPass->Handle();
 	vulkanInit.DescriptorPool = sharedInstance->descriptorPool->Handle();
 	vulkanInit.MinImageCount = swapChain->MinImageCount();
 	vulkanInit.ImageCount = static_cast<uint32_t>(swapChain->Images().size());
@@ -152,7 +152,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	ImGui::GetStyle().ScaleAllSizes(scaleFactor);
 
 	// Upload ImGui fonts (use ImGuiFreeType for better font rendering, see https://github.com/ocornut/imgui/tree/master/misc/freetype).
-	//io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType(); // REMOVED FROM IMGUI
+	io.Fonts->SetFontLoader(ImGuiFreeType::GetFontLoader());
 
 	if (!io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/Cousine-Regular.ttf").data(), 13 * scaleFactor))
 	{
@@ -185,7 +185,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 			//{
 			//	Throw(std::runtime_error("failed to create ImGui font textures"));
 			//}
-			// REMOVED FROM IMGUI
+			// IMGUI_IMPL_VULKAN NOW SUPPORTS DYNAMIC FONTS OUT OF BOX 
 		});
 
 	//ImGui_ImplVulkan_DestroyFontUploadObjects();
