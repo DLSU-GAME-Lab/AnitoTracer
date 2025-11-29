@@ -29,12 +29,7 @@ ProjectScreen::ProjectScreen() : AUIScreen(UINames::PROJECT_SCREEN)
         }
     }
 
-    FileTree::getInstance()->populateFileMap();
-    directory_entry dirEnt(FileExplorerConstants::ASSETS_DIR);
-    FileTreeNode root(dirEnt);
-    root.init();
-    FileTree::getInstance()->setRoot(root);
-    FileIconView::setCurrentNode(&root);
+    FileIconView::setCurrentNode(&FileTree::getInstance()->getRoot());
 }
 
 ProjectScreen::~ProjectScreen()
@@ -98,15 +93,6 @@ void renderDeleteConfirmationPrompt(FileTreeNode& toDelete) {
 void ProjectScreen::popupWindowNode(FileTreeNode& node) {
 
     if (ImGui::BeginPopup("FileTreeNodePopup")) {
-        if (ImGui::MenuItem(ICON_MD_ARROW_RIGHT "Run")) {
-            FileTree::getInstance()->openFile(node.getPathString());
-        }
-        if (ImGui::MenuItem(ICON_MD_CONTENT_COPY "Copy")) {
-            FileTree::getInstance()->copyNodeSelection(node);
-        }
-        if (ImGui::MenuItem(ICON_MD_CONTENT_PASTE "Paste")) {
-            FileTree::getInstance()->copyFile(node);
-        }
         if (ImGui::MenuItem(ICON_MD_DELETE "Delete")) {
             deletePopup = true;
         }
