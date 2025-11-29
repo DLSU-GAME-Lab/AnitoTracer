@@ -38,6 +38,7 @@
 #include "Vulkan/Window.hpp"
 #include "IconsMaterialDesign.h"
 #include "EditorTheme.hpp"
+#include "Utilities/DragAndDrop/DragAndDropUtils.h"
 
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
@@ -402,6 +403,8 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	drawAllUI();
 	//DrawSettings();
 	drawOverlay(statistics);
+
+	DragAndDropUtils::attachModelInstantiateTargetToViewport(ImGui::GetMainViewport());
 
 	//Start ImGuizmo frame.
 	if (ModelManager::getInstance()->getSelectedObject() != nullptr)

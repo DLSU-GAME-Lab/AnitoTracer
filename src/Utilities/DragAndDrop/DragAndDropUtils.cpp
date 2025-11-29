@@ -47,6 +47,25 @@ void DragAndDropUtils::attachModelInstantiateTarget() {
     }
 }
 
+void DragAndDropUtils::attachModelInstantiateTargetToViewport(ImGuiViewport* viewport) {
+    if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+        if (ImGui::BeginDragDropTargetViewport(viewport))
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(DragAndDropConstants::MODEL_PATH))
+            {
+                const auto i = glm::mat4(1);
+                const char* path = (const char*)payload->Data;
+                if (fs::path(path).extension() == ".obj") {
+                    Assets::Model draggedModel = Assets::Model::LoadModel(path);
+                    std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
+                    ModelManager::getInstance()->addObject(draggedObj);
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+    }
+}
+
 void DragAndDropUtils::attachFileMoveTarget(std::string destPath) {
     if (ImGui::BeginDragDropTarget())
     {
