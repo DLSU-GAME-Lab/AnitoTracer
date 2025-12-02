@@ -29,6 +29,22 @@ using Assets::Texture;
 
 namespace
 {
+	void UpdateCameraObject(const glm::vec3& cameraPos, const glm::vec3& target, const glm::vec3& up = glm::vec3(0, 1, 0))
+	{
+		auto cameraObject = CameraManager::getInstance()->getActiveCamera();
+		if (!cameraObject)	return;
+
+		cameraObject->setLocalPosition(cameraPos);
+
+		glm::vec3 direction = glm::normalize(target - cameraPos);
+
+		float yaw = glm::degrees(atan2(direction.x, direction.z));
+		float pitch = glm::degrees(asin(-direction.y));
+		float roll = 0.0f;
+
+		glm::vec3 rotation(pitch, yaw, roll);
+		cameraObject->setLocalRotation(rotation);
+	}
 
 	void AddRayTracingInOneWeekendCommonScene(std::vector<Assets::Model>& models, const bool& isProc, std::function<float()>& random)
 	{
@@ -274,13 +290,19 @@ SceneAssets SceneList::LucyInOneWeekend(CameraInitialState& camera)
 
 SceneAssets SceneList::CornellBox(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(278, 278, 800), vec3(278, 278, 0), vec3(0, 1, 0));
+	glm::vec3 cameraPos(278, 278, 800);
+	glm::vec3 target(278, 278, 0);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -307,13 +329,19 @@ SceneAssets SceneList::CornellBox(CameraInitialState& camera)
 
 SceneAssets SceneList::CornellBoxLucy(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(278, 278, 800), vec3(278, 278, 0), vec3(0, 1, 0));
+	glm::vec3 cameraPos(278, 278, 800);
+	glm::vec3 target(278, 278, 0);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	const auto i = mat4(1);
 	const auto sphere = Model::CreateSphere(vec3(555 - 130, 165.0f, -165.0f / 2 - 65), 80.0f, *Material::Dielectric(1.5f), true);
@@ -582,13 +610,19 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 
 SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(0, 0, 1000), vec3(0, 0, 0), vec3(0, 1, 0));
+	glm::vec3 cameraPos(0, 0, 1000);
+	glm::vec3 target(0, 0, 0);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
@@ -628,13 +662,19 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(0, 0, 800), vec3(0, 0, 0), vec3(0, 1, 0));
+	glm::vec3 cameraPos(0, 0, 800);
+	glm::vec3 target(0, 0, 0);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -666,13 +706,19 @@ SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 
 SceneAssets SceneList::Sponza(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(800, 400, -230), vec3(-350, 200, 65), vec3(0, 1, 0));
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -710,13 +756,19 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 
 SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(800, 400, -230), vec3(-350, 200, 65), vec3(0, 1, 0));
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -755,17 +807,21 @@ SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
 }
 
-
-
 SceneAssets SceneList::Empty(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(278, 278, 800), vec3(278, 278, 0), vec3(0, 1, 0));
+	glm::vec3 cameraPos(278, 278, 800);
+	glm::vec3 target(278, 278, 0);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
@@ -776,13 +832,19 @@ SceneAssets SceneList::Empty(CameraInitialState& camera)
 
 SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(800, 400, -230), vec3(-350, 200, 65), vec3(0, 1, 0));
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -801,7 +863,6 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 	cameraObj->setLocalPosition(0, 10.0f, 0);
 	CameraManager::getInstance()->addCamera(cameraObj.get());
 	ModelManager::getInstance()->addObject(std::move(cameraObj));
-
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
@@ -823,13 +884,19 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 
 SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(800, 400, -230), vec3(-350, 200, 65), vec3(0, 1, 0));
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -869,13 +936,20 @@ SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 
 SceneAssets SceneList::SalleDeBain(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(800, 400, -230), vec3(-350, 200, 65), vec3(0, 1, 0));
+
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
@@ -933,13 +1007,19 @@ SceneAssets SceneList::SalleDeBain(CameraInitialState& camera)
 
 SceneAssets SceneList::Gallery(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(800, 400, -230), vec3(-350, 200, 65), vec3(0, 1, 0));
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
 	camera.ControlSpeed = 500.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
