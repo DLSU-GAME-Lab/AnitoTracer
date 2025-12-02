@@ -562,3 +562,13 @@ bool GameObject::isWorldDirty() const
 {
 	return this->worldDirty;
 }
+
+bool GameObject::IsHierarchyNodeOpen() const
+{
+	return this->isHierarchyNodeOpen;
+}
+
+void GameObject::SetHierarchyNodeOpen(bool isOpen)
+{
+	this->isHierarchyNodeOpen = isOpen;
+}

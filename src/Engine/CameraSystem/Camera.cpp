@@ -389,6 +389,11 @@ void Camera::setLocalPosition(glm::vec3 pos)
 	GameObject::setLocalPosition(pos);
 }
 
+Camera::CameraMoveMode Camera::getCurrentMoveMode() const
+{
+	return this->m_currentMode;
+}
+
 void Camera::MoveForward(const float d)
 {
 	position_ += d * forward_;
