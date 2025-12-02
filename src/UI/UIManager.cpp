@@ -23,8 +23,6 @@
 #include "imgui_freetype.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include "imgui_internal.h"
-#include "imgui_stdlib.h"
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 #include "Vulkan/DescriptorPool.hpp"
@@ -55,8 +53,6 @@ bool UIManager::isHidingUI = false;
 UIManager* UIManager::sharedInstance = nullptr;
 
 TransformState UIManager::gizmoBeforeState = {};
-bool UIManager::wasUsingGizmoLastFrame = false;
-bool UIManager::gizmoWasManipulated = false;
 
 namespace
 {
@@ -515,25 +511,25 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(gizmoModelMatrix), translation, rotation, scale);
 
-			if (auto* parent = selectedObject->getParent())
-			{
-				glm::vec3 parentWorldPos = parent->getWorldPosition();
-				translation[0] -= parentWorldPos.x;
-				translation[1] -= parentWorldPos.y;
-				translation[2] -= parentWorldPos.z;
+			//if (auto* parent = selectedObject->getParent())
+			//{
+			//	glm::vec3 parentWorldPos = parent->getWorldPosition();
+			//	translation[0] -= parentWorldPos.x;
+			//	translation[1] -= parentWorldPos.y;
+			//	translation[2] -= parentWorldPos.z;
 
-				glm::quat parentRot = glm::quat(glm::radians(parent->getWorldRotation()));
-				glm::quat localRot = glm::inverse(parentRot) * glm::quat(glm::radians(glm::vec3(rotation[0], rotation[1], rotation[2])));
-				glm::vec3 eulerLocal = glm::degrees(glm::eulerAngles(localRot));
-				rotation[0] = eulerLocal.x;
-				rotation[1] = eulerLocal.y;
-				rotation[2] = eulerLocal.z;
+			//	glm::quat parentRot = glm::quat(glm::radians(parent->getWorldRotation()));
+			//	glm::quat localRot = glm::inverse(parentRot) * glm::quat(glm::radians(glm::vec3(rotation[0], rotation[1], rotation[2])));
+			//	glm::vec3 eulerLocal = glm::degrees(glm::eulerAngles(localRot));
+			//	rotation[0] = eulerLocal.x;
+			//	rotation[1] = eulerLocal.y;
+			//	rotation[2] = eulerLocal.z;
 
-				glm::vec3 parentScale = parent->getWorldScale();
-				scale[0] /= parentScale.x;
-				scale[1] /= parentScale.y;
-				scale[2] /= parentScale.z;
-			}
+			//	glm::vec3 parentScale = parent->getWorldScale();
+			//	scale[0] /= parentScale.x;
+			//	scale[1] /= parentScale.y; 
+			//	scale[2] /= parentScale.z;
+			//}
 
 			auto inspector = dynamic_pointer_cast<InspectorScreen>(sharedInstance->findUIByName(UINames::INSPECTOR_SCREEN));
 

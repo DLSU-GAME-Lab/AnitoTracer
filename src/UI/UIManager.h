@@ -110,6 +110,8 @@ public:
 
 	ImFont* GetIconFont();
 	void OnActionPressed(Hotkey::Action action) override;
+	
+	bool IsGizmoUsed() const { return wasUsingGizmoLastFrame || gizmoWasManipulated; }
 
 	bool settingsActive = false;
 	bool profilerActive = false;
@@ -132,7 +134,8 @@ private:
 	std::unique_ptr<Vulkan::RenderPass> renderPass;
 
 	float translation[3] = {}, rotation[3] = {}, scale[3] = {};
-	bool isUsingImguizmo = false;
+	bool gizmoWasManipulated = false;
+	bool wasUsingGizmoLastFrame = false;
 
 	static UIManager* sharedInstance;
 
@@ -145,10 +148,8 @@ private:
 	UIConfig* uiConfig = nullptr;
 	const Vulkan::SwapChain* swapChain = nullptr;
 
-	static bool wasUsingGizmoLastFrame;
+
 	static TransformState gizmoBeforeState;
-	
-	static bool gizmoWasManipulated;
 
 	std::string m_lastLayoutSnapshot;
 	std::string m_currentLayoutSnapshot;

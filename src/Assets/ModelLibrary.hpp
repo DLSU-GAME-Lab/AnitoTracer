@@ -10,20 +10,26 @@ namespace Assets
 		std::string texturePath;
     };
 
+    struct ModelLoadResult
+    {
+        std::vector<std::shared_ptr<Model>> modelsData;
+        std::vector<glm::vec3> originalPositions;
+    };
+
     class ModelLibrary
     {
     public:
         using String = std::string;
 		using ModelPtr = std::shared_ptr<Model>; // Should be a unique_ptr but due to how proliferate it was used, we stick to shared_ptr; can also send shared in the future if Rendering methods is changed
         using ModelList = std::vector<ModelPtr>;
-        using ModelMap = std::unordered_map<String, ModelList>;
+        using ModelMap = std::unordered_map<String, ModelLoadResult>;
 
         static ModelLibrary* getInstance();
         static void initialize();
         static void destroy();
 
-        ModelList LoadModel(const std::string& filePath);
-        ModelList GetModel(const String& meshName);
+        ModelLoadResult LoadModel(const std::string& filePath);
+        ModelLoadResult GetModel(const String& meshName);
 
         int GetInstanceId();
     private:

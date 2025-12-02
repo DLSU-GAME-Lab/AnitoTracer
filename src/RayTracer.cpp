@@ -62,13 +62,11 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
 	Assets::ModelLibrary::initialize();
-	GameObjectFactory::initialize();
 	CommandManager::initialize();
 }
 
 RayTracer::~RayTracer()
 {
-	GameObjectFactory::destroy();
 	Assets::ModelLibrary::destroy();
 	CommandManager::destroy();
 
@@ -661,6 +659,13 @@ void RayTracer::SchedulePick(const glm::vec2& mousePos)
 
 void RayTracer::ExecuteScheduledPick()
 {
+	if (UIManager::getInstance()->IsGizmoUsed() || //give prio to Gizmo
+		UIManager::getInstance()->wantsToCaptureMouse()) // mouse over GUI
+	{
+		this->isPickScheduled = false;
+		return;
+	}
+
 	if (this->isPickScheduled && rayPicker_)
 	{
 		this->isPickScheduled = false;
@@ -674,6 +679,7 @@ void RayTracer::ExecuteScheduledPick()
 		auto gameObject = ModelManager::getInstance()->FindGameObject(pickedId);
 
 		if (gameObject)	ModelManager::getInstance()->setSelectedObject(gameObject);
+		else ModelManager::getInstance()->setSelectedObject(nullptr);
 	}
 }
 

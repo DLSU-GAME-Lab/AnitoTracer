@@ -291,7 +291,7 @@ namespace Assets {
 		std::cout << "(" << totalvertices << " vertices, " << uniqueVertices.size() << " unique vertices, " << materials.size() << " materials) ";
 		std::cout << elapsed << "s" << std::endl;
 
-		Model model = Model(name, std::move(vertices), std::move(indices), std::move(materials), nullptr, ModelLibrary::getInstance()->GetInstanceId());
+		Model model = Model(name, std::move(vertices), std::move(indices), std::move(materials), nullptr);
 		model.filepath = filename;
 
 		return model;
@@ -458,7 +458,7 @@ namespace Assets {
 			//// --- End centering ---
 
 
-			Model model = Model(name, std::move(vertices), std::move(indices), std::move(meshMaterials), nullptr, ModelLibrary::getInstance()->GetInstanceId());
+			Model model = Model(name, std::move(vertices), std::move(indices), std::move(meshMaterials), nullptr);
 			model.filepath = filename;
 			models.push_back(model);
 		}
@@ -485,8 +485,7 @@ Model Model::CreateCornellBox(const float scale)
 		std::move(vertices),
 		std::move(indices),
 		std::move(materials),
-		nullptr, 
-		ModelLibrary::getInstance()->GetInstanceId()
+		nullptr
 	);
 }
 
@@ -501,8 +500,8 @@ Model Model::CreateBox(const vec3& p0, const vec3& p1, const Material& material)
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		nullptr, 
-		ModelLibrary::getInstance()->GetInstanceId());
+		nullptr
+		);
 }
 
 Model Model::CreatePlane(const glm::vec3& p0, const glm::vec3& p1, const Material& material)
@@ -516,8 +515,8 @@ Model Model::CreatePlane(const glm::vec3& p0, const glm::vec3& p1, const Materia
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		nullptr, 
-		ModelLibrary::getInstance()->GetInstanceId());
+		nullptr
+		);
 }
 
 Model Model::CreateSphere(const vec3& center, float radius, const Material& material, const bool isProcedural)
@@ -531,8 +530,8 @@ Model Model::CreateSphere(const vec3& center, float radius, const Material& mate
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		isProcedural ? new SphereProc(center, radius) : nullptr, 
-		ModelLibrary::getInstance()->GetInstanceId());
+		isProcedural ? new SphereProc(center, radius) : nullptr
+		);
 }
 
 Model Model::CreateCylinder(float radius, float height, const Material& material)
@@ -546,8 +545,8 @@ Model Model::CreateCylinder(float radius, float height, const Material& material
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		nullptr, 
-		ModelLibrary::getInstance()->GetInstanceId());
+		nullptr
+	);
 }
 
 Model Model::CreateCapsule(float radius, float height, const Material& material)
@@ -561,8 +560,8 @@ Model Model::CreateCapsule(float radius, float height, const Material& material)
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		nullptr,
-		ModelLibrary::getInstance()->GetInstanceId());
+		nullptr
+		);
 }
 
 void Model::SetMaterial(const Material& material)
@@ -624,12 +623,11 @@ GameObject* Model::GetOwner() const
 	return this->owner;
 }
 
-Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural, int id) :
+Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural) :
 	vertices_(std::move(vertices)), 
 	indices_(std::move(indices)),
 	materials_(std::move(materials)),
-	procedural_(procedural),
-	instanceId(id)
+	procedural_(procedural)
 
 {
 	this->name = name;
