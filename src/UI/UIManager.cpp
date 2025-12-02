@@ -775,6 +775,7 @@ ImFont* UIManager::GetIconFont()
 void UIManager::OnActionPressed(Hotkey::Action action)
 {
 	if (ModelManager::getInstance()->getSelectedObject() == nullptr) return;
+	if (CameraManager::getInstance()->getActiveCamera()->getCurrentMoveMode() != Camera::CameraMoveMode::NONE) return;
 
 	using Action = Hotkey::Action;
 

@@ -83,6 +83,9 @@ public:
 	void setWorldDirty();
 	bool isWorldDirty() const;
 
+	bool IsHierarchyNodeOpen() const;
+	void SetHierarchyNodeOpen(bool isOpen);
+
 protected:
     String name;
     PrimitiveType type;
@@ -122,6 +125,8 @@ protected:
 
 	bool localDirty = true;
 	bool worldDirty = true;
+
+    bool isHierarchyNodeOpen = true;
 
     friend class ModelManager;
 };
