@@ -453,23 +453,23 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
 
-	auto box0 = GameObjectFactory::getInstance()->CreateCube("Right Box");
+	auto box0 = GameObjectFactory::CreateCube("Right Box");
 	box0->setLocalPosition(vec3(125, -194, 100));
 	box0->setLocalRotation(vec3(0, 50, 0));
 	box0->setLocalScale(glm::vec3(3, 3.3f, 3));
 	ModelManager::getInstance()->addObject(std::move(box0));
 	
-	auto box1 = GameObjectFactory::getInstance()->CreateCube("Tall Box");
+	auto box1 = GameObjectFactory::CreateCube("Tall Box");
 	box1->setLocalPosition(vec3(-100, -112, -100));
 	box1->setLocalRotation(vec3(0, -60, 0));
 	box1->setLocalScale(glm::vec3(3, 6.6f, 3));
 	ModelManager::getInstance()->addObject(std::move(box1));
 
-	auto cornellBoxObject = GameObjectFactory::getInstance()->CreateCornellBox();
+	auto cornellBoxObject = GameObjectFactory::CreateCornellBox();
 	ModelManager::getInstance()->addObject(std::move(cornellBoxObject));
 
 	// Add light objects
-	auto pl = GameObjectFactory::getInstance()->CreateLight(Light::LightType::PointLight, "Sample Point Light");
+	auto pl = GameObjectFactory::CreateLight(Light::LightType::PointLight, "Sample Point Light");
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
@@ -596,23 +596,23 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 	areaLightObject->setLocalPosition(0, 1000.0f, 500.0f);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	auto box0 = GameObjectFactory::getInstance()->CreateCube("Right Box");
+	auto box0 = GameObjectFactory::CreateCube("Right Box");
 	box0->setLocalPosition(vec3(125, -194, -400));
 	box0->setLocalRotation(vec3(0, 50, 0));
 	box0->setLocalScale(glm::vec3(3, 3.3f, 3));
 	ModelManager::getInstance()->addObject(std::move(box0));
 
-	auto box1 = GameObjectFactory::getInstance()->CreateCube("Tall Box");
+	auto box1 = GameObjectFactory::CreateCube("Tall Box");
 	box1->setLocalPosition(vec3(-100, -112, -500));
 	box1->setLocalRotation(vec3(0, -60, 0));
 	box1->setLocalScale(glm::vec3(3, 6.6f, 3));
 	ModelManager::getInstance()->addObject(std::move(box1));
 
-	auto cornellBoxObject = GameObjectFactory::getInstance()->CreateCornellBox();
+	auto cornellBoxObject = GameObjectFactory::CreateCornellBox();
 	cornellBoxObject->setLocalPosition(0, 0, -500);
 	ModelManager::getInstance()->addObject(std::move(cornellBoxObject));
 
-	auto lucy = GameObjectFactory::getInstance()->CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj", "Lucy");
+	auto lucy = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj", "Lucy");
 	lucy->setLocalPosition(vec3(-100, -170, -350));
 	lucy->setLocalRotation(vec3(0, 90, 0));
 	lucy->setLocalScale(vec3(0.25));
@@ -692,7 +692,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
-	auto gameObject = GameObjectFactory::getInstance()->CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj", "sponza");
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj", "sponza");
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
 	////Add light objects

@@ -216,31 +216,31 @@ ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* origina
 			switch (type)
 			{
 			case GameObject::CUBE:
-				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
 				break;
 
 			case GameObject::SPHERE:
-				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
 				break;
 
 			case GameObject::PLANE:
-				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
 				break;
 
 			case GameObject::CYLINDER:
-				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
 				break;
 
 			case GameObject::CAPSULE:
-				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
 				break;
 
 			case GameObject::CORNELL_BOX:
-				resultCopy = GameObjectFactory::getInstance()->CreatePrimitive(type, name);
+				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
 				break;
 
 			case GameObject::MESH:
-				resultCopy = GameObjectFactory::getInstance()->CreateFromModelFile(original->getModel()->filepath, name);
+				resultCopy = GameObjectFactory::CreateFromModelFile(original->getModel()->filepath, name);
 				break;
 
 			default:

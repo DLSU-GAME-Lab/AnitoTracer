@@ -85,20 +85,20 @@ Assets::ModelLibrary::ModelLibrary()
 	LoadInitialModels();
 }
 
-Assets::ModelLibrary::ModelList Assets::ModelLibrary::GetModel(const String& meshName)
+Assets::ModelLoadResult Assets::ModelLibrary::GetModel(const String& meshName)
 {
-	ModelList result;
+	ModelLoadResult result;
 
 	auto it = this->m_meshMap.find(meshName);
 	if (it != this->m_meshMap.end())
 	{
-		// Return copies with new instance IDs
-		for (const auto& cachedModel : it->second)
-		{
-			auto copy = std::make_shared<Model>(*cachedModel);
-			copy->SetId(GetInstanceId());
-			result.push_back(copy);
-		}
+        // Return copies
+        for (size_t i = 0; i < it->second.modelsData.size(); i++)
+        {
+            auto copy = std::make_shared<Model>(*it->second.modelsData[i]);
+            result.modelsData.push_back(copy);
+            result.originalPositions.push_back(it->second.originalPositions[i]);
+        }
 	}
 	else
 	{
@@ -111,12 +111,12 @@ Assets::ModelLibrary::ModelList Assets::ModelLibrary::GetModel(const String& mes
 void Assets::ModelLibrary::LoadInitialModels()
 {
 	/* Primitives */
-	this->m_meshMap.insert({ "CUBE", {std::move(this->LoadBox())} });
-	this->m_meshMap.insert({ "PLANE", {std::move(this->LoadPlane())}  });
-	this->m_meshMap.insert({ "SPHERE", {std::move(this->LoadSphere())} });
-	this->m_meshMap.insert({ "CYLINDER", {std::move(this->LoadCylinder())} });
-	this->m_meshMap.insert({ "CAPSULE", {std::move(this->LoadCapsule())} });
-	this->m_meshMap.insert({ "CORNELL_BOX", {std::move(this->LoadCornellBox())} });
+    this->m_meshMap.insert({ "CUBE", { {this->LoadBox()}, {glm::vec3(0.0f)} } });
+    this->m_meshMap.insert({ "PLANE", { {this->LoadPlane()}, {glm::vec3(0.0f)} } });
+    this->m_meshMap.insert({ "SPHERE", { {this->LoadSphere()}, {glm::vec3(0.0f)} } });
+    this->m_meshMap.insert({ "CYLINDER", { {this->LoadCylinder()}, {glm::vec3(0.0f)} } });
+    this->m_meshMap.insert({ "CAPSULE", { {this->LoadCapsule()}, {glm::vec3(0.0f)} } });
+    this->m_meshMap.insert({ "CORNELL_BOX", { {this->LoadCornellBox()}, {glm::vec3(0.0f)} } });
 }
 
 int Assets::ModelLibrary::GetInstanceId()
@@ -135,8 +135,8 @@ Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::LoadBox()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr,
-		GetInstanceId());
+		nullptr
+    );
 
 	return std::move(model);
 }
@@ -152,8 +152,8 @@ Assets::ModelLibrary::ModelPtr  Assets::ModelLibrary::LoadPlane()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr,
-		GetInstanceId());
+		nullptr
+    );
 
 	return std::move(model);
 }
@@ -169,8 +169,8 @@ Assets::ModelLibrary::ModelPtr  Assets::ModelLibrary::LoadSphere()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr,
-		GetInstanceId());
+		nullptr
+    );
 
 	return std::move(model);
 }
@@ -186,8 +186,8 @@ Assets::ModelLibrary::ModelPtr  Assets::ModelLibrary::LoadCapsule()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr,
-		GetInstanceId());
+		nullptr
+    );
 
 	return std::move(model);
 }
@@ -203,8 +203,8 @@ Assets::ModelLibrary::ModelPtr  Assets::ModelLibrary::LoadCylinder()
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{ *this->defaultMat },
-		nullptr,
-		GetInstanceId());
+		nullptr
+    );
 
 	return std::move(model);
 }
@@ -221,8 +221,8 @@ Assets::ModelLibrary::ModelPtr Assets::ModelLibrary::LoadCornellBox()
 		std::move(vertices),
 		std::move(indices),
 		std::move(materials),
-		nullptr,
-		GetInstanceId());
+		nullptr
+    );
 
 	return std::move(model);
 }
@@ -242,10 +242,10 @@ void Assets::ModelLibrary::destroy()
 	delete sharedInstance;
 }
 
-Assets::ModelLibrary::ModelList Assets::ModelLibrary::LoadModel(const std::string& filePath)
+Assets::ModelLoadResult Assets::ModelLibrary::LoadModel(const std::string& filePath)
 {
-    ModelList result = GetModel(filePath);
-    if (!result.empty()) return result;
+	Assets::ModelLoadResult result = GetModel(filePath);
+    if (!result.modelsData.empty()) return result;
 
     std::cout << "- loading '" << filePath << "'... " << std::flush;
 
@@ -307,14 +307,13 @@ Assets::ModelLibrary::ModelList Assets::ModelLibrary::LoadModel(const std::strin
     // Process each mesh separately
     size_t totalVertices = 0;
     size_t totalUniqueVertices = 0;
-    std::vector<std::shared_ptr<Model>> models; // Store all models
+	Assets::ModelLoadResult loadResults;
 
     for (unsigned int m = 0; m < scene->mNumMeshes; m++)
     {
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
         std::unordered_map<Vertex, uint32_t> uniqueVertices; // Per-mesh unique vertices
-
         const aiMesh* mesh = scene->mMeshes[m];
 
         // Process all faces in this mesh
@@ -341,7 +340,6 @@ Assets::ModelLibrary::ModelList Assets::ModelLibrary::LoadModel(const std::strin
                 }
                 else
                 {
-                    // Note: This normalization approach may not be correct
                     glm::vec3 normalized = glm::normalize(vertex.Position);
                     vertex.Normal = normalized;
                 }
@@ -354,7 +352,7 @@ Assets::ModelLibrary::ModelList Assets::ModelLibrary::LoadModel(const std::strin
                     };
                 }
 
-                vertex.MaterialIndex = 0; // This mesh only has one material
+                vertex.MaterialIndex = 0;
 
                 // Check if this vertex already exists
                 if (uniqueVertices.find(vertex) == uniqueVertices.end())
@@ -366,6 +364,26 @@ Assets::ModelLibrary::ModelList Assets::ModelLibrary::LoadModel(const std::strin
                 indices.push_back(uniqueVertices[vertex]);
             }
         }
+
+		// --- Centering the model at (0,0,0) ---
+			 // Compute bounding box (min and max points)
+		vec3 minPos(FLT_MAX);
+		vec3 maxPos(-FLT_MAX);
+		for (const auto& vertex : vertices)
+		{
+			minPos = glm::min(minPos, vertex.Position);
+			maxPos = glm::max(maxPos, vertex.Position);
+		}
+		vec3 center = (minPos + maxPos) * 0.5f;
+
+		loadResults.originalPositions.push_back(center);
+
+		// Shift all vertices so that the model is centered at the origin.
+		for (auto& vertex : vertices)
+		{
+			vertex.Position -= center;
+		}
+		// --- End centering ---
 
         totalVertices += mesh->mNumVertices;
         totalUniqueVertices += vertices.size();
@@ -391,12 +409,11 @@ Assets::ModelLibrary::ModelList Assets::ModelLibrary::LoadModel(const std::strin
             std::move(vertices),
             std::move(indices),
             std::move(meshMaterial),  // Each mesh gets its own material copy
-            nullptr,
-            ModelLibrary::getInstance()->GetInstanceId()
+            nullptr
         );
 
         model->filepath = filePath;
-        models.push_back(model);
+        loadResults.modelsData.push_back(model);
     }
 
     const auto elapsed = std::chrono::duration<float, std::chrono::seconds::period>(
@@ -404,14 +421,13 @@ Assets::ModelLibrary::ModelList Assets::ModelLibrary::LoadModel(const std::strin
 
     std::cout << "(" << totalVertices << " vertices, "
         << totalUniqueVertices << " unique vertices, "
-        << models.size() << " meshes, "
+        << loadResults.modelsData.size() << " meshes, "
         << allMaterials.size() << " materials) "
         << elapsed << "s" << std::endl;
 
-    // Store the list of models
-    this->m_meshMap.insert({ filePath, models });
+    this->m_meshMap.insert({ filePath, loadResults });
 
-    return models;
+    return loadResults;
 }
 
 	
