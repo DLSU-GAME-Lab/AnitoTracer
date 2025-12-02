@@ -465,6 +465,11 @@ glm::mat4 GameObject::getWorldMatrix() const
 	return this->worldMatrix;
 }
 
+glm::mat4 GameObject::getWorldMatrixInverse() const
+{
+	return glm::inverse(this->worldMatrix);
+}
+
 // for Child Gameobjects
 void GameObject::updateSceneView()
 {
