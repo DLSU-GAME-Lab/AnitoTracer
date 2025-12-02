@@ -73,6 +73,7 @@ UIManager::UIManager()
 
 UIManager::~UIManager()
 {
+	uiConfig->currentGizmoOperation = m_currentGizmoOperation;
 	HotkeySystem::getInstance()->removeListener(this);
 
 	ImGui_ImplVulkan_Shutdown();
@@ -98,6 +99,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	sharedInstance->swapChain = swapChain;
 	sharedInstance->commandPool = commandPool;
 	sharedInstance->uiConfig = uiConfig;
+	sharedInstance->m_currentGizmoOperation = uiConfig->currentGizmoOperation;
 
 	// Initialise descriptor pool and render pass for ImGui.
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =

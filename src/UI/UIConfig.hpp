@@ -1,11 +1,14 @@
 #pragma once
 #include <string>
+#include "imgui.h"
+#include "ImGuizmo.h"
 
 struct UIConfig
 {
 	bool inspectorUniformScaling;
 	std::string consoleTextLog;
 	int  consoleLogCount;
+	ImGuizmo::OPERATION currentGizmoOperation;
 
 	bool isInspectorEnabled;
 	bool isHierarchyEnabled;
@@ -19,6 +22,7 @@ struct UIConfig
 		: inspectorUniformScaling(false)
 		, consoleTextLog("")
 		, consoleLogCount(0)
+		, currentGizmoOperation(ImGuizmo::TRANSLATE)
 		, isInspectorEnabled(true)
 		, isHierarchyEnabled(true)
 		, isProjectEnabled(true)
