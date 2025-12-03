@@ -18,6 +18,7 @@
 #include <chrono>
 #include <iostream>
 #include "From-GDGRAP2/ModelManager.h"
+#include "Assets/ModelLibrary.hpp"
 
 
 namespace Vulkan::RayTracing {
@@ -97,8 +98,8 @@ void Application::OnDeviceSet()
 {
 	Vulkan::Application::OnDeviceSet();
 
-	deviceProcedures_.reset(new DeviceProcedures(Device()));
-	rayTracingProperties_.reset(new RayTracingProperties(Device()));
+	deviceProcedures_.reset(new class DeviceProcedures(Device()));
+	rayTracingProperties_.reset(new class RayTracingProperties(Device()));
 }
 
 void Application::CreateAccelerationStructures()
@@ -246,58 +247,7 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 
 void Application::CreateBottomLevelStructures(VkCommandBuffer commandBuffer)
 {
-	const auto& scene = GetScene();
-	const auto& debugUtils = Device().DebugUtils();
-	
-	// Bottom level acceleration structure
-	// Triangles via vertex buffers. Procedurals via AABBs.
-	uint32_t vertexOffset = 0;
-	uint32_t indexOffset = 0;
-	uint32_t aabbOffset = 0;
-
-	for (const auto& model : scene.Models())
-	{
-		const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-		const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
-		BottomLevelGeometry geometries;
-		
-		model.Procedural()
-			? geometries.AddGeometryAabb(scene, aabbOffset, 1, true)
-			: geometries.AddGeometryTriangles(scene, vertexOffset, vertexCount, indexOffset, indexCount, true);
-
-		bottomAs_.emplace_back(*deviceProcedures_, *rayTracingProperties_, geometries);
-
-		vertexOffset += vertexCount * sizeof(Assets::Vertex);
-		indexOffset += indexCount * sizeof(uint32_t);
-		aabbOffset += sizeof(VkAabbPositionsKHR);
-	}
-
-	// Allocate the structures memory.
-	const auto total = GetTotalRequirements(bottomAs_);
-
-	bottomBuffer_.reset(new Buffer(Device(), total.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
-	bottomBufferMemory_.reset(new DeviceMemory(bottomBuffer_->AllocateMemory(VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
-	bottomScratchBuffer_.reset(new Buffer(Device(), total.buildScratchSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
-	bottomScratchBufferMemory_.reset(new DeviceMemory(bottomScratchBuffer_->AllocateMemory(VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
-
-	debugUtils.SetObjectName(bottomBuffer_->Handle(), "BLAS Buffer");
-	debugUtils.SetObjectName(bottomBufferMemory_->Handle(), "BLAS Memory");
-	debugUtils.SetObjectName(bottomScratchBuffer_->Handle(), "BLAS Scratch Buffer");
-	debugUtils.SetObjectName(bottomScratchBufferMemory_->Handle(), "BLAS Scratch Memory");
-
-	// Generate the structures.
-	VkDeviceSize resultOffset = 0;
-	VkDeviceSize scratchOffset = 0;
-
-	for (size_t i = 0; i != bottomAs_.size(); ++i)
-	{
-		bottomAs_[i].Generate(commandBuffer, *bottomScratchBuffer_, scratchOffset, *bottomBuffer_, resultOffset);
-		
-		resultOffset += bottomAs_[i].BuildSizes().accelerationStructureSize;
-		scratchOffset += bottomAs_[i].BuildSizes().buildScratchSize;
-
-		debugUtils.SetObjectName(bottomAs_[i].Handle(), ("BLAS #" + std::to_string(i)).c_str());
-	}
+	Assets::ModelLibrary::getInstance()->BuildScheduledModelBLAS(CommandPool());
 }
 
 void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
@@ -318,7 +268,7 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 	{
 		ModelManager::getInstance()->RegisterInstance(instanceId, model.GetOwner());
 		instances.push_back(TopLevelAccelerationStructure::CreateInstance(
-			bottomAs_[instanceId], glm::mat4(1), instanceId, model.Procedural() ? 1 : 0));
+			bottomAs_[instanceId], glm::mat4(1), instanceId, 0));
 		instanceId++;
 	}
 

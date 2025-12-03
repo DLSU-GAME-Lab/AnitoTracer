@@ -43,12 +43,13 @@ namespace Vulkan
 		void SetPhysicalDevice(VkPhysicalDevice physicalDevice);
 		void Run();
 
+		class CommandPool& CommandPool() { return *commandPool_; }
 	protected:
 
 		Application(const WindowConfig& windowConfig, VkPresentModeKHR presentMode, bool enableValidationLayers);
 
 		const class Device& Device() const { return *device_; }
-		class CommandPool& CommandPool() { return *commandPool_; }
+		
 		const class DepthBuffer& DepthBuffer() const { return *depthBuffer_; }
 		const std::vector<Assets::UniformBuffer>& UniformBuffers() const { return uniformBuffers_; }
 		const std::vector<RayPickerUniformBuffer>& RayPickerUniformBuffers() const { return rayPickerUniformBuffers; }

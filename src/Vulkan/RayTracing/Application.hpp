@@ -10,6 +10,8 @@ namespace Vulkan
 	class DeviceMemory;
 	class Image;
 	class ImageView;
+	class DeviceProcedures;
+	class RayTracingProperties;
 }
 
 namespace Vulkan::RayTracing
@@ -20,6 +22,8 @@ namespace Vulkan::RayTracing
 
 		VULKAN_NON_COPIABLE(Application);
 
+		const DeviceProcedures& DeviceProcedures() const { return *deviceProcedures_; }
+		const RayTracingProperties& RayTracingProperties() const { return *rayTracingProperties_; }
 	protected:
 
 		Application(const WindowConfig& windowConfig, VkPresentModeKHR presentMode, bool enableValidationLayers);
@@ -36,7 +40,7 @@ namespace Vulkan::RayTracing
 		void CreateSwapChain() override;
 		void DeleteSwapChain() override;
 		void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex) override;
-			   
+
 	protected:
 
 		void CreateBottomLevelStructures(VkCommandBuffer commandBuffer);

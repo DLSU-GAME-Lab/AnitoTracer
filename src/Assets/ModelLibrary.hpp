@@ -1,15 +1,14 @@
 #pragma once
 #include "Model.hpp"
+#include <queue>
+
+namespace Vulkan
+{
+	class CommandPool;
+}
 
 namespace Assets
 {
-    struct ModelData
-    { 
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
-		std::string texturePath;
-    };
-
     struct ModelLoadResult
     {
         std::vector<std::shared_ptr<Model>> modelsData;
@@ -20,7 +19,7 @@ namespace Assets
     {
     public:
         using String = std::string;
-		using ModelPtr = std::shared_ptr<Model>; // Should be a unique_ptr but due to how proliferate it was used, we stick to shared_ptr; can also send shared in the future if Rendering methods is changed
+		using ModelPtr = std::shared_ptr<Model>;
         using ModelList = std::vector<ModelPtr>;
         using ModelMap = std::unordered_map<String, ModelLoadResult>;
 
@@ -31,7 +30,9 @@ namespace Assets
         ModelLoadResult LoadModel(const std::string& filePath);
         ModelLoadResult GetModel(const String& meshName);
 
-        int GetInstanceId();
+        void BuildScheduledModelBLAS(Vulkan::CommandPool& commandPool);
+        bool HasScheduledModels() const { return !m_scheduledModels.empty(); }
+
     private:
         ModelLibrary();
         ~ModelLibrary() = default;
@@ -41,12 +42,12 @@ namespace Assets
         static Assets::ModelLibrary* sharedInstance;
 
         void LoadInitialModels();
-        ModelPtr LoadBox();
-        ModelPtr LoadPlane();
-        ModelPtr LoadSphere();
-        ModelPtr LoadCapsule();
-        ModelPtr LoadCylinder();
-        ModelPtr LoadCornellBox();
+        void LoadBox();
+        void LoadPlane();
+        void LoadSphere();
+        void LoadCapsule();
+        void LoadCylinder();
+        void LoadCornellBox();
 
         /* Cube Properties */
         glm::vec3 m_cube_p0 = glm::vec3(0, 0, -50);
@@ -69,10 +70,9 @@ namespace Assets
         float m_capsule_height = 100.0f;
 
         /* Cornell Properties */
-        float m_cornell_scale = 555.0f;
+        float m_cornell_scale = 555.0f;  
 
         ModelMap m_meshMap;
-		std::shared_ptr<Material> defaultMat;
-        int instancesIdCount = 0;
+        std::queue<ModelPtr> m_scheduledModels;
     };
 }

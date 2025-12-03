@@ -9,6 +9,7 @@
 #include "Utilities/FileUtils.h"
 #include "../../From-GDGRAP2/GameObject.h"
 #include "../../From-GDGRAP2/Debug.h"
+#include "Assets/Material.hpp"`
 
 using namespace nlohmann;
 class SceneIO {
@@ -106,7 +107,7 @@ public:
 			// First the shape.
 			if (modelRef) {
 				if (obj->getType() == GameObject::PrimitiveType::MESH)
-					objJson["modelPath"] = modelRef->FilePath();
+					objJson["modelPath"] = modelRef->GetFilePath();
 				else
 					objJson["modelPath"] = "";
 			}
@@ -122,9 +123,9 @@ public:
 				objJson["lightProps"] = lightProps;
 			} else
 			{
-				objJson["modelName"] = modelRef->GetName();
+				objJson["modelName"] = modelRef->GetFilePath();
 				objJson["materials"] = json::array();
-				for (Assets::Material mat : modelRef->materials_) {
+				for (Assets::Material mat : modelRef->Materials()) {
 					json matJson;
 					matJson["diffuse"] = { mat.Diffuse.x, mat.Diffuse.y, mat.Diffuse.z, mat.Diffuse.a };
 					matJson["diffuseTextureId"] = mat.DiffuseTextureId;
@@ -151,68 +152,68 @@ public:
 	}
 
 	void LoadScene(std::string name) {
-		for (json obj : map[name]["objects"]) {
-			glm::vec3 pos = glm::vec3(obj["position"][0], obj["position"][1], obj["position"][2]);
-			glm::vec3 rot = glm::vec3(obj["rotation"][0], obj["rotation"][1], obj["rotation"][2]);
-			glm::vec3 scale = glm::vec3(obj["scale"][0], obj["scale"][1], obj["scale"][2]);
+		//for (json obj : map[name]["objects"]) {
+		//	glm::vec3 pos = glm::vec3(obj["position"][0], obj["position"][1], obj["position"][2]);
+		//	glm::vec3 rot = glm::vec3(obj["rotation"][0], obj["rotation"][1], obj["rotation"][2]);
+		//	glm::vec3 scale = glm::vec3(obj["scale"][0], obj["scale"][1], obj["scale"][2]);
 
-			// Mesh objects are created here.
-			if (obj["type"] == GameObject::PrimitiveType::MESH || 
-				obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
-			{
-				// 1. Load Mesh from path.
-				Assets::Model model = Assets::Model::LoadModel(obj["modelPath"]);
-				model.SetName(obj["modelName"]);
+		//	// Mesh objects are created here.
+		//	if (obj["type"] == GameObject::PrimitiveType::MESH || 
+		//		obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
+		//	{
+		//		// 1. Load Mesh from path.
+		//		Assets::Model model = Assets::Model::LoadModel(obj["modelPath"]);
+		//		model.SetName(obj["modelName"]);
 
-				// 2. Set materials.
-				std::vector<Assets::Material> materials = LoadMaterials(obj);
-				model.SetMaterials(materials);
+		//		// 2. Set materials.
+		//		std::vector<Assets::Material> materials = LoadMaterials(obj);
+		//		model.SetMaterials(materials);
 
-				// 3. Create the object.
-				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
-				object->setLocalPosition(pos);
-				object->setLocalRotation(rot);
-				object->setLocalScale(scale);
-				ModelManager::getInstance()->addObject(std::move(object));
-				// 4. Family TODO
-			}
-			// Primitives, Lighting, and Camera Objects are created here.
-			else if (obj["type"] == GameObject::PrimitiveType::CUBE ||
-					obj["type"] == GameObject::PrimitiveType::SPHERE ||
-					obj["type"] == GameObject::PrimitiveType::PLANE || 
-					obj["type"] == GameObject::PrimitiveType::CYLINDER || 
-					obj["type"] == GameObject::PrimitiveType::CAPSULE ||
-					obj["type"] == GameObject::PrimitiveType::CORNELL_BOX)
-			{
-				// 2. Get materials.
-				std::vector<Assets::Material> materials = LoadMaterials(obj);
+		//		// 3. Create the object.
+		//		std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
+		//		object->setLocalPosition(pos);
+		//		object->setLocalRotation(rot);
+		//		object->setLocalScale(scale);
+		//		ModelManager::getInstance()->addObject(std::move(object));
+		//		// 4. Family TODO
+		//	}
+		//	// Primitives, Lighting, and Camera Objects are created here.
+		//	else if (obj["type"] == GameObject::PrimitiveType::CUBE ||
+		//			obj["type"] == GameObject::PrimitiveType::SPHERE ||
+		//			obj["type"] == GameObject::PrimitiveType::PLANE || 
+		//			obj["type"] == GameObject::PrimitiveType::CYLINDER || 
+		//			obj["type"] == GameObject::PrimitiveType::CAPSULE ||
+		//			obj["type"] == GameObject::PrimitiveType::CORNELL_BOX)
+		//	{
+		//		// 2. Get materials.
+		//		std::vector<Assets::Material> materials = LoadMaterials(obj);
 
-				// 3. Create the object.
-				ModelManager::getInstance()->createPrimitiveFromScene(
-					obj["name"], obj["type"], obj["enabled"],
-					pos, rot, scale, materials);
+		//		// 3. Create the object.
+		//		ModelManager::getInstance()->createPrimitiveFromScene(
+		//			obj["name"], obj["type"], obj["enabled"],
+		//			pos, rot, scale, materials);
 
-				// 4. Family TODO
-			}
-			else if (obj["type"] == GameObject::PrimitiveType::POINT_LIGHT ||
-					obj["type"] == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
-					obj["type"] == GameObject::PrimitiveType::SPOT_LIGHT)
-			{
-				// 2. Get materials.
-				std::vector<Assets::Material> materials = LoadMaterials(obj);
-				glm::vec3 lightDir = glm::vec3(obj["lightProps"]["lightDir"][0], obj["lightProps"]["lightDir"][1], obj["lightProps"]["lightDir"][2]);
-				glm::vec4 ambientCol = glm::vec4(obj["lightProps"]["ambientColor"][0], obj["lightProps"]["ambientColor"][1], obj["lightProps"]["ambientColor"][2], obj["lightProps"]["ambientColor"][3]);
-				glm::vec4 lightCol = glm::vec4(obj["lightProps"]["lightColor"][0], obj["lightProps"]["lightColor"][1], obj["lightProps"]["lightColor"][2], obj["lightProps"]["lightColor"][3]);
-				Assets::LightProperties props = { pos, lightDir, ambientCol, lightCol, Assets::LightProperties::Enum::PointLight };
+		//		// 4. Family TODO
+		//	}
+		//	else if (obj["type"] == GameObject::PrimitiveType::POINT_LIGHT ||
+		//			obj["type"] == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
+		//			obj["type"] == GameObject::PrimitiveType::SPOT_LIGHT)
+		//	{
+		//		// 2. Get materials.
+		//		std::vector<Assets::Material> materials = LoadMaterials(obj);
+		//		glm::vec3 lightDir = glm::vec3(obj["lightProps"]["lightDir"][0], obj["lightProps"]["lightDir"][1], obj["lightProps"]["lightDir"][2]);
+		//		glm::vec4 ambientCol = glm::vec4(obj["lightProps"]["ambientColor"][0], obj["lightProps"]["ambientColor"][1], obj["lightProps"]["ambientColor"][2], obj["lightProps"]["ambientColor"][3]);
+		//		glm::vec4 lightCol = glm::vec4(obj["lightProps"]["lightColor"][0], obj["lightProps"]["lightColor"][1], obj["lightProps"]["lightColor"][2], obj["lightProps"]["lightColor"][3]);
+		//		Assets::LightProperties props = { pos, lightDir, ambientCol, lightCol, Assets::LightProperties::Enum::PointLight };
 
-				// 3. Create the object.
-				ModelManager::getInstance()->createLightFromScene(
-					obj["name"], obj["type"], obj["enabled"],
-					pos, rot, scale, materials, props);
+		//		// 3. Create the object.
+		//		ModelManager::getInstance()->createLightFromScene(
+		//			obj["name"], obj["type"], obj["enabled"],
+		//			pos, rot, scale, materials, props);
 
-				// 4. Family TODO
-			}
-		}
+		//		// 4. Family TODO
+		//	}
+		//}
 	}
 
 	void ReadFromDirectory()

@@ -36,7 +36,7 @@ namespace Vulkan::RayTracing
 
 	private:
 
-		BottomLevelGeometry geometries_;
+		BottomLevelGeometry m_geometry;
 	};
 
 }

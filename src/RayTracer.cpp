@@ -112,14 +112,6 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	return ubo;
 }
 
-Assets::PushConstantModel RayTracer::GetPushConstantModel(const Assets::Model& model) const
-{
-	Assets::PushConstantModel ubo = {};
-	ubo.WorldMatrix = model.GetWorldMatrix();
-
-	return ubo;
-}
-
 RayPickerUBO RayTracer::GetRayPickerUBO(const VkExtent2D extent) const
 {
 	RayPickerUBO ubo = {};
@@ -544,11 +536,6 @@ void RayTracer::ReloadModifiedScene()
 	std::vector<Assets::Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
-
-	for (auto& model : models)
-	{
-		model.ResetVertices();
-	}
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())

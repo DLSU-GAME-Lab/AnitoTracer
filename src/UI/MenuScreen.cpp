@@ -392,13 +392,13 @@ void MenuScreen::ShowLoadObjMenu()
 		if (ImGui::Button("Select File...", ImVec2(150, 25)))
 		{
 
-			ModelManager::getInstance()->createObjectFromFile(
-				name,
-				GameObject::PrimitiveType::CUBE,
-				glm::vec3(position[0], position[1], position[2]),
-				glm::vec3(rotation[0], rotation[1], rotation[2]),
-				glm::vec3(scale[0], scale[1], scale[2])
-			);
+			//ModelManager::getInstance()->createObjectFromFile(
+			//	name,
+			//	GameObject::PrimitiveType::CUBE,
+			//	glm::vec3(position[0], position[1], position[2]),
+			//	glm::vec3(rotation[0], rotation[1], rotation[2]),
+			//	glm::vec3(scale[0], scale[1], scale[2])
+			//);
 
 		}
 	}
@@ -425,13 +425,13 @@ void MenuScreen::ShowLoadObjMenu()
 		if (ImGui::Button("Select File...", ImVec2(150, 25)))
 		{
 
-			ModelManager::getInstance()->createObjectGroupFromFile(
+			/*ModelManager::getInstance()->createObjectGroupFromFile(
 				name,
 				GameObject::PrimitiveType::CUBE,
 				glm::vec3(position[0], position[1], position[2]),
 				glm::vec3(rotation[0], rotation[1], rotation[2]),
 				glm::vec3(scale[0], scale[1], scale[2])
-			);
+			);*/
 
 		}
 	}
@@ -476,34 +476,34 @@ void MenuScreen::OnCreateLightClicked(Light::LightType type)
 
 void MenuScreen::OnCreateRProbe()
 {
-	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
-	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	//std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+	//const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 
-	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
-	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	sphere->setLocalPosition(0, 0, 0);
-	ModelManager::getInstance()->addObject(std::move(sphere));
+	//Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
+	//auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	//sphere->setLocalPosition(0, 0, 0);
+	//ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
 void MenuScreen::OnCreateTProbe()
 {
-	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(-360.0f);
+	//std::shared_ptr<Material> groundReflectMat = Material::Dielectric(-360.0f);
 
 
-	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
-	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	sphere->setLocalPosition(0, 0, 0);
-	ModelManager::getInstance()->addObject(std::move(sphere));
+	//Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
+	//auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	//sphere->setLocalPosition(0, 0, 0);
+	//ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
 void MenuScreen::OnCreateMProbe()
 {
-	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	//const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 
-	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
-	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	sphere->setLocalPosition(0, 0, 0);
-	ModelManager::getInstance()->addObject(std::move(sphere));
+	//Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
+	//auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	//sphere->setLocalPosition(0, 0, 0);
+	//ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
 void MenuScreen::onCreateBunnyClicked()

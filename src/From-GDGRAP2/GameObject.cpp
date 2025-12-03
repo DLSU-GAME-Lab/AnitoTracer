@@ -34,7 +34,6 @@ GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::
 	this->name = name;
 	this->type = type;
 	this->modelRef = modelRef;
-	this->modelRef->SetOwner(this);
 
 	this->updateWorldMatrix();
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
@@ -367,16 +366,6 @@ bool GameObject::isDescendantOf(const GameObject* potentialParent) const
 	return false;
 }
 
-void GameObject::setOBB(const BoundingBox& obb)
-{
-	this->obb = std::make_shared<BoundingBox>(obb);
-}
-
-std::shared_ptr<BoundingBox> GameObject::getOBB() const
-{
-	return this->obb;
-}
-
 void GameObject::updateLocalMatrix()
 {
 	if (this->localDirty == false)	return;
@@ -419,45 +408,6 @@ void GameObject::updateWorldMatrix()
 	glm::quat rotationQuat;
 	glm::decompose(worldMatrix, worldScale, rotationQuat, worldPosition, skew, perspective);
 	worldRotation = glm::degrees(glm::eulerAngles(rotationQuat));
-
-	// Update bounding box and model matrix
-	if (modelRef && !modelRef->OriginalVertices().empty())
-	{
-		std::vector<glm::vec3> worldPositions;
-		worldPositions.reserve(modelRef->OriginalVertices().size());
-		modelRef->transformedVertices_ = modelRef->originalVertices_;
-
-		for (const auto& vertex : modelRef->TransformedVertices())
-		{
-			glm::vec3 posWorld = glm::vec3(worldMatrix * glm::vec4(vertex.Position, 1.0f));
-			worldPositions.push_back(posWorld);
-		}
-
-		// Calculate OBB axes from rotation matrix
-		glm::mat3 rotMat = glm::mat3_cast(rotationQuat);
-		glm::vec3 axisX = glm::normalize(rotMat[0]);
-		glm::vec3 axisY = glm::normalize(rotMat[1]);
-		glm::vec3 axisZ = glm::normalize(rotMat[2]);
-
-		std::array<glm::vec3, 3> axes = { axisX, axisY, axisZ };
-
-		// Calculate OBB center
-		glm::vec3 computedCenter(0.0f);
-		for (const auto& pos : worldPositions) {
-			computedCenter += pos;
-		}
-		computedCenter /= static_cast<float>(worldPositions.size());
-
-		// Set the new OBB
-		BoundingBox newOBB(worldPosition, worldPositions, axes);
-		setOBB(newOBB);
-	}
-
-	// Apply transformation to model
-	if (modelRef)
-	{
-		modelRef->Transform(worldMatrix);
-	}
 }
 
 glm::mat4 GameObject::getWorldMatrix() const
@@ -476,58 +426,6 @@ void GameObject::updateSceneView()
 	if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
-}
-
-/**
- * \brief Performs the model transform via model-view-projection matrix form
- */
-void GameObject::performModelTransform()
-{
-	mat4 translateOp = glm::translate(mat4(1), this->worldPosition - this->origin);
-	this->origin = this->worldPosition;
-	if (modelRef)
-		this->modelRef->Transform(translateOp);
-
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-}
-
-void GameObject::performModelRotate()
-{
-	vec3 rotOffset = this->worldRotation - this->originRot;
-
-	mat4 translateToOrigin = glm::translate(mat4(1.0f), -this->worldPosition);
-
-	mat4 rotateXOp = glm::rotate(mat4(1), glm::radians(rotOffset.x), vec3(1, 0, 0));
-	mat4 rotateYOp = glm::rotate(mat4(1), glm::radians(rotOffset.y), vec3(0, 1, 0));
-	mat4 rotateZOp = glm::rotate(mat4(1), glm::radians(rotOffset.z), vec3(0, 0, 1));
-
-	mat4 translateBack = glm::translate(mat4(1.0f), this->worldPosition);
-
-	mat4 finalRotation = translateBack * rotateZOp * rotateYOp * rotateXOp * translateToOrigin;
-
-	if (modelRef)
-		this->modelRef->Transform(finalRotation);
-
-	this->originRot = this->worldRotation;
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-}
-
-void GameObject::performModelScale()
-{
-	vec3 scaleOffset = this->worldScale / this->originScale;
-
-	mat4 translateToOrigin = glm::translate(mat4(1.0f), -this->worldPosition);
-	mat4 scaleOp = glm::scale(mat4(1.0f), scaleOffset);
-	mat4 translateBack = glm::translate(mat4(1.0f), this->worldPosition);
-
-	mat4 finalScale = translateBack * scaleOp * translateToOrigin;
-
-	if (modelRef)
-		this->modelRef->Transform(finalScale);
-
-	this->originScale = this->worldScale;
-
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void GameObject::setLocalDirty()

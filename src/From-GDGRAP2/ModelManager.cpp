@@ -200,16 +200,6 @@ ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* origina
 			auto visible = gameObject->isVisible();
 			auto pickable = gameObject->isPickable();
 			auto parent = gameObject->getParent();
-			auto material = gameObject->getModel()->getMaterial(0);
-
-			// Copy Material
-			std::shared_ptr<Assets::Material> copiedMat = std::make_shared<Assets::Material>();
-
-			copiedMat->Diffuse = material->Diffuse;
-			copiedMat->DiffuseTextureId = material->DiffuseTextureId;
-			copiedMat->Fuzziness = material->Fuzziness;
-			copiedMat->RefractionIndex = material->RefractionIndex;
-			copiedMat->MaterialModel = material->MaterialModel;
 
 			std::unique_ptr<GameObject> resultCopy;
 
@@ -240,7 +230,7 @@ ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* origina
 				break;
 
 			case GameObject::MESH:
-				resultCopy = GameObjectFactory::CreateFromModelFile(original->getModel()->filepath, name);
+				resultCopy = GameObjectFactory::CreateFromModelFile(original->getModel()->GetFilePath(), name);
 				break;
 
 			default:
@@ -258,7 +248,6 @@ ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* origina
 			resultCopy->setVisible(visible);
 			resultCopy->setPickable(pickable);
 			resultCopy->setParent(parent);
-			resultCopy->getModel()->SetMaterial(*copiedMat);
 
 			return resultCopy;
 		};
@@ -397,240 +386,6 @@ int ModelManager::getObjectIndex(GameObject* gameObject) const
 int ModelManager::getSceneGraphRootSize() const
 {
 	return this->sceneGraph.size();
-}
-
-void ModelManager::createObject(GameObject::PrimitiveType type)
-{
-	switch (type) {
-	case GameObject::CAMERA:
-		break;
-	case GameObject::CUBE:
-	{
-		Assets::Model cubeModel = Assets::Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		std::unique_ptr<GameObject> cube = std::make_unique<GameObject>("Cube", GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(cubeModel));
-		addObject(std::move(cube));
-
-		break;
-	}
-	case GameObject::OBJECT_GROUP:
-		break;
-	case GameObject::QUAD:
-		break;
-	case GameObject::SPHERE:
-	{
-		Assets::Model sphereModel = Assets::Model::CreateSphere(vec3(0), 50, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)), false);
-		std::unique_ptr<GameObject> sphere = std::make_unique<GameObject>("Sphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(sphereModel));
-		addObject(std::move(sphere));
-	}
-	break;
-	case GameObject::PLANE:
-	{
-		Assets::Model planeModel = Assets::Model::CreatePlane(vec3(0, 0, -100), vec3(100, -100, 0), *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		std::unique_ptr<GameObject> plane = std::make_unique<GameObject>("Plane", GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(planeModel));
-		addObject(std::move(plane));
-	}
-	break;
-	case GameObject::CYLINDER:
-	{
-		Assets::Model cylinderModel = Assets::Model::CreateCylinder(25, 50, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		std::unique_ptr<GameObject> cylinder = std::make_unique<GameObject>("Cylinder", GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(cylinderModel));
-		addObject(std::move(cylinder));
-
-	}
-	break;
-	case GameObject::CAPSULE:
-	{
-		Assets::Model capsuleModel = Assets::Model::CreateCapsule(25, 100, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		std::unique_ptr<GameObject> capsule = std::make_unique<GameObject>("Capsule", GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(capsuleModel));
-		addObject(std::move(capsule));
-	}
-		break;
-	case GameObject::POINT_LIGHT:
-	{
-		std::unique_ptr<Light> pl = std::make_unique<Light>("Light Source", Light::LightType::PointLight);
-		addLightObject(std::move(pl));
-	}
-	break;
-	case GameObject::DIRECTIONAL_LIGHT:
-	{
-		std::unique_ptr<Light> dl = std::make_unique<Light>("Light Source", Light::LightType::DirectionalLight);
-		dl->setLocalRotation(-180, 0, 0);
-		addLightObject(std::move(dl));
-	}
-	break;
-	case GameObject::SPOT_LIGHT:
-	{
-		std::unique_ptr<Light> sl = std::make_unique<Light>("Light Source", Light::LightType::SpotLight);
-		addLightObject(std::move(sl));
-	}
-		break;
-	case GameObject::NONE:
-		break;
-	}
-}
-
-void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation,
-	vec3 scale, std::vector<Assets::Material> mats)
-{
-	std::unique_ptr<GameObject> obj = nullptr;
-
-	switch (type) {
-		case GameObject::CUBE:
-		{
-			Assets::Model cubeModel = Assets::Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), mats[0]);
-			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(cubeModel));
-			break;
-		}
-		case GameObject::SPHERE:
-		{
-			Assets::Model sphereModel = Assets::Model::CreateSphere(vec3(0), 50, mats[0], false);
-			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(sphereModel));
-			break;
-		}
-		case GameObject::PLANE:
-		{
-			Assets::Model planeModel = Assets::Model::CreatePlane(vec3(0, 0, -100), vec3(100, -100, 0), mats[0]);
-			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(planeModel));
-			break;
-		}
-		case GameObject::CYLINDER:
-		{
-			Assets::Model cylinderModel = Assets::Model::CreateCylinder(25, 50, mats[0]);
-			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(cylinderModel));
-			break;
-		}
-		case GameObject::CAPSULE:
-		{
-			Assets::Model capsuleModel = Assets::Model::CreateCapsule(25, 100, mats[0]);
-			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(capsuleModel));
-			break;
-		}
-		case GameObject::CORNELL_BOX:
-		{
-			Assets::Model cornellBoxModel = Assets::Model::CreateCornellBox(555);
-			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Assets::Model>(cornellBoxModel));
-			break;
-		}
-
-		default: break;
-	}
-
-	if (obj)
-	{
-		obj->setLocalPosition(position);
-		obj->setLocalRotation(rotation);
-		obj->setLocalScale(scale);
-		obj->setActive(active);
-		addObject(std::move(obj));
-	}
-}
-
-void ModelManager::createLightFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position,
-	vec3 rotation, vec3 scale, std::vector<Assets::Material> mats, Assets::LightProperties props)
-{
-	std::unique_ptr<Light> light = nullptr;
-
-	switch (type) {
-		case GameObject::POINT_LIGHT:
-		{
-			light = std::make_unique<Light>(name.c_str(), Light::LightType::PointLight,
-											position, props.AmbientColor, props.LightColor);
-			break;
-		}
-		case GameObject::DIRECTIONAL_LIGHT:
-		{
-			light = std::make_unique<Light>(name.c_str(), Light::LightType::DirectionalLight,
-											position, props.AmbientColor, props.LightColor);
-			break;
-		}
-		case GameObject::SPOT_LIGHT:
-		{
-			light = std::make_unique<Light>(name.c_str(), Light::LightType::SpotLight,
-											position, props.AmbientColor, props.LightColor);
-			break;
-		}
-		default: break;
-	}
-
-	if (light)
-	{
-		light->setName(name);
-		light->setLocalPosition(position);
-		light->setLocalRotation(rotation);
-		light->setLocalScale(scale);
-		light->setActive(active);
-		addLightObject(std::move(light));
-	}
-}
-
-void ModelManager::createObjectFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation,
-                                        vec3 scale)
-{
-	std::string meshFilePath;
-	std::string fileName;
-
-	if (!FileUtils::getModelFilePath(meshFilePath, fileName))
-	{
-		Debug::Log("Cancelled loading OBJ from path: " + meshFilePath);
-
-		return;
-	}
-
-	if (!meshFilePath.empty()) {
-		Debug::Log("Loading OBJ from path: " + meshFilePath);
-	}
-
-	auto model = Assets::Model::LoadModel(meshFilePath);
-	std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>(name, type, std::make_shared<Assets::Model>(model));
-	gameObject->setLocalPosition(position);
-	gameObject->setLocalRotation(rotation);
-	gameObject->setLocalScale(scale);
-	addObject(std::move(gameObject));
-}
-
-void ModelManager::createObjectGroupFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale)
-{
-	std::string meshFilePath;
-	std::string fileName;
-
-	if (!FileUtils::getModelFilePath(meshFilePath, fileName))
-	{
-		Debug::Log("Cancelled loading OBJ from path: " + meshFilePath);
-
-		return;
-	}
-
-	if (!meshFilePath.empty()) {
-		Debug::Log("Loading OBJ from path: " + meshFilePath);
-	}
-
-	// load all models of the group into a list
-	std::vector<Assets::Model> models = Assets::Model::LoadModelGroup(meshFilePath);
-	
-	//create a game object for each model
-	for (int i = 0; i < models.size(); i++) 
-	{
-		std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>(name + "_1", type, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(position);
-		gameObject->setLocalRotation(rotation);
-		gameObject->setLocalScale(scale);
-		addObject(std::move(gameObject));
-	}
-}
-
-void ModelManager::createSponza()
-{
-	std::vector<Assets::Model> models = Assets::Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/sponza.obj");
-
-	//create a game object for each model
-	for (int i = 0; i < models.size(); i++)
-	{
-		std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>("Sponza " + i, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(0,0,0);
-		gameObject->setLocalRotation(0,0,0);
-		gameObject->setLocalScale(1,1,1);
-		addObject(std::move(gameObject));
-	}
 }
 
 void ModelManager::OnActionPressed(Hotkey::Action action)

@@ -12,6 +12,7 @@
 #include "Vulkan/Sampler.hpp"
 #include "Utilities/Exception.hpp"
 #include "Vulkan/SingleTimeCommands.hpp"
+#include "Vertex.hpp"
 
 
 namespace Assets {
@@ -22,35 +23,13 @@ Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models, std:
 	lights_(std::move(lights))
 {
 	// Concatenate all the models
-	std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
-	std::vector<Material> materials;
 	std::vector<glm::vec4> procedurals;
 	std::vector<VkAabbPositionsKHR> aabbs;
-	std::vector<glm::uvec2> offsets;
 
 	for (const auto& model : models_)
 	{
-		// Remember the index, vertex offsets.
-		const auto indexOffset = static_cast<uint32_t>(indices.size());
-		const auto vertexOffset = static_cast<uint32_t>(vertices.size());
-		const auto materialOffset = static_cast<uint32_t>(materials.size());
-
-		offsets.emplace_back(indexOffset, vertexOffset);
-
-		// Copy model data one after the other.
-		vertices.insert(vertices.end(), model.Vertices().begin(), model.Vertices().end());
-		indices.insert(indices.end(), model.Indices().begin(), model.Indices().end());
-		materials.insert(materials.end(), model.Materials().begin(), model.Materials().end());
-
-		// Adjust the material id.
-		for (size_t i = vertexOffset; i != vertices.size(); ++i)
-		{
-			vertices[i].MaterialIndex += materialOffset;
-		}
-
 		// Add optional procedurals.
-		const auto* const sphere = dynamic_cast<const SphereProc*>(model.Procedural());
+		const auto* const sphere = dynamic_cast<const SphereProc*>(model.GetProcedural());
 		if (sphere != nullptr)
 		{
 			const auto aabb = sphere->BoundingBox();
@@ -72,12 +51,7 @@ Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models, std:
 
 	constexpr auto flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
-	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Vertices", VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | flags, vertices, vertexBuffer_, vertexBufferMemory_);
-	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Indices", VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | flags, indices, indexBuffer_, indexBufferMemory_);
-	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Materials", flags, materials, materialBuffer_, materialBufferMemory_);
 	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Lights", flags, lightProps, lightsBuffer_, lightsBufferMemory_);
-	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Offsets", flags, offsets, offsetBuffer_, offsetBufferMemory_);
-
 	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "AABBs", VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | flags, aabbs, aabbBuffer_, aabbBufferMemory_);
 	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Procedurals", flags, procedurals, proceduralBuffer_, proceduralBufferMemory_);
 	

@@ -15,19 +15,14 @@ namespace Vulkan::RayTracing
 	class BottomLevelGeometry final
 	{
 	public:
-
-		size_t size() const { return geometry_.size(); }
-		
-		const std::vector<VkAccelerationStructureGeometryKHR>& Geometry() const { return geometry_; }
-		const std::vector<VkAccelerationStructureBuildRangeInfoKHR>& BuildOffsetInfo() const { return buildOffsetInfo_; }
+		const VkAccelerationStructureGeometryKHR& Geometry() const { return m_geometry; }
+		const VkAccelerationStructureBuildRangeInfoKHR& BuildOffsetInfo() const { return m_buildOffsetInfo; }
 
 		void AddGeometryTriangles(
-			const Assets::Scene& scene,
-			uint32_t vertexOffset,
+			VkDeviceAddress vertexDeviceAddress,
 			uint32_t vertexCount,
-			uint32_t indexOffset, 
-			uint32_t indexCount,
-			bool isOpaque);
+			VkDeviceAddress indexDeviceAddress,
+			uint32_t indexCount);
 
 		void AddGeometryAabb(
 			const Assets::Scene& scene,
@@ -38,10 +33,10 @@ namespace Vulkan::RayTracing
 	private:
 
 		// The geometry to build, addresses of vertices and indices.
-		std::vector<VkAccelerationStructureGeometryKHR> geometry_;
+		VkAccelerationStructureGeometryKHR m_geometry;
 		
 		// the number of elements to build and offsets
-		std::vector<VkAccelerationStructureBuildRangeInfoKHR> buildOffsetInfo_;
+		VkAccelerationStructureBuildRangeInfoKHR m_buildOffsetInfo;
 	};
 
 }

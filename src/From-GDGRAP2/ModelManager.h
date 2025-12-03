@@ -61,13 +61,6 @@ public:
 	int getObjectIndex(GameObject* gameObject) const;
 	int getSceneGraphRootSize() const;
 
-	void createObject(GameObject::PrimitiveType type);
-	void createPrimitiveFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation, vec3 scale, std::vector<Assets::Material> mats);
-	void createLightFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation, vec3 scale, std::vector<Assets::Material> mats, Assets::LightProperties props);
-	void createObjectFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale); 
-	void createObjectGroupFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale);
-	void createSponza();
-
 	void OnActionPressed(Hotkey::Action action) override;
 
 	/* For Hierarchy Actions and Scene View Menu */

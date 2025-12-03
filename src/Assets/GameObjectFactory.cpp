@@ -22,7 +22,7 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
     // Single mesh - create single GameObject
     else if (results.modelsData.size() == 1)
     {
-        String finalName = name.empty() ? results.modelsData[0]->GetName() : name;
+        String finalName = name.empty() ? results.modelsData[0]->GetFilePath() : name;
         auto gameObject = std::make_unique<GameObject>(finalName, GameObject::MESH, results.modelsData[0]);
         gameObject->setLocalPosition(results.originalPositions[0]);
         return gameObject;

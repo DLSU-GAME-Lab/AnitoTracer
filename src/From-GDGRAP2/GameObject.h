@@ -69,9 +69,6 @@ public:
 
     bool isDescendantOf(const GameObject* potentialParent) const;
 
-    void setOBB(const BoundingBox& obb);
-    std::shared_ptr<BoundingBox> getOBB() const;
-
     void updateLocalMatrix();
     glm::mat4 getLocalMatrix() const;
     void updateWorldMatrix();
@@ -114,12 +111,6 @@ protected:
 
     GameObject* parent = nullptr;
     std::vector<GameObjectPtr> children;
-
-    std::shared_ptr<BoundingBox> obb;
-
-    virtual void performModelTransform();
-    virtual void performModelRotate();
-    virtual void performModelScale();
 
     void updateSceneView();
 
