@@ -9,14 +9,19 @@ class HierarchyScreen :    public AUIScreen
 public:
 	HierarchyScreen();
 	~HierarchyScreen();
+
 private:
 	virtual void drawUI() override;
+
+	void CreateObjectPopup();
 	void updateObjectList(const char* filter);
 	void drawObjectNode(GameObject* obj);
 
 	mutable std::unordered_set<std::string> openNodes;
 
 	bool isDragging = false;
+
+	int tempId = 0;
 
 	friend class UIManager;
 };

@@ -5,6 +5,7 @@
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "Assets/TextureImage.hpp"
 #include "Assets/RayScene.hpp"
+#include "UI/UIConfig.hpp"
 
 namespace Vulkan {
 	class RayVisualizationPipeline;
@@ -61,6 +62,7 @@ private:
 	UserSettings userSettings_{};
 	UserSettings previousSettings_{};
 	SceneList::CameraInitialState cameraInitialSate_{};
+	UIConfig uiConfig_{};
 
 	std::unique_ptr<Assets::Scene> scene_;
 	std::unique_ptr<Assets::TextureImage> skyboxTextureImage_;
