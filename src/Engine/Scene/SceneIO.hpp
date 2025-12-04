@@ -81,8 +81,8 @@ public:
 		if (sceneName == "New Scene") sceneName = "New Scene " + std::to_string(scenes.size());
 		else if (map[sceneName] != nullptr) { /* Already exists */ }
 
-		auto objects = ModelManager::getInstance()->getAllObjects();
-		ModelManager::LightPropsList lights = ModelManager::getInstance()->getAllLightProperties();
+		auto objects = GameObjectManager::getInstance()->GetAllObjects();
+		GameObjectManager::LightPropsList lights = GameObjectManager::getInstance()->getAllLightProperties();
 		int lightIndex = 0;
 
 		json scene;
@@ -98,9 +98,9 @@ public:
 			objJson["type"] = obj->getType();
 			objJson["enabled"] = obj->isActive();
 
-			objJson["position"] = { obj->getWorldPosition().x, obj->getWorldPosition().y, obj->getWorldPosition().z };
-			objJson["rotation"] = { obj->getWorldRotation().x, obj->getWorldRotation().y, obj->getWorldRotation().z };
-			objJson["scale"] = { obj->getWorldScale().x, obj->getWorldScale().y, obj->getWorldScale().z };
+			objJson["position"] = { obj->GetWorldPosition().x, obj->GetWorldPosition().y, obj->GetWorldPosition().z };
+			objJson["rotation"] = { obj->GetWorldRotation().x, obj->GetWorldRotation().y, obj->GetWorldRotation().z };
+			objJson["scale"] = { obj->GetWorldScale().x, obj->GetWorldScale().y, obj->GetWorldScale().z };
 
 			// 2. Model
 			std::shared_ptr<Assets::Model> modelRef = obj->getModel();
@@ -137,9 +137,9 @@ public:
 			}
 
 			// 3. Family lol
-			objJson["parent"] = obj->getParent() ? obj->getParent()->getName() : "";
+			objJson["parent"] = obj->GetParent() ? obj->GetParent()->getName() : "";
 			objJson["children"] = json::array();
-			for (GameObject* child : obj->getChildren()) {
+			for (GameObject* child : obj->GetChildren()) {
 				objJson["children"].push_back(child->getName());
 			}
 

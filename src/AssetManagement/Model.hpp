@@ -45,15 +45,16 @@ namespace Assets
 		using DeviceMemoryPtr = std::unique_ptr<Vulkan::DeviceMemory>;
 
         Model(const std::string& filepath, const VertexData& vertices, const IndexData& indices,
-            Vulkan::CommandPool& commandPool, std::vector<Material>&& materials, std::shared_ptr<const class Procedural> procedural = nullptr);
+            Vulkan::CommandPool& commandPool, std::shared_ptr<const class Procedural> procedural = nullptr);
         ~Model() = default;
 
+		// Handling gpu resources, so non-copyable
         Model(const Model&) = delete;
         Model& operator=(const Model&) = delete;
         Model(Model&&) noexcept = default;
         Model& operator=(Model&&) noexcept = default;
 
-        void BuildBLAS(Vulkan::CommandPool& commandPool, VkCommandBuffer commandBuffer);
+        void BuildBLAS(Vulkan::CommandPool& commandPool, VkCommandBuffer commandBuffer, Vulkan::Buffer& scratchBuffer, VkDeviceSize scratchOffset);
 
         const class Procedural* GetProcedural() const { return m_procedural.get(); }
         const std::string& GetFilePath() const { return m_filePath; }
@@ -61,7 +62,6 @@ namespace Assets
 
         const Vulkan::Buffer* GetVertexBuffer() const noexcept { return m_vertex.buffer.get(); }
         const Vulkan::Buffer* GetIndexBuffer() const noexcept { return m_index.buffer.get(); }
-        const Vulkan::Buffer* GetOffsetBuffer() const noexcept { return m_offset.buffer.get(); }
 
         uint32_t GetVertexCount() const noexcept { return m_vertexCount; }
         uint32_t GetIndexCount() const noexcept { return m_indexCount; }
@@ -69,7 +69,6 @@ namespace Assets
         bool IsValid() const noexcept { return m_blas != nullptr; }
         bool HasProcedural() const noexcept { return m_procedural != nullptr; }
 
-        void ClearScratchBuffers();
     private:
 
         struct BufferResources
@@ -87,9 +86,7 @@ namespace Assets
 
         BufferResources m_vertex;
         BufferResources m_index;
-        BufferResources m_offset;
         BufferResources m_blasData;
-        BufferResources m_blasScratch;
 
         void CreateVertexBuffer(const VertexData& vertices, Vulkan::CommandPool& commandPool);
         void CreateIndexBuffer(const IndexData& indices, Vulkan::CommandPool& commandPool);

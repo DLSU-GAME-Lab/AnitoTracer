@@ -533,9 +533,9 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
  */
 void RayTracer::ReloadModifiedScene()
 {
-	std::vector<Assets::Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<Assets::Model> models = GameObjectManager::getInstance()->getAllObjectModels();
 	std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
-	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+	std::vector<Assets::LightProperties> lights = GameObjectManager::getInstance()->getAllLightProperties();
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())
@@ -663,10 +663,10 @@ void RayTracer::ExecuteScheduledPick()
 		auto result = rayPicker_->pick(*deviceProcedures_, Device(), rayOrigin, rayDirection, currentFrame_);
 
 		int pickedId = result.objectID;
-		auto gameObject = ModelManager::getInstance()->FindGameObject(pickedId);
+		auto gameObject = GameObjectManager::getInstance()->FindGameObject(pickedId);
 
-		if (gameObject)	ModelManager::getInstance()->setSelectedObject(gameObject);
-		else ModelManager::getInstance()->setSelectedObject(nullptr);
+		if (gameObject)	GameObjectManager::getInstance()->SetSelectedObject(gameObject);
+		else GameObjectManager::getInstance()->SetSelectedObject(nullptr);
 	}
 }
 
@@ -694,5 +694,5 @@ void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,
 	glm::vec4 rayWorld = invView * rayEye;
 	outDirection = glm::normalize(glm::vec3(rayWorld));
 
-	outOrigin = camera->getLocalPosition();
+	outOrigin = camera->GetLocalPosition();
 }

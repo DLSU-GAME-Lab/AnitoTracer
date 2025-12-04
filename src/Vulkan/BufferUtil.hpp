@@ -27,6 +27,12 @@ namespace Vulkan
 			const std::vector<T>& content,
 			std::unique_ptr<Buffer>& buffer,
 			std::unique_ptr<DeviceMemory>& memory);
+
+		template <class T>
+		static void UpdateDeviceBuffer(
+			CommandPool& commandPool,
+			const std::vector<T>& content,
+			std::unique_ptr<Buffer>& buffer);
 	};
 
 	template <class T>
@@ -73,6 +79,24 @@ namespace Vulkan
 		debugUtils.SetObjectName(buffer->Handle(), (name + std::string(" Buffer")).c_str());
 		debugUtils.SetObjectName(memory->Handle(), (name + std::string(" Memory")).c_str());
 
+		CopyFromStagingBuffer(commandPool, *buffer, content);
+	}
+
+	template <class T>
+	void BufferUtil::UpdateDeviceBuffer(
+		CommandPool& commandPool,
+		const std::vector<T>& content,
+		std::unique_ptr<Buffer>& buffer)
+	{
+		const auto contentSize = sizeof(content[0]) * content.size();
+
+		// Verify the buffer is large enough
+		if (contentSize > buffer->Size())
+		{
+			throw std::runtime_error("Content size exceeds buffer size");
+		}
+
+		// Use the existing CopyFromStagingBuffer to update the buffer
 		CopyFromStagingBuffer(commandPool, *buffer, content);
 	}
 }

@@ -3,17 +3,11 @@
 set(src_files_assets
 	Assets/CornellBox.cpp
 	Assets/CornellBox.hpp
-	Assets/Material.hpp
-	Assets/Model.cpp
-	Assets/Model.hpp
-	Assets/Procedural.hpp
 	Assets/RayScene.cpp
 	Assets/RayScene.hpp
 	Assets/Scene.cpp
 	Assets/Scene.hpp
 	Assets/SphereProc.hpp
-	Assets/Texture.cpp
-	Assets/Texture.hpp
 	Assets/CubeMapTexture.hpp
 	Assets/TextureImage.cpp
 	Assets/TextureImage.hpp
@@ -34,10 +28,28 @@ set(src_files_assets
 	Assets/Ray.hpp
 	Assets/RayVertex.hpp
 	Assets/RayInfo.hpp
-	Assets/ModelLibrary.hpp
-	Assets/ModelLibrary.cpp
-	Assets/GameObjectFactory.hpp
-	Assets/GameObjectFactory.cpp
+	
+)
+
+set(src_files_AssetManagement
+	AssetManagement/Material.hpp
+	AssetManagement/MaterialLibrary.cpp
+	AssetManagement/MaterialLibrary.hpp
+	AssetManagement/Model.cpp
+	AssetManagement/Model.hpp
+	AssetManagement/ModelLibrary.hpp
+	AssetManagement/ModelLibrary.cpp
+	AssetManagement/Procedural.hpp
+	AssetManagement/Texture.cpp
+	AssetManagement/Texture.hpp
+	AssetManagement/TextureLibrary.cpp
+	AssetManagement/TextureLibrary.hpp
+	AssetManagement/GameObjectFactory.hpp
+	AssetManagement/GameObjectFactory.cpp
+	AssetManagement/GameObject.cpp
+	AssetManagement/GameObject.hpp
+	AssetManagement/GameObjectManager.cpp
+	AssetManagement/GameObjectManager.hpp
 )
 
 set(src_files_obb
@@ -98,6 +110,8 @@ set(src_files_utilities
 	Utilities/StbImage.hpp
 	Utilities/FileUtils.cpp
 	Utilities/FileUtils.h
+	Utilities/UniqueIDGenerator.hpp
+	Utilities/UniqueIDGenerator.cpp
 )
 
 set(src_files_vulkan
@@ -235,16 +249,8 @@ set(src_files_from_gdgrap2
 	From-GDGRAP2/GlobalConfig.h
 	From-GDGRAP2/ObjectGroup.cpp
 	From-GDGRAP2/ObjectGroup.h
-	From-GDGRAP2/GameObject.cpp
-	From-GDGRAP2/GameObject.h
-	From-GDGRAP2/ModelManager.cpp
-	From-GDGRAP2/ModelManager.h
-	From-GDGRAP2/MaterialLibrary.cpp
-	From-GDGRAP2/MaterialLibrary.h
 	From-GDGRAP2/EventNames.h
 	From-GDGRAP2/RTConfig.h
-	From-GDGRAP2/TextureLibrary.cpp
-	From-GDGRAP2/TextureLibrary.h
 	From-GDGRAP2/TransformHistory.cpp
 	From-GDGRAP2/TransformHistory.h
 )
@@ -300,6 +306,7 @@ set(src_files
 	UserSettings.hpp
 )
 
+source_group("AssetManagement" FILES ${src_files_AssetManagement})
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
@@ -317,10 +324,10 @@ source_group("Vulkan.RayTracing" FILES ${src_files_vulkan_raytracing})
 source_group("RayPicker" FILES ${src_files_raypicker})
 source_group("Main" FILES ${src_files})
 
-add_executable(${exe_name} 
+add_executable(${exe_name}
+	${src_files_AssetManagement}
 	${src_files_assets}
 	${src_files_obb}
-
 	${src_files_camerasystem} 
 	${src_files_lightsystem}
 	${stc_files_hotkeysystem}

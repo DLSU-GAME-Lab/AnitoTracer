@@ -477,16 +477,16 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	drawOverlay(statistics);
 
 	//Start ImGuizmo frame.
-	if (ModelManager::getInstance()->getSelectedObject() != nullptr)
+	if (GameObjectManager::getInstance()->GetSelectedObject() != nullptr)
 	{
 		if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) isCTRLHeld = true;
 
-		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
+		auto selectedObject = GameObjectManager::getInstance()->GetSelectedObject();
 		bool isUsingGizmoNow = ImGuizmo::IsUsing();
 
 		if (!wasUsingGizmoLastFrame) // set gizmo origin
 		{
-			this->gizmoModelMatrix = selectedObject->getWorldMatrix();
+			this->gizmoModelMatrix = selectedObject->GetWorldMatrix();
 		}
 
 		// Store the 'before' state when manipulation starts
@@ -495,9 +495,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			gizmoWasManipulated = false;
 
 			gizmoBeforeState = {
-				selectedObject->getLocalPosition(),
-				selectedObject->getLocalRotation(),
-				selectedObject->getLocalScale()
+				selectedObject->GetLocalPosition(),
+				selectedObject->GetLocalRotation(),
+				selectedObject->GetLocalScale()
 			};
 		}
 
@@ -545,8 +545,8 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced) // For Rasterized Mode
 			{
 				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
-				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
-				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+				selectedObject->SetLocalRotation(rotation[0], rotation[1], rotation[2]);
+				selectedObject->SetLocalScale(scale[0], scale[1], scale[2]);
 			}
 		}
 
@@ -556,9 +556,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			{
 				glm::mat4 newLocalMatrix;
 
-				if (selectedObject->getParent())
+				if (selectedObject->GetParent())
 				{
-					glm::mat4 parentWorldInverse = glm::inverse(selectedObject->getParent()->getWorldMatrix()); 
+					glm::mat4 parentWorldInverse = glm::inverse(selectedObject->GetParent()->GetWorldMatrix()); 
 					newLocalMatrix = parentWorldInverse * gizmoModelMatrix; // gizmo is in new world space
 				}
 				else
@@ -776,7 +776,7 @@ ImFont* UIManager::GetIconFont()
 
 void UIManager::OnActionPressed(Hotkey::Action action)
 {
-	if (ModelManager::getInstance()->getSelectedObject() == nullptr) return;
+	if (GameObjectManager::getInstance()->GetSelectedObject() == nullptr) return;
 	if (CameraManager::getInstance()->getActiveCamera()->getCurrentMoveMode() != Camera::CameraMoveMode::NONE) return;
 
 	using Action = Hotkey::Action;

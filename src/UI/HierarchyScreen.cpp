@@ -72,7 +72,7 @@ void HierarchyScreen::drawUI()
 
 void HierarchyScreen::HierarchyMenuPopup()
 {
-    bool isThereSelected = !ModelManager::getInstance()->getSelectedObject();
+    bool isThereSelected = !GameObjectManager::getInstance()->GetSelectedObject();
 
     if (isThereSelected) //grey out and unselectable if no selected object
     {
@@ -80,11 +80,11 @@ void HierarchyScreen::HierarchyMenuPopup()
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
     }
 
-    if (ImGui::Selectable("Cut"))       ModelManager::getInstance()->CutSelectedObject();
-    if (ImGui::Selectable("Copy"))      ModelManager::getInstance()->CopySelectedObject();
-    if (ImGui::Selectable("Paste"))     ModelManager::getInstance()->PasteObject();
-    if (ImGui::Selectable("Duplicate")) ModelManager::getInstance()->DuplicateSelectedObject();
-    if (ImGui::Selectable("Delete"))    ModelManager::getInstance()->DeleteSelectedObject();
+    if (ImGui::Selectable("Cut"))       GameObjectManager::getInstance()->CutSelectedObject();
+    if (ImGui::Selectable("Copy"))      GameObjectManager::getInstance()->CopySelectedObject();
+    if (ImGui::Selectable("Paste"))     GameObjectManager::getInstance()->PasteObject();
+    if (ImGui::Selectable("Duplicate")) GameObjectManager::getInstance()->DuplicateSelectedObject();
+    if (ImGui::Selectable("Delete"))    GameObjectManager::getInstance()->DeleteSelectedObject();
 
     if (isThereSelected)
     {
@@ -191,7 +191,7 @@ void HierarchyScreen::CreateObjectPopup()
 
 void HierarchyScreen::updateObjectList(const char* filter)
 {
-    const auto objectList = ModelManager::getInstance()->getSceneGraph();
+    const auto objectList = GameObjectManager::getInstance()->GetAllRootObjects();
     std::string activeCamName = CameraManager::getInstance()->getActiveCamera()->getName();
     ImGui::Text("Active Camera: %s", activeCamName.c_str());
 
@@ -218,13 +218,13 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
 
     String objectName = obj->getName();
 	String objectId = objectName + std::to_string(tempId); // Unique ID for ImGui
-    bool hasChildren = !obj->getChildren().empty();
+    bool hasChildren = !obj->GetChildren().empty();
 	tempId++;
 
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
 
-    GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
+    GameObject* selectedObject = GameObjectManager::getInstance()->GetSelectedObject();
 
     if (obj->IsHierarchyNodeOpen())
     {
@@ -256,10 +256,10 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     // Selection Logic
     if (ImGui::IsItemClicked())
     {
-        ModelManager::getInstance()->setSelectedObject(obj);
+        GameObjectManager::getInstance()->SetSelectedObject(obj);
 
         // If Camera is selected, set main camera. If not, deactivate main camera.
-        if (ModelManager::getInstance()->getSelectedObject()->getType() == GameObject::CAMERA)
+        if (GameObjectManager::getInstance()->GetSelectedObject()->getType() == GameObject::CAMERA)
         {
             Camera* cam = CameraManager::getInstance()->findCameraByName(objectName);
             CameraManager::getInstance()->setMainCamera(cam);
@@ -289,20 +289,20 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
         {
             // Prevent dragging a parent into its own child 
             if (GameObject* draggedObj = *static_cast<GameObject**>(payload->Data);
-                draggedObj && draggedObj != obj && !obj->isDescendantOf(draggedObj))
+                draggedObj && draggedObj != obj && !obj->IsDescendantOf(draggedObj))
             {
                 hasValidDropTarget = true;
 
-                auto oldParent = draggedObj->getParent();
+                auto oldParent = draggedObj->GetParent();
 
                 // Assign new parent
 				CommandManager::getInstance()->executeCommand(
                     new ReparentCommand(
                         draggedObj, 
                         oldParent,
-						oldParent ? oldParent->getChildIndex(draggedObj) : ModelManager::getInstance()->getObjectIndex(draggedObj),
+						oldParent ? oldParent->GetChildIndex(draggedObj) : GameObjectManager::getInstance()->GetObjectIndex(draggedObj),
                         obj,
-                        obj->getChildren().size()
+                        obj->GetChildren().size()
                     )
 				);
 
@@ -325,11 +325,11 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     // Handle Unparenting (Dragged to Empty Space)
     if (isDragging && ImGui::IsMouseReleased(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
     {
-        GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
+        GameObject* selectedObject = GameObjectManager::getInstance()->GetSelectedObject();
 
         if (selectedObject)
         {
-            auto oldParent = selectedObject->getParent();
+            auto oldParent = selectedObject->GetParent();
 
             if (oldParent) // if old parent == null (in root); do nothing
             {
@@ -337,9 +337,9 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
                     new ReparentCommand(
                         selectedObject,
                         oldParent,
-                        oldParent->getChildIndex(selectedObject),
+                        oldParent->GetChildIndex(selectedObject),
                         nullptr,
-                        ModelManager::getInstance()->getSceneGraphRootSize()
+                        GameObjectManager::getInstance()->GetRootCount()
                     )
                 );
             }
@@ -355,7 +355,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
 
     if (open)
     {
-        for (const auto& child : obj->getChildren())
+        for (const auto& child : obj->GetChildren())
         {
             drawObjectNode(child);
         }

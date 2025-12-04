@@ -5,7 +5,9 @@ using namespace Assets;
 
 GameObject::GameObjectPtr GameObjectFactory::CreateEmpty(const String& name)
 {
-    return std::make_unique<GameObject>(name, GameObject::NONE);
+    auto obj = std::make_unique<GameObject>(name, GameObject::NONE);
+    obj->SetID(AcquireId());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& filepath, const String& name)
@@ -16,7 +18,9 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
     if (results.modelsData.empty())
     {
         String finalName = name.empty() ? "mesh" : name;
-        return std::make_unique<GameObject>(finalName, GameObject::MESH, nullptr);
+		auto obj = std::make_unique<GameObject>(finalName, GameObject::MESH, nullptr);
+        obj->SetID(AcquireId());
+        return obj;
     }
 
     // Single mesh - create single GameObject
@@ -24,7 +28,8 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
     {
         String finalName = name.empty() ? results.modelsData[0]->GetFilePath() : name;
         auto gameObject = std::make_unique<GameObject>(finalName, GameObject::MESH, results.modelsData[0]);
-        gameObject->setLocalPosition(results.originalPositions[0]);
+        gameObject->SetLocalPosition(results.originalPositions[0]);
+        gameObject->SetID(AcquireId());
         return gameObject;
     }
 
@@ -34,6 +39,7 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
         String parentName = name.empty() ? "mesh" : name;
 
         auto parent = std::make_unique<GameObject>(parentName, GameObject::NONE);
+        parent->SetID(AcquireId());
         int childCounter = 0;
 
         for (const auto& model : results.modelsData)
@@ -41,8 +47,9 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
             String childName = parentName + "_" + std::to_string(childCounter);
             auto child = std::make_unique<GameObject>(childName, GameObject::MESH, model);
             auto reference = child.get();
-            parent->addChild(std::move(child));
-            reference->setLocalPosition(results.originalPositions[childCounter]);
+            parent->AddChild(std::move(child));
+            reference->SetLocalPosition(results.originalPositions[childCounter]);
+            reference->SetID(AcquireId());
             childCounter++;
         }
 
@@ -54,37 +61,49 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
 GameObject::GameObjectPtr GameObjectFactory::CreateCube(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("CUBE");
-    return std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetID(AcquireId());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreatePlane(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("PLANE");
-    return std::make_unique<GameObject>(name, GameObject::PLANE, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetID(AcquireId());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateSphere(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("SPHERE");
-    return std::make_unique<GameObject>(name, GameObject::SPHERE, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetID(AcquireId());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCylinder(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("CYLINDER");
-    return std::make_unique<GameObject>(name, GameObject::CYLINDER, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetID(AcquireId());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCapsule(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("CAPSULE");
-    return std::make_unique<GameObject>(name, GameObject::CAPSULE, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetID(AcquireId());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCornellBox(const String& name)
 {
-    auto modelResult = ModelLibrary::getInstance()->GetModel("CORNELL_BOX");
-    return std::make_unique<GameObject>(name, GameObject::CORNELL_BOX, modelResult.modelsData[0]);
+	auto modelResult = ModelLibrary::getInstance()->GetModel("CORNELL_BOX");
+	auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+	obj->SetID(AcquireId());
+	return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreatePrimitive(GameObject::PrimitiveType type, const String& name)
@@ -111,8 +130,33 @@ GameObject::GameObjectPtr GameObjectFactory::CreatePrimitive(GameObject::Primiti
     }
 }
 
+GameObject::GameObjectPtr GameObjectFactory::CreateGameObjectCopy(GameObject* original)
+{
+    if (!original) return nullptr;
+    auto obj = original->Clone();
+    obj->SetID(AcquireId());
+    return obj;
+}
+
 GameObjectFactory::LightPtr GameObjectFactory::CreateLight(Light::LightType type, const String& name)
 {
     auto light = std::make_unique<Light>(name, type);
+	light->SetID(AcquireId());
     return std::move(light);
+}
+
+uint32_t GameObjectFactory::AcquireId()
+{
+    if (!freeIds.empty())
+    {
+        uint32_t id = freeIds.back();
+        freeIds.pop_back();
+        return id;
+    }
+    return nextId++;
+}
+
+void GameObjectFactory::ReleaseId(uint32_t id)
+{
+    freeIds.push_back(id);
 }

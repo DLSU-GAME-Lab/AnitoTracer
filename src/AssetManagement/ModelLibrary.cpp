@@ -1,12 +1,12 @@
 #include "ModelLibrary.hpp"
 
 /* Default Models */
-#include "Box.hpp"
-#include "Plane.hpp"
-#include "Capsule.hpp"
-#include "Cylinder.hpp"
-#include "Sphere.hpp"
-#include "CornellBox.hpp"
+#include "Assets/Box.hpp"
+#include "Assets/Plane.hpp"
+#include "Assets/Capsule.hpp"
+#include "Assets/Cylinder.hpp"
+#include "Assets/Sphere.hpp"
+#include "Assets/CornellBox.hpp"
 
 #include "Utilities/FileUtils.h"
 
@@ -15,10 +15,9 @@
 #include <Assimp/postprocess.h>
 
 #include "From-GDGRAP2/Debug.h"
-#include "From-GDGRAP2/TextureLibrary.h"
+#include "TextureLibrary.hpp"
 
 #include "Vulkan/RayTracing/BottomLevelAccelerationStructure.hpp"
-#include "Vulkan/RayTracing/BottomLevelGeometry.hpp"
 #include "Vulkan/SingleTimeCommands.hpp"
 #include "RayTracer.hpp"
 
@@ -113,8 +112,7 @@ Assets::ModelLoadResult Assets::ModelLibrary::GetModel(const String& meshName)
         // Return copies
         for (size_t i = 0; i < it->second.modelsData.size(); i++)
         {
-            auto copy = std::make_shared<Model>(*it->second.modelsData[i]);
-            result.modelsData.push_back(copy);
+            result.modelsData.push_back(it->second.modelsData[i]);
             result.originalPositions.push_back(it->second.originalPositions[i]);
         }
 	}
@@ -326,7 +324,7 @@ void Assets::ModelLibrary::BuildScheduledModelBLAS(Vulkan::CommandPool& commandP
         
         while (!m_scheduledModels.empty())
         {
-            auto model = m_scheduledModels.front();
+            std::shared_ptr<Assets::Model> model = m_scheduledModels.front();
             m_scheduledModels.pop();
             if(model) model->BuildBLAS(commandPool, cmd);
         }

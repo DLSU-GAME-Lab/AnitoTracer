@@ -66,8 +66,8 @@ void TransformHistory::applyState(GameObject* obj, const TransformState& state)
 
     suppressRecording = true;
     obj->setLocalPosition(state.position);
-    obj->setLocalRotation(state.rotation);
-    obj->setLocalScale(state.scale);
+    obj->SetLocalRotation(state.rotation);
+    obj->SetLocalScale(state.scale);
     suppressRecording = false;
 }
 

@@ -28,16 +28,16 @@ TransformObjectCommand::TransformObjectCommand(GameObject* object, vec3 oldPosit
 void TransformObjectCommand::execute()
 {
 	this->gameObject->setLocalPosition(newPosition);
-	this->gameObject->setLocalRotation(newRotation);
-	this->gameObject->setLocalScale(newScale);
+	this->gameObject->SetLocalRotation(newRotation);
+	this->gameObject->SetLocalScale(newScale);
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void TransformObjectCommand::undo()
 {
 	this->gameObject->setLocalPosition(oldPosition);
-	this->gameObject->setLocalRotation(oldRotation);
-	this->gameObject->setLocalScale(oldScale);
+	this->gameObject->SetLocalRotation(oldRotation);
+	this->gameObject->SetLocalScale(oldScale);
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 

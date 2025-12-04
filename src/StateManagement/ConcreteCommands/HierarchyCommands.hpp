@@ -3,7 +3,7 @@
 #include <string>
 #include <memory>
 #include <glm/glm.hpp>
-#include "From-GDGRAP2/GameObject.h"
+#include "AssetManagement/GameObject.hpp"
 #include "Engine/LightSystem/Light.h"
 
 class GameObject;

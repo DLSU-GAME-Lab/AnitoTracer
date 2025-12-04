@@ -15,15 +15,15 @@ LoadSceneCommand::LoadSceneCommand(int sceneIndex) : sceneIndex(sceneIndex)
 
 void LoadSceneCommand::execute()
 {
-	auto modelMgr = ModelManager::getInstance();
+	auto modelMgr = GameObjectManager::getInstance();
 	if (!modelMgr) return;
 
 	// Capture current root objects (move ownership into this command so we can restore on undo)
-	auto currentRoots = modelMgr->getSceneGraph(); // snapshot of raw pointers
+	auto currentRoots = modelMgr->GetAllRootObjects(); // snapshot of raw pointers
 
 	for (auto rootPtr : currentRoots)
 	{ 
-		auto owned = modelMgr->removeObject(rootPtr);
+		auto owned = modelMgr->RemoveObject(rootPtr);
 		if (owned)	this->oldSceneGraph.push_back(std::move(owned));
 	}
 
@@ -34,7 +34,7 @@ void LoadSceneCommand::execute()
 		{
 			if (ownedObj)
 			{
-				modelMgr->addObject(std::move(ownedObj));
+				modelMgr->AddObject(std::move(ownedObj));
 			}
 		}
 		newSceneGraph.clear();
@@ -53,14 +53,14 @@ void LoadSceneCommand::execute()
 
 void LoadSceneCommand::undo()
 {
-	auto modelMgr = ModelManager::getInstance();
+	auto modelMgr = GameObjectManager::getInstance();
 	if (!modelMgr) return;
 
-	auto currentRoots = modelMgr->getSceneGraph();
+	auto currentRoots = modelMgr->GetAllRootObjects();
 
 	for (auto rootPtr : currentRoots) // record new scene roots
 	{
-		auto owned = modelMgr->removeObject(rootPtr);
+		auto owned = modelMgr->RemoveObject(rootPtr);
 		if (owned)	this->newSceneGraph.push_back(std::move(owned));
 	}
 
@@ -69,7 +69,7 @@ void LoadSceneCommand::undo()
 	{
 		if (ownedObj)
 		{
-			modelMgr->addObject(std::move(ownedObj));
+			modelMgr->AddObject(std::move(ownedObj));
 		}
 	}
 

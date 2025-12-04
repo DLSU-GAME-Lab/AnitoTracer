@@ -50,7 +50,7 @@ Application::Application(const WindowConfig& windowConfig, const VkPresentModeKH
 	GlobalConfig::initialize();
 	HotkeySystem::initialize();
 	EventBroadcaster::initialize();
-	ModelManager::initialize();
+	GameObjectManager::initialize();
 	SceneIO::initialize();
 
 
@@ -68,7 +68,7 @@ Application::~Application()
 	instance_.reset();
 	window_.reset();
 
-	ModelManager::destroy();
+	GameObjectManager::destroy();
 	HotkeySystem::destroy();
 	EventBroadcaster::destroy();
 	GlobalConfig::destroy();
@@ -335,7 +335,7 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 		uint32_t vertexOffset = 0;
 		uint32_t indexOffset = 0;
 
-		for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
+		for (const auto& model : GameObjectManager::getInstance()->getAllObjectModels())
 		{
 			auto pushConstantModel = GetPushConstantModel(model);
 			vkCmdPushConstants(commandBuffer, graphicsPipeline_->PipelineLayout().Handle(),

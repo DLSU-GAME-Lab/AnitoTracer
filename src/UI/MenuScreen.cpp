@@ -664,7 +664,7 @@ void MenuScreen::ShowLoadingPopUp()
 
 void MenuScreen::OnLoadSphereWorld()
 {
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 6);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -677,7 +677,7 @@ void MenuScreen::OnLoadRTIOW()
 	// RayTracingProper::getInstance()->renderSceneFromHierarchy();
 	// while (!isLoading) {}
 	// isLoading = false;
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 1);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -688,7 +688,7 @@ void MenuScreen::OnLoadBoxWorld()
 	// while (!isLoading) {}
 	// isLoading = false;
 
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 8);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -696,7 +696,7 @@ void MenuScreen::OnLoadBoxWorld()
 
 void MenuScreen::OnLoadCornellBox()
 {
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 7);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -707,7 +707,7 @@ void MenuScreen::OnLoadAnitoTracerDemo()
 	// while (!isLoading) {}
 	// isLoading = false;
 
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 9);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -718,7 +718,7 @@ void MenuScreen::OnLoadShowcase()
 	// while (!isLoading) {}
 	// isLoading = false;
 
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 10);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -729,7 +729,7 @@ void MenuScreen::OnLoadSponza()
 	// while (!isLoading) {}
 	// isLoading = false;
 
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 11);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -740,7 +740,7 @@ void MenuScreen::OnLoadSanMiguel()
 	// while (!isLoading) {}
 	// isLoading = false;
 
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 12);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -748,7 +748,7 @@ void MenuScreen::OnLoadSanMiguel()
 
 void MenuScreen::OnLoadVokselia()
 {
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 13);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -756,7 +756,7 @@ void MenuScreen::OnLoadVokselia()
 
 void MenuScreen::OnLoadBreakfast()
 {
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 14);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -764,7 +764,7 @@ void MenuScreen::OnLoadBreakfast()
 
 void MenuScreen::OnLoadBathroom()
 {
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 15);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -773,7 +773,7 @@ void MenuScreen::OnLoadBathroom()
 void MenuScreen::OnLoadGallery()
 {
 
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SCENE_LOADED);
 	parameters->encodeInt("SCENE_INDEX", 16);
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SCENE_LOADED, parameters);
@@ -781,7 +781,7 @@ void MenuScreen::OnLoadGallery()
 
 void MenuScreen::OnLoadEmpty()
 {
-	ModelManager::getInstance()->clearAllObjects();
+	GameObjectManager::getInstance()->ClearAllObjects();
 }
 
 void MenuScreen::ShowColorPickerWindow()

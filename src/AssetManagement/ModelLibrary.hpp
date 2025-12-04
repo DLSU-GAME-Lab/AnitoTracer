@@ -31,7 +31,6 @@ namespace Assets
         ModelLoadResult GetModel(const String& meshName);
 
         void BuildScheduledModelBLAS(Vulkan::CommandPool& commandPool);
-        bool HasScheduledModels() const { return !m_scheduledModels.empty(); }
 
     private:
         ModelLibrary();

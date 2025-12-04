@@ -1,7 +1,8 @@
 #include "HierarchyCommands.hpp"
-#include "From-GDGRAP2/GameObject.h"
-#include "From-GDGRAP2/ModelManager.h"
-#include "Assets/GameObjectFactory.hpp"
+#include "AssetManagement/GameObject.hpp"
+#include "AssetManagement/GameObjectManager.hpp"
+#include "AssetManagement/GameObjectFactory.hpp"
+#include "From-GDGRAP2/EventBroadcaster.h"
 
 ReparentCommand::ReparentCommand(GameObject* child, GameObject* oldParent, int oldIndex, GameObject* newParent, int newIndex)
 	: child(child), oldParent(oldParent), oldIndex(oldIndex), newParent(newParent), newIndex(newIndex)
@@ -21,23 +22,21 @@ void ReparentCommand::execute()
 
 	if (oldParent == nullptr) //nullptr means root
 	{
-		childPtr = std::move(ModelManager::getInstance()->removeObject(child));
+		childPtr = std::move(GameObjectManager::getInstance()->RemoveObject(child));
 	}
 	else
 	{
-		childPtr = std::move(oldParent->removeChild(child));
+		childPtr = std::move(oldParent->RemoveChild(child));
 	}
 
 	if(newParent == nullptr)
 	{
-		ModelManager::getInstance()->addObjectAtIndex(std::move(childPtr), newIndex);
+		GameObjectManager::getInstance()->AddObjectAtIndex(std::move(childPtr), newIndex);
 	}
 	else
 	{
-		newParent->addChildAtIndex(std::move(childPtr), newIndex);
+		newParent->AddChildAtIndex(std::move(childPtr), newIndex);
 	}
-
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void ReparentCommand::undo()
@@ -46,23 +45,21 @@ void ReparentCommand::undo()
 
 	if (newParent == nullptr)
 	{
-		childPtr = std::move(ModelManager::getInstance()->removeObject(child));
+		childPtr = std::move(GameObjectManager::getInstance()->RemoveObject(child));
 	}
 	else
 	{
-		childPtr = std::move(newParent->removeChild(child));
+		childPtr = std::move(newParent->RemoveChild(child));
 	}
 
 	if (oldParent == nullptr)
 	{
-		ModelManager::getInstance()->addObjectAtIndex(std::move(childPtr), oldIndex);
+		GameObjectManager::getInstance()->AddObjectAtIndex(std::move(childPtr), oldIndex);
 	}
 	else
 	{
-		oldParent->addChildAtIndex(std::move(childPtr), oldIndex);
+		oldParent->AddChildAtIndex(std::move(childPtr), oldIndex);
 	}
-
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 // ---------------- CreateObjectCommand (common create/undo/redo) ----------------
@@ -84,7 +81,7 @@ void CreateObjectCommand::execute()
 	{
 		this->createdObjectRef = this->createdObjectStorage.get();
 		applyPostCreation(this->createdObjectRef);
-		ModelManager::getInstance()->addObject(std::move(this->createdObjectStorage));
+		GameObjectManager::getInstance()->AddObject(std::move(this->createdObjectStorage));
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		return;
 	}
@@ -93,13 +90,13 @@ void CreateObjectCommand::execute()
 	this->createdObjectStorage = createObject();
 	this->createdObjectRef = this->createdObjectStorage.get();
 	applyPostCreation(this->createdObjectRef);
-	ModelManager::getInstance()->addObject(std::move(this->createdObjectStorage));
+	GameObjectManager::getInstance()->AddObject(std::move(this->createdObjectStorage));
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void CreateObjectCommand::undo()
 {
-	this->createdObjectStorage = ModelManager::getInstance()->removeObject(this->createdObjectRef);
+	this->createdObjectStorage = GameObjectManager::getInstance()->RemoveObject(this->createdObjectRef);
 	// Keep the raw pointer in sync with the storage (or null if removal failed).
 	if (this->createdObjectStorage)
 		this->createdObjectRef = this->createdObjectStorage.get();
@@ -112,9 +109,9 @@ void CreateObjectCommand::undo()
 void CreateObjectCommand::applyPostCreation(GameObject* obj)
 {
 	if (!obj) return;
-	obj->setLocalPosition(this->storedPosition);
-	obj->setLocalRotation(this->storedRotation);
-	obj->setLocalScale(this->storedScale);
+	obj->SetLocalPosition(this->storedPosition);
+	obj->SetLocalRotation(this->storedRotation);
+	obj->SetLocalScale(this->storedScale);
 }
 
 // ---------------- CreatePrimitiveCommand ----------------
@@ -157,9 +154,9 @@ void CreateLightCommand::execute()
 	{
 		this->createdObjectRef = this->createdObjectStorage.get();
 		this->createdObjectRef->setLocalPosition(this->storedPosition);
-		this->createdObjectRef->setLocalRotation(this->storedRotation);
-		this->createdObjectRef->setLocalScale(this->storedScale);
-		ModelManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
+		this->createdObjectRef->SetLocalRotation(this->storedRotation);
+		this->createdObjectRef->SetLocalScale(this->storedScale);
+		GameObjectManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		return;
 	}
@@ -168,15 +165,15 @@ void CreateLightCommand::execute()
 	this->createdObjectStorage = GameObjectFactory::CreateLight(this->type, this->name);
 	this->createdObjectRef = this->createdObjectStorage.get();
 	this->createdObjectRef->setLocalPosition(this->storedPosition);
-	this->createdObjectRef->setLocalRotation(this->storedRotation);
-	this->createdObjectRef->setLocalScale(this->storedScale);
-	ModelManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
+	this->createdObjectRef->SetLocalRotation(this->storedRotation);
+	this->createdObjectRef->SetLocalScale(this->storedScale);
+	GameObjectManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void CreateLightCommand::undo()
 {
-	this->createdObjectStorage = ModelManager::getInstance()->removeLightObject(this->createdObjectRef);
+	this->createdObjectStorage = GameObjectManager::getInstance()->removeLightObject(this->createdObjectRef);
 	// Keep the raw pointer in sync with the storage (or null if removal failed).
 	if (this->createdObjectStorage)
 		this->createdObjectRef = this->createdObjectStorage.get();
@@ -199,7 +196,7 @@ DeleteObjectCommand::~DeleteObjectCommand()
 void DeleteObjectCommand::execute()
 {
 	if (!objectRef) return;
-	auto objectPtr = ModelManager::getInstance()->removeObject(this->objectRef);
+	auto objectPtr = GameObjectManager::getInstance()->RemoveObject(this->objectRef);
 	this->objectStorage = std::move(objectPtr);
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
@@ -208,7 +205,7 @@ void DeleteObjectCommand::undo()
 {
 	if (!this->objectStorage) return;
 	this->objectRef = this->objectStorage.get();
-	ModelManager::getInstance()->addObject(std::move(this->objectStorage));
+	GameObjectManager::getInstance()->AddObject(std::move(this->objectStorage));
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
@@ -227,13 +224,13 @@ void AddObjectCommand::execute()
 {
 	if (!this->objectStorage) return;
 
-	if (!this->objectRef->getParent())
+	if (!this->objectRef->GetParent())
 	{
-		ModelManager::getInstance()->addObject(std::move(this->objectStorage));
+		GameObjectManager::getInstance()->AddObject(std::move(this->objectStorage));
 	}
 	else
 	{
-		this->objectStorage->getParent()->addChild(std::move(this->objectStorage));
+		this->objectStorage->GetParent()->AddChild(std::move(this->objectStorage));
 	}
 
 	this->objectStorage = nullptr;
@@ -243,12 +240,12 @@ void AddObjectCommand::undo()
 {
 	if (!this->objectRef) return;
 
-	if (!this->objectRef->getParent())
+	if (!this->objectRef->GetParent())
 	{
-		this->objectStorage = ModelManager::getInstance()->removeObject(this->objectRef);
+		this->objectStorage = GameObjectManager::getInstance()->RemoveObject(this->objectRef);
 	}
 	else
 	{
-		this->objectStorage = this->objectRef->getParent()->removeChild(this->objectRef);
+		this->objectStorage = this->objectRef->GetParent()->RemoveChild(this->objectRef);
 	}
 }

@@ -84,7 +84,7 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 		if (localRotation.y > limit) { cameraRotY_ = 0; this->localRotation.y -= deltaY; }
 		if (localRotation.y < -limit) { cameraRotY_ = 0; this->localRotation.y -= deltaY; }
 
-		this->setLocalRotation(glm::vec3(localRotation));
+		this->SetLocalRotation(glm::vec3(localRotation));
 		UpdateVectors();
 	}
 
@@ -232,22 +232,22 @@ void Camera::OnActionPressed(Hotkey::Action action)
 
 	if (action == Hotkey::Action::Camera_MoveObjectToView)
 	{
-		auto currentObj = ModelManager::getInstance()->getSelectedObject();
+		auto currentObj = GameObjectManager::getInstance()->GetSelectedObject();
 		if (!currentObj) return;
 
-		currentObj->setLocalPosition(this->getLocalPosition() + glm::normalize(glm::vec3(forward_)) * m_defaultPivotDistance );
+		currentObj->setLocalPosition(this->GetLocalPosition() + glm::normalize(glm::vec3(forward_)) * m_defaultPivotDistance );
 
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 
 	if (action == Hotkey::Action::Camera_Reset)
 	{
-		auto selected = ModelManager::getInstance()->getSelectedObject();
+		auto selected = GameObjectManager::getInstance()->GetSelectedObject();
 
 		if (selected) {
 			this->Reset(glm::lookAt(
-				selected->getWorldPosition() - glm::vec3(0, 0, 1000),
-				selected->getWorldPosition(),
+				selected->GetWorldPosition() - glm::vec3(0, 0, 1000),
+				selected->GetWorldPosition(),
 				glm::vec3(0, 1, 0)
 			));
 		}
