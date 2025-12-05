@@ -18,6 +18,8 @@ public:
 
 	virtual GameObjectPtr Clone() const override;
 
+	virtual bool Update(double deltaTime) { return false; }
+
 	void Reset();
 
 	void SetLocalPosition(float x, float y, float z) override;

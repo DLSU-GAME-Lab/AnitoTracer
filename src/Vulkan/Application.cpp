@@ -15,7 +15,7 @@
 #include "Surface.hpp"
 #include "SwapChain.hpp"
 #include "Window.hpp"
-#include "Assets/Model.hpp"
+#include "AssetManagement/Model.hpp"
 #include "Assets/Scene.hpp"
 #include "Assets/UniformBuffer.hpp"
 #include "Utilities/Exception.hpp"
@@ -23,7 +23,7 @@
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/GlobalConfig.h"
-#include "From-GDGRAP2/ModelManager.h"
+#include "AssetManagement/GameObjectManager.hpp"
 
 #include "Engine/Scene/SceneIO.hpp"
 #include "HotkeySystem/HotkeySystem.hpp"

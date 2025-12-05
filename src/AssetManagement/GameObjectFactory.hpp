@@ -12,6 +12,7 @@ class GameObjectFactory
 public:
     using GameObjectPtr = GameObject::GameObjectPtr;
     using LightPtr = std::unique_ptr<Light>;
+    using CameraPtr = std::unique_ptr<Camera>;
     using vec3 = glm::vec3;
     using String = std::string;
 

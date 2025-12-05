@@ -1,9 +1,7 @@
 #include "RayTracer.hpp"
 //#include "UserInterface.hpp"
 #include "UserSettings.hpp"
-#include "Assets/Model.hpp"
 #include "Assets/Scene.hpp"
-#include "Assets/Texture.hpp"
 #include "Assets/UniformBuffer.hpp"
 #include "Assets/CubeMapTexture.hpp"
 #include "Utilities/Exception.hpp"
@@ -16,15 +14,14 @@
 
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/GlobalConfig.h"
-#include "From-GDGRAP2/ModelManager.h"
-#include "From-GDGRAP2/TransformHistory.h"
+
 #include "UI/UIManager.h"
-#include "From-GDGRAP2/MaterialLibrary.h"
-#include "From-GDGRAP2/TextureLibrary.h"
+
 #include "imgui_impl_vulkan.h"
 #include "Assets/Ray.hpp"
 
 #include "Engine/CameraSystem/CameraManager.h"
+#include "Engine/CameraSystem/SceneCamera.h"
 #include "Utilities/FileUtils.h"
 
 #include "RayVisualization/RayVisualizationPipeline.h"
@@ -32,9 +29,16 @@
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
 
+#include "Engine/LightSystem/LightManager.hpp"
+#include "AssetManagement/ModelLibrary.hpp"
+#include "AssetManagement/MaterialLibrary.hpp"
+#include "AssetManagement/TextureLibrary.hpp"
+#include "AssetManagement/GameObjectManager.hpp"
+#include "AssetManagement/GameObjectFactory.hpp"
+#include "AssetManagement/Model.hpp"
+#include "AssetManagement/Texture.hpp"
+
 #include "StateManagement/CommandManager.hpp"
-#include "Assets/GameObjectFactory.hpp"
-#include "Assets/ModelLibrary.hpp"
 #include "RayPicker/RayPickerUBO.hpp"
 #include "Vulkan/RayTracing/TopLevelAccelerationStructure.hpp" 
 
@@ -60,7 +64,8 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 
 	CameraManager::initialize();
 	TextureLibrary::initialize();
-	MaterialLibrary::initialize();
+	LightManager::initialize(SwapChain().ImageViews().size());
+	MaterialLibrary::initialize(SwapChain().ImageViews().size());
 	Assets::ModelLibrary::initialize();
 	CommandManager::initialize();
 }
@@ -267,7 +272,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	//Debug::Log("Rendering frame, time delta: " + std::to_string(timeDelta) + "s");
 
 	// Update the camera position / angle.
-	resetAccumulation_ = CameraManager::getInstance()->getActiveCamera()->UpdateCamera(cameraInitialSate_.ControlSpeed, timeDelta);
+	resetAccumulation_ = CameraManager::getInstance()->getActiveCamera()->Update(timeDelta);
 
 	// Check the current state of the benchmark, update it for the new frame.
 	CheckAndUpdateBenchmarkState(prevTime);
@@ -341,7 +346,6 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 	// Settings (toggle switches)
 	if (action == GLFW_PRESS)
 	{
-		isMoving = true;
 		switch (key)
 		{
 		case GLFW_KEY_F1: UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN); return;
@@ -359,22 +363,6 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		default: break;
 		}
 	}
-
-	if (UIManager::wantsToCaptureKeyboard())
-	{
-		return;
-	}
-
-	// Camera motions
-	if (!userSettings_.Benchmark)
-	{
-		resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnKey(key, scancode, action, mods);
-
-	}
-
-	if (action == GLFW_RELEASE) {
-		isMoving = false;
-	}
 }
 
 void RayTracer::OnCursorPosition(const double xpos, const double ypos)
@@ -388,8 +376,16 @@ void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 	}
 
 	// Camera motions
-	resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnCursorPosition(xpos, ypos);
+	auto camera = CameraManager::getInstance()->getActiveCamera();
 
+	if (auto sceneCam = dynamic_cast<SceneCamera*>(camera))
+	{
+		resetAccumulation_ |= sceneCam->OnCursorPosition(xpos, ypos);
+	}
+	else
+	{
+		resetAccumulation_ |= false;
+	}
 }
 
 void RayTracer::OnMouseButton(const int button, const int action, const int mods)
@@ -408,27 +404,11 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 		SchedulePick({ static_cast<float>(xpos), static_cast<float>(ypos) });
 	}
 
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
-	{
-		isMoving = true;
-		mousePressed = true;
-	}
-
 	if (!HasSwapChain() ||
 		userSettings_.Benchmark ||
 		UIManager::wantsToCaptureMouse())
 	{
 		return;
-	}
-
-	// Camera motions
-
-	resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnMouseButton(button, action, mods);
-	
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
-	{
-		isMoving = false;
-		mousePressed = false;
 	}
 }
 
@@ -632,7 +612,7 @@ void RayTracer::CheckFramebufferSize() const
 
 void RayTracer::ResetPicker()
 {
-	rayPicker_.reset(new class RayPicker(*deviceProcedures_, SwapChain(), CommandPool(), topAs_[0], RayPickerUniformBuffers(), GetScene(), *rayTracingProperties_));
+	rayPicker_.reset(new class RayPicker(*deviceProcedures_, SwapChain(), CommandPool(), topAs_[0], RayPickerUniformBuffers(), *rayTracingProperties_));
 }
 
 void RayTracer::SchedulePick(const glm::vec2& mousePos)
@@ -660,7 +640,7 @@ void RayTracer::ExecuteScheduledPick()
 		auto result = rayPicker_->pick(*deviceProcedures_, Device(), rayOrigin, rayDirection, currentFrame_);
 
 		int pickedId = result.objectID;
-		auto gameObject = GameObjectManager::getInstance()->FindGameObject(pickedId);
+		auto gameObject = GameObjectManager::getInstance()->FindObjectByID(pickedId);
 
 		if (gameObject)	GameObjectManager::getInstance()->SetSelectedObject(gameObject);
 		else GameObjectManager::getInstance()->SetSelectedObject(nullptr);
@@ -682,7 +662,7 @@ void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,
 
 	auto camera = CameraManager::getInstance()->getActiveCamera();
 
-	glm::mat4 invProjection = glm::inverse(camera->GetProjection());
+	glm::mat4 invProjection = glm::inverse(camera->GetProjection(userSettings_, SwapChain().Extent()));
 	glm::mat4 invView = glm::inverse(camera->GetViewMatrix());
 
 	glm::vec4 rayEye = invProjection * rayClip;

@@ -14,7 +14,7 @@ public:
 	GameObjectPtr Clone() const override;
 
 	bool OnCursorPosition(double xpos, double ypos);
-	bool Update(double speed, double timeDelta);
+	bool Update(double timeDelta) override;
 
 	void OnActionPressed(Hotkey::Action action) override;
 	void OnActionReleased(Hotkey::Action action) override;

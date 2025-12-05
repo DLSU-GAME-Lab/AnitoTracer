@@ -27,14 +27,14 @@ LightManager::LightManager()
 	m_lightMemory.resize(m_framesInFlight);
 
 	//Current Max; Add more as needed/create more dynamically if needed
-	std::vector<Assets::LightProperties> emptyLights(MAX_LIGHTS);
+	std::vector<Light::GPUData> emptyLights(MAX_LIGHTS);
 
 	// Create one buffer per frame
 	for (uint32_t i = 0; i < m_framesInFlight; ++i)
 	{
 		std::string bufferName = "LightBuffer_Frame" + std::to_string(i);
 
-		Vulkan::BufferUtil::CreateDeviceBuffer<Assets::LightProperties>(
+		Vulkan::BufferUtil::CreateDeviceBuffer<Light::GPUData>(
 			RayTracer::getInstance()->CommandPool(),
 			bufferName.c_str(),
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -102,12 +102,12 @@ void LightManager::SyncBuffersToGPU()
 {
 	if (this->m_buffersDirty)
 	{
-		std::vector<Assets::LightProperties> lightData;
+		std::vector<Light::GPUData> lightData;
 		lightData.reserve(m_lightMap.size());
 
 		for (const auto& [id, light] : m_lightMap)
 		{
-			lightData.push_back(light->Properties());
+			lightData.push_back(light->GetGPUData());
 		}
 
 		// Ensure we don't exceed MAX_LIGHTS
@@ -120,13 +120,13 @@ void LightManager::SyncBuffersToGPU()
 		// Pad with empty materials if needed
 		while (lightData.size() < MAX_LIGHTS)
 		{
-			lightData.push_back(Assets::LightProperties{});
+			lightData.push_back(Light::GPUData{});
 		}
 
 		// Update all frame buffers
 		for (uint32_t i = 0; i < m_framesInFlight; ++i)
 		{
-			Vulkan::BufferUtil::UpdateDeviceBuffer<Assets::LightProperties>(
+			Vulkan::BufferUtil::UpdateDeviceBuffer<Light::GPUData>(
 				RayTracer::getInstance()->CommandPool(),
 				lightData,
 				m_lightBuffers[i]
