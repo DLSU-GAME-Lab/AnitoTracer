@@ -628,32 +628,30 @@ void ModelManager::createSponza()
 
 void ModelManager::OnActionPressed(Hotkey::Action action)
 {
-	if (action == Hotkey::Action::GameObject_Paste)
+	/* paste only needs valid copied object */
+	if (action == Hotkey::Action::GameObject_Paste)	PasteObject();
+
+	if (!this->selectedObject) return; // all actions involve selected object
+
+	if (action == Hotkey::Action::GameObject_ToggleActive)
 	{
-		/* paste only needs valid copied object */
-		if (action == Hotkey::Action::GameObject_Paste)	PasteObject();
+		auto currentState = this->selectedObject->isActive();
 
-		if (!this->selectedObject) return; // all actions involve selected object
+		CommandManager::getInstance()->executeCommand(
+			new AlterTransformCommand(
+				this->selectedObject,
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->setActive(std::get<bool>(v)); },
+				currentState,
+				!currentState
+			));
 
-		if (action == Hotkey::Action::GameObject_ToggleActive)
-		{
-			auto currentState = this->selectedObject->isActive();
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
 
-			CommandManager::getInstance()->executeCommand(
-				new AlterTransformCommand(
-					this->selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->setActive(std::get<bool>(v)); },
-					currentState,
-					!currentState
-				));
-
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-		}
-
-		if (action == Hotkey::Action::GameObject_Delete)	DeleteSelectedObject();
-		if (action == Hotkey::Action::GameObject_Duplicate)	DuplicateSelectedObject();
-		if (action == Hotkey::Action::GameObject_Copy)		CopySelectedObject();
-		if (action == Hotkey::Action::GameObject_Cut)		CutSelectedObject();
+	if (action == Hotkey::Action::GameObject_Delete)	DeleteSelectedObject();
+	if (action == Hotkey::Action::GameObject_Duplicate)	DuplicateSelectedObject();
+	if (action == Hotkey::Action::GameObject_Copy)		CopySelectedObject();
+	if (action == Hotkey::Action::GameObject_Cut)		CutSelectedObject();
 
 	if (action == Hotkey::Action::GameObject_SetAsFirstSibling)
 	{
