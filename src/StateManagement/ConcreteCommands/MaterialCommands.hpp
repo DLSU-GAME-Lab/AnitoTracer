@@ -1,6 +1,6 @@
 #pragma once
 #include "StateManagement/ICommand.hpp"
-#include "Assets/Material.hpp"
+#include "AssetManagement/Material.hpp"
 
 #include <string>
 #include <glm/glm.hpp>

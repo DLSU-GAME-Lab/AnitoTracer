@@ -110,7 +110,7 @@ void CreateObjectCommand::applyPostCreation(GameObject* obj)
 {
 	if (!obj) return;
 	obj->SetLocalPosition(this->storedPosition);
-	obj->SetLocalRotation(this->storedRotation);
+	obj->SetLocalRotationEuler(this->storedRotation);
 	obj->SetLocalScale(this->storedScale);
 }
 

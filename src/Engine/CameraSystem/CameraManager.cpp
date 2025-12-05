@@ -1,7 +1,4 @@
 #include "CameraManager.h"
-
-#include <iostream>
-
 #include "SceneCamera.h"
 
 CameraManager* CameraManager::P_SHARED_INSTANCE = NULL;
@@ -49,13 +46,13 @@ void CameraManager::setSceneCameraProjection(int type)
 
 void CameraManager::updateSceneCamera(float deltaTime)
 {
-	this->selectedSceneCamera->UpdateCamera(1, deltaTime);
+	this->selectedSceneCamera->Update(1, deltaTime);
 }
 
 void CameraManager::addCamera(Camera* camera)
 {
 	this->cameraList.push_back(camera);
-	this->cameraTable[camera->getName()] = camera;
+	this->cameraTable[camera->GetName()] = camera;
 }
 
 void CameraManager::addSceneCamera(std::unique_ptr<SceneCamera> camera)
@@ -63,7 +60,7 @@ void CameraManager::addSceneCamera(std::unique_ptr<SceneCamera> camera)
 	if (this->selectedSceneCamera == NULL)
 		this->selectedSceneCamera = camera.get();
 
-	this->cameraTable[camera->getName()] = camera.get();
+	this->cameraTable[camera->GetName()] = camera.get();
 	this->sceneCameraList.push_back(std::move(camera));
 
 }
@@ -128,5 +125,19 @@ void CameraManager::destroy()
 	if (P_SHARED_INSTANCE != NULL)
 	{
 		delete P_SHARED_INSTANCE;
+	}
+}
+
+void CameraManager::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters)
+{
+	if (eventName == EventNames::ON_CAMERA_ADDED)
+	{
+		Camera* camera = reinterpret_cast<Camera*>(parameters->getIntData("CAMERA_PTR", 0));
+		this->addCamera(camera);
+	}
+	else if (eventName == EventNames::ON_CAMERA_REMOVED)
+	{
+		Camera* camera = reinterpret_cast<Camera*>(parameters->getIntData("CAMERA_PTR", 0));
+		this->removeCamera(camera);
 	}
 }

@@ -3,11 +3,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-
-namespace Assets
-{
-	class Material;
-}
+#include "Material.hpp"
 
 namespace Vulkan
 {

@@ -13,11 +13,10 @@ namespace Assets
 	class Texture;
 }
 
-typedef std::tuple<std::vector<Assets::Model>, std::vector<Assets::Texture>, std::vector<Assets::LightProperties>> SceneAssets;
-
 class SceneList final
 {
 public:
+	using SceneAssets = std::tuple<std::vector<GameObject*>, std::vector<Assets::Texture>, std::vector<Light::GPUData>>;
 
 	struct CameraInitialState
 	{

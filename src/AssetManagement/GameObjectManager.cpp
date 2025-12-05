@@ -369,7 +369,7 @@ void GameObjectManager::PasteObject()
 
 	auto sceneCamera = CameraManager::getInstance()->getActiveCamera();
 
-	this->copiedObject->SetLocalPosition(sceneCamera->getForward() * 500.0f);
+	this->copiedObject->SetLocalPosition(sceneCamera->GetForward() * 500.0f);
 
 	CommandManager::getInstance()->executeCommand(
 		new AddObjectCommand(std::move(this->copiedObject))

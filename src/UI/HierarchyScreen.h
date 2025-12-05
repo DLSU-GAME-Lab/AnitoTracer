@@ -2,7 +2,11 @@
 #include <unordered_set>
 
 #include "AUIScreen.h"
-#include "From-GDGRAP2/GameObject.h"
+
+namespace Assets
+{
+	class GameObject;
+}
 
 class HierarchyScreen :    public AUIScreen
 {

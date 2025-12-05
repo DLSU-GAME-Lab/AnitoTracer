@@ -5,8 +5,9 @@
 
 #include "Camera.h"
 #include "SceneCamera.h"
+#include "From-GDGRAP2/EventBroadcaster.h"
 
-class CameraManager
+class CameraManager : public Observer
 {
 private:
     typedef std::vector<Camera*> CameraList;
@@ -14,8 +15,8 @@ private:
     typedef std::vector<std::unique_ptr<SceneCamera>> SceneCameraList;
 
 private:
-    SceneCamera* selectedSceneCamera;
-    Camera* mainCamera;
+    SceneCamera* selectedSceneCamera = nullptr;
+    Camera* mainCamera = nullptr;
     CameraList cameraList;
     CameraTable cameraTable;
     SceneCameraList sceneCameraList;
@@ -46,4 +47,7 @@ public:
     static CameraManager* getInstance();
     static void initialize();
     static void destroy();
+
+    // Inherited via Observer
+    void onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters) override;
 };

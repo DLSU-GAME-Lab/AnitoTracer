@@ -100,7 +100,7 @@ void GameObject::SetLocalRotationQuat(const quat& q)
 	SetLocalDirty();
 }
 
-void GameObject::SetLocalRotation(float x, float y, float z)
+void GameObject::SetLocalRotationEuler(float x, float y, float z)
 {
 	SetLocalRotationEuler(vec3(x, y, z));
 }
@@ -157,9 +157,6 @@ void GameObject::AddChildAtIndex(GameObjectPtr child, int index)
 		child->m_parent->RemoveChild(child.get());
 
 	child->m_parent = this;
-
-	glm::mat4 parentWorldInverse = glm::inverse(this->GetWorldMatrix());
-	child->m_localMatrix = parentWorldInverse * child->GetWorldMatrix();
 
 	mat4 parentWorldInverse = glm::inverse(this->GetWorldMatrix());
 	mat4 childWorld = child->GetWorldMatrix();

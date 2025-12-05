@@ -2,7 +2,7 @@
 
 #include "imgui_internal.h"
 #include "imgui_impl_vulkan.h"
-#include "Assets/Texture.hpp"
+#include "AssetManagement/Texture.hpp"
 #include "Assets/TextureImage.hpp"
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/CommandPool.hpp"

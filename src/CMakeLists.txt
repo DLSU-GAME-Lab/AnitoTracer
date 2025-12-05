@@ -71,6 +71,8 @@ set(src_files_camerasystem
 set(src_files_lightsystem
 	Engine/LightSystem/Light.cpp
 	Engine/LightSystem/Light.h
+	Engine/LightSystem/LightManager.hpp
+	Engine/LightSystem/LightManager.cpp
 )
 
 set(src_files_profiler

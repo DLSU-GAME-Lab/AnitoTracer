@@ -1,11 +1,11 @@
-#include "TextureLibrary.h"
+#include "TextureLibrary.hpp"
 
 #include <stb_image.h>
 
-#include "Assets/Texture.hpp"
+#include "AssetManagement/Texture.hpp"
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
-#include "Debug.h"
+#include "From-GDGRAP2/Debug.h"
 
 TextureLibrary* TextureLibrary::sharedInstance = nullptr;
 void TextureLibrary::addTexture(const std::string& textureName, const std::string& fileName)

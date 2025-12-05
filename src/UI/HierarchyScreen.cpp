@@ -2,8 +2,8 @@
 
 #include <imgui_internal.h>
 #include "imgui.h"
-#include "From-GDGRAP2/ModelManager.h"
-#include "From-GDGRAP2/GameObject.h"
+#include "AssetManagement/GameObjectManager.hpp"
+#include "AssetManagement/GameObject.hpp"
 #include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"

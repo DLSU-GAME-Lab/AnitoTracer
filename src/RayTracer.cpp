@@ -92,10 +92,8 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	const auto& init = cameraInitialSate_;
 
 	Assets::UniformBufferObject ubo = {};
-	//ubo.ModelView = modelViewController_.ModelView();
-	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->ModelView();
+	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->GetViewMatrix();
 	ubo.Projection = CameraManager::getInstance()->getActiveCamera()->GetProjection(userSettings_, extent);
-	ubo.Projection[1][1] *= -1; // Inverting Y for Vulkan, https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
 	ubo.ModelViewInverse = glm::inverse(ubo.ModelView);
 	ubo.ProjectionInverse = glm::inverse(ubo.Projection);
 	ubo.Aperture = userSettings_.Aperture;
@@ -115,9 +113,8 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 RayPickerUBO RayTracer::GetRayPickerUBO(const VkExtent2D extent) const
 {
 	RayPickerUBO ubo = {};
-	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->ModelView();
+	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->GetViewMatrix();
 	ubo.Projection = CameraManager::getInstance()->getActiveCamera()->GetProjection(userSettings_, extent);
-	ubo.Projection[1][1] *= -1; // Inverting Y for Vulkan, https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
 	ubo.ModelViewInverse = glm::inverse(ubo.ModelView);
 	ubo.ProjectionInverse = glm::inverse(ubo.Projection);
 
@@ -686,7 +683,7 @@ void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,
 	auto camera = CameraManager::getInstance()->getActiveCamera();
 
 	glm::mat4 invProjection = glm::inverse(camera->GetProjection());
-	glm::mat4 invView = glm::inverse(camera->GetView());
+	glm::mat4 invView = glm::inverse(camera->GetViewMatrix());
 
 	glm::vec4 rayEye = invProjection * rayClip;
 	rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0f, 0.0f);

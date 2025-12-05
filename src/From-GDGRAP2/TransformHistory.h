@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GameObject.h"
+#include "AssetManagement/GameObject.hpp"
 
 struct TransformState {
     glm::vec3 position;

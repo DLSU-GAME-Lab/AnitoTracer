@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "glm/glm.hpp"
 #include "HotkeySystem/HotkeyListener.hpp"
 
 class GameObject;

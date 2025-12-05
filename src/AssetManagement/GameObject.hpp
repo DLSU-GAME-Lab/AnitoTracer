@@ -55,16 +55,16 @@ public:
 	vec3 GetLocalPosition() const { return m_localPosition; }
 	vec3 GetWorldPosition() const { return m_worldPosition; }
 
-    void SetLocalRotationEuler(const vec3& eulerDeg);
-    void SetLocalRotationQuat(const quat& q);
-    virtual void SetLocalRotation(float x, float y, float z);
+    virtual void SetLocalRotationQuat(const quat& q);
+    virtual void SetLocalRotationEuler(const vec3& eulerDeg);
+    virtual void SetLocalRotationEuler(float x, float y, float z);
     vec3 GetLocalRotationEuler() const { return m_localRotationEuler; }
     quat GetLocalRotationQuat() const { return m_localRotationQuat; }
     vec3 GetWorldRotationEuler() const { return m_worldRotationEuler; }
     quat GetWorldRotationQuat() const { return m_worldRotationQuat; }
 
-    void SetLocalScale(vec3 newScale);
-    void SetLocalScale(float x, float y, float z);
+    virtual void SetLocalScale(vec3 newScale);
+    virtual void SetLocalScale(float x, float y, float z);
 	vec3 GetLocalScale() const { return m_localScale; }
 	vec3 GetWorldScale() const { return m_worldScale; }
 

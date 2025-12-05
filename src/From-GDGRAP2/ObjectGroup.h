@@ -2,7 +2,7 @@
 #include <memory>
 #include <string>
 #include <glm/vec3.hpp>
-#include "GameObject.h"
+#include "AssetManagement/GameObject.hpp"
 
 class ObjectGroup final: public GameObject
 {

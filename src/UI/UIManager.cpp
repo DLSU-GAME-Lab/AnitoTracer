@@ -504,7 +504,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		ImGuizmo::BeginFrame();
 		ImGuizmo::SetRect(0, 0, swapChain->Extent().width, swapChain->Extent().height);
 
-		glm::mat4 viewMatrix = CameraManager::getInstance()->getActiveCamera()->GetView();
+		glm::mat4 viewMatrix = CameraManager::getInstance()->getActiveCamera()->GetViewMatrix();
 		glm::mat4 projMatrix = CameraManager::getInstance()->getActiveCamera()->GetProjection();
 
 		if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),

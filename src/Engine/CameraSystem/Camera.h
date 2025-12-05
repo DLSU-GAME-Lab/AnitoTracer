@@ -3,94 +3,60 @@
 #include <string>
 
 #include "UserSettings.hpp"
-#include "From-GDGRAP2/GameObject.h"
 #include "Utilities/Glm.hpp"
-#include "HotkeySystem/HotkeyListener.hpp"
+#include "AssetManagement/GameObject.hpp"
+#include <vulkan/vulkan_core.h>
 
-class Camera : public GameObject, public HotkeyListener
+class Camera : public GameObject
 {
 public:
 	enum ProjectionMode { orthographic = 0, perspective };
-	enum CameraMoveMode { NONE = -1, FPS = 0, PAN, FASTPAN, SLOWPAN, ZOOM, ORBIT };
 
 	Camera(std::string name, ProjectionMode proj = perspective);
-	~Camera();
+	Camera(const Camera& other);
+	~Camera() = default;
 
-	void Reset(const glm::mat4& modelView);
+	virtual GameObjectPtr Clone() const override;
 
-	glm::mat4 ModelView();
+	void Reset();
 
-	bool OnKey(int key, int scancode, int action, int mods);
-	bool OnCursorPosition(double xpos, double ypos);
-	bool OnMouseButton(int button, int action, int mods);
-	bool UpdateCamera(double speed, double timeDelta);
+	void SetLocalPosition(float x, float y, float z) override;
+	void SetLocalPosition(vec3 newPos) override;
 
-	void OnActionPressed(Hotkey::Action action) override;
-	void OnActionReleased(Hotkey::Action action) override;
+	void SetLocalRotationEuler(const vec3& eulerDeg) override;
+	void SetLocalRotationQuat(const quat& q) override;
+	void SetLocalRotationEuler(float x, float y, float z) override;
+
+	void UpdateViewMatrix();
+	glm::mat4 GetViewMatrix();
 
 	glm::mat4 GetProjection(UserSettings settings, const VkExtent2D extent);
-	glm::mat4 GetProjection();
 	void SetProjectionType(ProjectionMode type);
 
-	glm::mat4 GetView();
+	void MoveForward(float amount);
+	void MoveRight(float amount);
+	void MoveUp(float amount);
+	void lookAt(const glm::vec3& target);
 
-	void setLocalPosition(float x, float y, float z) override;
-	void setLocalPosition(glm::vec3 pos) override;
-
-	glm::vec3 getForward() { return this->forward_; }
-	CameraMoveMode getCurrentMoveMode() const;
+	/* should move to transform / gameobject */
+	glm::vec3 GetForward() const { return m_forward; }
+	glm::vec3 GetRight() const { return m_right; }
+	glm::vec3 GetUp() const { return m_up; }
 
 protected:
+	bool m_isSceneCamera = false;
 
-	virtual void MoveForward(float d);
-	virtual void MoveRight(float d);
-	virtual void MoveUp(float d);
-	virtual void Rotate(float y, float x);
-	void UpdateVectors();
+public:
+	ProjectionMode m_projectionMode = perspective;
 
-	std::string name;
-	ProjectionMode projMode;
-
-	// Matrices and vectors.
-	glm::mat4 orientation_ = glm::mat4(1);
+	glm::vec3 m_forward{};
+	glm::vec3 m_right{};
+	glm::vec3 m_up{};
 	glm::mat4 projection_{};
 	glm::mat4 view_ = glm::mat4(1.0f);;
-
-	glm::vec4 position_{ 0, 0, 0, 0 };
-	glm::vec4 right_{ 1, 0, 0, 0 };
-	glm::vec4 up_{ 0, 1, 0, 0 };
-	glm::vec4 forward_{ 0, 0, -1, 0 };
-
-	// Control states.
-	bool cameraMovingLeft_{};
-	bool cameraMovingRight_{};
-	bool cameraMovingBackward_{};
-	bool cameraMovingForward_{};
-	bool cameraMovingDown_{};
-	bool cameraMovingUp_{};
-
-	float cameraRotX_{};
-	float cameraRotY_{};
-	float modelRotX_{};
-	float modelRotY_{};
-
-	double mousePosX_{};
-	double mousePosY_{};
-
-	bool mouseLeftPressed_{};
-	bool mouseRightPressed_{};
 
 	float windowWidth_{};
 	float windowHeight_{};
 
-	float camSpeed_ = 1.0f;
-	bool camSlowed = false;
-	bool camSpedUp = false;
-	float camNormalSpeed = 1.0f;
-	float camSlowSpeed = 0.2f;
-	float camFastSpeed = 1.5f;
-
-	float m_defaultPivotDistance = 1000.0f;
-
-	CameraMoveMode m_currentMode = NONE;
+	bool m_isViewDirty = true;
 };

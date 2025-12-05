@@ -1,179 +1,58 @@
 #pragma once
-#include "From-GDGRAP2/GameObject.h"
+#include "AssetManagement/GameObject.hpp"
 #include "Utilities/Glm.hpp"
-
-namespace Assets
-{
-
-	struct alignas(16) LightProperties final
-	{
-		enum class Enum : uint32_t
-		{
-			PointLight = 0,
-			DirectionalLight = 1,
-			SpotLight = 2
-		};
-
-		alignas(16) glm::vec3 LightPos;
-		alignas(16) glm::vec3 LightDir; // Where the light is pointing (if has direction)
-		alignas(16) glm::vec4 AmbientColor;
-		alignas(16) glm::vec4 LightColor;
-		alignas(4) Enum LightType;
-	};
-}
 
 class Light : public GameObject
 {
-protected:
-	Assets::LightProperties props_;
-
 public:
-	enum LightType { PointLight = 0, DirectionalLight = 1, SpotLight = 2 };
-
-	Light(String name, LightType type) : GameObject(name, convertLightTypeToGameObjectType(type))
+	enum class LightType : uint32_t
 	{
-		// Default Properties
-		props_.LightPos = glm::vec3(0, 0, 0);
-		props_.LightDir = glm::vec3(0, -1, 0);
-		props_.AmbientColor = glm::vec4(1.0, 1.0, 1.0, 0.02);
-		props_.LightColor = glm::vec4(1.0, 1.0, 1.0, 500000.0f);
-		props_.LightType = convertLightTypeEnum(type);
+		PointLight = 0,
+		DirectionalLight = 1,
+		SpotLight = 2
+	};
 
-		GameObject::setLocalPosition(props_.LightPos);
+	Light() = default;
+	Light(String name, LightType type, glm::vec3 pos, glm::vec3 dir, glm::vec4 ambientCol, glm::vec4 lightCol);
+	Light(const Light& other);
+	~Light() = default;
 
-		updateSceneView();
-	}
+	GameObjectPtr Clone() const override;
 
-	Light(String name, LightType type, glm::vec3 pos, glm::vec4 ambientCol, glm::vec4 lightCol)
-		: GameObject(name, convertLightTypeToGameObjectType(type))
+	void SetAmbientColor(const glm::vec4& color) { m_ambientColor = color; }
+	glm::vec4 GetAmbientColor() const { return m_ambientColor; }
+
+	void SetLightColor(const glm::vec4& color) { m_lightColor = color; }
+	glm::vec4 GetLightColor() const { return m_lightColor; }
+
+	void SetLightType(LightType type) { m_lightType = type; }
+	LightType GetLightType() const { return m_lightType; }
+
+	struct alignas(16) GPUData
 	{
-		props_.LightPos = pos;
-		props_.AmbientColor = ambientCol;
-		props_.LightColor = lightCol;
-		props_.LightType = convertLightTypeEnum(type);
+		glm::vec4 LightPos;
+		glm::vec4 LightDir;
+		glm::vec4 AmbientColor;
+		glm::vec4 lightColor;
+		LightType lightType;
+	};
 
-		GameObject::setLocalPosition(props_.LightPos);
-
-		props_.LightDir = calculateDirection();
-
-		updateSceneView();
-	}
-
-	const Assets::LightProperties Properties() const { return this->props_; }
-
-	glm::vec4 getAmbientColor()
+	GPUData GetGPUData() const
 	{
-		return this->props_.AmbientColor;
-	}
-
-	glm::vec4 getLightColor()
-	{
-		return this->props_.LightColor;
-	}
-
-	Assets::LightProperties::Enum getLightType()
-	{
-		return this->props_.LightType;
-	}
-
-	// setposition sets lightpos also
-	void setLocalPosition(float x, float y, float z) override
-	{
-		props_.LightPos = glm::vec3(x, y, z);
-		GameObject::setLocalPosition(x, y, z);
-
-		updateSceneView();
-	}
-	void setLocalPosition(vec3 newPos) override
-	{
-		props_.LightPos = newPos;
-		GameObject::setLocalPosition(newPos);
-
-		updateSceneView();
-	}
-
-	void SetLocalRotation(vec3 newRot) override
-	{
-		GameObject::SetLocalRotation(newRot);
-		props_.LightDir = calculateDirection();
-	}
-	
-	void SetLocalRotation(float x, float y, float z) override
-	{
-		GameObject::SetLocalRotation(x, y, z);
-		props_.LightDir = calculateDirection();
-	}
-
-	void setAmbientColor(float r, float g, float b, float a)
-	{
-		this->props_.AmbientColor = glm::vec4(r, g, b, a);
-	}
-
-	void setAmbientColor(glm::vec4 ambientCol)
-	{
-		this->props_.AmbientColor = ambientCol;
-	}
-
-	void setLightColor(float r, float g, float b, float a)
-	{
-		this->props_.LightColor = glm::vec4(r, g, b, a);
-
-		updateSceneView();
-	}
-
-	void setLightColor(glm::vec4 lightCol)
-	{
-		this->props_.LightColor = lightCol;
-
-		updateSceneView();
-	}
-
-	void setLightType(LightType type)
-	{
-		this->props_.LightType = convertLightTypeEnum(type);
-		this->type = convertLightTypeToGameObjectType(type);
-
-		updateSceneView();
+		GPUData data{};
+		data.LightPos = glm::vec4(this->GetWorldPosition(), 1.0f);
+		data.LightDir = glm::vec4(this->GetDirection(), 0.0f);
+		data.AmbientColor = this->m_ambientColor;
+		data.lightColor = this->m_lightColor; 
+		data.lightType = this->m_lightType;
+		return data;
 	}
 
 private:
-	Assets::LightProperties::Enum convertLightTypeEnum(LightType type)
-	{
-		switch (type)
-		{
-		case PointLight:
-			return Assets::LightProperties::Enum::PointLight;
-			break;
-		case DirectionalLight:
-			return Assets::LightProperties::Enum::DirectionalLight;
-			break;
-		case SpotLight:
-			return Assets::LightProperties::Enum::SpotLight;
-			break;
-		}
-	}
-	PrimitiveType convertLightTypeToGameObjectType(LightType type)
-	{
-		switch (type)
-		{
-		case PointLight:
-			return POINT_LIGHT;
-			break;
-		case DirectionalLight:
-			return DIRECTIONAL_LIGHT;
-			break;
-		case SpotLight:
-			return SPOT_LIGHT;
-			break;
-		}
-	}
+	glm::vec4 m_direction = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
+	glm::vec4 m_ambientColor = glm::vec4(0.1f);
+	glm::vec4 m_lightColor = glm::vec4(1.0f);
+	LightType m_lightType = LightType::PointLight;
 
-	glm::vec3 calculateDirection()
-	{
-		glm::vec3 localForward = glm::vec3(0.0f, -1.0f, 0.0f); // pointing down by default
-		glm::mat4 modelMatrix = this->localMatrix;
-
-		glm::vec3 worldDirection = glm::normalize(glm::mat3(modelMatrix) * localForward);
-		return worldDirection;
-	}
+	glm::vec3 GetDirection() const;
 };

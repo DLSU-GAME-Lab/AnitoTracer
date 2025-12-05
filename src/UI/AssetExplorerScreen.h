@@ -2,7 +2,7 @@
 
 #include <imgui.h>
 #include "AUIScreen.h"
-#include "Assets/Material.hpp"
+#include "AssetManagement/Material.hpp"
 
 class AssetExplorerScreen :
     public AUIScreen

@@ -4,7 +4,7 @@
 #include <string>
 #include <stb_image.h>
 #include <Utilities/FileUtils.h>
-#include "Assets/Texture.hpp"
+#include "AssetManagement/Texture.hpp"
 #include "Vulkan/Buffer.hpp"
 
 FileIcon::FileIcon(float x, float y, std::string& name, FileTreeNode& node)
