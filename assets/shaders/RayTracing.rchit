@@ -114,7 +114,7 @@ vec3 calculateSpotLight(LightProperties sl, vec3 worldPos, vec3 normal)
 void main()
 {
     // Get the material.
-    const uvec2 offsets = Offsets[gl_InstanceCustomIndexEXT];
+    const uvec2 offsets = Offsets[gl_InstanceID];
     const uint indexOffset = offsets.x;
     const uint vertexOffset = offsets.y;
     const Vertex v0 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 0]);

@@ -258,6 +258,8 @@ void Application::CreateBottomLevelStructures(VkCommandBuffer commandBuffer)
 	for (const auto& gameObjects : scene.GameObjects())
 	{
 		auto model = gameObjects->GetModel();
+		if (!model) continue;
+
 		const auto vertexCount = static_cast<uint32_t>(model->NumberOfVertices());
 		const auto indexCount = static_cast<uint32_t>(model->NumberOfIndices());
 		BottomLevelGeometry geometries;
@@ -317,6 +319,8 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 
 	for (const auto& gameObject : scene.GameObjects())
 	{
+		if (!gameObject->GetModel()) continue;
+
 		auto world = gameObject->getWorldMatrix();
 		ModelManager::getInstance()->RegisterInstance(instanceId, gameObject);
 		instances.push_back(TopLevelAccelerationStructure::CreateInstance(

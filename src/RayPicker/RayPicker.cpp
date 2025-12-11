@@ -22,7 +22,7 @@ RayPicker::RayPicker(const DeviceProcedures& dp, const Vulkan::SwapChain& swapCh
 
 	commandBuffers.reset(new Vulkan::CommandBuffers(cmdPool, static_cast<uint32_t>(swapChain.ImageViews().size())));
 
-	rayPickerPipeline.reset(new RayPickerPipeline(dp, swapChain, accelerationStructure, *resultBuffer, uniformBuffers, scene));
+	rayPickerPipeline.reset(new RayPickerPipeline(dp, swapChain, accelerationStructure, *resultBuffer, uniformBuffers));
 
 	const std::vector<ShaderBindingTable::Entry> rayGen = { {rayPickerPipeline->RayGenShaderIndex(), {}} };
 	const std::vector<ShaderBindingTable::Entry> miss = { {rayPickerPipeline->MissShaderIndex(), {}} };

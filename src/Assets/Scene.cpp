@@ -31,6 +31,8 @@ Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<GameObject*>&& gameOb
 
 	for (const auto& obj : gameObjects_)
 	{
+		if (!obj->GetModel()) continue;
+
 		// Remember the index, vertex offsets.
 		const auto indexOffset = static_cast<uint32_t>(indices.size());
 		const auto vertexOffset = static_cast<uint32_t>(vertices.size());

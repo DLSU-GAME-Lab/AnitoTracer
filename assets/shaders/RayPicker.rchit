@@ -13,13 +13,6 @@ layout(binding = 1, set = 0) buffer ResultBuffer
     int padding;
 } result;
 
-layout(binding = 3, set = 0) buffer Vertices { vec4 v[]; } vertices;
-layout(binding = 4, set = 0) buffer Indices { uint i[]; } indices;
-layout(binding = 5, set = 0) buffer Offsets { 
-    uint vertexOffset;
-    uint indexOffset;
-} offsets[];
-
 layout(push_constant) uniform PushConstants {
     vec3 origin;
     vec3 dir;
@@ -43,7 +36,7 @@ hitAttributeEXT vec2 attribs;
 void main()
 {
    // Record hit information
-    pickerPayload.objectID = gl_InstanceCustomIndexEXT;  // or map this however you track objects
+    pickerPayload.objectID = gl_InstanceCustomIndexEXT;
     pickerPayload.instanceID = gl_InstanceID;
     pickerPayload.primID = gl_PrimitiveID;
     pickerPayload.hitT = gl_HitTEXT;
