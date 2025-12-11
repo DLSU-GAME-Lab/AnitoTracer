@@ -46,6 +46,8 @@ public:
 	std::vector<GameObject*> getAllActiveObjects() const;
 	std::vector<GameObject*> getSceneGraph() const;
 	
+	bool AreTransformsDirty() const;
+
 	int activeObjectsCount() const;
 
 	void addObject(GameObjectPtr gameObject);

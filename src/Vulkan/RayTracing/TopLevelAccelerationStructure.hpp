@@ -31,6 +31,13 @@ namespace Vulkan::RayTracing
 			Buffer& resultBuffer,
 			VkDeviceSize resultOffset);
 
+		void Update(
+			VkCommandBuffer commandBuffer,
+			Buffer& scratchBuffer,
+			VkDeviceSize scratchOffset,
+			Buffer& resultBuffer,
+			VkDeviceSize resultOffset);
+
 		static VkAccelerationStructureInstanceKHR CreateInstance(
 			const BottomLevelAccelerationStructure& bottomLevelAs,
 			const glm::mat4& transform,

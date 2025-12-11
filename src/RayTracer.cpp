@@ -250,6 +250,7 @@ void RayTracer::DrawFrame()
 		userSettings_.RequiresAccumulationReset(previousSettings_) ||
 		!userSettings_.AccumulateRays)
 	{
+		UpdateAccelerationStructures();
 		totalNumberOfSamples_ = 0;
 		resetAccumulation_ = false;
 	}
@@ -453,6 +454,10 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 		this->isSceneDirty = true;
 		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, true);
 		//Debug::Log("Scene marked as dirty! \n");
+	}
+	else if (eventName == EventNames::ON_RESET_ACCUMULATOR)
+	{
+		resetAccumulation_ = true;
 	}
 }
 

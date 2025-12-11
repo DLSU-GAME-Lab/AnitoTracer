@@ -101,6 +101,21 @@ std::vector<GameObject*> ModelManager::getSceneGraph() const
 	return objectList;
 }
 
+bool ModelManager::AreTransformsDirty() const
+{
+	return std::any_of(this->sceneGraph.begin(), this->sceneGraph.end(),
+		[](const GameObjectPtr& obj)
+		{
+			if (obj->IsLocalDirty() || obj->IsWorldDirty()) return true;
+			auto descendants = obj->GetChildrenRecursive();
+			return std::any_of(descendants.begin(), descendants.end(),
+				[](GameObject* descendant)
+				{
+					return descendant->IsLocalDirty() || descendant->IsWorldDirty();
+				});
+		});
+}
+
 int ModelManager::activeObjectsCount() const
 {
 	auto activeObjects = this->getAllActiveObjects();
@@ -570,6 +585,51 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
+}
+
+GameObject* ModelManager::FindObjectByID(uint32_t id) const
+{
+	auto it = this->gameObjectMap.find(id);
+
+	return (it != this->gameObjectMap.end()) ? it->second : nullptr;
+}
+
+void ModelManager::ClearTLASInstances()
+{
+	this->tlasInstanceMap.clear();
+}
+
+void ModelManager::RegisterTLASInstance(uint32_t objectId, VkAccelerationStructureInstanceKHR instance)
+{
+	auto it = this->tlasInstanceMap.find(objectId);
+
+	if (it != this->tlasInstanceMap.end())
+	{
+		Debug::Log("Duplicate Instace Detected! " + std::to_string(objectId));
+	}
+
+	this->tlasInstanceMap[objectId] = instance;
+}
+
+std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances() const
+{
+	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
+	tlasInstances.reserve(this->tlasInstanceMap.size());
+
+	for (auto [id, instance] : this->tlasInstanceMap)
+	{
+		//also update instances
+		auto obj = this->FindObjectByID(id);
+		if (obj->IsLocalDirty() || obj->IsWorldDirty())
+		{
+			obj->updateWorldMatrix();
+			glm::mat4 worldMat = obj->getWorldMatrix();
+			std::memcpy(&instance.transform, &worldMat, sizeof(instance.transform.matrix));
+		}
+			
+	}
+
+	return tlasInstances;
 }
 
 void ModelManager::CutSelectedObject()
