@@ -458,9 +458,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			gizmoWasManipulated = false;
 
 			gizmoBeforeState = {
-				selectedObject->getLocalPosition(),
-				selectedObject->getLocalRotation(),
-				selectedObject->getLocalScale()
+				selectedObject->GetLocalPosition(),
+				selectedObject->GetLocalRotation(),
+				selectedObject->GetLocalScale()
 			};
 		}
 
@@ -507,9 +507,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced) // For Rasterized Mode
 			{
-				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
-				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
-				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+				selectedObject->SetLocalPosition(translation[0], translation[1], translation[2]);
+				selectedObject->SetLocalRotation(rotation[0], rotation[1], rotation[2]);
+				selectedObject->SetLocalScale(scale[0], scale[1], scale[2]);
 			}
 		}
 
@@ -519,9 +519,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			{
 				glm::mat4 newLocalMatrix;
 
-				if (selectedObject->getParent())
+				if (selectedObject->GetParent())
 				{
-					glm::mat4 parentWorldInverse = glm::inverse(selectedObject->getParent()->getWorldMatrix()); 
+					glm::mat4 parentWorldInverse = glm::inverse(selectedObject->GetParent()->getWorldMatrix()); 
 					newLocalMatrix = parentWorldInverse * gizmoModelMatrix; // gizmo is in new world space
 				}
 				else

@@ -14,9 +14,10 @@ namespace Vulkan
 	class Image;
 }
 
+class GameObject;
+
 namespace Assets
 {
-	class Model;
 	class Texture;
 	class TextureImage;
 
@@ -29,11 +30,11 @@ namespace Assets
 		Scene& operator = (const Scene&) = delete;
 		Scene& operator = (Scene&&) = delete;
 
-		Scene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models, 
+		Scene(Vulkan::CommandPool& commandPool, std::vector<GameObject*>&& gameObjects,
 			std::vector<Texture>&& textures, std::vector<LightProperties>&& lights);
 		~Scene();
 
-		const std::vector<Model>& Models() const { return models_; }
+		const std::vector<GameObject*>& GameObjects() const { return gameObjects_; }
 		bool HasProcedurals() const { return static_cast<bool>(proceduralBuffer_); }
 
 		const Vulkan::Buffer& VertexBuffer() const { return *vertexBuffer_; }
@@ -53,7 +54,7 @@ namespace Assets
 
 	private:
 
-		const std::vector<Model> models_;
+		const std::vector<GameObject*> gameObjects_;
 		const std::vector<Texture> textures_;
 		const std::vector<LightProperties> lights_;
 

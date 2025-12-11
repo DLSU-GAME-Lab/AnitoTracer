@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "Model.hpp"
+#include "From-GDGRAP2/GameObject.h"
 #include "SphereProc.hpp"
 #include "Texture.hpp"
 #include "TextureImage.hpp"
@@ -16,8 +16,8 @@
 
 namespace Assets {
 
-Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models, std::vector<Texture>&& textures, std::vector<LightProperties>&& lights) :
-	models_(std::move(models)),
+Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<GameObject*>&& gameObjects, std::vector<Texture>&& textures, std::vector<LightProperties>&& lights) :
+	gameObjects_(std::move(gameObjects)),
 	textures_(std::move(textures)),
 	lights_(std::move(lights))
 {
@@ -29,7 +29,7 @@ Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models, std:
 	std::vector<VkAabbPositionsKHR> aabbs;
 	std::vector<glm::uvec2> offsets;
 
-	for (const auto& model : models_)
+	for (const auto& obj : gameObjects_)
 	{
 		// Remember the index, vertex offsets.
 		const auto indexOffset = static_cast<uint32_t>(indices.size());
@@ -39,9 +39,9 @@ Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models, std:
 		offsets.emplace_back(indexOffset, vertexOffset);
 
 		// Copy model data one after the other.
-		vertices.insert(vertices.end(), model.Vertices().begin(), model.Vertices().end());
-		indices.insert(indices.end(), model.Indices().begin(), model.Indices().end());
-		materials.insert(materials.end(), model.Materials().begin(), model.Materials().end());
+		vertices.insert(vertices.end(), obj->GetModel()->Vertices().begin(), obj->GetModel()->Vertices().end());
+		indices.insert(indices.end(), obj->GetModel()->Indices().begin(), obj->GetModel()->Indices().end());
+		materials.insert(materials.end(), obj->GetModel()->Materials().begin(), obj->GetModel()->Materials().end());
 
 		// Adjust the material id.
 		for (size_t i = vertexOffset; i != vertices.size(); ++i)
@@ -50,7 +50,7 @@ Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models, std:
 		}
 
 		// Add optional procedurals.
-		const auto* const sphere = dynamic_cast<const SphereProc*>(model.Procedural());
+		const auto* const sphere = dynamic_cast<const SphereProc*>(obj->GetModel()->Procedural());
 		if (sphere != nullptr)
 		{
 			const auto aabb = sphere->BoundingBox();

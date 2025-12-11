@@ -95,14 +95,14 @@ public:
 			// 1. Identification
 			objJson["name"] = obj->getName();
 			objJson["type"] = obj->getType();
-			objJson["enabled"] = obj->isActive();
+			objJson["enabled"] = obj->IsActive();
 
-			objJson["position"] = { obj->getWorldPosition().x, obj->getWorldPosition().y, obj->getWorldPosition().z };
-			objJson["rotation"] = { obj->getWorldRotation().x, obj->getWorldRotation().y, obj->getWorldRotation().z };
-			objJson["scale"] = { obj->getWorldScale().x, obj->getWorldScale().y, obj->getWorldScale().z };
+			objJson["position"] = { obj->GetWorldPosition().x, obj->GetWorldPosition().y, obj->GetWorldPosition().z };
+			objJson["rotation"] = { obj->GetWorldRotation().x, obj->GetWorldRotation().y, obj->GetWorldRotation().z };
+			objJson["scale"] = { obj->GetWorldScale().x, obj->GetWorldScale().y, obj->GetWorldScale().z };
 
 			// 2. Model
-			std::shared_ptr<Assets::Model> modelRef = obj->getModel();
+			std::shared_ptr<Assets::Model> modelRef = obj->GetModel();
 			// First the shape.
 			if (modelRef) {
 				if (obj->getType() == GameObject::PrimitiveType::MESH)
@@ -136,9 +136,9 @@ public:
 			}
 
 			// 3. Family lol
-			objJson["parent"] = obj->getParent() ? obj->getParent()->getName() : "";
+			objJson["parent"] = obj->GetParent() ? obj->GetParent()->getName() : "";
 			objJson["children"] = json::array();
-			for (GameObject* child : obj->getChildren()) {
+			for (GameObject* child : obj->GetChildren()) {
 				objJson["children"].push_back(child->getName());
 			}
 
@@ -170,9 +170,9 @@ public:
 
 				// 3. Create the object.
 				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
-				object->setLocalPosition(pos);
-				object->setLocalRotation(rot);
-				object->setLocalScale(scale);
+				object->SetLocalPosition(pos);
+				object->SetLocalRotation(rot);
+				object->SetLocalScale(scale);
 				ModelManager::getInstance()->addObject(std::move(object));
 				// 4. Family TODO
 			}

@@ -39,7 +39,7 @@ public:
 		props_.LightColor = glm::vec4(1.0, 1.0, 1.0, 500000.0f);
 		props_.LightType = convertLightTypeEnum(type);
 
-		GameObject::setLocalPosition(props_.LightPos);
+		GameObject::SetLocalPosition(props_.LightPos);
 
 		updateSceneView();
 	}
@@ -52,7 +52,7 @@ public:
 		props_.LightColor = lightCol;
 		props_.LightType = convertLightTypeEnum(type);
 
-		GameObject::setLocalPosition(props_.LightPos);
+		GameObject::SetLocalPosition(props_.LightPos);
 
 		props_.LightDir = calculateDirection();
 
@@ -77,30 +77,30 @@ public:
 	}
 
 	// setposition sets lightpos also
-	void setLocalPosition(float x, float y, float z) override
+	void SetLocalPosition(float x, float y, float z) override
 	{
 		props_.LightPos = glm::vec3(x, y, z);
-		GameObject::setLocalPosition(x, y, z);
+		GameObject::SetLocalPosition(x, y, z);
 
 		updateSceneView();
 	}
-	void setLocalPosition(vec3 newPos) override
+	void SetLocalPosition(vec3 newPos) override
 	{
 		props_.LightPos = newPos;
-		GameObject::setLocalPosition(newPos);
+		GameObject::SetLocalPosition(newPos);
 
 		updateSceneView();
 	}
 
-	void setLocalRotation(vec3 newRot) override
+	void SetLocalRotation(vec3 newRot) override
 	{
-		GameObject::setLocalRotation(newRot);
+		GameObject::SetLocalRotation(newRot);
 		props_.LightDir = calculateDirection();
 	}
 	
-	void setLocalRotation(float x, float y, float z) override
+	void SetLocalRotation(float x, float y, float z) override
 	{
-		GameObject::setLocalRotation(x, y, z);
+		GameObject::SetLocalRotation(x, y, z);
 		props_.LightDir = calculateDirection();
 	}
 
@@ -131,7 +131,7 @@ public:
 	void setLightType(LightType type)
 	{
 		this->props_.LightType = convertLightTypeEnum(type);
-		this->type = convertLightTypeToGameObjectType(type);
+		this	->type = convertLightTypeToGameObjectType(type);
 
 		updateSceneView();
 	}

@@ -481,7 +481,7 @@ void MenuScreen::OnCreateRProbe()
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
 	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	sphere->setLocalPosition(0, 0, 0);
+	sphere->SetLocalPosition(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
@@ -492,7 +492,7 @@ void MenuScreen::OnCreateTProbe()
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *groundReflectMat, false);
 	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	sphere->setLocalPosition(0, 0, 0);
+	sphere->SetLocalPosition(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(sphere));
 }
 
@@ -502,7 +502,7 @@ void MenuScreen::OnCreateMProbe()
 
 	Model sphereModel = Model::CreateSphere(vec3(0, 0, 0), 75.0f, *mirror, false);
 	auto sphere = std::make_unique<GameObject>("Reflection Probe", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
-	sphere->setLocalPosition(0, 0, 0);
+	sphere->SetLocalPosition(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(sphere));
 }
 

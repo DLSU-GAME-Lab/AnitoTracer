@@ -84,7 +84,7 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 		if (localRotation.y > limit) { cameraRotY_ = 0; this->localRotation.y -= deltaY; }
 		if (localRotation.y < -limit) { cameraRotY_ = 0; this->localRotation.y -= deltaY; }
 
-		this->setLocalRotation(glm::vec3(localRotation));
+		this->SetLocalRotation(glm::vec3(localRotation));
 		UpdateVectors();
 	}
 
@@ -235,7 +235,7 @@ void Camera::OnActionPressed(Hotkey::Action action)
 		auto currentObj = ModelManager::getInstance()->getSelectedObject();
 		if (!currentObj) return;
 
-		currentObj->setLocalPosition(this->getLocalPosition() + glm::normalize(glm::vec3(forward_)) * m_defaultPivotDistance );
+		currentObj->SetLocalPosition(this->GetLocalPosition() + glm::normalize(glm::vec3(forward_)) * m_defaultPivotDistance );
 
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
@@ -246,8 +246,8 @@ void Camera::OnActionPressed(Hotkey::Action action)
 
 		if (selected) {
 			this->Reset(glm::lookAt(
-				selected->getWorldPosition() - glm::vec3(0, 0, 1000),
-				selected->getWorldPosition(),
+				selected->GetWorldPosition() - glm::vec3(0, 0, 1000),
+				selected->GetWorldPosition(),
 				glm::vec3(0, 1, 0)
 			));
 		}
@@ -377,16 +377,16 @@ glm::mat4 Camera::GetView()
 	return this->view_;
 }
 
-void Camera::setLocalPosition(float x, float y, float z)
+void Camera::SetLocalPosition(float x, float y, float z)
 {
 	this->position_ = glm::vec4(x, y, z, 1.0);
-	GameObject::setLocalPosition(x, y, z);
+	GameObject::SetLocalPosition(x, y, z);
 }
 
-void Camera::setLocalPosition(glm::vec3 pos)
+void Camera::SetLocalPosition(glm::vec3 pos)
 {
 	this->position_ = glm::vec4(pos, 1.0);
-	GameObject::setLocalPosition(pos);
+	GameObject::SetLocalPosition(pos);
 }
 
 Camera::CameraMoveMode Camera::getCurrentMoveMode() const
@@ -397,21 +397,21 @@ Camera::CameraMoveMode Camera::getCurrentMoveMode() const
 void Camera::MoveForward(const float d)
 {
 	position_ += d * forward_;
-	GameObject::setLocalPosition(position_.x, position_.y, position_.z);
+	GameObject::SetLocalPosition(position_.x, position_.y, position_.z);
 	UpdateVectors();
 }
 
 void Camera::MoveRight(const float d)
 {
 	position_ += d * right_;
-	GameObject::setLocalPosition(position_.x, position_.y, position_.z);
+	GameObject::SetLocalPosition(position_.x, position_.y, position_.z);
 	UpdateVectors();
 }
 
 void Camera::MoveUp(const float d)
 {
 	position_ += d * up_;
-	GameObject::setLocalPosition(position_.x, position_.y, position_.z);
+	GameObject::SetLocalPosition(position_.x, position_.y, position_.z);
 	UpdateVectors();
 }
 

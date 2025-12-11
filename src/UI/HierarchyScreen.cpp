@@ -121,7 +121,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
 
     String objectName = obj->getName();
 	String objectId = objectName + std::to_string(tempId); // Unique ID for ImGui
-    bool hasChildren = !obj->getChildren().empty();
+    bool hasChildren = !obj->GetChildren().empty();
 	tempId++;
 
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
@@ -192,20 +192,20 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
         {
             // Prevent dragging a parent into its own child 
             if (GameObject* draggedObj = *static_cast<GameObject**>(payload->Data);
-                draggedObj && draggedObj != obj && !obj->isDescendantOf(draggedObj))
+                draggedObj && draggedObj != obj && !obj->IsDescendantOf(draggedObj))
             {
                 hasValidDropTarget = true;
 
-                auto oldParent = draggedObj->getParent();
+                auto oldParent = draggedObj->GetParent();
 
                 // Assign new parent
 				CommandManager::getInstance()->executeCommand(
                     new ReparentCommand(
                         draggedObj, 
                         oldParent,
-						oldParent ? oldParent->getChildIndex(draggedObj) : ModelManager::getInstance()->getObjectIndex(draggedObj),
+						oldParent ? oldParent->GetChildIndex(draggedObj) : ModelManager::getInstance()->getObjectIndex(draggedObj),
                         obj,
-                        obj->getChildren().size()
+                        obj->GetChildren().size()
                     )
 				);
 
@@ -232,7 +232,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
 
         if (selectedObject)
         {
-            auto oldParent = selectedObject->getParent();
+            auto oldParent = selectedObject->GetParent();
 
             if (oldParent) // if old parent == null (in root); do nothing
             {
@@ -240,7 +240,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
                     new ReparentCommand(
                         selectedObject,
                         oldParent,
-                        oldParent->getChildIndex(selectedObject),
+                        oldParent->GetChildIndex(selectedObject),
                         nullptr,
                         ModelManager::getInstance()->getSceneGraphRootSize()
                     )
@@ -258,7 +258,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
 
     if (open)
     {
-        for (const auto& child : obj->getChildren())
+        for (const auto& child : obj->GetChildren())
         {
             drawObjectNode(child);
         }

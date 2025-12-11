@@ -20,7 +20,7 @@ namespace Assets
     {
     public:
         using String = std::string;
-		using ModelPtr = std::shared_ptr<Model>; // Should be a unique_ptr but due to how proliferate it was used, we stick to shared_ptr; can also send shared in the future if Rendering methods is changed
+		using ModelPtr = std::shared_ptr<Model>;
         using ModelList = std::vector<ModelPtr>;
         using ModelMap = std::unordered_map<String, ModelLoadResult>;
 

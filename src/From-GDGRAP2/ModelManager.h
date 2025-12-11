@@ -25,9 +25,6 @@ public:
 	using LightPtr = std::unique_ptr<Light>;
 	using LightList = std::vector<Light*>;
 
-	typedef std::vector<std::shared_ptr<ObjectGroup>> ObjectGroupList;
-
-	using ModelList = std::vector<Assets::Model>;
 	typedef std::vector<Assets::LightProperties> LightPropsList;
 
 	static ModelManager* getInstance();
@@ -35,7 +32,7 @@ public:
 	static void destroy();
 
 	std::vector<GameObject*> getAllObjects() const;
-	std::vector<GameObject*> getAllActiveObjects() const;
+	std::vector<GameObject*> GetAllActiveAndVisibleObjects() const;
 	std::vector<GameObject*> getSceneGraph() const;
 	
 	int activeObjectsCount() const;
@@ -55,7 +52,7 @@ public:
 
 	void clearAllObjects();
 
-	ModelList getAllObjectModels() const;
+	std::vector<Assets::Model> getAllObjectModels() const;
 	LightPropsList getAllLightProperties() const;
 
 	int getObjectIndex(GameObject* gameObject) const;
@@ -89,8 +86,6 @@ private:
 	static ModelManager* sharedInstance;
 
 	GameObjectList sceneGraph;
-
-	ObjectGroupList objectGroupList;
 	LightList lightList;
 
 	GameObject* selectedObject = nullptr;

@@ -25,7 +25,7 @@ void ReparentCommand::execute()
 	}
 	else
 	{
-		childPtr = std::move(oldParent->removeChild(child));
+		childPtr = std::move(oldParent->RemoveChild(child));
 	}
 
 	if(newParent == nullptr)
@@ -34,7 +34,7 @@ void ReparentCommand::execute()
 	}
 	else
 	{
-		newParent->addChildAtIndex(std::move(childPtr), newIndex);
+		newParent->AddChildAtIndex(std::move(childPtr), newIndex);
 	}
 
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
@@ -50,7 +50,7 @@ void ReparentCommand::undo()
 	}
 	else
 	{
-		childPtr = std::move(newParent->removeChild(child));
+		childPtr = std::move(newParent->RemoveChild(child));
 	}
 
 	if (oldParent == nullptr)
@@ -59,7 +59,7 @@ void ReparentCommand::undo()
 	}
 	else
 	{
-		oldParent->addChildAtIndex(std::move(childPtr), oldIndex);
+		oldParent->AddChildAtIndex(std::move(childPtr), oldIndex);
 	}
 
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
@@ -112,9 +112,9 @@ void CreateObjectCommand::undo()
 void CreateObjectCommand::applyPostCreation(GameObject* obj)
 {
 	if (!obj) return;
-	obj->setLocalPosition(this->storedPosition);
-	obj->setLocalRotation(this->storedRotation);
-	obj->setLocalScale(this->storedScale);
+	obj->SetLocalPosition(this->storedPosition);
+	obj->SetLocalRotation(this->storedRotation);
+	obj->SetLocalScale(this->storedScale);
 }
 
 // ---------------- CreatePrimitiveCommand ----------------
@@ -156,9 +156,9 @@ void CreateLightCommand::execute()
 	if (this->createdObjectStorage)
 	{
 		this->createdObjectRef = this->createdObjectStorage.get();
-		this->createdObjectRef->setLocalPosition(this->storedPosition);
-		this->createdObjectRef->setLocalRotation(this->storedRotation);
-		this->createdObjectRef->setLocalScale(this->storedScale);
+		this->createdObjectRef->SetLocalPosition(this->storedPosition);
+		this->createdObjectRef->SetLocalRotation(this->storedRotation);
+		this->createdObjectRef->SetLocalScale(this->storedScale);
 		ModelManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 		return;
@@ -167,9 +167,9 @@ void CreateLightCommand::execute()
 	// First-time creation
 	this->createdObjectStorage = GameObjectFactory::CreateLight(this->type, this->name);
 	this->createdObjectRef = this->createdObjectStorage.get();
-	this->createdObjectRef->setLocalPosition(this->storedPosition);
-	this->createdObjectRef->setLocalRotation(this->storedRotation);
-	this->createdObjectRef->setLocalScale(this->storedScale);
+	this->createdObjectRef->SetLocalPosition(this->storedPosition);
+	this->createdObjectRef->SetLocalRotation(this->storedRotation);
+	this->createdObjectRef->SetLocalScale(this->storedScale);
 	ModelManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
@@ -227,13 +227,13 @@ void AddObjectCommand::execute()
 {
 	if (!this->objectStorage) return;
 
-	if (!this->objectRef->getParent())
+	if (!this->objectRef->GetParent())
 	{
 		ModelManager::getInstance()->addObject(std::move(this->objectStorage));
 	}
 	else
 	{
-		this->objectStorage->getParent()->addChild(std::move(this->objectStorage));
+		this->objectStorage->GetParent()->AddChild(std::move(this->objectStorage));
 	}
 
 	this->objectStorage = nullptr;
@@ -243,12 +243,12 @@ void AddObjectCommand::undo()
 {
 	if (!this->objectRef) return;
 
-	if (!this->objectRef->getParent())
+	if (!this->objectRef->GetParent())
 	{
 		this->objectStorage = ModelManager::getInstance()->removeObject(this->objectRef);
 	}
 	else
 	{
-		this->objectStorage = this->objectRef->getParent()->removeChild(this->objectRef);
+		this->objectStorage = this->objectRef->GetParent()->RemoveChild(this->objectRef);
 	}
 }

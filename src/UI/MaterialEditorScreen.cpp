@@ -191,7 +191,7 @@ void MaterialEditorScreen::updateSelectedMaterial()
 
 void MaterialEditorScreen::showMaterialEditorWindow()
 {
-	const auto model = selectedObject->getModel();
+	const auto model = selectedObject->GetModel();
 
 	if (!model)
 	{

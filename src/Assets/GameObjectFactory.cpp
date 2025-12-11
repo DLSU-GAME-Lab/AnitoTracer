@@ -24,7 +24,7 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
     {
         String finalName = name.empty() ? results.modelsData[0]->GetName() : name;
         auto gameObject = std::make_unique<GameObject>(finalName, GameObject::MESH, results.modelsData[0]);
-        gameObject->setLocalPosition(results.originalPositions[0]);
+        gameObject->SetLocalPosition(results.originalPositions[0]);
         return gameObject;
     }
 
@@ -41,8 +41,8 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
             String childName = parentName + "_" + std::to_string(childCounter);
             auto child = std::make_unique<GameObject>(childName, GameObject::MESH, model);
             auto reference = child.get();
-            parent->addChild(std::move(child));
-            reference->setLocalPosition(results.originalPositions[childCounter]);
+            parent->AddChild(std::move(child));
+            reference->SetLocalPosition(results.originalPositions[childCounter]);
             childCounter++;
         }
 

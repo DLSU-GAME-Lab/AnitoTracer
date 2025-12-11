@@ -44,15 +44,15 @@ void InspectorScreen::drawUI()
 				ImGui::TableNextRow();
 				ImGui::TableSetColumnIndex(0);
 
-				bool isObjectActive = this->selectedObject->isActive();
+				bool isObjectActive = this->selectedObject->IsActive();
 
 				if (ImGui::Checkbox("##Enabled", &isObjectActive))
 				{
 					CommandManager::getInstance()->executeCommand(
 						new AlterTransformCommand(
 							this->selectedObject,
-							[](GameObject* g, AlterTransformCommand::Variant v) { g->setActive(std::get<bool>(v)); },
-							this->selectedObject->isActive(),
+							[](GameObject* g, AlterTransformCommand::Variant v) { g->SetActive(std::get<bool>(v)); },
+							this->selectedObject->IsActive(),
 							isObjectActive
 						));
 				}
@@ -144,7 +144,7 @@ void InspectorScreen::drawUI()
 	ImGui::End();
 
 	// Color Picker
-	if (isColorPickerOpen && !this->selectedObject->isActive())
+	if (isColorPickerOpen && !this->selectedObject->IsActive())
 		isColorPickerOpen = false;
 
 	if (isColorPickerOpen)
@@ -154,17 +154,17 @@ void InspectorScreen::drawUI()
 void InspectorScreen::updateTransformDisplays()
 {
 	typedef glm::vec3 vec3;
-	vec3 pos = this->selectedObject->getLocalPosition();
+	vec3 pos = this->selectedObject->GetLocalPosition();
 	this->positionDisplay[0] = pos.x;
 	this->positionDisplay[1] = pos.y;
 	this->positionDisplay[2] = pos.z;
 
-	vec3 rot = this->selectedObject->getLocalRotation();
+	vec3 rot = this->selectedObject->GetLocalRotation();
 	this->rotationDisplay[0] = rot.x;
 	this->rotationDisplay[1] = rot.y;
 	this->rotationDisplay[2] = rot.z;
 
-	vec3 scale = this->selectedObject->getLocalScale();
+	vec3 scale = this->selectedObject->GetLocalScale();
 	this->scaleDisplay[0] = scale.x;
 	this->scaleDisplay[1] = scale.y;
 	this->scaleDisplay[2] = scale.z;
@@ -359,8 +359,8 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
 					this->selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalPosition(std::get<glm::vec3>(v)); },
-					this->selectedObject->getLocalPosition(),
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->SetLocalPosition(std::get<glm::vec3>(v)); },
+					this->selectedObject->GetLocalPosition(),
 					glm::vec3(values[0], values[1], values[2])
 				));
 
@@ -371,8 +371,8 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
 					this->selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotation(std::get<glm::vec3>(v)); },
-					this->selectedObject->getLocalRotation(),
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->SetLocalRotation(std::get<glm::vec3>(v)); },
+					this->selectedObject->GetLocalRotation(),
 					glm::vec3(values[0], values[1], values[2])
 				));
 
@@ -385,8 +385,8 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
 					this->selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalScale(std::get<glm::vec3>(v)); },
-					this->selectedObject->getLocalScale(),
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->SetLocalScale(std::get<glm::vec3>(v)); },
+					this->selectedObject->GetLocalScale(),
 					scale)
 				);
 

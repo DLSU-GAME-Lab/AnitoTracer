@@ -29,7 +29,6 @@ void ModelManager::destroy()
 {
 	sharedInstance->sceneGraph.clear();
 	sharedInstance->lightList.clear();
-	sharedInstance->objectGroupList.clear();
 
 	delete sharedInstance;
 }
@@ -52,30 +51,32 @@ std::vector<GameObject*> ModelManager::getAllObjects() const
 	{
 		objectList.push_back(gameObject.get());
 
-		auto descendants = gameObject->getChildrenRecursive();
+		auto descendants = gameObject->GetChildrenRecursive();
 
-		objectList.insert(objectList.end(), descendants.begin(), descendants.end());
+		for (const auto& descendant : descendants)
+		{
+			objectList.push_back(descendant);
+		}
 	}
 
 	return objectList;
 }
 
-std::vector<GameObject*> ModelManager::getAllActiveObjects() const
+std::vector<GameObject*> ModelManager::GetAllActiveAndVisibleObjects() const
 {
 	std::vector<GameObject*> objectList;
 
 	for (const auto& gameObject : this->sceneGraph)
 	{
-		if (!gameObject->isActive()) continue;
+		if (!gameObject->IsActive() && !gameObject->IsVisible()) continue;
 
 		objectList.push_back(gameObject.get());
 
-		auto descendants = gameObject->getChildrenRecursive();
+		auto descendants = gameObject->GetChildrenRecursive();
 
 		for(auto descendant : descendants)
 		{
-			if (descendant->isActive())
-				objectList.push_back(descendant);
+			if (gameObject->IsActive() && gameObject->IsVisible())	objectList.push_back(descendant);
 		}
 	}
 
@@ -96,7 +97,7 @@ std::vector<GameObject*> ModelManager::getSceneGraph() const
 
 int ModelManager::activeObjectsCount() const
 {
-	auto activeObjects = this->getAllActiveObjects();
+	auto activeObjects = this->GetAllActiveAndVisibleObjects();
 
 	return static_cast<int>(activeObjects.size());
 }
@@ -145,17 +146,13 @@ std::unique_ptr<GameObject> ModelManager::removeObject(GameObject* target)
 
 ModelManager::GameObjectPtr ModelManager::removeInSubtree(GameObject* parent, GameObject* target)
 {
-	for (auto it = parent->children.begin(); it != parent->children.end(); it++)
-	{
-		if (it->get() == target)
-		{
-			std::unique_ptr<GameObject> removed = std::move(*it);
-			parent->children.erase(it);
-			return removed;
-		}
+	GameObjectPtr removed = parent->RemoveChild(target);
+	if (removed) return removed;
 
-		std::unique_ptr<GameObject> result = removeInSubtree(it->get(), target);
-		if (result)	return result;
+	for (auto* child : parent->GetChildren())
+	{
+		GameObjectPtr result = removeInSubtree(child, target);
+		if (result) return result;
 	}
 
 	return nullptr;
@@ -193,14 +190,14 @@ ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* origina
 		{
 			auto type = gameObject->getType();
 			auto name = gameObject->getName();
-			auto position = gameObject->getLocalPosition();
-			auto rotation = gameObject->getLocalRotation();
-			auto scale = gameObject->getLocalScale();
-			auto active = gameObject->isActive();
-			auto visible = gameObject->isVisible();
-			auto pickable = gameObject->isPickable();
-			auto parent = gameObject->getParent();
-			auto material = gameObject->getModel()->getMaterial(0);
+			auto position = gameObject->GetLocalPosition();
+			auto rotation = gameObject->GetLocalRotation();
+			auto scale = gameObject->GetLocalScale();
+			auto active = gameObject->IsActive();
+			auto visible = gameObject->IsVisible();
+			auto pickable = gameObject->IsPickable();
+			auto parent = gameObject->GetParent();
+			auto material = gameObject->GetModel()->getMaterial(0);
 
 			// Copy Material
 			std::shared_ptr<Assets::Material> copiedMat = std::make_shared<Assets::Material>();
@@ -240,7 +237,7 @@ ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* origina
 				break;
 
 			case GameObject::MESH:
-				resultCopy = GameObjectFactory::CreateFromModelFile(original->getModel()->filepath, name);
+				resultCopy = GameObjectFactory::CreateFromModelFile(original->GetModel()->filepath, name);
 				break;
 
 			default:
@@ -251,24 +248,24 @@ ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* origina
 			if (!resultCopy) return nullptr;
 	
 			resultCopy->setName(name);
-			resultCopy->setLocalPosition(position);
-			resultCopy->setLocalRotation(rotation);
-			resultCopy->setLocalScale(scale);
-			resultCopy->setActive(active);
-			resultCopy->setVisible(visible);
-			resultCopy->setPickable(pickable);
-			resultCopy->setParent(parent);
-			resultCopy->getModel()->SetMaterial(*copiedMat);
+			resultCopy->SetLocalPosition(position);
+			resultCopy->SetLocalRotation(rotation);
+			resultCopy->SetLocalScale(scale);
+			resultCopy->SetActive(active);
+			resultCopy->SetVisible(visible);
+			resultCopy->SetPickable(pickable);
+			resultCopy->SetParent(parent);
+			resultCopy->GetModel()->SetMaterial(*copiedMat);
 
 			return resultCopy;
 		};
 
 	auto parent = std::move(copyObject(original));
 
-	for (const auto& child : original->getChildrenRecursive())
+	for (const auto& child : original->GetChildrenRecursive())
 	{
 		std::unique_ptr<GameObject> childCopy = copyObject(child);
-		childCopy->getParent()->addChild(std::move(childCopy));
+		childCopy->GetParent()->AddChild(std::move(childCopy));
 	}
 
 	return std::move(parent);
@@ -327,35 +324,30 @@ GameObject* ModelManager::getSelectedObject()
 void ModelManager::clearAllObjects()
 {
 	this->sceneGraph.clear();
-	this->objectGroupList.clear();
 	this->lightList.clear();
+	this->instanceIdToGameObjectMap.clear();
 }
 
-/**
- * \brief Returns associated model representations of objects added.
- * \return
- */
 std::vector<Assets::Model> ModelManager::getAllObjectModels() const
 {
-	ModelList modelList;
+	std::vector<Assets::Model> modelList;
 
 	for (const auto& gameObject : this->sceneGraph)
 	{
-		if (!gameObject->isActive()) continue;
+		if (!gameObject->IsActive()) continue;
 
 		gameObject->updateWorldMatrix();
 
-		auto model = gameObject->getModel();
+		auto model = gameObject->GetModel();
 
-		if (model) // lights and emptyies have no models
+		if (model) // lights and empty have no models
 			modelList.push_back(*model);
 
-		auto descendants = gameObject->getChildrenRecursive();
+		auto descendants = gameObject->GetChildrenRecursive();
 
 		for (auto descendant : descendants)
 		{
-			if (descendant->isActive())
-				modelList.push_back(*descendant->getModel().get());
+			if (descendant->IsActive()) modelList.push_back(*descendant->GetModel().get());
 		}
 	}
 
@@ -447,7 +439,7 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 	case GameObject::DIRECTIONAL_LIGHT:
 	{
 		std::unique_ptr<Light> dl = std::make_unique<Light>("Light Source", Light::LightType::DirectionalLight);
-		dl->setLocalRotation(-180, 0, 0);
+		dl->SetLocalRotation(-180, 0, 0);
 		addLightObject(std::move(dl));
 	}
 	break;
@@ -510,10 +502,10 @@ void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveTy
 
 	if (obj)
 	{
-		obj->setLocalPosition(position);
-		obj->setLocalRotation(rotation);
-		obj->setLocalScale(scale);
-		obj->setActive(active);
+		obj->SetLocalPosition(position);
+		obj->SetLocalRotation(rotation);
+		obj->SetLocalScale(scale);
+		obj->SetActive(active);
 		addObject(std::move(obj));
 	}
 }
@@ -548,10 +540,10 @@ void ModelManager::createLightFromScene(String name, GameObject::PrimitiveType t
 	if (light)
 	{
 		light->setName(name);
-		light->setLocalPosition(position);
-		light->setLocalRotation(rotation);
-		light->setLocalScale(scale);
-		light->setActive(active);
+		light->SetLocalPosition(position);
+		light->SetLocalRotation(rotation);
+		light->SetLocalScale(scale);
+		light->SetActive(active);
 		addLightObject(std::move(light));
 	}
 }
@@ -575,9 +567,9 @@ void ModelManager::createObjectFromFile(String name, GameObject::PrimitiveType t
 
 	auto model = Assets::Model::LoadModel(meshFilePath);
 	std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>(name, type, std::make_shared<Assets::Model>(model));
-	gameObject->setLocalPosition(position);
-	gameObject->setLocalRotation(rotation);
-	gameObject->setLocalScale(scale);
+	gameObject->SetLocalPosition(position);
+	gameObject->SetLocalRotation(rotation);
+	gameObject->SetLocalScale(scale);
 	addObject(std::move(gameObject));
 }
 
@@ -604,9 +596,9 @@ void ModelManager::createObjectGroupFromFile(String name, GameObject::PrimitiveT
 	for (int i = 0; i < models.size(); i++) 
 	{
 		std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>(name + "_1", type, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(position);
-		gameObject->setLocalRotation(rotation);
-		gameObject->setLocalScale(scale);
+		gameObject->SetLocalPosition(position);
+		gameObject->SetLocalRotation(rotation);
+		gameObject->SetLocalScale(scale);
 		addObject(std::move(gameObject));
 	}
 }
@@ -619,9 +611,9 @@ void ModelManager::createSponza()
 	for (int i = 0; i < models.size(); i++)
 	{
 		std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>("Sponza " + i, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(0,0,0);
-		gameObject->setLocalRotation(0,0,0);
-		gameObject->setLocalScale(1,1,1);
+		gameObject->SetLocalPosition(0,0,0);
+		gameObject->SetLocalRotation(0,0,0);
+		gameObject->SetLocalScale(1,1,1);
 		addObject(std::move(gameObject));
 	}
 }
@@ -635,12 +627,12 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 
 	if (action == Hotkey::Action::GameObject_ToggleActive)
 	{
-		auto currentState = this->selectedObject->isActive();
+		auto currentState = this->selectedObject->IsActive();
 
 		CommandManager::getInstance()->executeCommand(
 			new AlterTransformCommand(
 				this->selectedObject,
-				[](GameObject* g, AlterTransformCommand::Variant v) { g->setActive(std::get<bool>(v)); },
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->SetActive(std::get<bool>(v)); },
 				currentState,
 				!currentState
 			));
@@ -655,13 +647,13 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 
 	if (action == Hotkey::Action::GameObject_SetAsFirstSibling)
 	{
-		auto parent = this->selectedObject->getParent();
+		auto parent = this->selectedObject->GetParent();
 
 		CommandManager::getInstance()->executeCommand(
 			new ReparentCommand(
 				this->selectedObject,
 				parent,
-				parent ? parent->getChildIndex(this->selectedObject) : this->getObjectIndex(this->selectedObject),
+				parent ? parent->GetChildIndex(this->selectedObject) : this->getObjectIndex(this->selectedObject),
 				parent,
 				0
 			)
@@ -670,27 +662,27 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 
 	if (action == Hotkey::Action::GameObject_SetAsLastSibling)
 	{
-		auto parent = this->selectedObject->getParent();
+		auto parent = this->selectedObject->GetParent();
 
 		CommandManager::getInstance()->executeCommand(
 			new ReparentCommand(
 				this->selectedObject,
 				parent,
-				parent ? parent->getChildIndex(this->selectedObject) : this->getObjectIndex(this->selectedObject),
+				parent ? parent->GetChildIndex(this->selectedObject) : this->getObjectIndex(this->selectedObject),
 				parent,
-				parent ? parent->getChildren().size() : this->getSceneGraphRootSize()
+				parent ? parent->GetChildren().size() : this->getSceneGraphRootSize()
 			)
 		);
 	}
 
 	if (action == Hotkey::Action::GameObject_TogglePickabilityWithDescendants)
 	{
-		auto currentState = this->selectedObject->isPickable();
+		auto currentState = this->selectedObject->IsPickable();
 
 		CommandManager::getInstance()->executeCommand(
 			new AlterTransformCommand(
 				this->selectedObject,
-				[](GameObject* g, AlterTransformCommand::Variant v) { g->setPickable(std::get<bool>(v)); },
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->SetPickable(std::get<bool>(v)); },
 				currentState,
 				!currentState
 			));
@@ -698,12 +690,12 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 
 	if (action == Hotkey::Action::GameObject_ToggleVisibilityWithDescendants)
 	{
-		auto currentState = this->selectedObject->isVisible();
+		auto currentState = this->selectedObject->IsVisible();
 
 		CommandManager::getInstance()->executeCommand(
 			new AlterTransformCommand(
 				this->selectedObject,
-				[](GameObject* g, AlterTransformCommand::Variant v) { g->setVisible(std::get<bool>(v)); },
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->SetVisible(std::get<bool>(v)); },
 				currentState,
 				!currentState
 			));
@@ -732,7 +724,7 @@ void ModelManager::DuplicateSelectedObject()
 	auto duplicate = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
 
 	glm::vec3 offset = { 10.0f, 10.0f, 10.0 }; //offset spawn
-	duplicate->setLocalPosition(this->selectedObject->getLocalPosition() + offset);
+	duplicate->SetLocalPosition(this->selectedObject->GetLocalPosition() + offset);
 
 	CommandManager::getInstance()->executeCommand(
 		new AddObjectCommand(std::move(duplicate))
@@ -774,7 +766,7 @@ void ModelManager::PasteObject()
 
 	auto sceneCamera = CameraManager::getInstance()->getActiveCamera();
 
-	this->copiedObject->setLocalPosition(sceneCamera->getForward() * 500.0f);
+	this->copiedObject->SetLocalPosition(sceneCamera->getForward() * 500.0f);
 
 	CommandManager::getInstance()->executeCommand(
 		new AddObjectCommand(std::move(this->copiedObject))

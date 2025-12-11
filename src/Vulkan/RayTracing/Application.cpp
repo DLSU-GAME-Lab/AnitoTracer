@@ -255,13 +255,14 @@ void Application::CreateBottomLevelStructures(VkCommandBuffer commandBuffer)
 	uint32_t indexOffset = 0;
 	uint32_t aabbOffset = 0;
 
-	for (const auto& model : scene.Models())
+	for (const auto& gameObjects : scene.GameObjects())
 	{
-		const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-		const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
+		auto model = gameObjects->GetModel();
+		const auto vertexCount = static_cast<uint32_t>(model->NumberOfVertices());
+		const auto indexCount = static_cast<uint32_t>(model->NumberOfIndices());
 		BottomLevelGeometry geometries;
 		
-		model.Procedural()
+		model->Procedural()
 			? geometries.AddGeometryAabb(scene, aabbOffset, 1, true)
 			: geometries.AddGeometryTriangles(scene, vertexOffset, vertexCount, indexOffset, indexCount, true);
 
@@ -314,11 +315,12 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 
 	ModelManager::getInstance()->ClearInstanceToObjectMap();
 
-	for (const auto& model : scene.Models())
+	for (const auto& gameObject : scene.GameObjects())
 	{
-		ModelManager::getInstance()->RegisterInstance(instanceId, model.GetOwner());
+		auto world = gameObject->getWorldMatrix();
+		ModelManager::getInstance()->RegisterInstance(instanceId, gameObject);
 		instances.push_back(TopLevelAccelerationStructure::CreateInstance(
-			bottomAs_[instanceId], glm::mat4(1), instanceId, model.Procedural() ? 1 : 0));
+			bottomAs_[instanceId], glm::transpose(world), instanceId, gameObject->GetModel()->Procedural() ? 1 : 0));
 		instanceId++;
 	}
 

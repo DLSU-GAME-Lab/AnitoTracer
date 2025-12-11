@@ -34,8 +34,8 @@ public:
 
 	glm::mat4 GetView();
 
-	void setLocalPosition(float x, float y, float z) override;
-	void setLocalPosition(glm::vec3 pos) override;
+	void SetLocalPosition(float x, float y, float z) override;
+	void SetLocalPosition(glm::vec3 pos) override;
 
 	glm::vec3 getForward() { return this->forward_; }
 	CameraMoveMode getCurrentMoveMode() const;

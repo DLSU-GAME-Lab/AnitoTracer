@@ -5,8 +5,6 @@
 
 #include "Assets/Model.hpp"
 #include "From-GDGRAP2/VectorUtils.h"
-#include "OBB/BoundingBox.hpp"
-
 
 class GameObject
 {
@@ -24,81 +22,77 @@ public:
     GameObject();
     GameObject(String name, PrimitiveType type);
     GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::Model> modelRef);
+    GameObject(const GameObject& other);
     ~GameObject() = default;
+
+    virtual std::unique_ptr<GameObject> Copy(GameObject original);
 
     void setName(std::string name);
     String getName() const;
 
     PrimitiveType getType() const;
 
-    bool isActive();
-    void setActive(bool flag);
+    bool IsActive();
+    void SetActive(bool flag);
 
-    bool isVisible();
-    void setVisible(bool flag);
+    bool IsVisible();
+    void SetVisible(bool flag);
 
-    bool isPickable();
-    void setPickable(bool flag);
+    bool IsPickable();
+    void SetPickable(bool flag);
 
-    virtual void setLocalPosition(vec3 newPos);
-    virtual void setLocalPosition(float x, float y, float z);
-    vec3 getLocalPosition() const;
-    vec3 getWorldPosition() const;
+    virtual void SetLocalPosition(vec3 newPos);
+    virtual void SetLocalPosition(float x, float y, float z);
+    vec3 GetLocalPosition() const;
+    vec3 GetWorldPosition() const;
 
-    virtual void setLocalRotation(vec3 newRot);
-    virtual void setLocalRotation(float x, float y, float z);
-    vec3 getLocalRotation() const;
-    vec3 getWorldRotation() const;
+    virtual void SetLocalRotation(vec3 newRot);
+    virtual void SetLocalRotation(float x, float y, float z);
+    vec3 GetLocalRotation() const;
+    vec3 GetWorldRotation() const;
 
-    void setLocalScale(vec3 newScale);
-    void setLocalScale(float x, float y, float z);
-    vec3 getLocalScale() const;
-    vec3 getWorldScale() const;
+    void SetLocalScale(vec3 newScale);
+    void SetLocalScale(float x, float y, float z);
+    vec3 GetLocalScale() const;
+    vec3 GetWorldScale() const;
 
-    std::shared_ptr<Assets::Model> getModel();
+    std::shared_ptr<Assets::Model> GetModel() const;
+    void SetModel(std::shared_ptr<Assets::Model> model);
 
-    void addChild(GameObjectPtr child);
-    void addChildAtIndex(GameObjectPtr child, int index);
-    GameObjectPtr removeChild(GameObject* child);
-    std::vector<GameObject*> getChildren() const;
-    std::vector<GameObject*> getChildrenRecursive() const; // gets all descendants
-	int getChildIndex(GameObject* child) const;
+    void AddChild(GameObjectPtr child);
+    void AddChildAtIndex(GameObjectPtr child, int index);
+    GameObjectPtr RemoveChild(GameObject* child);
+    std::vector<GameObject*> GetChildren() const;
+    std::vector<GameObject*> GetChildrenRecursive() const; // gets all descendants
+	int GetChildIndex(GameObject* child) const;
 
-    void setParent(GameObject* newParent);
-    GameObject* getParent() const;
+    void SetParent(GameObject* newParent);
+    GameObject* GetParent() const;
 
-    bool isDescendantOf(const GameObject* potentialParent) const;
-
-    void setOBB(const BoundingBox& obb);
-    std::shared_ptr<BoundingBox> getOBB() const;
+    bool IsDescendantOf(const GameObject* potentialParent) const;
 
     void updateLocalMatrix();
     glm::mat4 getLocalMatrix() const;
     void updateWorldMatrix();
-    glm::mat4 getWorldMatrix() const;
+    glm::mat4 getWorldMatrix();
 	glm::mat4 getWorldMatrixInverse() const;
 
-	void setLocalDirty();
-	bool isLocalDirty() const;
-	void setWorldDirty();
-	bool isWorldDirty() const;
+	void SetLocalDirty();
+	bool IsLocalDirty() const;
+	void SetWorldDirty();
+	bool IsWorldDirty() const;
 
 	bool IsHierarchyNodeOpen() const;
 	void SetHierarchyNodeOpen(bool isOpen);
 
+    void SetId(uint32_t id);
+    uint32_t GetId();
+
+    void updateSceneView();
+
 protected:
     String name;
-    PrimitiveType type;
 
-    bool active = true;
-    bool visible = true;
-    bool pickable = true;
-
-    std::shared_ptr<GameObject> debugCube = nullptr;
-
-    vec3 origin = VectorUtils::zeros();
-    vec3 originRot = VectorUtils::zeros();
-    vec3 originScale = VectorUtils::ones();
     vec3 localPosition = VectorUtils::zeros();
     vec3 localRotation = VectorUtils::zeros();
     vec3 localScale = VectorUtils::ones();
@@ -110,25 +104,26 @@ protected:
     glm::mat4 localMatrix = glm::mat4(1.0);
     glm::mat4 worldMatrix = glm::mat4(1.0);
 
+    PrimitiveType type;
+
+private:
+    bool isActive = true;
+    bool isVisible = true;
+    bool isPickable = true;
+
+    std::shared_ptr<GameObject> debugCube = nullptr;
+
     std::shared_ptr<Assets::Model> modelRef;
 
     GameObject* parent = nullptr;
     std::vector<GameObjectPtr> children;
 
-    std::shared_ptr<BoundingBox> obb;
-
-    virtual void performModelTransform();
-    virtual void performModelRotate();
-    virtual void performModelScale();
-
-    void updateSceneView();
-
-	bool localDirty = true;
-	bool worldDirty = true;
+    bool isLocalDirty = true;
+    bool isWorldDirty = true;
 
     bool isHierarchyNodeOpen = true;
 
-    friend class ModelManager;
+    uint32_t m_id = 0;
 };
 
 
