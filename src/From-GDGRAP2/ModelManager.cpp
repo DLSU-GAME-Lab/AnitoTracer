@@ -325,7 +325,8 @@ void ModelManager::clearAllObjects()
 {
 	this->sceneGraph.clear();
 	this->lightList.clear();
-	this->instanceIdToGameObjectMap.clear();
+	this->gameObjectMap.clear();
+	this->tlasInstanceMap.clear();
 }
 
 std::vector<Assets::Model> ModelManager::getAllObjectModels() const
@@ -704,6 +705,60 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 	}
 }
 
+void ModelManager::RegisterToMap(GameObject* gameObject)
+{
+	auto it = this->gameObjectMap.find(gameObject->GetId());
+
+	if (it != this->gameObjectMap.end())
+	{
+		Debug::Log("Warning:GameObject with ID " + std::to_string(gameObject->GetId()) + " is already registered in ModelManager map. Overriting");
+	}
+
+	this->gameObjectMap[gameObject->GetId()] = gameObject;
+}
+
+void ModelManager::UnregisterFromMap(GameObject* gameObject)
+{
+	this->gameObjectMap.erase(gameObject->GetId());
+}
+
+GameObject* ModelManager::FindObjectByID(uint32_t id) const
+{
+	auto it = this->gameObjectMap.find(id);
+
+	return (it != this->gameObjectMap.end()) ? it->second : nullptr;
+}
+
+void ModelManager::ClearTLASInstances()
+{
+	this->tlasInstanceMap.clear();
+}
+
+void ModelManager::RegisterTLASInstance(uint32_t objectId, VkAccelerationStructureInstanceKHR instance)
+{
+	auto it = this->tlasInstanceMap.find(objectId);
+
+	if (it != this->tlasInstanceMap.end())
+	{
+		Debug::Log("Duplicate Instace Detected! " + std::to_string(objectId));
+	}
+
+	this->tlasInstanceMap[objectId] = instance;
+}
+
+std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances() const
+{
+	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
+	tlasInstances.reserve(this->tlasInstanceMap.size());
+
+	for (const auto [id, instance] : this->tlasInstanceMap)
+	{
+		
+	}
+
+	return tlasInstances;
+}
+
 void ModelManager::CutSelectedObject()
 {
 	this->copiedObject = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
@@ -741,22 +796,6 @@ void ModelManager::DeleteSelectedObject()
 	this->selectedObject = nullptr;
 
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); //AnitoTracer Specific
-}
-
-void ModelManager::ClearInstanceToObjectMap()
-{
-	this->instanceIdToGameObjectMap.clear();
-}
-
-void ModelManager::RegisterInstance(uint32_t instanceId, GameObject* gameObject)
-{
-	this->instanceIdToGameObjectMap[instanceId] = gameObject;
-}
-
-GameObject* ModelManager::FindGameObject(uint32_t instanceId) const
-{
-	auto it = this->instanceIdToGameObjectMap.find(instanceId);
-	return (it != this->instanceIdToGameObjectMap.end()) ? it->second : nullptr;
 }
 
 /* Where the object is spawned needs to be decided  (world origin vs infront of camera vs beside copy) */

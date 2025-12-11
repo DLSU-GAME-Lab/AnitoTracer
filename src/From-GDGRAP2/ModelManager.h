@@ -21,9 +21,10 @@ public:
 
 	using GameObjectPtr = std::unique_ptr<GameObject>;
 	using GameObjectList = std::vector<GameObjectPtr>;
-
+	using GameObjectMap = std::unordered_map<uint32_t, GameObject*>;
 	using LightPtr = std::unique_ptr<Light>;
 	using LightList = std::vector<Light*>;
+	using TLASInstanceMap = std::unordered_map<uint32_t, VkAccelerationStructureInstanceKHR>;
 
 	typedef std::vector<Assets::LightProperties> LightPropsList;
 
@@ -67,16 +68,13 @@ public:
 
 	void OnActionPressed(Hotkey::Action action) override;
 
-	/* For Hierarchy Actions and Scene View Menu */
-	void PasteObject();
-	void CutSelectedObject();
-	void CopySelectedObject();
-	void DuplicateSelectedObject();
-	void DeleteSelectedObject();
+	void RegisterToMap(GameObject* gameObject);
+	void UnregisterFromMap(GameObject* gameObject);
+	GameObject* FindObjectByID(uint32_t id) const;
 
-	void ClearInstanceToObjectMap();
-	void RegisterInstance(uint32_t instanceId, GameObject* gameObject);
-	GameObject* FindGameObject(uint32_t instanceId) const;
+	void ClearTLASInstances();
+	void RegisterTLASInstance(uint32_t objectId, VkAccelerationStructureInstanceKHR instance);
+	std::vector<VkAccelerationStructureInstanceKHR> GetTLASInstances() const;
 
 private:
 	ModelManager();
@@ -88,11 +86,19 @@ private:
 	GameObjectList sceneGraph;
 	LightList lightList;
 
+	GameObjectMap gameObjectMap;
+	TLASInstanceMap tlasInstanceMap; //move somewhere appropriate
+
 	GameObject* selectedObject = nullptr;
 	GameObjectPtr copiedObject = nullptr;
 
-	std::unordered_map<uint32_t, GameObject*> instanceIdToGameObjectMap;
-
 	GameObjectPtr removeInSubtree(GameObject* parent, GameObject* target);
+
+	/* For Hierarchy Actions and Scene View Menu */
+	void PasteObject();
+	void CutSelectedObject();
+	void CopySelectedObject();
+	void DuplicateSelectedObject();
+	void DeleteSelectedObject();
 };
 

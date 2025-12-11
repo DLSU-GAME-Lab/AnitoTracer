@@ -6,7 +6,6 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include "EventBroadcaster.h"
-#include "ModelManager.h"
 #include "RayTracer.hpp"
 
 GameObject::GameObject()
@@ -56,7 +55,7 @@ GameObject::GameObject(const GameObject& other) : name(other.name), m_id(other.m
 	}
 }
 
-std::unique_ptr<GameObject> GameObject::Copy(GameObject original)
+std::unique_ptr<GameObject> GameObject::Clone()
 {
 	return std::make_unique<GameObject>(*this);
 }

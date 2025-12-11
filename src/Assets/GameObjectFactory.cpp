@@ -1,11 +1,15 @@
 #include "GameObjectFactory.hpp"
 #include "ModelLibrary.hpp"
+#include "From-GDGRAP2/ModelManager.h"
 
 using namespace Assets;
 
 GameObject::GameObjectPtr GameObjectFactory::CreateEmpty(const String& name)
 {
-    return std::make_unique<GameObject>(name, GameObject::NONE);
+    auto obj = std::make_unique<GameObject>(name, GameObject::NONE);
+    obj->SetId(AcquireId());
+    ModelManager::getInstance()->RegisterToMap(obj.get());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& filepath, const String& name)
@@ -16,16 +20,21 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
     if (results.modelsData.empty())
     {
         String finalName = name.empty() ? "mesh" : name;
-        return std::make_unique<GameObject>(finalName, GameObject::MESH, nullptr);
+        auto obj = std::make_unique<GameObject>(finalName, GameObject::MESH, nullptr);
+        obj->SetId(AcquireId());
+        ModelManager::getInstance()->RegisterToMap(obj.get());
+        return obj;
     }
 
     // Single mesh - create single GameObject
     else if (results.modelsData.size() == 1)
     {
-        String finalName = name.empty() ? results.modelsData[0]->GetName() : name;
-        auto gameObject = std::make_unique<GameObject>(finalName, GameObject::MESH, results.modelsData[0]);
-        gameObject->SetLocalPosition(results.originalPositions[0]);
-        return gameObject;
+        String finalName = name.empty() ? results.modelsData[0]->FilePath() : name;
+        auto obj = std::make_unique<GameObject>(finalName, GameObject::MESH, results.modelsData[0]);
+        obj->SetLocalPosition(results.originalPositions[0]);
+        obj->SetId(AcquireId());
+        ModelManager::getInstance()->RegisterToMap(obj.get());
+        return obj;
     }
 
     else
@@ -34,6 +43,8 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
         String parentName = name.empty() ? "mesh" : name;
 
         auto parent = std::make_unique<GameObject>(parentName, GameObject::NONE);
+        parent->SetId(AcquireId());
+        ModelManager::getInstance()->RegisterToMap(parent.get());
         int childCounter = 0;
 
         for (const auto& model : results.modelsData)
@@ -43,48 +54,68 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
             auto reference = child.get();
             parent->AddChild(std::move(child));
             reference->SetLocalPosition(results.originalPositions[childCounter]);
+            reference->SetId(AcquireId());
+            ModelManager::getInstance()->RegisterToMap(reference);
             childCounter++;
         }
 
         return parent;
     }
-    
+
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCube(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("CUBE");
-    return std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetId(AcquireId());
+    ModelManager::getInstance()->RegisterToMap(obj.get());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreatePlane(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("PLANE");
-    return std::make_unique<GameObject>(name, GameObject::PLANE, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetId(AcquireId());
+    ModelManager::getInstance()->RegisterToMap(obj.get());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateSphere(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("SPHERE");
-    return std::make_unique<GameObject>(name, GameObject::SPHERE, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetId(AcquireId());
+    ModelManager::getInstance()->RegisterToMap(obj.get());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCylinder(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("CYLINDER");
-    return std::make_unique<GameObject>(name, GameObject::CYLINDER, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetId(AcquireId());
+    ModelManager::getInstance()->RegisterToMap(obj.get());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCapsule(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("CAPSULE");
-    return std::make_unique<GameObject>(name, GameObject::CAPSULE, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetId(AcquireId());
+    ModelManager::getInstance()->RegisterToMap(obj.get());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCornellBox(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("CORNELL_BOX");
-    return std::make_unique<GameObject>(name, GameObject::CORNELL_BOX, modelResult.modelsData[0]);
+    auto obj = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    obj->SetId(AcquireId());
+    ModelManager::getInstance()->RegisterToMap(obj.get());
+    return obj;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreatePrimitive(GameObject::PrimitiveType type, const String& name)
@@ -111,8 +142,35 @@ GameObject::GameObjectPtr GameObjectFactory::CreatePrimitive(GameObject::Primiti
     }
 }
 
+GameObject::GameObjectPtr GameObjectFactory::CreateGameObjectCopy(GameObject* original)
+{
+    if (!original) return nullptr;
+    auto obj = original->Clone();
+    obj->SetId(AcquireId());
+    ModelManager::getInstance()->RegisterToMap(obj.get());
+    return obj;
+}
+
 GameObjectFactory::LightPtr GameObjectFactory::CreateLight(Light::LightType type, const String& name)
 {
     auto light = std::make_unique<Light>(name, type);
+    light->SetId(AcquireId());
+    ModelManager::getInstance()->RegisterToMap(light.get());
     return std::move(light);
+}
+
+uint32_t GameObjectFactory::AcquireId()
+{
+    if (!freeIds.empty())
+    {
+        uint32_t id = freeIds.back();
+        freeIds.pop_back();
+        return id;
+    }
+    return nextId++;
+}
+
+void GameObjectFactory::ReleaseId(uint32_t id)
+{
+    freeIds.push_back(id);
 }

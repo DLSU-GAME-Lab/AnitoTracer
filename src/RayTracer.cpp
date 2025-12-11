@@ -671,7 +671,7 @@ void RayTracer::ExecuteScheduledPick()
 		auto result = rayPicker_->pick(*deviceProcedures_, Device(), rayOrigin, rayDirection, currentFrame_);
 
 		int pickedId = result.objectID;
-		auto gameObject = ModelManager::getInstance()->FindGameObject(pickedId);
+		auto gameObject = ModelManager::getInstance()->FindObjectByID(pickedId);
 
 		if (gameObject)	ModelManager::getInstance()->setSelectedObject(gameObject);
 		else ModelManager::getInstance()->setSelectedObject(nullptr);

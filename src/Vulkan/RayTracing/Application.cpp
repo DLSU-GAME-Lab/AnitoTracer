@@ -315,16 +315,13 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 	// Hit group 1: procedurals
 	uint32_t instanceId = 0;
 
-	ModelManager::getInstance()->ClearInstanceToObjectMap();
-
 	for (const auto& gameObject : scene.GameObjects())
 	{
 		if (!gameObject->GetModel()) continue;
 
 		auto world = gameObject->getWorldMatrix();
-		ModelManager::getInstance()->RegisterInstance(instanceId, gameObject);
 		instances.push_back(TopLevelAccelerationStructure::CreateInstance(
-			bottomAs_[instanceId], glm::transpose(world), instanceId, gameObject->GetModel()->Procedural() ? 1 : 0));
+			bottomAs_[instanceId], glm::transpose(world), gameObject->GetId(), gameObject->GetModel()->Procedural() ? 1 : 0));
 		instanceId++;
 	}
 

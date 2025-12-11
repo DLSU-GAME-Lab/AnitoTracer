@@ -30,13 +30,14 @@ public:
 
    // Convenience: create based on GameObject::PrimitiveType
    static GameObjectPtr CreatePrimitive(GameObject::PrimitiveType type, const String& name = "Primitive");
+   static GameObjectPtr CreateGameObjectCopy(GameObject* original);
 
    static LightPtr CreateLight(Light::LightType type, const String& name = "Light_Source");
 
-private:
-    //GameObjectFactory();
-    //~GameObjectFactory() = default;
-    //GameObjectFactory(GameObjectFactory const&) {};             // copy constructor is private
-    //GameObjectFactory& operator=(GameObjectFactory const&) {};  // assignment operator is private*/
+   static uint32_t AcquireId();
+   static void ReleaseId(uint32_t id);
 
+private:
+    static inline uint32_t nextId = 1; // 0 reserved for null
+    static inline std::vector<uint32_t> freeIds;
 };

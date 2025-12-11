@@ -25,7 +25,7 @@ public:
     GameObject(const GameObject& other);
     ~GameObject() = default;
 
-    virtual std::unique_ptr<GameObject> Copy(GameObject original);
+    virtual std::unique_ptr<GameObject> Clone();
 
     void setName(std::string name);
     String getName() const;
