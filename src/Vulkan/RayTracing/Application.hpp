@@ -32,6 +32,7 @@ namespace Vulkan::RayTracing
 		
 		void OnDeviceSet() override;
 		void CreateAccelerationStructures();
+		void UpdateAccelerationStructures();
 		void DeleteAccelerationStructures();
 		void CreateSwapChain() override;
 		void DeleteSwapChain() override;
@@ -41,6 +42,7 @@ namespace Vulkan::RayTracing
 
 		void CreateBottomLevelStructures(VkCommandBuffer commandBuffer);
 		void CreateTopLevelStructures(VkCommandBuffer commandBuffer);
+		void UpdateTopLevelStructures(VkCommandBuffer commandBuffer);
 		void CreateOutputImage();
 
 		std::unique_ptr<class DeviceProcedures> deviceProcedures_;

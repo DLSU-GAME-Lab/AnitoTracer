@@ -11,13 +11,13 @@ AlterTransformCommand::AlterTransformCommand(GameObject* object, Setter setter, 
 void AlterTransformCommand::execute()
 {
 	this->apply(gameObject, newValue);
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 }
 
 void AlterTransformCommand::undo()
 {
 	this->apply(gameObject, oldValue);
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 }
 
 TransformObjectCommand::TransformObjectCommand(GameObject* object, vec3 oldPosition, vec3 oldRotation, vec3 oldScale, vec3 newPosition, vec3 newRotation, vec3 newScale) 
@@ -30,7 +30,7 @@ void TransformObjectCommand::execute()
 	this->gameObject->SetLocalPosition(newPosition);
 	this->gameObject->SetLocalRotation(newRotation);
 	this->gameObject->SetLocalScale(newScale);
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 }
 
 void TransformObjectCommand::undo()
@@ -38,7 +38,7 @@ void TransformObjectCommand::undo()
 	this->gameObject->SetLocalPosition(oldPosition);
 	this->gameObject->SetLocalRotation(oldRotation);
 	this->gameObject->SetLocalScale(oldScale);
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 }
 
 

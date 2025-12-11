@@ -95,6 +95,21 @@ std::vector<GameObject*> ModelManager::getSceneGraph() const
 	return objectList;
 }
 
+bool ModelManager::AreTransformsDirty() const
+{
+	return std::any_of(this->sceneGraph.begin(), this->sceneGraph.end(),
+		[](const GameObjectPtr& obj)
+		{
+			if (obj->IsLocalDirty() || obj->IsWorldDirty()) return true;
+			auto descendants = obj->GetChildrenRecursive();
+			return std::any_of(descendants.begin(), descendants.end(),
+				[](GameObject* descendant)
+				{
+					return descendant->IsLocalDirty() || descendant->IsWorldDirty();
+				});
+		});
+}
+
 int ModelManager::activeObjectsCount() const
 {
 	auto activeObjects = this->GetAllActiveAndVisibleObjects();
@@ -751,9 +766,17 @@ std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances()
 	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
 	tlasInstances.reserve(this->tlasInstanceMap.size());
 
-	for (const auto [id, instance] : this->tlasInstanceMap)
+	for (auto [id, instance] : this->tlasInstanceMap)
 	{
-		
+		//also update instances
+		auto obj = this->FindObjectByID(id);
+		if (obj->IsLocalDirty() || obj->IsWorldDirty())
+		{
+			obj->updateWorldMatrix();
+			glm::mat4 worldMat = obj->getWorldMatrix();
+			std::memcpy(&instance.transform, &worldMat, sizeof(instance.transform.matrix));
+		}
+			
 	}
 
 	return tlasInstances;

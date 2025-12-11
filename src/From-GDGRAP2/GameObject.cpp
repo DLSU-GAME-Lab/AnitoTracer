@@ -438,7 +438,6 @@ void GameObject::updateWorldMatrix()
 
 glm::mat4 GameObject::getWorldMatrix() 
 {
-	this->updateWorldMatrix();
 	return this->worldMatrix;
 }
 
@@ -501,6 +500,6 @@ uint32_t GameObject::GetId()
 void GameObject::updateSceneView()
 {
 	if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
 	}
 }

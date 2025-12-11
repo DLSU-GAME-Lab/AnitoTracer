@@ -36,8 +36,6 @@ void ReparentCommand::execute()
 	{
 		newParent->AddChildAtIndex(std::move(childPtr), newIndex);
 	}
-
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void ReparentCommand::undo()

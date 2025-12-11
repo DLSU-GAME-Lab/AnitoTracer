@@ -120,6 +120,24 @@ void Application::CreateAccelerationStructures()
 	std::cout << "- built acceleration structures in " << elapsed << "s" << std::endl;
 }
 
+void Application::UpdateAccelerationStructures()
+{
+	if(ModelManager::getInstance()->AreTransformsDirty() == false)	return;
+
+ 	const auto timer = std::chrono::high_resolution_clock::now();
+
+	SingleTimeCommands::Submit(CommandPool(), [this](VkCommandBuffer commandBuffer)
+		{
+			UpdateTopLevelStructures(commandBuffer);
+		});
+
+	topScratchBuffer_.reset();
+	topScratchBufferMemory_.reset();
+
+	const auto elapsed = std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - timer).count();
+	std::cout << "- updated acceleration structures in " << elapsed << "s" << std::endl;
+}
+
 void Application::DeleteAccelerationStructures()
 {
 	topAs_.clear();
@@ -354,6 +372,24 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 	topAs_[0].Generate(commandBuffer, *topScratchBuffer_, 0, *topBuffer_, 0);
 
 	debugUtils.SetObjectName(topAs_[0].Handle(), "TLAS");
+}
+
+void Application::UpdateTopLevelStructures(VkCommandBuffer commandBuffer)
+{
+	if (topAs_.empty()) return;
+
+	auto instances = ModelManager::getInstance()->GetTLASInstances();
+
+	// Create and copy instances buffer (do it in a separate one-time synchronous command buffer).
+	BufferUtil::CreateDeviceBuffer(CommandPool(), "TLAS Instances", VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, instances, instancesBuffer_, instancesBufferMemory_);
+
+	// Memory barrier for the bottom level acceleration structure builds.
+	AccelerationStructure::MemoryBarrier(commandBuffer);
+
+	const auto total = GetTotalRequirements(topAs_);
+	topScratchBuffer_.reset(new Buffer(Device(), total.buildScratchSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+	topScratchBufferMemory_.reset(new DeviceMemory(topScratchBuffer_->AllocateMemory(VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+	topAs_[0].Update(commandBuffer, *topScratchBuffer_, 0, *topBuffer_, 0);
 }
 
 void Application::CreateOutputImage()
