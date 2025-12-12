@@ -24,7 +24,7 @@ void main()
 {
 
     // Fetch triangle and vertex data
-    const uvec2 offsets = Offsets[gl_InstanceID];
+    const uvec2 offsets = Offsets[gl_InstanceCustomIndexEXT];
     const uint indexOffset = offsets.x;
     const uint vertexOffset = offsets.y;
 

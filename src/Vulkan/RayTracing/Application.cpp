@@ -18,6 +18,7 @@
 #include <chrono>
 #include <iostream>
 #include "From-GDGRAP2/ModelManager.h"
+#include <From-GDGRAP2/Debug.h>
 
 
 namespace Vulkan::RayTracing {
@@ -340,11 +341,11 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 		auto instance = TopLevelAccelerationStructure::CreateInstance(
 			bottomAs_[instanceId], // TODO: Replace with blas from ModelManager/ModelLibrary
 			glm::transpose(world), 
-			gameObject->GetId(), 
+			instanceId,
 			gameObject->GetModel()->Procedural() ? 1 : 0
 		);
-
-		ModelManager::getInstance()->RegisterTLASInstance(gameObject->GetId(), instance);
+		Debug::Log(std::to_string(instanceId));
+		ModelManager::getInstance()->RegisterTLASInstance(instanceId, gameObject, instance);
 		instanceId++;
 	}
 

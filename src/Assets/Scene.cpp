@@ -38,7 +38,7 @@ Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<GameObject*>&& gameOb
 		const auto vertexOffset = static_cast<uint32_t>(vertices.size());
 		const auto materialOffset = static_cast<uint32_t>(materials.size());
 
-		offsets.emplace_back(indexOffset, vertexOffset);
+		offsets.push_back({ indexOffset, vertexOffset });
 
 		// Copy model data one after the other.
 		vertices.insert(vertices.end(), obj->GetModel()->Vertices().begin(), obj->GetModel()->Vertices().end());

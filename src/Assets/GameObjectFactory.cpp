@@ -1,6 +1,7 @@
 #include "GameObjectFactory.hpp"
 #include "ModelLibrary.hpp"
 #include "From-GDGRAP2/ModelManager.h"
+#include <From-GDGRAP2/Debug.h>
 
 using namespace Assets;
 
@@ -167,6 +168,7 @@ uint32_t GameObjectFactory::AcquireId()
         freeIds.pop_back();
         return id;
     }
+
     return nextId++;
 }
 

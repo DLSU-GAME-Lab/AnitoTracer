@@ -505,12 +505,10 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 				}
 			}
 
-			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced) // For Rasterized Mode
-			{
-				selectedObject->SetLocalPosition(translation[0], translation[1], translation[2]);
-				selectedObject->SetLocalRotation(rotation[0], rotation[1], rotation[2]);
-				selectedObject->SetLocalScale(scale[0], scale[1], scale[2]);
-			}
+			selectedObject->SetLocalPosition(translation[0], translation[1], translation[2]);
+			selectedObject->SetLocalRotation(rotation[0], rotation[1], rotation[2]);
+			selectedObject->SetLocalScale(scale[0], scale[1], scale[2]);
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
 		}
 
 		if (!isUsingGizmoNow && wasUsingGizmoLastFrame) // Stop Manipulate
@@ -561,20 +559,6 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	}
 
 	ImGui::Render();
-
-	VkMemoryBarrier memoryBarrier = {};
-	memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;  
-	memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-
-	vkCmdPipelineBarrier(
-		commandBuffer,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		0,
-		1, &memoryBarrier,
-		0, nullptr,
-		0, nullptr);
 
 	VkRenderPassBeginInfo renderPassInfo = {};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

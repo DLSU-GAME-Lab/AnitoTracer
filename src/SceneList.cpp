@@ -776,7 +776,8 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
-	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	auto areaLightObject = GameObjectFactory::CreateEmpty("AreaLight");
+	areaLightObject->SetModel(std::make_shared<Model>(areaLightModel));
 	areaLightObject->SetLocalPosition(0, 1500, -500);
 	areaLightObject->SetLocalRotation(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));

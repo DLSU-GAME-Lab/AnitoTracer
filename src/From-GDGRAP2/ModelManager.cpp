@@ -12,6 +12,7 @@
 #include "Assets/GameObjectFactory.hpp"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "Engine/CameraSystem/Camera.h"
+#include <glm/gtc/type_ptr.hpp>
 
 ModelManager* ModelManager::sharedInstance = nullptr;
 
@@ -739,9 +740,9 @@ void ModelManager::UnregisterFromMap(GameObject* gameObject)
 
 GameObject* ModelManager::FindObjectByID(uint32_t id) const
 {
-	auto it = this->gameObjectMap.find(id);
+	auto it = this->tlasInstanceMap.find(id);
 
-	return (it != this->gameObjectMap.end()) ? it->second : nullptr;
+	return (it != this->tlasInstanceMap.end()) ? it->second.obj : nullptr;
 }
 
 void ModelManager::ClearTLASInstances()
@@ -749,16 +750,21 @@ void ModelManager::ClearTLASInstances()
 	this->tlasInstanceMap.clear();
 }
 
-void ModelManager::RegisterTLASInstance(uint32_t objectId, VkAccelerationStructureInstanceKHR instance)
+void ModelManager::RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAccelerationStructureInstanceKHR instance)
 {
+	InstancePair pair{
+		obj,
+		instance
+	};
+
 	auto it = this->tlasInstanceMap.find(objectId);
 
 	if (it != this->tlasInstanceMap.end())
 	{
-		Debug::Log("Duplicate Instace Detected! " + std::to_string(objectId));
+		Debug::Log("Warning: TLAS Instance for GameObject with ID " + std::to_string(objectId) + " is already registered in ModelManager TLAS map. Overwriting");
 	}
 
-	this->tlasInstanceMap[objectId] = instance;
+	this->tlasInstanceMap[objectId] = pair;
 }
 
 std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances() const
@@ -766,20 +772,29 @@ std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances()
 	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
 	tlasInstances.reserve(this->tlasInstanceMap.size());
 
-	for (auto [id, instance] : this->tlasInstanceMap)
+	for (const auto& [id, pair] : this->tlasInstanceMap)
 	{
-		//also update instances
-		auto obj = this->FindObjectByID(id);
-		if (obj->IsLocalDirty() || obj->IsWorldDirty())
+		VkAccelerationStructureInstanceKHR updatedInstance = pair.instance;
+
+		if (pair.obj->WasDirty())
 		{
-			obj->updateWorldMatrix();
-			glm::mat4 worldMat = glm::transpose(obj->getWorldMatrix());
-			std::memcpy(&instance.transform, &worldMat, sizeof(instance.transform.matrix));
+			const glm::mat4& worldMat = pair.obj->getWorldMatrix();
+			pair.obj->ClearDirtyFlag();
+
+			// Direct memory copy of transposed matrix
+			float* dst = &updatedInstance.transform.matrix[0][0];
+			const float* src = glm::value_ptr(worldMat);
+
+			// Manual transpose during copy
+			for (int col = 0; col < 3; ++col) {
+				for (int row = 0; row < 4; ++row) {
+					dst[col * 4 + row] = src[row * 4 + col];
+				}
+			}
 		}
 
-		tlasInstances.push_back(instance);
+		tlasInstances.push_back(updatedInstance);
 	}
-
 	return tlasInstances;
 }
 

@@ -81,6 +81,8 @@ public:
 	bool IsLocalDirty() const;
 	void SetWorldDirty();
 	bool IsWorldDirty() const;
+    void ClearDirtyFlag();
+    bool WasDirty() const;
 
 	bool IsHierarchyNodeOpen() const;
 	void SetHierarchyNodeOpen(bool isOpen);
@@ -110,6 +112,8 @@ private:
     bool isActive = true;
     bool isVisible = true;
     bool isPickable = true;
+
+    bool wasDirty = true; //TLAS update flag
 
     std::shared_ptr<GameObject> debugCube = nullptr;
 

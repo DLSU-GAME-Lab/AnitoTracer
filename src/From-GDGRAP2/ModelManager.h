@@ -16,6 +16,12 @@
 class ModelManager : public HotkeyListener
 {
 public:
+	struct InstancePair
+	{
+		GameObject* obj;
+		VkAccelerationStructureInstanceKHR instance;
+	};
+
 	using vec3 = glm::vec3;
 	using String = std::string;
 
@@ -24,7 +30,7 @@ public:
 	using GameObjectMap = std::unordered_map<uint32_t, GameObject*>;
 	using LightPtr = std::unique_ptr<Light>;
 	using LightList = std::vector<Light*>;
-	using TLASInstanceMap = std::unordered_map<uint32_t, VkAccelerationStructureInstanceKHR>;
+	using TLASInstanceMap = std::unordered_map<uint32_t, InstancePair>;
 
 	typedef std::vector<Assets::LightProperties> LightPropsList;
 
@@ -75,7 +81,7 @@ public:
 	GameObject* FindObjectByID(uint32_t id) const;
 
 	void ClearTLASInstances();
-	void RegisterTLASInstance(uint32_t objectId, VkAccelerationStructureInstanceKHR instance);
+	void RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAccelerationStructureInstanceKHR instance);
 	std::vector<VkAccelerationStructureInstanceKHR> GetTLASInstances() const;
 
 private:

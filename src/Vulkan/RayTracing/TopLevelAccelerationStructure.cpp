@@ -86,9 +86,9 @@ void TopLevelAccelerationStructure::Update(VkDeviceAddress instanceAddress, VkCo
 	};
 
 	VkAccelerationStructureBuildGeometryInfoKHR tlasBuildGeometryInfo{
-			.type = VkAccelerationStructureTypeKHR::VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-			.flags = VkBuildAccelerationStructureFlagBitsKHR::VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
-			.mode = VkBuildAccelerationStructureModeKHR::VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR,
+			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+			.flags = flags_ | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
+			.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR,
 			.srcAccelerationStructure = Handle(),
 			.dstAccelerationStructure = Handle(),
 			.geometryCount = 1,
