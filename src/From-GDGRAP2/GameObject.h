@@ -119,6 +119,17 @@ protected:
     glm::mat4 localMatrix = glm::mat4(1.0);
     glm::mat4 worldMatrix = glm::mat4(1.0);
 
+    PrimitiveType type;
+
+private:
+    bool isActive = true;
+    bool isVisible = true;
+    bool isPickable = true;
+
+    bool wasDirty = true; //TLAS update flag
+
+    std::shared_ptr<GameObject> debugCube = nullptr;
+
     std::shared_ptr<Assets::Model> modelRef;
 
     GameObject* parent = nullptr;

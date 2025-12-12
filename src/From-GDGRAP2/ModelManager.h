@@ -33,7 +33,6 @@ public:
 	using LightPtr = std::unique_ptr<Light>;
 	using LightList = std::vector<Light*>;
 	using TLASInstanceMap = std::unordered_map<uint32_t, InstancePair>;
-	using DirtyInstancesMap = std::unordered_map<uint32_t, VkAccelerationStructureInstanceKHR>;
 
 	using ModelList = std::vector<Assets::Model>;
 	typedef std::vector<Assets::LightProperties> LightPropsList;
@@ -96,6 +95,8 @@ public:
 	VkBuffer GetDirtyInstancesBuffer() const;
 
 	uint32_t GetDirtyInstancesCount() { return static_cast<uint32_t>(dirtyInstanceIds.size()); }
+	std::vector<VkAccelerationStructureInstanceKHR> GetTLASInstances() const;
+
 
 private:
 	ModelManager();

@@ -438,6 +438,7 @@ void GameObject::updateWorldMatrix()
 
 glm::mat4 GameObject::getWorldMatrix() const
 {
+	this->updateWorldMatrix();
 	return this->worldMatrix;
 }
 
@@ -458,6 +459,7 @@ void GameObject::setLocalDirty()
 {
 	this->localDirty = true;
 	this->worldDirty = true;
+	this->wasDirty = true;
 
 	for(const auto& child : this->children)
 	{
@@ -474,6 +476,8 @@ bool GameObject::isLocalDirty() const
 void GameObject::setWorldDirty()
 {
 	this->worldDirty = true;
+	this->wasDirty = true;
+
 	for (const auto& child : this->children)
 	{
 		if (child)
@@ -494,6 +498,16 @@ void GameObject::clearDirtyFlag()
 bool GameObject::wasDirty() const
 {
 	return this->m_wasDirty;
+}
+
+void GameObject::ClearDirtyFlag()
+{
+	this->wasDirty = true;
+}
+
+bool GameObject::WasDirty() const
+{
+	return this->wasDirty;
 }
 
 bool GameObject::IsHierarchyNodeOpen() const

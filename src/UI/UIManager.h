@@ -111,7 +111,7 @@ public:
 	ImFont* GetIconFont();
 	void OnActionPressed(Hotkey::Action action) override;
 	
-	bool IsGizmoUsed() const { return wasUsingGizmoLastFrame || gizmoWasManipulated; }
+	bool IsGizmoUsed() const { return wasUsingGizmoLastFrame; }
 
 	bool settingsActive = false;
 	bool profilerActive = false;

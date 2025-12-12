@@ -358,6 +358,7 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 		);
 
 		instances.push_back(instance);
+
 		ModelManager::getInstance()->RegisterTLASInstance(instanceId, gameObject, instance);
 		instanceId++;
 	}
