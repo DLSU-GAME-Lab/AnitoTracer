@@ -623,10 +623,11 @@ std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances()
 		if (obj->IsLocalDirty() || obj->IsWorldDirty())
 		{
 			obj->updateWorldMatrix();
-			glm::mat4 worldMat = obj->getWorldMatrix();
+			glm::mat4 worldMat = glm::transpose(obj->getWorldMatrix());
 			std::memcpy(&instance.transform, &worldMat, sizeof(instance.transform.matrix));
 		}
-			
+
+		tlasInstances.push_back(instance);
 	}
 
 	return tlasInstances;

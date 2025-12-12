@@ -12,5 +12,6 @@ public:
 	inline static const String ON_RESET_ACCUMULATOR = "ON_RESET_ACCUMULATOR";
 	inline static const String ON_OBJECT_CREATED = "ON_OBJECT_CREATED";
 	inline static const String ON_OBJECT_DELETED = "ON_OBJECT_DELETED";
+	inline static const String ON_TLAS_UPDATE_REQUIRED = "ON_TLAS_UPDATE_REQUIRED";
 };
 

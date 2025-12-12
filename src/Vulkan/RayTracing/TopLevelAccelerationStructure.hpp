@@ -32,6 +32,7 @@ namespace Vulkan::RayTracing
 			VkDeviceSize resultOffset);
 
 		void Update(
+			VkDeviceAddress instanceAddress,
 			VkCommandBuffer commandBuffer,
 			Buffer& scratchBuffer,
 			VkDeviceSize scratchOffset,

@@ -425,6 +425,7 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 	axisInput("Y", 1);
 	axisInput("Z", 2);
 
+
 	if (anyChanged && anyEditEnded)
 	{
 		glm::vec3 after(values[0], values[1], values[2]);
@@ -434,34 +435,23 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 
 		switch (action)
 		{
-		case EditorAction::Move:
-			CommandManager::getInstance()->executeCommand(
-				new AlterTransformCommand(
-					selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalPosition(std::get<glm::vec3>(v)); },
-					before,
-					after));
+		case Move:
+			this->selectedObject->SetLocalPosition(glm::vec3(values[0], values[1], values[2]));
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
 			break;
-
-		case EditorAction::Rotate:
-			CommandManager::getInstance()->executeCommand(
-				new AlterTransformCommand(
-					selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotationEuler(std::get<glm::vec3>(v)); },
-					before,
-					after));
+		case Rotate:
+			this->selectedObject->SetLocalRotation(glm::vec3(values[0], values[1], values[2]));
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
 			break;
-
-		case EditorAction::Scale:
-			CommandManager::getInstance()->executeCommand(
-				new AlterTransformCommand(
-					selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalScale(std::get<glm::vec3>(v)); },
-					before,
-					after));
+		case Scale:
+			this->selectedObject->SetLocalScale(glm::vec3(values[0], values[1], values[2]));
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
+			break;
+		default:
 			break;
 		}
 	}
+
 
 	ImGui::PopID();
 }
