@@ -329,6 +329,7 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 
 			if (ImGui::DragFloat(id.c_str(), &v, 0.1f, -FLT_MAX, FLT_MAX, "%.2f"))
 			{
+				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
 				if (ImGui::IsItemDeactivatedAfterEdit())
 					isUpdated = true;
 			}
@@ -351,15 +352,13 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 	{	
 	case Move:
 		this->selectedObject->SetLocalPosition(glm::vec3(values[0], values[1], values[2]));
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
 		break;
 	case Rotate:
 		this->selectedObject->SetLocalRotation(glm::vec3(values[0], values[1], values[2]));
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
 		break;
 	case Scale:
-		this->selectedObject->SetLocalScale(glm::vec3(values[0], values[1], values[2]));
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
+		auto newScale = IsUniformScalingEnabled() ? ScaleUniformly(scale, values) : glm::vec3(values[0], values[1], values[2]);
+		this->selectedObject->SetLocalScale(glm::vec3(newScale));
 		break;
 	default:
 		break;
