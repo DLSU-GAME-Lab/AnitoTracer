@@ -755,8 +755,9 @@ SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
-	std::unique_ptr<GameObject> areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	std::unique_ptr<GameObject> areaLightObject = GameObjectFactory::CreateEmpty("AreaLight");
 	areaLightObject->SetLocalPosition(0, 1000.0f, 500.0f);
+	areaLightObject->SetModel(std::make_shared<Model>(areaLightModel));
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	const auto i = mat4(1);

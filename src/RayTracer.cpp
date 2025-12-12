@@ -57,6 +57,8 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SCENE_LOADED, this);
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MARK_SCENE_DIRTY, this);
+	EventBroadcaster::getInstance()->addObserver(EventNames::ON_RESET_ACCUMULATOR, this);
+	EventBroadcaster::getInstance()->addObserver(EventNames::ON_TLAS_UPDATE_REQUIRED, this);
 
 	CameraManager::initialize();
 	TextureLibrary::initialize();
@@ -74,6 +76,8 @@ RayTracer::~RayTracer()
 	rayScene_.reset();
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_RESET_ACCUMULATOR);
+	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_TLAS_UPDATE_REQUIRED);
 }
 
 void RayTracer::initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig,
@@ -252,7 +256,6 @@ void RayTracer::DrawFrame()
 		userSettings_.RequiresAccumulationReset(previousSettings_) ||
 		!userSettings_.AccumulateRays)
 	{
-		UpdateAccelerationStructures();
 		totalNumberOfSamples_ = 0;
 		resetAccumulation_ = false;
 	}
@@ -264,7 +267,7 @@ void RayTracer::DrawFrame()
 	totalNumberOfSamples_ += numberOfSamples_;
 
 	rayScene_->Update(CommandPool());
-	
+
 	ExecuteScheduledPick();
 	Application::DrawFrame();
 }
@@ -485,6 +488,13 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 	}
 	else if (eventName == EventNames::ON_RESET_ACCUMULATOR)
 	{
+		resetAccumulation_ = true;
+	}
+	
+	if (eventName == EventNames::ON_TLAS_UPDATE_REQUIRED)
+	{
+		Device().WaitIdle();
+		UpdateAccelerationStructures();
 		resetAccumulation_ = true;
 	}
 }

@@ -275,7 +275,6 @@ void InspectorScreen::drawTransformTab()
 			ImGui::TableSetColumnIndex(1);
 			ImGui::PushID("ScaleLink");
 
-			ImGui::PushFont(UIManager::getInstance()->GetIconFont());
 
 			ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[3]);
 			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
@@ -283,8 +282,6 @@ void InspectorScreen::drawTransformTab()
 				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
 				UIManager::getInstance()->config()->inspectorUniformScaling = this->isUniformScalingEnabled;
 			}
-			ImGui::PopFont();
-
 			ImGui::PopFont();
 			ImGui::PopID();
 
@@ -330,7 +327,7 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 			id += label;
 			id += name;
 
-			if (ImGui::InputFloat(id.c_str(), &v, 0.0f, 0.0f, "%0.3f"))
+			if (ImGui::DragFloat(id.c_str(), &v, 0.1f, -FLT_MAX, FLT_MAX, "%.2f"))
 			{
 				if (ImGui::IsItemDeactivatedAfterEdit())
 					isUpdated = true;
@@ -350,49 +347,67 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 	axisInput("Y", values[1]);
 	axisInput("Z", values[2]);
 
-	if (isUpdated)
-	{
-		switch (action)
-		{
-		case EditorAction::Move: 
-
-			CommandManager::getInstance()->executeCommand(
-				new AlterTransformCommand(
-					this->selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->SetLocalPosition(std::get<glm::vec3>(v)); },
-					this->selectedObject->GetLocalPosition(),
-					glm::vec3(values[0], values[1], values[2])
-				));
-
-			break;
-
-		case EditorAction::Rotate:
-
-			CommandManager::getInstance()->executeCommand(
-				new AlterTransformCommand(
-					this->selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->SetLocalRotation(std::get<glm::vec3>(v)); },
-					this->selectedObject->GetLocalRotation(),
-					glm::vec3(values[0], values[1], values[2])
-				));
-
-			break;
-
-		case EditorAction::Scale:
-			if(IsUniformScalingEnabled()) 
-				scale = ScaleUniformly(scale, values);
-
-			CommandManager::getInstance()->executeCommand(
-				new AlterTransformCommand(
-					this->selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->SetLocalScale(std::get<glm::vec3>(v)); },
-					this->selectedObject->GetLocalScale(),
-					scale)
-				);
-
-			break;
-		}
+	switch (action)
+	{	
+	case Move:
+		this->selectedObject->SetLocalPosition(glm::vec3(values[0], values[1], values[2]));
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
+		break;
+	case Rotate:
+		this->selectedObject->SetLocalRotation(glm::vec3(values[0], values[1], values[2]));
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
+		break;
+	case Scale:
+		this->selectedObject->SetLocalScale(glm::vec3(values[0], values[1], values[2]));
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
+		break;
+	default:
+		break;
 	}
+
+	//if (isUpdated)
+	//{
+	//	switch (action)
+	//	{
+	//	case EditorAction::Move: 
+
+	//		CommandManager::getInstance()->executeCommand(
+	//			new AlterTransformCommand(
+	//				this->selectedObject,
+	//				[](GameObject* g, AlterTransformCommand::Variant v) { g->SetLocalPosition(std::get<glm::vec3>(v)); },
+	//				this->selectedObject->GetLocalPosition(),
+	//				glm::vec3(values[0], values[1], values[2])
+	//			));
+
+	//		break;
+
+	//	case EditorAction::Rotate:
+
+	//		CommandManager::getInstance()->executeCommand(
+	//			new AlterTransformCommand(
+	//				this->selectedObject,
+	//				[](GameObject* g, AlterTransformCommand::Variant v) { g->SetLocalRotation(std::get<glm::vec3>(v)); },
+	//				this->selectedObject->GetLocalRotation(),
+	//				glm::vec3(values[0], values[1], values[2])
+	//			));
+
+	//		break;
+
+	//	case EditorAction::Scale:
+	//		if(IsUniformScalingEnabled()) 
+	//			scale = ScaleUniformly(scale, values);
+
+	//		CommandManager::getInstance()->executeCommand(
+	//			new AlterTransformCommand(
+	//				this->selectedObject,
+	//				[](GameObject* g, AlterTransformCommand::Variant v) { g->SetLocalScale(std::get<glm::vec3>(v)); },
+	//				this->selectedObject->GetLocalScale(),
+	//				scale)
+	//			);
+
+	//		break;
+	//	}
+	//}
 
 	ImGui::PopID();
 }

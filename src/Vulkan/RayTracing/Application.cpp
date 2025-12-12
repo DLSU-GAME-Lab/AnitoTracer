@@ -326,25 +326,36 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 	const auto& scene = GetScene();
 	const auto& debugUtils = Device().DebugUtils();
 
-	// Top level acceleration structure
-	std::vector<VkAccelerationStructureInstanceKHR> instances;
-
 	// Hit group 0: triangles
 	// Hit group 1: procedurals
 	uint32_t instanceId = 0;
+
+	ModelManager::getInstance()->ClearTLASInstances();
 
 	for (const auto& gameObject : scene.GameObjects())
 	{
 		if (!gameObject->GetModel()) continue;
 
 		auto world = gameObject->getWorldMatrix();
-		instances.push_back(TopLevelAccelerationStructure::CreateInstance(
-			bottomAs_[instanceId], glm::transpose(world), gameObject->GetId(), gameObject->GetModel()->Procedural() ? 1 : 0));
+		auto instance = TopLevelAccelerationStructure::CreateInstance(
+			bottomAs_[instanceId], // TODO: Replace with blas from ModelManager/ModelLibrary
+			glm::transpose(world), 
+			gameObject->GetId(), 
+			gameObject->GetModel()->Procedural() ? 1 : 0
+		);
+
+		ModelManager::getInstance()->RegisterTLASInstance(gameObject->GetId(), instance);
 		instanceId++;
 	}
 
+	auto instances = ModelManager::getInstance()->GetTLASInstances();
+
 	// Create and copy instances buffer (do it in a separate one-time synchronous command buffer).
-	BufferUtil::CreateDeviceBuffer(CommandPool(), "TLAS Instances", VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, instances, instancesBuffer_, instancesBufferMemory_);
+	BufferUtil::CreateDeviceBuffer(CommandPool(), "TLAS Instances", 
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, 
+		instances,
+		instancesBuffer_, 
+		instancesBufferMemory_);
 
 	// Memory barrier for the bottom level acceleration structure builds.
 	AccelerationStructure::MemoryBarrier(commandBuffer);
@@ -380,16 +391,18 @@ void Application::UpdateTopLevelStructures(VkCommandBuffer commandBuffer)
 
 	auto instances = ModelManager::getInstance()->GetTLASInstances();
 
-	// Create and copy instances buffer (do it in a separate one-time synchronous command buffer).
-	BufferUtil::CreateDeviceBuffer(CommandPool(), "TLAS Instances", VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, instances, instancesBuffer_, instancesBufferMemory_);
+	if (instances.empty()) return;
 
-	// Memory barrier for the bottom level acceleration structure builds.
-	AccelerationStructure::MemoryBarrier(commandBuffer);
+	BufferUtil::CopyFromStagingBuffer(CommandPool(), *instancesBuffer_, instances);
 
-	const auto total = GetTotalRequirements(topAs_);
+	const auto total = GetTotalRequirements(topAs_); 
+
 	topScratchBuffer_.reset(new Buffer(Device(), total.buildScratchSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 	topScratchBufferMemory_.reset(new DeviceMemory(topScratchBuffer_->AllocateMemory(VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
-	topAs_[0].Update(commandBuffer, *topScratchBuffer_, 0, *topBuffer_, 0);
+
+	AccelerationStructure::MemoryBarrier(commandBuffer);
+	topAs_[0].Update(instancesBuffer_->GetDeviceAddress(), commandBuffer, *topScratchBuffer_, 0, *topBuffer_, 0);
+	AccelerationStructure::MemoryBarrier(commandBuffer);
 }
 
 void Application::CreateOutputImage()

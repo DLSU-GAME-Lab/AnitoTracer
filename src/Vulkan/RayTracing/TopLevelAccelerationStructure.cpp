@@ -70,19 +70,48 @@ void TopLevelAccelerationStructure::Generate(
 	deviceProcedures_.vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildGeometryInfo_, &pBuildOffsetInfo);
 }
 
-void TopLevelAccelerationStructure::Update(VkCommandBuffer commandBuffer, Buffer& scratchBuffer, VkDeviceSize scratchOffset, Buffer& resultBuffer, VkDeviceSize resultOffset)
+void TopLevelAccelerationStructure::Update(VkDeviceAddress instanceAddress, VkCommandBuffer commandBuffer, Buffer& scratchBuffer, VkDeviceSize scratchOffset, Buffer& resultBuffer, VkDeviceSize resultOffset)
 {
-	VkAccelerationStructureBuildRangeInfoKHR buildOffsetInfo = {};
-	buildOffsetInfo.primitiveCount = instancesCount_;
+	auto instancesData = VkAccelerationStructureGeometryInstancesDataKHR{
+			.arrayOfPointers = false,
+			.data = instanceAddress
+	};
 
-	const VkAccelerationStructureBuildRangeInfoKHR* pBuildOffsetInfo = &buildOffsetInfo;
+	VkAccelerationStructureGeometryDataKHR geometryData;
+	geometryData.instances = instancesData;
 
-	buildGeometryInfo_.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
-	buildGeometryInfo_.srcAccelerationStructure = Handle();
-	buildGeometryInfo_.dstAccelerationStructure = Handle();
-	buildGeometryInfo_.scratchData.deviceAddress = scratchBuffer.GetDeviceAddress() + scratchOffset;
+	VkAccelerationStructureGeometryKHR tlasGeometry{
+		.geometryType = VkGeometryTypeKHR::VK_GEOMETRY_TYPE_INSTANCES_KHR,
+		.geometry = geometryData
+	};
 
-	deviceProcedures_.vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildGeometryInfo_, &pBuildOffsetInfo);
+	VkAccelerationStructureBuildGeometryInfoKHR tlasBuildGeometryInfo{
+			.type = VkAccelerationStructureTypeKHR::VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+			.flags = VkBuildAccelerationStructureFlagBitsKHR::VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
+			.mode = VkBuildAccelerationStructureModeKHR::VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR,
+			.srcAccelerationStructure = Handle(),
+			.dstAccelerationStructure = Handle(),
+			.geometryCount = 1,
+			.pGeometries = &tlasGeometry
+	};
+
+	tlasBuildGeometryInfo.scratchData.deviceAddress = scratchBuffer.GetDeviceAddress();
+
+	// Prepare the build range for the TLAS
+	VkAccelerationStructureBuildRangeInfoKHR tlasRangeInfo{
+		.primitiveCount = instancesCount_,
+		.primitiveOffset = 0,
+		.firstVertex = 0,
+		.transformOffset = 0
+	};
+
+	const VkAccelerationStructureBuildRangeInfoKHR* pBuildOffsetInfo = &tlasRangeInfo;
+
+	deviceProcedures_.vkCmdBuildAccelerationStructuresKHR(
+		commandBuffer,
+		1,
+		&tlasBuildGeometryInfo,
+		&pBuildOffsetInfo);
 }
 
 VkAccelerationStructureInstanceKHR TopLevelAccelerationStructure::CreateInstance(

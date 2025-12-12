@@ -562,6 +562,20 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 	ImGui::Render();
 
+	VkMemoryBarrier memoryBarrier = {};
+	memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;  
+	memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		0,
+		1, &memoryBarrier,
+		0, nullptr,
+		0, nullptr);
+
 	VkRenderPassBeginInfo renderPassInfo = {};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = sharedInstance->renderPass->Handle();

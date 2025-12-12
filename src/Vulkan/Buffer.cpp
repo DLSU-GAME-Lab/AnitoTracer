@@ -1,11 +1,16 @@
 #include "Buffer.hpp"
 #include "SingleTimeCommands.hpp"
+#include <stdexcept>
 
 namespace Vulkan {
 
 Buffer::Buffer(const class Device& device, const size_t size, const VkBufferUsageFlags usage) :
 	device_(device)
 {
+	if (size == 0) {
+		throw std::runtime_error("Attempting to create buffer with size 0!");
+	}
+
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = size;
