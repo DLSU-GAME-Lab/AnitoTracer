@@ -73,6 +73,7 @@ void TopLevelAccelerationStructure::Generate(
 void TopLevelAccelerationStructure::Update(VkDeviceAddress instanceAddress, VkCommandBuffer commandBuffer, Buffer& scratchBuffer, VkDeviceSize scratchOffset, Buffer& resultBuffer, VkDeviceSize resultOffset)
 {
 	auto instancesData = VkAccelerationStructureGeometryInstancesDataKHR{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
 			.arrayOfPointers = false,
 			.data = instanceAddress
 	};
@@ -81,11 +82,13 @@ void TopLevelAccelerationStructure::Update(VkDeviceAddress instanceAddress, VkCo
 	geometryData.instances = instancesData;
 
 	VkAccelerationStructureGeometryKHR tlasGeometry{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 		.geometryType = VkGeometryTypeKHR::VK_GEOMETRY_TYPE_INSTANCES_KHR,
 		.geometry = geometryData
 	};
 
 	VkAccelerationStructureBuildGeometryInfoKHR tlasBuildGeometryInfo{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
 			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
 			.flags = flags_ | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
 			.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR,
