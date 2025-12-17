@@ -14,6 +14,12 @@
 #include "Engine/CameraSystem/Camera.h"
 #include <glm/gtc/type_ptr.hpp>
 
+#include "Vulkan/Buffer.hpp"
+#include "Vulkan/DeviceMemory.hpp"
+#include "Vulkan/BufferUtil.hpp"
+#include "RayTracer.hpp"
+
+
 ModelManager* ModelManager::sharedInstance = nullptr;
 
 ModelManager* ModelManager::getInstance()
@@ -34,6 +40,18 @@ void ModelManager::destroy()
 	delete sharedInstance;
 }
 
+void ModelManager::InitDirtyInstanceBuffer(Vulkan::CommandPool& commandPool)
+{
+	std::vector<uint32_t> dirtyInit(1024, 0);
+	dirtyInit[0] = 0;
+
+	std::vector<uint32_t> dirtyCountInit(1, 0);
+
+	Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Dirty Instances ID Buffer",
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		dirtyInit, this->dirtyInstancesBuffer, this->dirtyInstancesMemory);
+}
+
 ModelManager::ModelManager()
 {
 	HotkeySystem::getInstance()->addListener(this);
@@ -42,6 +60,9 @@ ModelManager::ModelManager()
 ModelManager::~ModelManager()
 {
 	HotkeySystem::getInstance()->removeListener(this);
+
+	this->dirtyInstancesBuffer.reset();
+	this->dirtyInstancesMemory.reset();
 }
 
 std::vector<GameObject*> ModelManager::getAllObjects() const
@@ -767,17 +788,18 @@ void ModelManager::RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAc
 	this->tlasInstanceMap[objectId] = pair;
 }
 
-std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances() const
+std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances(Vulkan::CommandPool& commandPool)
 {
 	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
+	this->dirtyInstanceIds.clear();
 	tlasInstances.reserve(this->tlasInstanceMap.size());
 
 	for (const auto& [id, pair] : this->tlasInstanceMap)
 	{
 		VkAccelerationStructureInstanceKHR updatedInstance = pair.instance;
-
 		if (pair.obj->WasDirty())
 		{
+			dirtyInstanceIds.push_back(id);
 			const glm::mat4& worldMat = pair.obj->getWorldMatrix();
 			pair.obj->ClearDirtyFlag();
 
@@ -792,10 +814,30 @@ std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances()
 				}
 			}
 		}
-
 		tlasInstances.push_back(updatedInstance);
 	}
+
+	std::vector<uint32_t> dirtyBufferData;
+	dirtyBufferData.reserve(dirtyInstanceIds.size() + 1);
+	dirtyBufferData.push_back(static_cast<uint32_t>(dirtyInstanceIds.size()));
+	dirtyBufferData.insert(dirtyBufferData.end(),
+		dirtyInstanceIds.begin(),
+		dirtyInstanceIds.end());
+
+	std::vector<uint32_t> dirtyCountData = { static_cast<uint32_t>(dirtyInstanceIds.size()) };
+
+	Vulkan::BufferUtil::UpdateDeviceBuffer(
+		commandPool,
+		dirtyBufferData,
+		this->dirtyInstancesBuffer
+	);
+
 	return tlasInstances;
+}
+
+VkBuffer ModelManager::GetDirtyInstancesBuffer() const
+{
+	return dirtyInstancesBuffer->Handle();
 }
 
 void ModelManager::CutSelectedObject()

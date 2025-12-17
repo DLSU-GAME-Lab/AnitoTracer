@@ -21,7 +21,7 @@
 		const vec4 colorAndDistance = vec4(m.Diffuse.rgb * texColor.rgb + litColor, t);
 		const vec4 scatter = vec4(normal + RandomInUnitSphere(seed), isScattered ? 1 : 0);
 
-		return RayPayload(colorAndDistance, scatter, seed, anyHitFlag);
+		return RayPayload(colorAndDistance, scatter, gl_InstanceCustomIndexEXT, seed, anyHitFlag);
 	}
 
 	// Metallic
@@ -35,7 +35,7 @@
 		const vec4 colorAndDistance = vec4(m.Diffuse.rgb * texColor.rgb + litColor, t);
 		const vec4 scatter = vec4(reflected + m.Fuzziness*RandomInUnitSphere(seed), isScattered ? 1 : 0);
 
-		return RayPayload(colorAndDistance, scatter, seed, anyHitFlag);
+		return RayPayload(colorAndDistance, scatter, gl_InstanceCustomIndexEXT, seed, anyHitFlag);
 	}
 
 	// Dielectric
@@ -53,8 +53,8 @@
 	
 		vec3 litColor = texColor.rgb * light;
 		return RandomFloat(seed) < reflectProb
-			? RayPayload(vec4(texColor.rgb + litColor, t), vec4(reflect(direction, normal), 1), seed, anyHitFlag)
-			: RayPayload(vec4(texColor.rgb + litColor, t), vec4(refracted, 1), seed, anyHitFlag);
+			? RayPayload(vec4(texColor.rgb + litColor, t), vec4(reflect(direction, normal), 1), gl_InstanceCustomIndexEXT, seed, anyHitFlag)
+			: RayPayload(vec4(texColor.rgb + litColor, t), vec4(refracted, 1), gl_InstanceCustomIndexEXT, seed, anyHitFlag);
 	}
 
 	// Diffuse Light
@@ -63,7 +63,7 @@
 		const vec4 colorAndDistance = vec4( m.Diffuse.rgb , t);
 		const vec4 scatter = vec4(1, 0, 0, 0);
 
-		return RayPayload(colorAndDistance, scatter, seed, anyHitFlag);
+		return RayPayload(colorAndDistance, scatter, gl_InstanceCustomIndexEXT, seed, anyHitFlag);
 	}
 
 	RayPayload Scatter(const Material m, const vec3 direction, const vec3 normal, const vec2 texCoord, const float t, inout uint seed, vec3 light, int anyHitFlag)

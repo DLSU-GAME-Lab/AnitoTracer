@@ -10,6 +10,14 @@
 #include "From-GDGRAP2/GameObject.h"
 #include "HotkeySystem/HotkeyListener.hpp"
 
+#include "Vulkan/Buffer.hpp"
+#include "Vulkan/DeviceMemory.hpp"
+
+namespace Vulkan 
+{
+	class CommandPool;
+}
+
 /**
  * \brief Similar to the game object manager, this class stores model instances
  */
@@ -31,12 +39,15 @@ public:
 	using LightPtr = std::unique_ptr<Light>;
 	using LightList = std::vector<Light*>;
 	using TLASInstanceMap = std::unordered_map<uint32_t, InstancePair>;
+	using DirtyInstancesMap = std::unordered_map<uint32_t, VkAccelerationStructureInstanceKHR>;
 
 	typedef std::vector<Assets::LightProperties> LightPropsList;
 
 	static ModelManager* getInstance();
 	static void initialize();
 	static void destroy();
+
+	void InitDirtyInstanceBuffer(Vulkan::CommandPool& commandPool);
 
 	std::vector<GameObject*> getAllObjects() const;
 	std::vector<GameObject*> GetAllActiveAndVisibleObjects() const;
@@ -82,7 +93,11 @@ public:
 
 	void ClearTLASInstances();
 	void RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAccelerationStructureInstanceKHR instance);
-	std::vector<VkAccelerationStructureInstanceKHR> GetTLASInstances() const;
+	std::vector<VkAccelerationStructureInstanceKHR> GetTLASInstances(Vulkan::CommandPool& commandPool);
+
+	VkBuffer GetDirtyInstancesBuffer() const;
+
+	uint32_t GetDirtyInstancesCount() { return static_cast<uint32_t>(dirtyInstanceIds.size()); }
 
 private:
 	ModelManager();
@@ -108,5 +123,9 @@ private:
 	void CopySelectedObject();
 	void DuplicateSelectedObject();
 	void DeleteSelectedObject();
+
+	std::vector<uint32_t> dirtyInstanceIds;
+	std::unique_ptr<Vulkan::Buffer> dirtyInstancesBuffer;
+	std::unique_ptr<Vulkan::DeviceMemory> dirtyInstancesMemory;
 };
 

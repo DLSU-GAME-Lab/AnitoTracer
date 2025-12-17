@@ -543,15 +543,15 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 				newLocalScale
 				};
 
-				if (gizmoBeforeState != afterState)
-				{
-					/* Also Records Actions */
-					CommandManager::getInstance()->executeCommand(new TransformObjectCommand(
-						selectedObject, 
-						gizmoBeforeState.position, gizmoBeforeState.rotation, gizmoBeforeState.scale,
-						afterState.position, afterState.rotation, afterState.scale
-					));
-				}
+				//if (gizmoBeforeState != afterState)
+				//{
+				//	/* Also Records Actions */
+				//	CommandManager::getInstance()->executeCommand(new TransformObjectCommand(
+				//		selectedObject, 
+				//		gizmoBeforeState.position, gizmoBeforeState.rotation, gizmoBeforeState.scale,
+				//		afterState.position, afterState.rotation, afterState.scale
+				//	));
+				//}
 			}
 		}
 

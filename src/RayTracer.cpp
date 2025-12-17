@@ -37,6 +37,7 @@
 #include "Assets/ModelLibrary.hpp"
 #include "RayPicker/RayPickerUBO.hpp"
 #include "Vulkan/RayTracing/TopLevelAccelerationStructure.hpp" 
+#include "Vulkan/BufferUtil.hpp"
 
 namespace
 {
@@ -257,6 +258,10 @@ void RayTracer::DrawFrame()
 		!userSettings_.AccumulateRays)
 	{
 		totalNumberOfSamples_ = 0;
+
+		const auto extent = SwapChain().Extent();
+		std::vector<uint32_t> empty(extent.width * extent.height, 0);
+		Vulkan::BufferUtil::UpdateDeviceBuffer(CommandPool(), empty, this->pixelSampleCountBuffer_);
 		resetAccumulation_ = false;
 	}
 
@@ -266,7 +271,7 @@ void RayTracer::DrawFrame()
 	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
 	totalNumberOfSamples_ += numberOfSamples_;
 
-	rayScene_->Update(CommandPool());
+	//rayScene_->Update(CommandPool());
 
 	ExecuteScheduledPick();
 	Application::DrawFrame();
@@ -495,7 +500,6 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 	{
 		Device().WaitIdle();
 		UpdateAccelerationStructures();
-		resetAccumulation_ = true;
 	}
 }
 

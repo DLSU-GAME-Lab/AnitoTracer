@@ -12,6 +12,7 @@ layout(location = 0) rayPayloadInEXT RayPayload Ray;
 
 void main()
 {
+    Ray.InstanceID = 0xFFFFFFFF;
     if (Camera.HasSky)
     {
         vec3 dir = normalize(gl_WorldRayDirectionEXT);

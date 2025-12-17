@@ -5,7 +5,7 @@
 namespace Vulkan {
 
 Buffer::Buffer(const class Device& device, const size_t size, const VkBufferUsageFlags usage) :
-	device_(device)
+	device_(device), size_(size)
 {
 	if (size == 0) {
 		throw std::runtime_error("Attempting to create buffer with size 0!");

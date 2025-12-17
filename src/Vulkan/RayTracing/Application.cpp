@@ -162,7 +162,23 @@ void Application::CreateSwapChain()
 
 	CreateOutputImage();
 
-	rayTracingPipeline_.reset(new RayTracingPipeline(*deviceProcedures_, SwapChain(), topAs_[0], *accumulationImageView_, *outputImageView_, UniformBuffers(), GetScene(), GetRayScene()));
+	const uint32_t width = SwapChain().Extent().width;
+	const uint32_t height = SwapChain().Extent().height;
+	const uint32_t maxInstancesPerPixel = 8;
+
+	// Size calculation
+	const size_t pixelCount = width * height;
+	const size_t sizePerPixel = sizeof(uint32_t) + // instance count
+		maxInstancesPerPixel * sizeof(uint32_t); // instance IDs
+	const size_t totalSize = pixelCount * sizePerPixel;
+
+	this->pixelMetaDataBuffer_.reset(new Buffer(Device(), totalSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+	this->pixelMetaDataBufferMemory_.reset(new DeviceMemory(pixelMetaDataBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+	this->pixelSampleCountBuffer_.reset(new Buffer(Device(), sizeof(uint32_t) * pixelCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+	this->pixelSampleCountBufferMemory_.reset(new DeviceMemory(pixelSampleCountBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+
+	rayTracingPipeline_.reset(new RayTracingPipeline(*deviceProcedures_, SwapChain(), topAs_[0], *accumulationImageView_, *outputImageView_, UniformBuffers(), GetScene(), GetRayScene(),
+		this->pixelMetaDataBuffer_->Handle(), this->pixelSampleCountBuffer_->Handle(), ModelManager::getInstance()->GetDirtyInstancesBuffer()));
 
 	const std::vector<ShaderBindingTable::Entry> rayGenPrograms = { {rayTracingPipeline_->RayGenShaderIndex(), {}} };
 	const std::vector<ShaderBindingTable::Entry> missPrograms = { {rayTracingPipeline_->MissShaderIndex(), {}} };
@@ -189,6 +205,7 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 {
 	const auto extent = SwapChain().Extent();
 
+	uint32_t dirtyInstancesCount = ModelManager::getInstance()->GetDirtyInstancesCount();
 	VkDescriptorSet descriptorSets[] = { rayTracingPipeline_->DescriptorSet(imageIndex) };
 
 	VkImageSubresourceRange subresourceRange = {};
@@ -208,6 +225,8 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	// Bind ray tracing pipeline.
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rayTracingPipeline_->Handle());
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rayTracingPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
+	vkCmdPushConstants(commandBuffer, rayTracingPipeline_->PipelineLayout().Handle(), VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+		0, sizeof(uint32_t), &dirtyInstancesCount);
 
 	// Describe the shader binding table.
 	VkStridedDeviceAddressRegionKHR raygenShaderBindingTable = {};
@@ -349,7 +368,7 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 		instanceId++;
 	}
 
-	auto instances = ModelManager::getInstance()->GetTLASInstances();
+	auto instances = ModelManager::getInstance()->GetTLASInstances(CommandPool());
 
 	// Create and copy instances buffer (do it in a separate one-time synchronous command buffer).
 	BufferUtil::CreateDeviceBuffer(CommandPool(), "TLAS Instances", 
@@ -390,7 +409,7 @@ void Application::UpdateTopLevelStructures(VkCommandBuffer commandBuffer)
 {
 	if (topAs_.empty()) return;
 
-	auto instances = ModelManager::getInstance()->GetTLASInstances();
+	auto instances = ModelManager::getInstance()->GetTLASInstances(CommandPool());
 
 	if (instances.empty()) return;
 

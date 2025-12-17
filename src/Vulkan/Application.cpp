@@ -142,6 +142,7 @@ void Application::SetPhysicalDevice(
 	commandPool_.reset(new class CommandPool(*device_, device_->GraphicsFamilyIndex(), true));
 
 	Application::CreateProfiler();
+	ModelManager::getInstance()->InitDirtyInstanceBuffer(CommandPool());
 }
 
 void Application::OnDeviceSet()

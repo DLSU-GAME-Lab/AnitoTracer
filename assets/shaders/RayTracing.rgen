@@ -10,8 +10,14 @@
 #include "RayVertex.glsl"
 #include "UniformBufferObject.glsl"
 
+const uint MAX_INSTANCES_PER_PIXEL = 8;
+const uint PIXEL_DATA_STRIDE = MAX_INSTANCES_PER_PIXEL + 1;
+const uint INVALID_INSTANCE_ID = 0xFFFFFFFF;
+
+layout(push_constant) uniform PushConstants { uint dirtyInstanceCount; };
+
 layout(binding = 0, set = 0) uniform accelerationStructureEXT Scene;
-layout(binding = 1, rgba32f) uniform image2D AccumulationImage;
+layout(binding = 1, rgba32f) uniform image2D AccumulationImage;  
 layout(binding = 2, rgba8) uniform image2D OutputImage;
 layout(binding = 3) readonly uniform UniformBufferObjectStruct { UniformBufferObject Camera; };
 
@@ -19,17 +25,107 @@ layout(binding = 12) buffer RayCounter { uint rayCounter; };
 layout(binding = 13) buffer RayVertexBuffer { RayVertex Vertices[]; };
 layout(binding = 14) buffer RayInfoBuffer { RayInfo info[]; };
 
+layout(std430, binding = 15) buffer PixelInstanceDataBuffer { uint PixelInstanceData[]; };
+layout(std430, binding = 16) buffer PixelSampleCountBuffer {uint PixelSampleCount[];};
+layout(std430, binding = 17) buffer DirtyInstanceList { uint dirtyInstances[1024]; };
+
 layout(location = 0) rayPayloadEXT RayPayload Ray;
+
+
+uint getPixelIndex()
+{
+    return gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x;
+}
+
+uint getPixelDataOffset(uint pixelIndex)
+{
+    return pixelIndex * PIXEL_DATA_STRIDE;
+}
+
+bool checkPixelNeedsRetrace(uint pixelIndex)
+{
+    uint baseOffset = getPixelDataOffset(pixelIndex);
+    uint hitCount = PixelInstanceData[baseOffset];
+    
+    for (uint i = 0; i < hitCount && i < MAX_INSTANCES_PER_PIXEL; ++i)
+    {
+        uint hitInstance = PixelInstanceData[baseOffset + 1 + i];
+        
+        // Check if this instance is in the dirty list
+        for (uint d = 0; d < dirtyInstanceCount; ++d)
+        {
+            if (dirtyInstances[d] == hitInstance)
+            {
+                return true;
+            }
+        }
+    }
+    
+    return false; // No dirty instances, can reuse
+}
+
+void recordInstanceHit(uint pixelIndex, uint instanceID)
+{
+    uint baseOffset = getPixelDataOffset(pixelIndex);
+    uint currentCount = PixelInstanceData[baseOffset];
+    
+    for (uint i = 0; i < currentCount && i < MAX_INSTANCES_PER_PIXEL; ++i)
+    {
+        if (PixelInstanceData[baseOffset + 1 + i] == instanceID)
+        {
+            return;
+        }
+    }
+    
+    if (currentCount < MAX_INSTANCES_PER_PIXEL)
+    {
+        PixelInstanceData[baseOffset + 1 + currentCount] = instanceID;
+        PixelInstanceData[baseOffset] = currentCount + 1;
+    }
+}
+
+void clearPixelInstances(uint pixelIndex)
+{
+    uint baseOffset = getPixelDataOffset(pixelIndex);
+    PixelInstanceData[baseOffset] = 0;
+}
 
 void main() 
 {
 	const uint64_t clock = Camera.ShowHeatmap ? clockARB() : 0;
 
+	const uint pixelIndex = getPixelIndex();
+	const ivec2 pixelCoord = ivec2(gl_LaunchIDEXT.xy);
+	bool needsRetrace = checkPixelNeedsRetrace(pixelIndex);
+	uint pixelAccumulatedSamples = PixelSampleCount[pixelIndex];
+
+	if (needsRetrace)
+    {
+        pixelAccumulatedSamples = 0;  // Reset only this pixel
+        clearPixelInstances(pixelIndex);
+    }
+
+    if (!needsRetrace && pixelAccumulatedSamples == Camera.TotalNumberOfSamples)
+    {
+        vec3 accumulatedColor = imageLoad(AccumulationImage, pixelCoord).rgb;
+        vec3 pixelColor = accumulatedColor / pixelAccumulatedSamples; 
+        pixelColor = sqrt(pixelColor);
+        
+        if (Camera.ShowHeatmap)
+        {
+            float convergence = min(float(pixelAccumulatedSamples) / 64.0, 1.0);
+            pixelColor = mix(pixelColor, vec3(0, 1, 0), 0.2 * convergence);
+        }
+        
+        imageStore(OutputImage, pixelCoord, vec4(pixelColor, 1));
+        return;  // Exit early for this pixel
+    }
+
 	// Initialise separate random seeds for the pixel and the rays.
 	// - pixel: we want the same random seed for each pixel to get a homogeneous anti-aliasing.
 	// - ray: we want a noisy random seed, different for each pixel.
 	uint pixelRandomSeed = Camera.RandomSeed;
-	Ray.RandomSeed = InitRandomSeed(InitRandomSeed(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y), Camera.TotalNumberOfSamples);
+	Ray.RandomSeed = InitRandomSeed(InitRandomSeed(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y), pixelAccumulatedSamples);
 
 	vec3 pixelColor = vec3(0);
 
@@ -75,6 +171,14 @@ void main()
 			const vec3 hitColor = Ray.ColorAndDistance.rgb;
 			const float t = Ray.ColorAndDistance.w;
 			const bool isScattered = Ray.ScatterDirection.w > 0;
+
+			const uint hitInstanceID = Ray.InstanceID;  // Now populated from hit shader
+
+			if (t >= 0  && hitInstanceID != INVALID_INSTANCE_ID)
+			{
+				recordInstanceHit(pixelIndex, hitInstanceID);
+			}
+
 
 			rayColor *= hitColor;
 
@@ -140,12 +244,15 @@ void main()
 		pixelColor += rayColor;
 	}
 
-	const bool accumulate = Camera.NumberOfSamples != Camera.TotalNumberOfSamples;
-	const vec3 accumulatedColor = (accumulate ? imageLoad(AccumulationImage, ivec2(gl_LaunchIDEXT.xy)) : vec4(0)).rgb + pixelColor;
+	const vec3 previousAccumulation = pixelAccumulatedSamples > 0 
+    ? imageLoad(AccumulationImage, pixelCoord).rgb 
+    : vec3(0);
 
-	pixelColor = accumulatedColor / Camera.TotalNumberOfSamples;
-
-	// Apply raytracing-in-one-weekend gamma correction.
+	vec3 accumulatedColor = previousAccumulation + pixelColor;
+	pixelAccumulatedSamples += Camera.NumberOfSamples;
+    
+	PixelSampleCount[pixelIndex] = pixelAccumulatedSamples;
+	pixelColor = accumulatedColor / pixelAccumulatedSamples;
 	pixelColor = sqrt(pixelColor);
 
 	if (Camera.ShowHeatmap)
