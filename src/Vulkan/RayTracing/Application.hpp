@@ -2,6 +2,7 @@
 
 #include "Vulkan/Application.hpp"
 #include "RayTracingProperties.hpp"
+#include "Compute/ComputePipeline.hpp"
 
 namespace Vulkan
 {
@@ -35,6 +36,7 @@ namespace Vulkan::RayTracing
 		void UpdateAccelerationStructures();
 		void DeleteAccelerationStructures();
 		void CreateSwapChain() override;
+		void CreatePixelMetaDataBuffers();
 		void DeleteSwapChain() override;
 		void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex) override;
 			   
@@ -69,13 +71,17 @@ namespace Vulkan::RayTracing
 		std::unique_ptr<DeviceMemory> outputImageMemory_;
 		std::unique_ptr<ImageView> outputImageView_;
 
-		std::unique_ptr<Buffer> pixelMetaDataBuffer_;
+		std::unique_ptr<Buffer> pixelSamplesBuffer_;
 		std::unique_ptr<DeviceMemory> pixelMetaDataBufferMemory_;
-
 		std::unique_ptr<Buffer> pixelSampleCountBuffer_;
 		std::unique_ptr<DeviceMemory> pixelSampleCountBufferMemory_;
+		std::unique_ptr<Buffer> workQueueBuffer_;
+		std::unique_ptr<DeviceMemory> workQueueBufferMemory_;
+		std::unique_ptr<Buffer> workQueueCountBuffer_;
+		std::unique_ptr<DeviceMemory> workQueueCountBufferMemory_;
 		
 		std::unique_ptr<class RayTracingPipeline> rayTracingPipeline_;
+		std::unique_ptr<class ComputePipeline> computePipeline_;
 		std::unique_ptr<class ShaderBindingTable> shaderBindingTable_;
 	};
 
