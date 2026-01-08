@@ -84,13 +84,13 @@ void DragAndDropUtils::attachFileMoveTarget(FileTreeNode* destNode) {
 
             if (destNode->isDirectory()) {
                 fs::rename(fsSourcePath, fsNewPath);
+
+                srcNode->getDirectoryEntry().assign(fsNewPath);
+                destNode->addChild(*srcNode);
+                auto newEnd = std::remove(srcNode->getParent()->getChildren().begin(), srcNode->getParent()->getChildren().end(), *srcNode);
+                srcNode->getParent()->getChildren().erase(newEnd, srcNode->getParent()->getChildren().end());
+                srcNode->setParent(&*destNode);
             }
-
-            destNode->addChild(*srcNode);
-
-            auto newEnd = std::remove(srcNode->getParent()->getChildren().begin(), srcNode->getParent()->getChildren().end(), *srcNode);
-            srcNode->getParent()->getChildren().erase(newEnd, srcNode->getParent()->getChildren().end());
-            srcNode->setParent(&*destNode);
         }
 
         ImGui::EndDragDropTarget();
