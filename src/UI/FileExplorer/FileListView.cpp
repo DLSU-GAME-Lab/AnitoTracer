@@ -96,7 +96,8 @@ void FileListView::renderRootNode(FileTreeNode& root) {
     ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow;
 
     try {
-        ImGui::PushFont(nullptr);
+        ImFont* iconFont = UIManager::getInstance()->GetIconFont();
+        ImGui::PushFont(iconFont, 0.0f);
 
         bool isNodeOpen = ImGui::TreeNodeEx(root.getName().append("##list").c_str(), flag);
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
