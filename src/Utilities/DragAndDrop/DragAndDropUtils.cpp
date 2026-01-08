@@ -35,8 +35,10 @@ void DragAndDropUtils::attachModelInstantiateTarget() {
     {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(DragAndDropConstants::MODEL_PATH))
         {
-            const auto i = glm::mat4(1);
-            const char* path = (const char*)payload->Data;
+            IM_ASSERT(payload->DataSize == sizeof(FileTreeNode*));
+            FileTreeNode* srcNode = *(FileTreeNode**)payload->Data;
+            auto path = srcNode->getPathString();
+
             if (fs::path(path).extension() == ".obj") {
                 Assets::Model draggedModel = Assets::Model::LoadModel(path);
                 std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
@@ -53,8 +55,10 @@ void DragAndDropUtils::attachModelInstantiateTargetToViewport(ImGuiViewport* vie
         {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(DragAndDropConstants::MODEL_PATH))
             {
-                const auto i = glm::mat4(1);
-                const char* path = (const char*)payload->Data;
+                IM_ASSERT(payload->DataSize == sizeof(FileTreeNode*));
+                FileTreeNode* srcNode = *(FileTreeNode**)payload->Data;
+                auto path = srcNode->getPathString();
+
                 if (fs::path(path).extension() == ".obj") {
                     Assets::Model draggedModel = Assets::Model::LoadModel(path);
                     std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
