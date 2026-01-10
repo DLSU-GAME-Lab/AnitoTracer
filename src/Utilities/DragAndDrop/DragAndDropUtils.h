@@ -12,4 +12,6 @@ public:
 	static void attachModelInstantiateTarget();
 	static void attachModelInstantiateTargetToViewport(ImGuiViewport* viewport);
 	static void attachFileMoveTarget(FileTreeNode* destNode);
+
+	static void copyFileToAssetsRoot(std::string souceFilePath);
 };

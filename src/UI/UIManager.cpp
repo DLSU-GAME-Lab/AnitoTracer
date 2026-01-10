@@ -843,9 +843,15 @@ LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 				files.push_back(filePath);
 			}
 
-			// TEST LOGIC
 			if (!files.empty()) {
-				MessageBox(hWnd, files[0].c_str(), L"Dropped File", MB_OK);
+				std::wstring sourcePathW(files[0].c_str());
+				std::wstring importPromptMessage(L"Import " + sourcePathW + L" to project?");
+				int response = MessageBox(hWnd, importPromptMessage.c_str(), L"Dropped File", MB_YESNO | MB_ICONQUESTION);
+
+				if (response == IDYES) {
+					std::string sourcePath(sourcePathW.begin(), sourcePathW.end());
+					DragAndDropUtils::copyFileToAssetsRoot(sourcePath);
+				}
 			}
 
 			DragFinish(hDrop); // Free the memory allocated for the dropped files
