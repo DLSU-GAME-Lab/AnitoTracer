@@ -40,6 +40,12 @@
 #include "EditorTheme.hpp"
 #include "Utilities/DragAndDrop/DragAndDropUtils.h"
 
+// For DragDrop from Windows
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <windows.h>
+#include <shellapi.h> // Required for DragAcceptFiles
+
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
 
@@ -48,6 +54,10 @@ UIManager* UIManager::sharedInstance = nullptr;
 TransformState UIManager::gizmoBeforeState = {};
 bool UIManager::wasUsingGizmoLastFrame = false;
 bool UIManager::gizmoWasManipulated = false;
+
+// For WndProc subclassing
+LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+WNDPROC imguiWndproc;
 
 namespace
 {
@@ -112,6 +122,11 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	{
 		Throw(std::runtime_error("failed to initialise ImGui GLFW adapter"));
 	}
+
+	HWND hWnd = glfwGetWin32Window(window.Handle());
+	imguiWndproc = (WNDPROC)GetWindowLongPtr(hWnd, GWLP_WNDPROC);
+	SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)DragDropWndProc);
+	DragAcceptFiles(hWnd, TRUE);
 
 	// Initialise ImGui Vulkan adapter
 	ImGui_ImplVulkan_InitInfo vulkanInit = {};
@@ -810,3 +825,34 @@ void UIManager::setupImGuiStyle()
 	style.Colors[ImGuiCol_ModalWindowDimBg] = DarkTheme.MODAL_WINDOW_DIM_BG;
 }
 
+LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+	switch (message) {
+		case WM_DROPFILES: {
+			HDROP hDrop = (HDROP)wParam; // Cast wParam to HDROP handle
+			UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, NULL, 0); // Get number of dropped files
+
+			std::vector<std::wstring> files;
+			for (UINT i = 0; i < fileCount; ++i) {
+				// Determine the required buffer size for the file path
+				UINT bufferSize = DragQueryFile(hDrop, i, NULL, 0) + 1;
+				std::wstring filePath(bufferSize, L'\0');
+
+				// Get the actual file path
+				DragQueryFile(hDrop, i, &filePath[0], bufferSize);
+				filePath.pop_back(); // Remove the extra null terminator
+				files.push_back(filePath);
+			}
+
+			// TEST LOGIC
+			if (!files.empty()) {
+				MessageBox(hWnd, files[0].c_str(), L"Dropped File", MB_OK);
+			}
+
+			DragFinish(hDrop); // Free the memory allocated for the dropped files
+
+			return true;
+		}
+	}
+
+	return CallWindowProc(imguiWndproc, hWnd, message, wParam, lParam);
+}
