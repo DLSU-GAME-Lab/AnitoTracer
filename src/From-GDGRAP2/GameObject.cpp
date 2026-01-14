@@ -14,7 +14,6 @@ GameObject::GameObject()
 	this->type = NONE;
 	this->modelRef = nullptr;
 
-	this->updateWorldMatrix();
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
@@ -24,7 +23,6 @@ GameObject::GameObject(String name, PrimitiveType type)
 	this->type = type;
 	this->modelRef = nullptr;
 
-	this->updateWorldMatrix();
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
@@ -33,9 +31,10 @@ GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::
 	this->name = name;
 	this->type = type;
 	this->modelRef = modelRef;
-	this->modelRef->SetOwner(this);
 
 	this->updateWorldMatrix();
+	this->aabb = std::make_shared<AABB>(modelRef->Vertices(), this->getWorldMatrix());
+
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
@@ -235,6 +234,9 @@ std::shared_ptr<Assets::Model> GameObject::GetModel() const
 void GameObject::SetModel(std::shared_ptr<Assets::Model> model)
 {
 	this->modelRef = model;
+
+	this->updateWorldMatrix();
+	this->aabb = std::make_shared<AABB>(modelRef->Vertices(), this->getWorldMatrix());
 }
 
 void GameObject::AddChild(GameObject::GameObjectPtr child)

@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Vulkan/Application.hpp"
-#include "RayTracingProperties.hpp"
+#include "RayTracingProperties.hpp" 
+#include "Compute/WorkLoaderPipeline.hpp"
+#include "Compute/PixelManagementPipeline.hpp"
 
 namespace Vulkan
 {
@@ -37,6 +39,7 @@ namespace Vulkan::RayTracing
 		void CreateSwapChain() override;
 		void DeleteSwapChain() override;
 		void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex) override;
+		void Compute(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 			   
 	protected:
 
@@ -44,6 +47,7 @@ namespace Vulkan::RayTracing
 		void CreateTopLevelStructures(VkCommandBuffer commandBuffer);
 		void UpdateTopLevelStructures(VkCommandBuffer commandBuffer);
 		void CreateOutputImage();
+		void CreatePixelManagementBuffers();
 
 		std::unique_ptr<class DeviceProcedures> deviceProcedures_;
 		std::unique_ptr<class RayTracingProperties> rayTracingProperties_;
@@ -71,6 +75,32 @@ namespace Vulkan::RayTracing
 		
 		std::unique_ptr<class RayTracingPipeline> rayTracingPipeline_;
 		std::unique_ptr<class ShaderBindingTable> shaderBindingTable_;
+
+		std::unique_ptr<class PixelManagementPipeline> pixelManagementPipeline_;
+		std::unique_ptr<class WorkLoaderPipeline> workLoaderPipeline_;
+
+		/* Buffers for Pixel State Management */
+
+		std::unique_ptr<Buffer> dirtyObjectBoundsBuffer_;
+		std::unique_ptr<DeviceMemory> dirtyObjectBoundsBufferMemory_;
+
+		std::unique_ptr<Buffer> dirtyObjectCountBuffer_;
+		std::unique_ptr<DeviceMemory> dirtyObjectCountBufferMemory_;
+
+		std::unique_ptr<Buffer> cleanStatusBuffer_;
+		std::unique_ptr<DeviceMemory> cleanStatusBufferMemory_;
+
+		std::unique_ptr<Buffer> rayCountBuffer_;
+		std::unique_ptr<DeviceMemory> rayCountBufferMemory_;
+
+		std::unique_ptr<Buffer> pixelWeightBuffer_;
+		std::unique_ptr<DeviceMemory> pixelWeightBufferMemory_;
+
+		std::unique_ptr<Buffer> workQueueBuffer_;
+		std::unique_ptr<DeviceMemory> workQueueBufferMemory_;
+
+		std::unique_ptr<Buffer> workQueueCountBuffer_;
+		std::unique_ptr<DeviceMemory> workQueueCountBufferMemory_;
 	};
 
 }

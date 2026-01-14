@@ -140,6 +140,7 @@ void Application::SetPhysicalDevice(
 {
 	device_.reset(new class Device(physicalDevice, *surface_, requiredExtensions, deviceFeatures, nextDeviceFeatures));
 	commandPool_.reset(new class CommandPool(*device_, device_->GraphicsFamilyIndex(), true));
+	computeCommandPool_.reset(new class CommandPool(*device_, device_->ComputeFamilyIndex(), true));
 
 	Application::CreateProfiler();
 }
@@ -176,6 +177,7 @@ void Application::CreateSwapChain()
 	}
 
 	commandBuffers_.reset(new CommandBuffers(*commandPool_, static_cast<uint32_t>(swapChainFramebuffers_.size())));
+	computeCommandBuffers_.reset(new CommandBuffers(*computeCommandPool_, static_cast<uint32_t>(swapChainFramebuffers_.size())));
 }
 
 void Application::DeleteSwapChain()

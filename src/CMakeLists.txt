@@ -45,6 +45,17 @@ set(src_files_obb
 	OBB/BoundingBox.hpp
 	OBB/Ray.cpp
 	OBB/Ray.hpp
+	OBB/AABB.hpp
+	OBB/AABB.cpp
+)
+
+set(src_files_compute
+    Compute/PixelManagementPipeline.hpp
+	Compute/PixelManagementPipeline.cpp
+	Compute/WorkLoaderPipeline.hpp
+	Compute/WorkLoaderPipeline.cpp
+	Compute/ComputePipelineLayout.hpp
+	Compute/ComputePipelineLayout.cpp
 )
 
 set(src_files_camerasystem
@@ -302,6 +313,7 @@ set(src_files
 
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
+source_group("Compute" FILES ${src_files_compute})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("HotkeySystem" FILES ${src_files_hotkeysytem})
@@ -320,7 +332,7 @@ source_group("Main" FILES ${src_files})
 add_executable(${exe_name} 
 	${src_files_assets}
 	${src_files_obb}
-
+	${src_files_compute}
 	${src_files_camerasystem} 
 	${src_files_lightsystem}
 	${stc_files_hotkeysystem}

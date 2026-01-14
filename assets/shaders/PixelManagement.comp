@@ -1,0 +1,85 @@
+#version 460
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(push_constant) uniform PC
+{
+    uint width;
+    uint height;
+} pc;
+
+const uint DIRTY_BONUS = 1000;
+const uint SOFT_RAY_THRESHOLD = 64;
+
+layout(std430, binding = 0) readonly buffer DirtyObjectBoundsBuffer
+{
+    uint objectBounds[];
+};
+
+layout(std430, binding = 1) readonly buffer DirtyObjectCountBuffer
+{
+    uint objectBoundsCount;
+};
+
+layout(std430, binding = 2) buffer CleanStatusBuffer
+{
+    uint dirty[];
+};
+
+layout(std430, binding = 3) buffer RayCountBuffer
+{
+    uint rayCount[];
+};
+
+layout(std430, binding = 4) buffer WeightBuffer
+{
+    uint weights[];
+};
+
+uint BucketBoost(uint rc)
+{
+    if (rc == 0u) return 64u;
+    if (rc == 1u) return 32u;
+    if (rc <= 3u) return 16u;
+    if (rc <= 7u) return 8u;
+    if (rc <= 15u) return 4u;
+    if (rc <= 31u) return 2u;
+    return 1u;
+}
+
+void main()
+{
+    uvec2 pix = gl_GlobalInvocationID.xy;
+
+    if (pix.x >= pc.width || pix.y >= pc.height) return;
+
+    uint idx = pix.y * pc.width + pix.x;
+
+    uint count = objectBoundsCount;
+
+    bool isDirty = false;
+    for (uint i = 0; i < count; ++i)
+    {
+        uint base = i * 4u;
+        uint minX = objectBounds[base + 0u];
+        uint minY = objectBounds[base + 1u];
+        uint maxX = objectBounds[base + 2u];
+        uint maxY = objectBounds[base + 3u];
+
+        if (pix.x >= minX && pix.x < maxX &&
+            pix.y >= minY && pix.y < maxY)
+        {
+            isDirty = true;
+            rayCount[idx] = 0u;
+            break;
+        }
+    }
+
+    if (!isDirty)
+    {
+        return;
+    }
+
+    dirty[idx] = 1u;
+
+    weights[idx] = DIRTY_BONUS + BucketBoost(rayCount[idx]);
+}

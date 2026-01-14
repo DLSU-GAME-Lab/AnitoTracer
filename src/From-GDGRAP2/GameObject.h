@@ -5,6 +5,7 @@
 
 #include "Assets/Model.hpp"
 #include "From-GDGRAP2/VectorUtils.h"
+#include "OBB/AABB.hpp"
 
 class GameObject
 {
@@ -118,6 +119,7 @@ private:
     std::shared_ptr<GameObject> debugCube = nullptr;
 
     std::shared_ptr<Assets::Model> modelRef;
+	std::shared_ptr<AABB> aabb = nullptr;
 
     GameObject* parent = nullptr;
     std::vector<GameObjectPtr> children;

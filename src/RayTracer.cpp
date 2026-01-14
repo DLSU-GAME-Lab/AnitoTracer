@@ -288,9 +288,15 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	CheckAndUpdateBenchmarkState(prevTime);
 
 	// Render the scene
-	userSettings_.IsRayTraced
-		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
-		: Vulkan::Application::Render(commandBuffer, imageIndex);
+	if (userSettings_.IsRayTraced)
+	{
+		Vulkan::RayTracing::Application::Compute(commandBuffer, imageIndex);
+		Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex);
+	}
+	else
+	{
+		Vulkan::Application::Render(commandBuffer, imageIndex);
+	}
 
 	// Render ray visualization
 	if (isVisualizeRays_)

@@ -19,6 +19,9 @@
 #include <iostream>
 #include "From-GDGRAP2/ModelManager.h"
 #include <From-GDGRAP2/Debug.h>
+#include "Compute/PixelManagementPipeline.hpp"
+#include "Compute/WorkLoaderPipeline.hpp"
+#include "Compute/ComputePipelineLayout.hpp"
 
 
 namespace Vulkan::RayTracing {
@@ -161,8 +164,17 @@ void Application::CreateSwapChain()
 	Vulkan::Application::CreateSwapChain();
 
 	CreateOutputImage();
+	CreatePixelManagementBuffers();
 
 	rayTracingPipeline_.reset(new RayTracingPipeline(*deviceProcedures_, SwapChain(), topAs_[0], *accumulationImageView_, *outputImageView_, UniformBuffers(), GetScene(), GetRayScene()));
+	pixelManagementPipeline_.reset(new PixelManagementPipeline(SwapChain(),	
+		cleanStatusBuffer_->Handle(), 
+		rayCountBuffer_->Handle(), 
+		pixelWeightBuffer_->Handle(), 
+		dirtyObjectBoundsBuffer_->Handle(), 
+		dirtyObjectCountBuffer_->Handle()));
+	workLoaderPipeline_.reset(new WorkLoaderPipeline(SwapChain(), pixelWeightBuffer_->Handle(), workQueueBuffer_->Handle(), workQueueCountBuffer_->Handle(),
+		rayCountBuffer_->Handle()));
 
 	const std::vector<ShaderBindingTable::Entry> rayGenPrograms = { {rayTracingPipeline_->RayGenShaderIndex(), {}} };
 	const std::vector<ShaderBindingTable::Entry> missPrograms = { {rayTracingPipeline_->MissShaderIndex(), {}} };
@@ -175,6 +187,8 @@ void Application::DeleteSwapChain()
 {
 	shaderBindingTable_.reset();
 	rayTracingPipeline_.reset();
+	pixelManagementPipeline_.reset();
+	workLoaderPipeline_.reset();
 	outputImageView_.reset();
 	outputImage_.reset();
 	outputImageMemory_.reset();
@@ -262,6 +276,133 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	//UIManager::getInstance()->imageView = outputImageView_.get();
 	//UIManager::getInstance()->image = outputImage_.get();
 }
+
+void Application::Compute(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+{
+	const uint32_t width = SwapChain().Extent().width;
+	const uint32_t height = SwapChain().Extent().height;
+
+	auto DivUp = [](uint32_t a, uint32_t b) { return (a + b - 1u) / b; };
+	const uint32_t groupSizeX = DivUp(width, 16u);
+	const uint32_t groupSizeY = DivUp(height, 16u);
+
+	vkCmdFillBuffer(commandBuffer, workQueueCountBuffer_->Handle(), 0, sizeof(uint32_t), 0u);
+
+	{
+		VkBufferMemoryBarrier2 b{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2 };
+		b.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+		b.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+		b.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		b.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+		b.buffer = workQueueCountBuffer_->Handle();
+		b.offset = 0;
+		b.size = sizeof(uint32_t);
+
+		VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+		dep.bufferMemoryBarrierCount = 1;
+		dep.pBufferMemoryBarriers = &b;
+		vkCmdPipelineBarrier2(commandBuffer, &dep);
+	}
+
+	{
+		VkDescriptorSet ds = pixelManagementPipeline_->DescriptorSet(imageIndex);
+
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pixelManagementPipeline_->Handle());
+		vkCmdBindDescriptorSets(
+			commandBuffer,
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			pixelManagementPipeline_->PipelineLayout().Handle(),
+			0, 1, &ds,
+			0, nullptr
+		);
+
+		struct PC { uint32_t width; uint32_t height; } pc{ width, height };
+
+		vkCmdPushConstants(
+			commandBuffer,
+			pixelManagementPipeline_->PipelineLayout().Handle(),
+			VK_SHADER_STAGE_COMPUTE_BIT,
+			0, sizeof(PC), &pc
+		);
+
+		vkCmdDispatch(commandBuffer, groupSizeX, groupSizeY, 1);
+
+		VkBufferMemoryBarrier2 barriers[2]{};
+
+		barriers[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+		barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[0].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+		barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[0].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+		barriers[0].buffer = cleanStatusBuffer_->Handle();   // dirty[] buffer
+		barriers[0].offset = 0;
+		barriers[0].size = VK_WHOLE_SIZE;
+
+		barriers[1].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+		barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[1].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+		barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+		barriers[1].buffer = pixelWeightBuffer_->Handle();   // weights[] buffer
+		barriers[1].offset = 0;
+		barriers[1].size = VK_WHOLE_SIZE;
+
+		VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+		dep.bufferMemoryBarrierCount = 2;
+		dep.pBufferMemoryBarriers = barriers;
+		vkCmdPipelineBarrier2(commandBuffer, &dep);
+	}
+
+	{
+		VkDescriptorSet ds = workLoaderPipeline_->DescriptorSet(imageIndex);
+
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, workLoaderPipeline_->Handle());
+
+		vkCmdBindDescriptorSets(
+			commandBuffer,
+			VK_PIPELINE_BIND_POINT_COMPUTE,
+			workLoaderPipeline_->PipelineLayout().Handle(),
+			0, 1, &ds,
+			0, nullptr
+		);
+
+		struct PC { uint32_t width; uint32_t height; } pc{ width, height };
+		vkCmdPushConstants(
+			commandBuffer,
+			workLoaderPipeline_->PipelineLayout().Handle(),
+			VK_SHADER_STAGE_COMPUTE_BIT,
+			0, sizeof(PC), &pc
+		);
+
+		vkCmdDispatch(commandBuffer, groupSizeX, groupSizeY, 1);
+
+		VkBufferMemoryBarrier2 barriers[2]{};
+
+		barriers[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+		barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[0].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+		barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[0].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+		barriers[0].buffer = workQueueBuffer_->Handle();
+		barriers[0].offset = 0;
+		barriers[0].size = VK_WHOLE_SIZE;
+
+		barriers[1].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+		barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[1].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+		barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+		barriers[1].buffer = workQueueCountBuffer_->Handle();
+		barriers[1].offset = 0;
+		barriers[1].size = sizeof(uint32_t);
+
+		VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+		dep.bufferMemoryBarrierCount = 2;
+		dep.pBufferMemoryBarriers = barriers;
+		vkCmdPipelineBarrier2(commandBuffer, &dep);
+	}
+}
+
 
 void Application::CreateBottomLevelStructures(VkCommandBuffer commandBuffer)
 {
@@ -430,6 +571,41 @@ void Application::CreateOutputImage()
 	debugUtils.SetObjectName(outputImageMemory_->Handle(), "Output Image Memory");
 	debugUtils.SetObjectName(outputImageView_->Handle(), "Output ImageView");
 
+}
+
+void Application::CreatePixelManagementBuffers()
+{
+	const auto pixelCount = SwapChain().Extent().width * SwapChain().Extent().height;
+
+	const int MAX_DIRTY_OBJECTS = ModelManager::getInstance()->activeObjectsCount();
+
+	/* Single Count (uint) */
+	this->dirtyObjectBoundsBuffer_.reset(new Buffer(Device(), MAX_DIRTY_OBJECTS * sizeof(uint32_t) * 4u, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+	this->dirtyObjectBoundsBufferMemory_.reset(new DeviceMemory(dirtyObjectBoundsBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+
+	/* Single Count (uint) */
+	this->dirtyObjectCountBuffer_.reset(new Buffer(Device(), sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+	this->dirtyObjectCountBufferMemory_.reset(new DeviceMemory(dirtyObjectCountBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+
+	/* Number of Pixels (bool) */
+	this->cleanStatusBuffer_.reset(new Buffer(Device(), pixelCount * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+	this->cleanStatusBufferMemory_.reset(new DeviceMemory(cleanStatusBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+
+	/* Number of Pixels (uint) */
+	this->rayCountBuffer_.reset(new Buffer(Device(), pixelCount * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+	this->rayCountBufferMemory_.reset(new DeviceMemory(rayCountBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+
+	/* Number of Pixels (uint) */
+	this->pixelWeightBuffer_.reset(new Buffer(Device(), pixelCount * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+	this->pixelWeightBufferMemory_.reset(new DeviceMemory(pixelWeightBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+
+	/* Work Queue Buffer (uint, uint) */
+	this->workQueueBuffer_.reset(new Buffer(Device(), pixelCount * 2u * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+	this->workQueueBufferMemory_.reset(new DeviceMemory(workQueueBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+
+	/* Single Count (uint) */
+	this->workQueueCountBuffer_.reset(new Buffer(Device(), sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+	this->workQueueCountBufferMemory_.reset(new DeviceMemory(workQueueCountBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
 }
 
 }
