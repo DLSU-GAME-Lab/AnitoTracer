@@ -846,6 +846,9 @@ LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			if (!files.empty()) {
 				std::wstring listedFilenames = L"";
 				for (std::wstring importedFile : files) {
+					directory_entry importedDirEntry(importedFile.c_str());
+					if (importedDirEntry.is_directory()) continue;
+
 					std::wstring sourcePathW(importedFile.c_str());
 					listedFilenames += sourcePathW + L"\n";
 				}
@@ -855,6 +858,9 @@ LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
 				for (std::wstring importedFile : files) {
 					if (response != IDYES) break;
+					directory_entry importedDirEntry(importedFile.c_str());
+					if (importedDirEntry.is_directory()) continue;
+
 					std::wstring sourcePathW(importedFile.c_str());
 					std::string sourcePath(sourcePathW.begin(), sourcePathW.end());
 					DragAndDropUtils::copyFileToAssetsRoot(sourcePath);
