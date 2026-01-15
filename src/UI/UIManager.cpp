@@ -844,11 +844,18 @@ LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			}
 
 			if (!files.empty()) {
-				std::wstring sourcePathW(files[0].c_str());
-				std::wstring importPromptMessage(L"Import " + sourcePathW + L" to project?");
+				std::wstring listedFilenames = L"";
+				for (std::wstring importedFile : files) {
+					std::wstring sourcePathW(importedFile.c_str());
+					listedFilenames += sourcePathW + L"\n";
+				}
+
+				std::wstring importPromptMessage(L"Import the following:\n" + listedFilenames + L"to project?");
 				int response = MessageBox(hWnd, importPromptMessage.c_str(), L"Dropped File", MB_YESNO | MB_ICONQUESTION);
 
-				if (response == IDYES) {
+				for (std::wstring importedFile : files) {
+					if (response != IDYES) break;
+					std::wstring sourcePathW(importedFile.c_str());
 					std::string sourcePath(sourcePathW.begin(), sourcePathW.end());
 					DragAndDropUtils::copyFileToAssetsRoot(sourcePath);
 				}

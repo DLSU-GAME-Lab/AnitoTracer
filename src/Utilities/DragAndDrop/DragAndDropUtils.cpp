@@ -11,6 +11,7 @@
 #include <filesystem>
 #include "Utilities/FileExplorer/FileExplorerUtils.h"
 #include "Utilities/FileExplorer/FileExplorerConstants.h"
+#include "Utilities/FileExplorer/FileTree.h"
 
 namespace fs = std::filesystem;
 
@@ -102,4 +103,10 @@ void DragAndDropUtils::copyFileToAssetsRoot(std::string soucePathString) {
     fs::path fsSourcePath(soucePathString);
     fs::path fsDestPath(FileExplorerConstants::ASSETS_DIR);
     fs::copy(fsSourcePath, fsDestPath);
+
+    directory_entry newFile(fsDestPath / fsSourcePath.filename());
+    FileTreeNode newTreeNode(newFile);
+
+    FileTree::getInstance()->getRoot().addChild(*&newTreeNode);
+    newTreeNode.setParent(&(FileTree::getInstance()->getRoot()));
 }
