@@ -9,23 +9,26 @@
 
 FileTree* FileTree::instance = nullptr;
 
-FileTree::FileTree()
+FileTree::FileTree(FileTreeNode& rootNode) : root(rootNode)
 { 
-    setRoot();
+
 }
 
 FileTree* FileTree::getInstance() {
     if (instance == nullptr) {
-        instance = new FileTree();
+        directory_entry dirEnt(FileExplorerConstants::ASSETS_DIR);
+        FileTreeNode* newRoot = new FileTreeNode(dirEnt);
+        newRoot->init();
+        instance = new FileTree(*newRoot);
     }
     return instance;
 }
 
 void FileTree::setRoot() {
     directory_entry dirEnt(FileExplorerConstants::ASSETS_DIR);
-    FileTreeNode root(dirEnt);
-    root.init();
-    FileTree::root = root;
+    FileTreeNode* newRoot = new FileTreeNode(dirEnt);
+    newRoot->init();
+    FileTree::root = *newRoot;
 }
 
 void FileTree::deleteFile(FileTreeNode& toDelete) {

@@ -4,6 +4,8 @@
 #include <sstream>
 
 std::string FileExplorerUtils::getFileExtension(const std::string& filename) {
+    if (filename.empty()) return "";
+
     std::stringstream ss(filename);
     std::string item;
     std::vector<std::string> result;

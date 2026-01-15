@@ -24,7 +24,7 @@ public:
 
 private:
     static FileTree* instance;
-    FileTree();
+    FileTree(FileTreeNode& rootNode);
 
-    FileTreeNode root;
+    FileTreeNode& root;
 };

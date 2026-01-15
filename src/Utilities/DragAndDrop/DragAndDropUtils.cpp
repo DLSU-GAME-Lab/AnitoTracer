@@ -72,7 +72,7 @@ void DragAndDropUtils::attachModelInstantiateTargetToViewport(ImGuiViewport* vie
     }
 }
 
-void DragAndDropUtils::attachFileMoveTarget(FileTreeNode* destNode) {
+void DragAndDropUtils::attachFileMoveTarget(FileTreeNode& destNode) {
     if (ImGui::BeginDragDropTarget())
     {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(DragAndDropConstants::MODEL_PATH))
@@ -81,17 +81,24 @@ void DragAndDropUtils::attachFileMoveTarget(FileTreeNode* destNode) {
             FileTreeNode* srcNode = *(FileTreeNode**)payload->Data;
 
             fs::path fsSourcePath(srcNode->getPathString());
-            fs::path fsDestDir(destNode->getPathString());
+            fs::path fsDestDir(destNode.getPathString());
             fs::path fsNewPath = fsDestDir / fsSourcePath.filename();
 
-            if (destNode->isDirectory()) {
+            if (destNode.isDirectory()) {
                 fs::rename(fsSourcePath, fsNewPath);
-
                 srcNode->getDirectoryEntry().assign(fsNewPath);
-                destNode->addChild(*srcNode);
-                auto newEnd = std::remove(srcNode->getParent()->getChildren().begin(), srcNode->getParent()->getChildren().end(), *srcNode);
-                srcNode->getParent()->getChildren().erase(newEnd, srcNode->getParent()->getChildren().end());
-                srcNode->setParent(&*destNode);
+
+                auto& siblings = srcNode->getParent()->getChildren();
+
+                // add to new path
+                srcNode->setParent(&destNode);
+                destNode.addChild(*srcNode);
+
+                // remove from original path
+                auto newEnd = std::remove(siblings.begin(), siblings.end(), *srcNode);
+                siblings.erase(newEnd, siblings.end());
+
+                
             }
         }
 
@@ -107,6 +114,6 @@ void DragAndDropUtils::copyFileToAssetsRoot(std::string soucePathString) {
     directory_entry newFile(fsDestPath / fsSourcePath.filename());
     FileTreeNode newTreeNode(newFile);
 
-    FileTree::getInstance()->getRoot().addChild(*&newTreeNode);
     newTreeNode.setParent(&(FileTree::getInstance()->getRoot()));
+    FileTree::getInstance()->getRoot().addChild(newTreeNode);
 }

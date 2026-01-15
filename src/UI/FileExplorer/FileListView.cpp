@@ -60,7 +60,7 @@ void FileListView::renderDescendants(FileTreeNode& nodeToRender) {
             }
             DragAndDropUtils::attachFileTreeNodeSource(&childNode);
             if (childNode.isDirectory()) {
-                DragAndDropUtils::attachFileMoveTarget(&childNode);
+                DragAndDropUtils::attachFileMoveTarget(childNode);
             }
             if (isNodeOpen) {
                 ImGui::PopFont();
@@ -103,7 +103,7 @@ void FileListView::renderRootNode(FileTreeNode& root) {
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             FileIconView::setCurrentNode(&root);
         }
-        DragAndDropUtils::attachFileMoveTarget(&root);
+        DragAndDropUtils::attachFileMoveTarget(root);
         if (isNodeOpen) {
             ImGui::PopFont();
 

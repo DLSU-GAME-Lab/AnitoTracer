@@ -37,11 +37,11 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
             }
         }
         DragAndDropUtils::attachFileTreeNodeSource(&rootChild);
-        DragAndDropUtils::attachFileMoveTarget(&rootChild);
+        DragAndDropUtils::attachFileMoveTarget(rootChild);
 
         ImGui::Text(rootChild.getName().c_str());
         DragAndDropUtils::attachFileTreeNodeSource(&rootChild);
-        DragAndDropUtils::attachFileMoveTarget(&rootChild);
+        DragAndDropUtils::attachFileMoveTarget(rootChild);
 
         ImGui::PopID();
     }
