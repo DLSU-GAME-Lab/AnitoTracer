@@ -18,6 +18,7 @@ public:
     
     // file manipulation
     void deleteFile(FileTreeNode& toDelete);
+    void createDirectory(FileTreeNode& parentNode, std::string dirName);
 
     // getters
     FileTreeNode& getRoot();

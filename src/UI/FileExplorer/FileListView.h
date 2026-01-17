@@ -20,4 +20,5 @@ private:
 	void renderRootNode(FileTreeNode& root);
 
 	void renderDeleteConfirmationPrompt(FileTreeNode& toDelete);
+	void renderNewFolderSetupPrompt(FileTreeNode& targetNode);
 };

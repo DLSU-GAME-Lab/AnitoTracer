@@ -1,6 +1,7 @@
 #include "FileListView.h"
 
 #include "imgui.h"
+#include "imgui_stdlib.h"
 #include "Utilities/DragAndDrop/DragAndDropUtils.h"
 #include "Utilities/FileExplorer/FileExplorerConstants.h"
 #include "Utilities/FileExplorer/FileExplorerUtils.h"
@@ -9,6 +10,7 @@
 #include "UI/UIManager.h"
 #include "UI/FileExplorer/FileIconView.h"
 
+static bool newFolderPopup = false;
 static bool deletePopup = false;
 
 FileListView* FileListView::instance = nullptr;
@@ -79,11 +81,14 @@ void FileListView::renderDescendants(FileTreeNode& nodeToRender) {
             }
 
             if (ImGui::BeginPopupContextItem()) {
-                if (ImGui::MenuItem("Delete")) {
+                if (ImGui::MenuItem("New Folder")) {
+                    newFolderPopup = true;
+                } else if (ImGui::MenuItem("Delete")) {
                     deletePopup = true;
                 }
                 ImGui::EndPopup();
             }
+            renderNewFolderSetupPrompt(childNode);
             renderDeleteConfirmationPrompt(childNode);
 
             ImGui::PopID();
@@ -193,6 +198,40 @@ void FileListView::renderDeleteConfirmationPrompt(FileTreeNode& toDelete) {
         ImGui::SetCursorPosX(offsetX);
         if (ImGui::Button("Yes", ImVec2(120, 0))) {
             FileTree::getInstance()->deleteFile(toDelete);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+}
+
+void FileListView::renderNewFolderSetupPrompt(FileTreeNode& targetNode) {
+    if (newFolderPopup) {
+        ImGui::OpenPopup("Setup New Folder");
+        newFolderPopup = false;
+    }
+    if (ImGui::BeginPopupModal("Setup New Folder", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        // Calculate centering offset
+        float windowWidth = ImGui::GetWindowSize().x;
+        float buttonWidth = 120.0f * 2 + ImGui::GetStyle().ItemSpacing.x; // Two buttons + spacing
+        float offsetX = (windowWidth - buttonWidth) * 0.5f;
+
+        static std::string folderName = "";
+        ImGui::InputText("Name", &folderName);
+
+        ImGui::SetCursorPosX(offsetX);
+        if (ImGui::Button("Create Folder", ImVec2(120, 0))) {
+            if (targetNode.isDirectory()) {
+                FileTree::getInstance()->createDirectory(targetNode, folderName);
+            }
+            else {
+                FileTree::getInstance()->createDirectory(*targetNode.getParent(), folderName);
+            }
+            folderName = "";
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
