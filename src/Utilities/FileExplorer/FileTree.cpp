@@ -64,8 +64,18 @@ void FileTree::deleteFile(FileTreeNode& toDelete) {
     }
 }
 
-void FileTree::createDirectory(FileTreeNode& parentNode, std::string dirName) {
-    std::cout << parentNode.getName() << "-" << dirName << std::endl;
+bool FileTree::createDirectory(FileTreeNode& parentNode, std::string dirName) {
+    bool status = std::filesystem::create_directory(parentNode.getDirectoryEntry().path() / dirName);
+
+    if (status) {
+        directory_entry newDir(parentNode.getDirectoryEntry().path() / dirName);
+        FileTreeNode newTreeNode(newDir);
+
+        newTreeNode.setParent(&parentNode);
+        parentNode.addChild(newTreeNode);
+    }
+
+    return status;
 }
 
 FileTreeNode& FileTree::getRoot() {
