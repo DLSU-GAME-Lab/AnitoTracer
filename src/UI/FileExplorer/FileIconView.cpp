@@ -1,6 +1,7 @@
 #include "FileIconView.h"
 
 #include "imgui.h"
+#include "imgui_stdlib.h"
 #include "Utilities/DragAndDrop/DragAndDropUtils.h"
 #include "Utilities/FileExplorer/FileExplorerConstants.h"
 #include "Utilities/FileExplorer/FileExplorerUtils.h"
@@ -8,40 +9,66 @@
 #include "UI/IconsMaterialDesign.h"
 #include "UI/UIManager.h"
 
-FileTreeNode* FileIconView::currentNode = &(FileTree::getInstance()->getRoot());
+static bool newFolderPopup = false;
+static bool deletePopup = false;
+FileIconView* FileIconView::instance = nullptr;
 
-FileIconView::FileIconView() {
+FileIconView::FileIconView() : currentNode(&(FileTree::getInstance()->getRoot())) {
 
+}
+
+FileIconView* FileIconView::getInstance() {
+    if (instance == nullptr) {
+        instance = new FileIconView();
+    }
+    return instance;
 }
 
 void FileIconView::drawUI() {
     ImGui::PushFont(nullptr);
-    //renderCurrentNodeChildrenIcons();
+    renderCurrentNodeChildrenIcons();
     ImGui::PopFont();
 }
 
 void FileIconView::renderCurrentNodeChildrenIcons() {
 
     int i = 0;
-    for (FileTreeNode &rootChild : currentNode->getChildren()) {
+    for (FileTreeNode &childNode : currentNode->getChildren()) {
         ImGui::PushID(i++);
-        if (ImGui::Button(chooseIconCode(rootChild).append("##").append(rootChild.getPathString()).c_str()))
+        if (ImGui::Button(chooseIconCode(childNode).append("##").append(childNode.getPathString()).c_str()))
         {
-            if (rootChild.isDirectory() && rootChild.directoryEntryExists())
+            if (childNode.isDirectory() && childNode.directoryEntryExists())
             {
-                if (!rootChild.getIsInitialized())
+                if (!childNode.getIsInitialized())
                 {
-                    rootChild.init();
+                    childNode.init();
                 }
-                setCurrentNode(&rootChild);
+                setCurrentNode(&childNode);
             }
         }
-        DragAndDropUtils::attachFileTreeNodeSource(&rootChild);
-        DragAndDropUtils::attachFileMoveTarget(rootChild);
+        DragAndDropUtils::attachFileTreeNodeSource(&childNode);
+        if (childNode.isDirectory()) {
+            DragAndDropUtils::attachFileMoveTarget(childNode);
+        }
 
-        ImGui::Text(rootChild.getName().c_str());
-        DragAndDropUtils::attachFileTreeNodeSource(&rootChild);
-        DragAndDropUtils::attachFileMoveTarget(rootChild);
+        if (ImGui::BeginPopupContextItem()) {
+            if (ImGui::MenuItem("New Folder")) {
+                newFolderPopup = true;
+            }
+            else if (ImGui::MenuItem("Delete")) {
+                deletePopup = true;
+            }
+            ImGui::EndPopup();
+        }
+
+        ImGui::Text(childNode.getName().c_str());
+        DragAndDropUtils::attachFileTreeNodeSource(&childNode);
+        if (childNode.isDirectory()) {
+            DragAndDropUtils::attachFileMoveTarget(childNode);
+        }
+        
+        renderNewFolderSetupPrompt(childNode);
+        renderDeleteConfirmationPrompt(childNode);
 
         ImGui::PopID();
     }
@@ -101,10 +128,69 @@ std::string FileIconView::chooseIconBasedOnExtension(const std::string& filename
     return iconCode;
 }
 
-std::string FileIconView::getRootNodeRelPath() {
-    return FileTree::getInstance()->getRoot().getPathString();
-}
-
 void FileIconView::setCurrentNode(FileTreeNode* node) {
     currentNode = node;
+}
+
+void FileIconView::renderDeleteConfirmationPrompt(FileTreeNode& toDelete) {
+    if (deletePopup) {
+        ImGui::OpenPopup("File Delete Confirmation");
+        deletePopup = false;
+    }
+    if (ImGui::BeginPopupModal("File Delete Confirmation", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Are you sure you want to delete this file?");
+        ImGui::Text(toDelete.getPathString().c_str());
+        ImGui::Spacing();
+
+        // Calculate centering offset
+        float windowWidth = ImGui::GetWindowSize().x;
+        float buttonWidth = 120.0f * 2 + ImGui::GetStyle().ItemSpacing.x; // Two buttons + spacing
+        float offsetX = (windowWidth - buttonWidth) * 0.5f;
+
+        ImGui::SetCursorPosX(offsetX);
+        if (ImGui::Button("Yes", ImVec2(120, 0))) {
+            FileTree::getInstance()->deleteFile(toDelete);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+}
+
+void FileIconView::renderNewFolderSetupPrompt(FileTreeNode& targetNode) {
+    if (newFolderPopup) {
+        ImGui::OpenPopup("Setup New Folder");
+        newFolderPopup = false;
+    }
+    if (ImGui::BeginPopupModal("Setup New Folder", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        // Calculate centering offset
+        float windowWidth = ImGui::GetWindowSize().x;
+        float buttonWidth = 120.0f * 2 + ImGui::GetStyle().ItemSpacing.x; // Two buttons + spacing
+        float offsetX = (windowWidth - buttonWidth) * 0.5f;
+
+        static std::string folderName = "";
+        ImGui::InputText("Name", &folderName);
+
+        ImGui::SetCursorPosX(offsetX);
+        if (ImGui::Button("Create Folder", ImVec2(120, 0))) {
+            if (targetNode.isDirectory()) {
+                FileTree::getInstance()->createDirectory(targetNode, folderName);
+            }
+            else {
+                FileTree::getInstance()->createDirectory(*targetNode.getParent(), folderName);
+            }
+            folderName = "";
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
 }

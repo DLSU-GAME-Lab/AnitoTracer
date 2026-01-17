@@ -29,7 +29,7 @@ ProjectScreen::ProjectScreen() : AUIScreen(UINames::PROJECT_SCREEN)
         }
     }
 
-    FileIconView::setCurrentNode(&FileTree::getInstance()->getRoot());
+    FileIconView::getInstance()->setCurrentNode(&FileTree::getInstance()->getRoot());
 }
 
 ProjectScreen::~ProjectScreen()
@@ -42,7 +42,7 @@ void ProjectScreen::drawUI()
         if (ImGui::BeginTable("MyTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
 
             ImGui::TableSetupColumn("Project Files");
-            ImGui::TableSetupColumn(FileIconView::getRootNodeRelPath().c_str());
+            ImGui::TableSetupColumn(FileIconView::getInstance()->getCurrentNode()->getPathString().c_str());
 
             ImGui::TableHeadersRow(); // Display table headers
 
@@ -52,7 +52,7 @@ void ProjectScreen::drawUI()
             FileListView::getInstance()->drawUI();
 
             ImGui::TableSetColumnIndex(1);
-            FileIconView::drawUI();
+            FileIconView::getInstance()->drawUI();
 
             ImGui::EndTable();
         }

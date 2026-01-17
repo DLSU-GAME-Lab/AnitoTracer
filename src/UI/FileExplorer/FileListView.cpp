@@ -58,7 +58,7 @@ void FileListView::renderDescendants(FileTreeNode& nodeToRender) {
 
             bool isNodeOpen = ImGui::TreeNodeEx((iconCode + " " + childNode.getName() + "##list").c_str(), flag);
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && childNode.isDirectory() && childNode.directoryEntryExists()) {
-                FileIconView::setCurrentNode(&childNode);
+                FileIconView::getInstance()->setCurrentNode(&childNode);
             }
             DragAndDropUtils::attachFileTreeNodeSource(&childNode);
             if (childNode.isDirectory()) {
@@ -106,7 +106,7 @@ void FileListView::renderRootNode(FileTreeNode& root) {
 
         bool isNodeOpen = ImGui::TreeNodeEx(root.getName().append("##list").c_str(), flag);
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-            FileIconView::setCurrentNode(&root);
+            FileIconView::getInstance()->setCurrentNode(&root);
         }
         DragAndDropUtils::attachFileMoveTarget(root);
         if (isNodeOpen) {

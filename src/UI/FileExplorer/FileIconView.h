@@ -4,17 +4,24 @@
 
 class FileIconView {
 public:
-	FileIconView();
+	static FileIconView* getInstance();
 
-	static void drawUI();
-	static std::string getRootNodeRelPath();
-	static void setCurrentNode(FileTreeNode* node);
+	void drawUI();
+	void setCurrentNode(FileTreeNode* node);
+	FileTreeNode* getCurrentNode() { return currentNode; };
 
 private:
-	static std::string chooseIconBasedOnExtension(const std::string& filename);
-	static std::string chooseIconCode(const FileTreeNode& node);
+	static FileIconView* instance;
 
-	static void renderCurrentNodeChildrenIcons();
+	FileIconView();
 
-	static FileTreeNode* currentNode;
+	std::string chooseIconBasedOnExtension(const std::string& filename);
+	std::string chooseIconCode(const FileTreeNode& node);
+
+	void renderCurrentNodeChildrenIcons();
+
+	FileTreeNode* currentNode;
+
+	void renderDeleteConfirmationPrompt(FileTreeNode& toDelete);
+	void renderNewFolderSetupPrompt(FileTreeNode& targetNode);
 };
