@@ -36,7 +36,7 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
     for (FileTreeNode &childNode : currentNode->getChildren()) {
         ImGui::PushID(i++);
 
-        ImGui::PushFont(UIManager::getInstance()->GetIconFont());
+        ImGui::PushFont(UIManager::getInstance()->GetIconFont(), 30.0f);
         if (ImGui::Button(chooseIconCode(childNode).append("##").append(childNode.getPathString()).c_str()))
         {
             if (childNode.isDirectory() && childNode.directoryEntryExists())

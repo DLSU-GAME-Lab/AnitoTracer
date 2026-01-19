@@ -43,8 +43,8 @@ void DragAndDropUtils::attachModelInstantiateTarget() {
 
             if (fs::path(path).extension() == ".obj") {
                 Assets::Model draggedModel = Assets::Model::LoadModel(path);
-                std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
-                ModelManager::getInstance()->addObject(draggedObj);
+                auto draggedObj = std::make_unique<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
+                ModelManager::getInstance()->addObject(std::move(draggedObj));
             }
         }
         ImGui::EndDragDropTarget();
@@ -63,8 +63,8 @@ void DragAndDropUtils::attachModelInstantiateTargetToViewport(ImGuiViewport* vie
 
                 if (fs::path(path).extension() == ".obj") {
                     Assets::Model draggedModel = Assets::Model::LoadModel(path);
-                    std::shared_ptr<GameObject> draggedObj = std::make_shared<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
-                    ModelManager::getInstance()->addObject(draggedObj);
+                    auto draggedObj = std::make_unique<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
+                    ModelManager::getInstance()->addObject(std::move(draggedObj));
                 }
             }
             ImGui::EndDragDropTarget();
