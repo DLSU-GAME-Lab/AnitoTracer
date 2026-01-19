@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "Utilities/Glm.hpp"
+#include "From-GDGRAP2/EventBroadcaster.h"
 
 namespace Assets
 {
@@ -63,8 +64,28 @@ namespace Assets
 
 		// Which material are we dealing with
 		Enum MaterialModel;
+		
+		void SetAlbedoColor(glm::vec4 color) 
+		{ 
+			this->Diffuse = color; 
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		}
 
-		//const char* Name = "Material";
+		void SetAlbedoTexture(int textureId)
+		{
+			this->DiffuseTextureId = textureId;
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		}
+
+		void SetFuzziness(float value)
+		{
+			this->Fuzziness = value;
+		}
+
+		void SetRefractionIndex(float value)
+		{
+			this->RefractionIndex = value;
+		}
 	};
 
 }

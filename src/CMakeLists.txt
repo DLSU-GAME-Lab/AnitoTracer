@@ -34,6 +34,10 @@ set(src_files_assets
 	Assets/Ray.hpp
 	Assets/RayVertex.hpp
 	Assets/RayInfo.hpp
+	Assets/ModelLibrary.hpp
+	Assets/ModelLibrary.cpp
+	Assets/GameObjectFactory.hpp
+	Assets/GameObjectFactory.cpp
 )
 
 set(src_files_obb
@@ -211,6 +215,7 @@ set(src_files_ui
 	UI/EditorTheme.hpp
 	UI/EditorTheme.cpp
 	UI/IconsMaterialDesign.h
+	UI/UIConfig.hpp
 )
 
 set(src_files_from_gdgrap2
@@ -242,6 +247,35 @@ set(src_files_from_gdgrap2
 	From-GDGRAP2/TextureLibrary.h
 	From-GDGRAP2/TransformHistory.cpp
 	From-GDGRAP2/TransformHistory.h
+)
+
+
+set(src_files_statemanagement
+	StateManagement/CommandManager.hpp
+	StateManagement/CommandManager.cpp
+	StateManagement/ICommand.hpp
+	StateManagement/ConcreteCommands/InspectorCommands.hpp
+	StateManagement/ConcreteCommands/InspectorCommands.cpp
+	StateManagement/ConcreteCommands/MaterialCommands.hpp
+	StateManagement/ConcreteCommands/MaterialCommands.cpp
+	StateManagement/ConcreteCommands/HierarchyCommands.hpp
+	StateManagement/ConcreteCommands/HierarchyCommands.cpp
+	StateManagement/ConcreteCommands/MenuBarCommands.hpp
+	StateManagement/ConcreteCommands/MenuBarCommands.cpp
+	StateManagement/ConcreteCommands/GUICommands.hpp
+	StateManagement/ConcreteCommands/GUICommands.cpp
+)
+
+set(src_files_hotkeysytem
+	HotkeySystem/HotkeySystem.hpp
+	HotkeySystem/HotkeySystem.cpp
+	HotkeySystem/HotkeyListener.hpp
+	HotkeySystem/GLFWInputAdapter.hpp
+	HotkeySystem/GLFWInputAdapter.cpp
+	HotkeySystem/KeyCodes.hpp
+	HotkeySystem/ActionMap.hpp
+	HotkeySystem/InputEvent.hpp
+
 )
 
 set(src_files
@@ -278,14 +312,16 @@ set(src_files_imgui
 	Dependencies/include/ImGuizmo.h
 )
 
+
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
-
 source_group("CameraSystem" FILES ${src_files_camerasystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
+source_group("HotkeySystem" FILES ${src_files_hotkeysytem})
 source_group("Profiler" FILES ${src_files_profiler})
 source_group("Scene IO" FILES ${src_files_sceneio})
 source_group("RayVisualization" FILES ${src_files_ray_visualization})
+source_group("StateManagement" FILES ${src_files_statemanagement})
 source_group("Utilities" FILES ${src_files_utilities})
 source_group("UI" FILES ${src_files_ui})
 source_group("From-GDGRAP2" FILES ${src_files_from_gdgrap2})
@@ -300,9 +336,12 @@ add_executable(${exe_name}
 
 	${src_files_camerasystem} 
 	${src_files_lightsystem} 
+	${stc_files_hotkeysystem}
 	${src_files_profiler}
 	${src_files_sceneio}
+	${src_files_hotkeysytem}
 	${src_files_ray_visualization} 
+	${src_files_statemanagement}
 	${src_files_utilities}
 	${src_files_ui}
 	${src_files_from_gdgrap2}
