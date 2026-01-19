@@ -25,9 +25,9 @@ FileIconView* FileIconView::getInstance() {
 }
 
 void FileIconView::drawUI() {
-    ImGui::PushFont(nullptr);
+    
     renderCurrentNodeChildrenIcons();
-    ImGui::PopFont();
+    
 }
 
 void FileIconView::renderCurrentNodeChildrenIcons() {
@@ -35,6 +35,8 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
     int i = 0;
     for (FileTreeNode &childNode : currentNode->getChildren()) {
         ImGui::PushID(i++);
+
+        ImGui::PushFont(UIManager::getInstance()->GetIconFont());
         if (ImGui::Button(chooseIconCode(childNode).append("##").append(childNode.getPathString()).c_str()))
         {
             if (childNode.isDirectory() && childNode.directoryEntryExists())
@@ -46,11 +48,14 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
                 setCurrentNode(&childNode);
             }
         }
+        ImGui::PopFont();
+
+        ImGui::PushFont(nullptr);
         DragAndDropUtils::attachFileTreeNodeSource(&childNode);
         if (childNode.isDirectory()) {
             DragAndDropUtils::attachFileMoveTarget(childNode);
         }
-
+        
         if (ImGui::BeginPopupContextItem()) {
             if (ImGui::MenuItem("New Folder")) {
                 newFolderPopup = true;
@@ -60,7 +65,7 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
             }
             ImGui::EndPopup();
         }
-
+        
         ImGui::Text(childNode.getName().c_str());
         DragAndDropUtils::attachFileTreeNodeSource(&childNode);
         if (childNode.isDirectory()) {
@@ -69,6 +74,7 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
         
         renderNewFolderSetupPrompt(childNode);
         renderDeleteConfirmationPrompt(childNode);
+        ImGui::PopFont();
 
         ImGui::PopID();
     }

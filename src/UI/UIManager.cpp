@@ -185,11 +185,11 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 
 	static const ImWchar iconRanges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
 	ImFontConfig* iconFontConfig = new ImFontConfig();
-	iconFontConfig->MergeMode = true;
+	//iconFontConfig->MergeMode = true;
 	iconFontConfig->PixelSnapH = true;
 	iconFontConfig->GlyphOffset =ImVec2(1.0f, 0.0f);
 
-	sharedInstance->iconFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 13 * scaleFactor, iconFontConfig, iconRanges);
+	sharedInstance->iconFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 40 * scaleFactor, iconFontConfig, iconRanges);
 	if (!sharedInstance->iconFont)
 	{
 		Throw(std::runtime_error("failed to load Icon font"));

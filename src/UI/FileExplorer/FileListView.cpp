@@ -37,15 +37,15 @@ void FileListView::renderDescendants(FileTreeNode& nodeToRender) {
         int i = 0;
 
         // render child nodes of nodeToRender
-        for (auto& childNode : nodeToRender.getChildren()) {
+        for (auto childNodeIt = nodeToRender.getChildren().begin(); childNodeIt != nodeToRender.getChildren().end(); childNodeIt++) {
             ImGui::PushID(i++);
 
             // 1.) Initialize the root children nodes if they are directories, and give them render flags.
             ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow;
-            if (childNode.isDirectory() && childNode.directoryEntryExists()) {
+            if (childNodeIt->isDirectory() && childNodeIt->directoryEntryExists()) {
                 // If the node is a directory, initialize it - if it doesn't have children, it's a leaf.
-                childNode.init();
-                if (!childNode.childrenExist()) flag |= ImGuiTreeNodeFlags_Leaf;
+                childNodeIt->init();
+                if (!childNodeIt->childrenExist()) flag |= ImGuiTreeNodeFlags_Leaf;
             }
             else {
                 // If the node represents a file, it's a leaf.
@@ -53,31 +53,31 @@ void FileListView::renderDescendants(FileTreeNode& nodeToRender) {
             }
 
             // 2.) Render root children and listen for events on those nodes.
-            ImGui::PushFont(UIManager::getInstance()->GetIconFont());
-            std::string iconCode = chooseIconCode(childNode);
+            //ImGui::PushFont(UIManager::getInstance()->GetIconFont());
+            std::string iconCode = chooseIconCode(*childNodeIt);
 
-            bool isNodeOpen = ImGui::TreeNodeEx((iconCode + " " + childNode.getName() + "##list").c_str(), flag);
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && childNode.isDirectory() && childNode.directoryEntryExists()) {
-                FileIconView::getInstance()->setCurrentNode(&childNode);
+            bool isNodeOpen = ImGui::TreeNodeEx((iconCode + " " + childNodeIt->getName() + "##list").c_str(), flag);
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && childNodeIt->isDirectory() && childNodeIt->directoryEntryExists()) {
+                FileIconView::getInstance()->setCurrentNode(&*childNodeIt);
             }
-            DragAndDropUtils::attachFileTreeNodeSource(&childNode);
-            if (childNode.isDirectory()) {
-                DragAndDropUtils::attachFileMoveTarget(childNode);
+            DragAndDropUtils::attachFileTreeNodeSource(&*childNodeIt);
+            if (childNodeIt->isDirectory()) {
+                DragAndDropUtils::attachFileMoveTarget(*childNodeIt);
             }
             if (isNodeOpen) {
-                ImGui::PopFont();
+                //ImGui::PopFont();
 
-                childNode.setIsOpen(true);
+                childNodeIt->setIsOpen(true);
 
-                if (childNode.isDirectory()) {
-                    renderDescendants(childNode);
+                if (childNodeIt->isDirectory()) {
+                    renderDescendants(*childNodeIt);
                 }
 
                 ImGui::TreePop();
             }
             else {
-                childNode.setIsOpen(false);
-                ImGui::PopFont();
+                childNodeIt->setIsOpen(false);
+                //ImGui::PopFont();
             }
 
             if (ImGui::BeginPopupContextItem()) {
@@ -88,8 +88,8 @@ void FileListView::renderDescendants(FileTreeNode& nodeToRender) {
                 }
                 ImGui::EndPopup();
             }
-            renderNewFolderSetupPrompt(childNode);
-            renderDeleteConfirmationPrompt(childNode);
+            renderNewFolderSetupPrompt(*childNodeIt);
+            renderDeleteConfirmationPrompt(*childNodeIt);
 
             ImGui::PopID();
         }
@@ -101,8 +101,8 @@ void FileListView::renderRootNode(FileTreeNode& root) {
     ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow;
 
     try {
-        ImFont* iconFont = UIManager::getInstance()->GetIconFont();
-        ImGui::PushFont(iconFont, 0.0f);
+        //ImFont* iconFont = UIManager::getInstance()->GetIconFont();
+        //ImGui::PushFont(iconFont, 0.0f);
 
         bool isNodeOpen = ImGui::TreeNodeEx(root.getName().append("##list").c_str(), flag);
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
@@ -110,7 +110,7 @@ void FileListView::renderRootNode(FileTreeNode& root) {
         }
         DragAndDropUtils::attachFileMoveTarget(root);
         if (isNodeOpen) {
-            ImGui::PopFont();
+            //ImGui::PopFont();
 
             root.setIsOpen(true);
             renderDescendants(root);
@@ -119,7 +119,7 @@ void FileListView::renderRootNode(FileTreeNode& root) {
         }
         else {
             root.setIsOpen(false);
-            ImGui::PopFont();
+            //ImGui::PopFont();
         }
     }
     catch (const std::filesystem::filesystem_error&) {
