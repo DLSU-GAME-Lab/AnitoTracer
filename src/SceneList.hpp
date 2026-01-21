@@ -50,7 +50,8 @@ public:
 	static SceneAssets BreakfastRoom(CameraInitialState& camera);
 	static SceneAssets SalleDeBain(CameraInitialState& camera);
 	static SceneAssets Gallery(CameraInitialState& camera);
-	static SceneAssets Bistro(CameraInitialState& camera);
+	static SceneAssets BistroEXT(CameraInitialState& camera);
+	static SceneAssets BistroINT(CameraInitialState& camera);
 	static SceneAssets BalayAnito(CameraInitialState& camera);
 	static std::vector<Assets::Texture> AssembleTextureList();
 

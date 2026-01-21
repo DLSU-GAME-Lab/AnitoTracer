@@ -89,8 +89,9 @@ void MenuScreen::drawUI()
 				if (ImGui::MenuItem("Load San Miguel Scene")) { this->OnLoadSceneByIndex(12);  ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Vokselia")) { this->OnLoadSceneByIndex(13); ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Breakfast Room")) { this->OnLoadSceneByIndex(14); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Balay Anito")) { this->OnLoadSceneByIndex(18); ShowLoadingPopUp(); }
-				if (ImGui::MenuItem("Load Amazon Lumberyard Bistro")) { this->OnLoadSceneByIndex(17);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Balay Anito")) { this->OnLoadSceneByIndex(19); ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Amazon Lumberyard Bistro Exterior")) { this->OnLoadSceneByIndex(17);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Amazon Lumberyard Bistro Interior")) { this->OnLoadSceneByIndex(18);  ShowLoadingPopUp(); }
 
 				ImGui::EndMenu();
 			}

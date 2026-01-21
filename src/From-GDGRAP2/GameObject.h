@@ -56,6 +56,7 @@ public:
     vec3 getWorldScale() const;
 
     std::shared_ptr<Assets::Model> getModel();
+	void setModel(std::shared_ptr<Assets::Model> modelRef) { this->modelRef = modelRef; }
 
     void addChild(GameObjectPtr child);
     void addChildAtIndex(GameObjectPtr child, int index);

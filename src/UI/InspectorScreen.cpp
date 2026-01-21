@@ -448,7 +448,6 @@ void InspectorScreen::onLightPropsUpdate() const
 
 void InspectorScreen::showColorPickerWindow()
 {
-	ImGui::SetNextWindowPos(ImGui::FindWindowByName("Inspector Window")->Pos);
 	ImGui::SetNextWindowSize(ImVec2(300, 350));
 	if (ImGui::Begin("Light Color Picker", &isColorPickerOpen) && isLight)
 	{
