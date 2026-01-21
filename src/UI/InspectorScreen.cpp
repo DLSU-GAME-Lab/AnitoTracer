@@ -92,60 +92,10 @@ void InspectorScreen::drawUI()
 		this->updateLightPropsDisplays();
 
 		bool enabled = this->selectedObject->isActive();
-		
-		/*ImGui::SameLine();
-		if (ImGui::Button("Delete")) {
-			ModelManager::getInstance()->deleteObject(this->selectedObject);
-			ModelManager::getInstance()->setSelectedObject(static_cast<std::shared_ptr<GameObject>>(nullptr));
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-		}*/
 
 		this->drawTransformTab();
+		this->drawLightTab();
 
-		// Light "Component"
-		if (this->selectedObject->getType() == GameObject::PrimitiveType::POINT_LIGHT
-			|| this->selectedObject->getType() == GameObject::PrimitiveType::DIRECTIONAL_LIGHT
-			|| this->selectedObject->getType() == GameObject::PrimitiveType::SPOT_LIGHT)
-		{
-			isLight = true;
-			ImGui::Separator();
-
-			ImGui::Text("Light Color");
-			ImGui::SameLine();
-			if (ImGui::ColorButton("Light Color", lightColorDisplay, 0, ImVec2(75, 25)))
-			{
-				isColorPickerOpen = !isColorPickerOpen;
-			}
-			if (ImGui::SliderFloat("Intensity", &this->intensityDisplay, 0, 1))
-			{
-				this->onLightPropsUpdate();
-				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-			}
-
-			// TODO : Light Type
-			std::string lightTypes[3] = { "Point Light", "Directional Light", "Spot Light" };
-			std::string currentType = (this->selectedObject->getType() == GameObject::POINT_LIGHT) ? lightTypes[0] :
-				(this->selectedObject->getType() == GameObject::DIRECTIONAL_LIGHT) ? lightTypes[1] :
-				(this->selectedObject->getType() == GameObject::SPOT_LIGHT) ? lightTypes[2] : "None";
-			if (ImGui::BeginCombo("Light Type", currentType.c_str(), ImGuiComboFlags_None))
-			{
-				for (std::string type : lightTypes)
-				{
-					if (ImGui::Selectable(type.c_str()))
-					{
-						lightTypeDisplay = (type == lightTypes[0]) ? Light::PointLight :
-							(type == lightTypes[1]) ? Light::DirectionalLight :
-							(type == lightTypes[2]) ? Light::SpotLight : Light::PointLight;
-
-						this->onLightPropsUpdate();
-					}
-				}
-				ImGui::EndCombo();
-			}
-		}
-		else { isLight = false; }
-
-		this->drawMaterialsTab();
 	}
 	else {
 		ImGui::TextWrapped("No object selected. Select an object first.");
@@ -159,6 +109,129 @@ void InspectorScreen::drawUI()
 
 	if (isColorPickerOpen)
 		showColorPickerWindow();
+}
+
+void InspectorScreen::drawLightTab()
+{
+	auto type = this->selectedObject->getType();
+
+	bool isLight =
+		type == GameObject::PrimitiveType::POINT_LIGHT ||
+		type == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
+		type == GameObject::PrimitiveType::SPOT_LIGHT;
+
+	if (!isLight) return;
+
+	if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		if (ImGui::BeginTable("LightInputsTable", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody))
+		{
+			float labelWidth = ImGui::CalcTextSize("Light Type").x;
+
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
+			ImGui::TableSetupColumn("InputFields", ImGuiTableColumnFlags_WidthStretch);
+
+			/* Light Color */
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Light Color");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			{
+				float previewButtonSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.9f;
+				float buttonSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x - ImGui::GetStyle().FrameBorderSize) * 0.1f;
+
+				if (ImGui::ColorButton("##LightColor_Preview", lightColorDisplay, 0, ImVec2(previewButtonSize, 20.0f)))
+				{
+					isColorPickerOpen = !isColorPickerOpen;
+				}
+
+				ImGui::SameLine();
+
+				// Optional "picker" icon button (like your material UI)
+				ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[5]);
+				if (ImGui::Button(ICON_MD_COLORIZE, ImVec2(buttonSize, 20.0f)))
+				{
+					isColorPickerOpen = !isColorPickerOpen;
+				}
+				ImGui::PopFont();
+			}
+
+			/* Intensity */
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Intensity");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			{
+				float sliderSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.8f;
+				float inputSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x - ImGui::GetStyle().FrameBorderSize) * 0.2f;
+
+				ImGui::SetNextItemWidth(sliderSize);
+				bool sliderChanged = ImGui::SliderFloat("##Intensity_Slider", &this->intensityDisplay, 0.0f, 1.0f, " %.05f", ImGuiSliderFlags_NoInput);
+
+				ImGui::SameLine();
+
+				ImGui::SetNextItemWidth(inputSize);
+				bool inputChanged = ImGui::InputFloat("##Intensity_Input", &this->intensityDisplay, 0.0f, 0.0f, " %.05f");
+
+				if (sliderChanged || inputChanged)
+				{
+					this->onLightPropsUpdate();
+					EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+				}
+			}
+
+			/* Light Type */
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Light Type");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			{
+				const char* lightTypes[] = { "Point Light", "Directional Light", "Spot Light" };
+
+				const char* currentType =
+					(this->selectedObject->getType() == GameObject::POINT_LIGHT) ? lightTypes[0] :
+					(this->selectedObject->getType() == GameObject::DIRECTIONAL_LIGHT) ? lightTypes[1] :
+					(this->selectedObject->getType() == GameObject::SPOT_LIGHT) ? lightTypes[2] : "None";
+
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+				if (ImGui::BeginCombo("##LightType_Combo", currentType, ImGuiComboFlags_None))
+				{
+					for (int i = 0; i < 3; i++)
+					{
+						bool isSelected = (strcmp(currentType, lightTypes[i]) == 0);
+						if (ImGui::Selectable(lightTypes[i], isSelected))
+						{
+							lightTypeDisplay =
+								(i == 0) ? Light::PointLight :
+								(i == 1) ? Light::DirectionalLight :
+								(i == 2) ? Light::SpotLight : Light::PointLight;
+
+							this->onLightPropsUpdate();
+							EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+						}
+						if (isSelected) ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+				}
+			}
+
+			ImGui::EndTable();
+		}
+	}
+
+	else
+	{
+		isLight = false;
+	}
 }
 
 void InspectorScreen::updateTransformDisplays()
@@ -258,7 +331,9 @@ void InspectorScreen::drawTransformTab()
 	{
 		if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody)) // Label, Button, Input Rects
 		{
-			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, this->transformLabelWidth);
+			float labelWidth = ImGui::CalcTextSize("Rotation").x;
+
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
 			ImGui::TableSetupColumn("Button", ImGuiTableColumnFlags_WidthFixed, this->transformUniformScalingButtonWidth); // reserve space for link button
 			ImGui::TableSetupColumn("Fields", ImGuiTableColumnFlags_WidthStretch);
 
@@ -288,7 +363,7 @@ void InspectorScreen::drawTransformTab()
 			ImGui::PushFont(UIManager::getInstance()->GetIconFont());
 
 			ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[3]);
-			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
+			if (ImGui::Selectable(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF))
 			{
 				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
 				UIManager::getInstance()->config()->inspectorUniformScaling = this->isUniformScalingEnabled;

@@ -25,6 +25,7 @@ private:
 	void onLightPropsUpdate() const;
 	void showColorPickerWindow();
 	virtual void drawUI() override;
+	void drawLightTab();
 	void updateTransformDisplays();
 	void updateLightPropsDisplays();
 	void FormatMatImage();
