@@ -882,7 +882,7 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
 }
 
-SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
+SceneAssets SceneList::Bistro(CameraInitialState& camera)
 {
 	glm::vec3 cameraPos(800, 400, -230);
 	glm::vec3 target(-350, 200, 65);
@@ -911,21 +911,59 @@ SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 	areaLightObject->setLocalRotation(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
-	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj.get());
-	ModelManager::getInstance()->addObject(std::move(cameraObj));
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/breakfast_room/breakfast_room.obj", "breakfast_room");
+	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
+
+	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+}
+
+SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
+{
+	glm::vec3 cameraPos(42.475, 47.379, 84.172);
+	glm::vec3 target(-43.229, 47.967, 84.465);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
+
+	std::mt19937 engine(1);
+	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
+
+	bool isProcedural = false;
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotation(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
-	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/breakfast_room/breakfast_room.obj");
-	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "BfastRoom" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(std::move(smObj));
-	smObj = nullptr;
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/breakfast_room/breakfast_room.obj", "breakfast_room");
+	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();

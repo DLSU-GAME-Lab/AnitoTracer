@@ -94,12 +94,15 @@ void HierarchyScreen::CreateObjectPopup()
 
 void HierarchyScreen::updateObjectList(const char* filter)
 {
-    const auto objectList = ModelManager::getInstance()->getSceneGraph();
-    std::string activeCamName = CameraManager::getInstance()->getActiveCamera()->getName();
+    auto objectList = ModelManager::getInstance()->getSceneGraph();
+	auto camera = CameraManager::getInstance()->getActiveCamera();
+    std::string activeCamName = camera->getName();
     ImGui::Text("Active Camera: %s", activeCamName.c_str());
 
     std::string filterStr(filter);
     std::transform(filterStr.begin(), filterStr.end(), filterStr.begin(), ::tolower);
+
+	objectList.insert(objectList.begin(), static_cast<GameObject*>(camera));
 
     for (const auto& obj : objectList)
     {
