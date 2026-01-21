@@ -51,6 +51,7 @@ public:
 	static SceneAssets SalleDeBain(CameraInitialState& camera);
 	static SceneAssets Gallery(CameraInitialState& camera);
 	static SceneAssets Bistro(CameraInitialState& camera);
+	static SceneAssets BalayAnito(CameraInitialState& camera);
 	static std::vector<Assets::Texture> AssembleTextureList();
 
 	static const std::vector<std::tuple<std::string, std::function<SceneAssets (CameraInitialState&)>>> AllScenes;
