@@ -18,6 +18,7 @@ namespace Vulkan::RayTracing
 	class DeviceProcedures;
 	class RayTracingPipeline;
 	class RayTracingProperties;
+	class RayPickerPipeline;
 	
 	class ShaderBindingTable final
 	{
@@ -34,6 +35,14 @@ namespace Vulkan::RayTracing
 		ShaderBindingTable(
 			const DeviceProcedures& deviceProcedures,
 			const RayTracingPipeline& rayTracingPipeline,
+			const RayTracingProperties& rayTracingProperties,
+			const std::vector<Entry>& rayGenPrograms,
+			const std::vector<Entry>& missPrograms,
+			const std::vector<Entry>& hitGroups);
+
+		ShaderBindingTable(
+			const DeviceProcedures& deviceProcedures,
+			const RayPickerPipeline& rayTracingPipeline,
 			const RayTracingProperties& rayTracingProperties,
 			const std::vector<Entry>& rayGenPrograms,
 			const std::vector<Entry>& missPrograms,

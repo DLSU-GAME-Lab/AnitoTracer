@@ -29,7 +29,9 @@
 #include "Plane.hpp"
 #include "RayTracer.hpp"
 #include "Sphere.hpp"
+#include "Assets/ModelLibrary.hpp"
 #include "From-GDGRAP2/Debug.h"
+#include "From-GDGRAP2/GameObject.h"
 
 using namespace glm;
 
@@ -498,7 +500,8 @@ Model Model::CreateBox(const vec3& p0, const vec3& p1, const Material& material)
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		nullptr);
+		nullptr
+		);
 }
 
 Model Model::CreatePlane(const glm::vec3& p0, const glm::vec3& p1, const Material& material)
@@ -512,7 +515,8 @@ Model Model::CreatePlane(const glm::vec3& p0, const glm::vec3& p1, const Materia
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		nullptr);
+		nullptr
+		);
 }
 
 Model Model::CreateSphere(const vec3& center, float radius, const Material& material, const bool isProcedural)
@@ -526,7 +530,8 @@ Model Model::CreateSphere(const vec3& center, float radius, const Material& mate
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		isProcedural ? new SphereProc(center, radius) : nullptr);
+		isProcedural ? new SphereProc(center, radius) : nullptr
+		);
 }
 
 Model Model::CreateCylinder(float radius, float height, const Material& material)
@@ -540,7 +545,8 @@ Model Model::CreateCylinder(float radius, float height, const Material& material
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		nullptr);
+		nullptr
+	);
 }
 
 Model Model::CreateCapsule(float radius, float height, const Material& material)
@@ -554,7 +560,8 @@ Model Model::CreateCapsule(float radius, float height, const Material& material)
 		std::move(vertices),
 		std::move(indices),
 		std::vector<Material>{material},
-		nullptr);
+		nullptr
+		);
 }
 
 void Model::SetMaterial(const Material& material)
@@ -608,6 +615,12 @@ void Model::ResetVertices()
 			vertices_[i].Normal = originalVertices_[i].Normal;
 		}
 	}
+}
+
+GameObject* Model::GetOwner() const
+{
+	if (!this->owner) Debug::Log("OWNER LESS MODEL DETECTED!"); 
+	return this->owner;
 }
 
 Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural) :

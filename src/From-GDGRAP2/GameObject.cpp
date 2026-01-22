@@ -34,6 +34,7 @@ GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::
 	this->name = name;
 	this->type = type;
 	this->modelRef = modelRef;
+	this->modelRef->SetOwner(this);
 
 	this->updateWorldMatrix();
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
@@ -221,7 +222,21 @@ void GameObject::addChild(GameObject::GameObjectPtr child)
 		child->parent->removeChild(child.get());
 
 	child->parent = this;
+
+	glm::mat4 parentWorldInverse = glm::inverse(this->getWorldMatrix());
+	child->localMatrix = parentWorldInverse * child->getWorldMatrix();
+
+	// Decompose to update local position, rotation, scale
+	glm::vec3 skew;
+	glm::vec4 perspective;
+	glm::quat rotationQuat;
+	glm::decompose(child->localMatrix, child->localScale, rotationQuat,
+		child->localPosition, skew, perspective);
+	child->localRotation = glm::degrees(glm::eulerAngles(rotationQuat));
+
+	child->localDirty = false;
 	child->setWorldDirty();
+
 	children.push_back(std::move(child));
 }
 
@@ -386,7 +401,7 @@ void GameObject::updateWorldMatrix()
 
 	this->updateLocalMatrix();
 	
-	auto localMat = this->localMatrix;
+	auto localMat = this->getLocalMatrix();
 
 	if (parent)
 	{
@@ -407,12 +422,13 @@ void GameObject::updateWorldMatrix()
 	worldRotation = glm::degrees(glm::eulerAngles(rotationQuat));
 
 	// Update bounding box and model matrix
-	if (modelRef && !modelRef->Vertices().empty())
+	if (modelRef && !modelRef->OriginalVertices().empty())
 	{
 		std::vector<glm::vec3> worldPositions;
-		worldPositions.reserve(modelRef->Vertices().size());
+		worldPositions.reserve(modelRef->OriginalVertices().size());
+		modelRef->transformedVertices_ = modelRef->originalVertices_;
 
-		for (const auto& vertex : modelRef->Vertices())
+		for (const auto& vertex : modelRef->TransformedVertices())
 		{
 			glm::vec3 posWorld = glm::vec3(worldMatrix * glm::vec4(vertex.Position, 1.0f));
 			worldPositions.push_back(posWorld);
@@ -448,6 +464,11 @@ void GameObject::updateWorldMatrix()
 glm::mat4 GameObject::getWorldMatrix() const
 {
 	return this->worldMatrix;
+}
+
+glm::mat4 GameObject::getWorldMatrixInverse() const
+{
+	return glm::inverse(this->worldMatrix);
 }
 
 // for Child Gameobjects
@@ -540,4 +561,14 @@ void GameObject::setWorldDirty()
 bool GameObject::isWorldDirty() const
 {
 	return this->worldDirty;
+}
+
+bool GameObject::IsHierarchyNodeOpen() const
+{
+	return this->isHierarchyNodeOpen;
+}
+
+void GameObject::SetHierarchyNodeOpen(bool isOpen)
+{
+	this->isHierarchyNodeOpen = isOpen;
 }

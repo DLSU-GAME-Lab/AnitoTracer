@@ -125,7 +125,7 @@ CreatePrimitiveCommand::CreatePrimitiveCommand(GameObject::PrimitiveType type, s
 
 std::unique_ptr<GameObject> CreatePrimitiveCommand::createObject()
 {
-	return GameObjectFactory::getInstance()->CreatePrimitive(this->type, this->name);
+	return GameObjectFactory::CreatePrimitive(this->type, this->name);
 }
 
 // ---------------- CreateMeshCommand ----------------
@@ -136,7 +136,7 @@ CreateMeshCommand::CreateMeshCommand(std::string filePath, std::string name, glm
 
 std::unique_ptr<GameObject> CreateMeshCommand::createObject()
 {
-	return GameObjectFactory::getInstance()->CreateFromModelFile(this->filePath, this->name);
+	return GameObjectFactory::CreateFromModelFile(this->filePath, this->name);
 }
 
 // ---------------- CreateLightCommand ----------------
@@ -165,7 +165,7 @@ void CreateLightCommand::execute()
 	}
 
 	// First-time creation
-	this->createdObjectStorage = GameObjectFactory::getInstance()->CreateLight(this->type, this->name);
+	this->createdObjectStorage = GameObjectFactory::CreateLight(this->type, this->name);
 	this->createdObjectRef = this->createdObjectStorage.get();
 	this->createdObjectRef->setLocalPosition(this->storedPosition);
 	this->createdObjectRef->setLocalRotation(this->storedRotation);

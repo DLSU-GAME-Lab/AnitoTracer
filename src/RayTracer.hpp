@@ -6,6 +6,7 @@
 #include "Assets/TextureImage.hpp"
 #include "Assets/RayScene.hpp"
 #include "UI/UIConfig.hpp"
+#include "RayPicker/RayPicker.hpp"
 
 namespace Vulkan {
 	class RayVisualizationPipeline;
@@ -31,6 +32,7 @@ protected:
 	const Assets::RayScene& GetRayScene() const override { return *rayScene_; }
 	Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const override;
 	Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const override;
+	RayPickerUBO GetRayPickerUBO(const VkExtent2D extent) const override;
 
 	void SetPhysicalDevice(
 		VkPhysicalDevice physicalDevice, 
@@ -52,11 +54,15 @@ protected:
 	void onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters) override;
 
 private:
-
 	void LoadScene(uint32_t sceneIndex);
 	void ReloadModifiedScene();
 	void CheckAndUpdateBenchmarkState(double prevTime);
 	void CheckFramebufferSize() const;
+	void ResetPicker();
+	void SchedulePick(const glm::vec2& mousePos);
+	void ExecuteScheduledPick();
+
+	void ScreenToWorldRay(const glm::vec2& mousePos, glm::vec3& outOrigin, glm::vec3& outDirection);
 
 	uint32_t sceneIndex_{};
 	UserSettings userSettings_{};
@@ -91,7 +97,11 @@ private:
 	bool isMoving = false;
 	bool mousePressed = false;
 
+	bool isPickScheduled = false;
+
 	static RayTracer* sharedInstance;
 
 	std::unique_ptr<class Vulkan::RayVisualizationPipeline> rayVisualizationPipeline_;
+	std::unique_ptr<class RayPicker> rayPicker_;
+	glm::vec2 scheduledMousePos;
 };

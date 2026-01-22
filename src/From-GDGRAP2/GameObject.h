@@ -76,11 +76,15 @@ public:
     glm::mat4 getLocalMatrix() const;
     void updateWorldMatrix();
     glm::mat4 getWorldMatrix() const;
+	glm::mat4 getWorldMatrixInverse() const;
 
 	void setLocalDirty();
 	bool isLocalDirty() const;
 	void setWorldDirty();
 	bool isWorldDirty() const;
+
+	bool IsHierarchyNodeOpen() const;
+	void SetHierarchyNodeOpen(bool isOpen);
 
 protected:
     String name;
@@ -121,6 +125,8 @@ protected:
 
 	bool localDirty = true;
 	bool worldDirty = true;
+
+    bool isHierarchyNodeOpen = true;
 
     friend class ModelManager;
 };

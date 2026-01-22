@@ -132,8 +132,15 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
 
     GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
+
+    if (obj->IsHierarchyNodeOpen())
+    {
+        flags |= ImGuiTreeNodeFlags_DefaultOpen;
+    }
+
     if (selectedObject == obj)
     {
+		ImGui::PushStyleColor(ImGuiCol_Header, DarkTheme.SCROLLBAR_GRAB_ACTIVE); //blue
         flags |= ImGuiTreeNodeFlags_Selected;
     }
 
@@ -143,6 +150,12 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
 
     ImGui::PushID(objectId.c_str());
     bool open = ImGui::TreeNodeEx(objectName.c_str(), flags);
+    obj->SetHierarchyNodeOpen(open);
+
+    if (selectedObject == obj)
+    {
+        ImGui::PopStyleColor();
+    }
 
     static bool hasValidDropTarget = false;
     static bool isDragging = false;

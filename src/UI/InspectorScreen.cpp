@@ -90,16 +90,6 @@ void InspectorScreen::drawUI()
 
 		this->updateTransformDisplays();
 		this->updateLightPropsDisplays();
-
-		bool enabled = this->selectedObject->isActive();
-		
-		/*ImGui::SameLine();
-		if (ImGui::Button("Delete")) {
-			ModelManager::getInstance()->deleteObject(this->selectedObject);
-			ModelManager::getInstance()->setSelectedObject(static_cast<std::shared_ptr<GameObject>>(nullptr));
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-		}*/
-
 		this->drawTransformTab();
 
 		// Light "Component"
@@ -154,7 +144,7 @@ void InspectorScreen::drawUI()
 	ImGui::End();
 
 	// Color Picker
-	if (isColorPickerOpen && !enabled)
+	if (isColorPickerOpen && !this->selectedObject->isActive())
 		isColorPickerOpen = false;
 
 	if (isColorPickerOpen)
