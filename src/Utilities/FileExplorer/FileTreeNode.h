@@ -21,8 +21,7 @@ public:
 
     // setters
     void setIsOpen(bool isOpen);
-    void setIsInitialized(bool isInitialized);
-    void setDirectoryEntry(const directory_entry& directoryEntry);
+    void setParent(FileTreeNode* parent);
 
     // node processes
     void addChild(const FileTreeNode& child);

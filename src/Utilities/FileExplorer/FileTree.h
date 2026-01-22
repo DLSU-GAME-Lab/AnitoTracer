@@ -13,28 +13,19 @@ public:
     // singleton instancing and initialization
     static FileTree* getInstance();
 
-    void setRoot(const FileTreeNode& root);
-
     // filesystem indexing
-    void populateFileMap();
-    bool getFilesystemIndexStatus();
-
+    void setRoot();
+    
     // file manipulation
-    void copyNodeSelection(const FileTreeNode& node);
-    void copyFile(FileTreeNode& dest);
-    void openFile(const std::string& filePath);
     void deleteFile(FileTreeNode& toDelete);
+    bool createDirectory(FileTreeNode& parentNode, std::string dirName);
 
     // getters
     FileTreeNode& getRoot();
-    std::unordered_map<std::string, std::vector<std::filesystem::path>>& getFileMap();
 
 private:
     static FileTree* instance;
-    FileTree();
+    FileTree(FileTreeNode& rootNode);
 
-    inline static std::unordered_map<std::string, std::vector<std::filesystem::path>> fileMap;
-    FileTreeNode copiedNode;
-    FileTreeNode root;
-    bool filesystemIndexed;
+    FileTreeNode& root;
 };

@@ -7,6 +7,7 @@
 #include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
+#include "Utilities/DragAndDrop/DragAndDropUtils.h"
 #include "IconsMaterialDesign.h"
 #include "EditorTheme.hpp"
 #include "StateManagement/CommandManager.hpp"
@@ -27,6 +28,9 @@ void HierarchyScreen::drawUI()
     ImGui::PushStyleColor(ImGuiCol_MenuBarBg, DarkTheme.TAB_ACTIVE);
 
 	ImGui::Begin("Hierarchy", nullptr, UISettings::GlobalWindowFlags | ImGuiWindowFlags_MenuBar);
+
+    DragAndDropUtils::createFullPanelDummy();
+    DragAndDropUtils::attachModelInstantiateTarget();
 
 	// Search Bar
 	static char searchBuffer[128] = "";

@@ -19,16 +19,8 @@ bool FileTreeNode::getIsInitialized() const {
     return isInitialized;
 }
 
-void FileTreeNode::setIsInitialized(const bool isInitialized) {
-    this->isInitialized = isInitialized;
-}
-
 std::filesystem::directory_entry& FileTreeNode::getDirectoryEntry() {
     return directoryEntry;
-}
-
-void FileTreeNode::setDirectoryEntry(const directory_entry& directoryEntry) {
-    this->directoryEntry = directoryEntry;
 }
 
 std::string FileTreeNode::getPathString() const {
@@ -61,6 +53,10 @@ bool FileTreeNode::childrenExist() const {
 
 FileTreeNode* FileTreeNode::getParent() const {
     return parent;
+}
+
+void FileTreeNode::setParent(FileTreeNode* parent) {
+    this->parent = parent;
 }
 
 void FileTreeNode::init() {

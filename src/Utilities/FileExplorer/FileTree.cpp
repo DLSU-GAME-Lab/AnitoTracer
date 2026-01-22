@@ -9,70 +9,26 @@
 
 FileTree* FileTree::instance = nullptr;
 
-FileTree::FileTree()
-{
-    filesystemIndexed = false;
+FileTree::FileTree(FileTreeNode& rootNode) : root(rootNode)
+{ 
+
 }
 
 FileTree* FileTree::getInstance() {
     if (instance == nullptr) {
-        instance = new FileTree();
+        directory_entry dirEnt(FileExplorerConstants::ASSETS_DIR);
+        FileTreeNode* newRoot = new FileTreeNode(dirEnt);
+        newRoot->init();
+        instance = new FileTree(*newRoot);
     }
     return instance;
 }
 
-void FileTree::setRoot(const FileTreeNode& root) {
-    FileTree::root = root;
-}
-
-
-void FileTree::populateFileMap() {
-    try {
-        std::filesystem::directory_entry start_dir(FileExplorerConstants::ASSETS_DIR);
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(start_dir)) {
-            fileMap[entry.path().filename().string()].push_back(entry.path());
-        }
-    }
-    catch (const std::filesystem::filesystem_error& e) {
-        std::cerr << "Error accessing entry: " << e.what() << std::endl;
-    }
-
-    filesystemIndexed = true;
-}
-
-bool FileTree::getFilesystemIndexStatus() {
-    return filesystemIndexed;
-}
-
-void FileTree::copyNodeSelection(const FileTreeNode& node) {
-    copiedNode = node;
-}
-
-void FileTree::copyFile(FileTreeNode& dest) {
-    std::string destination_directory = dest.getPathString();
-
-    // Append the file name from the source path to construct the full destination path.
-    std::string copy_source_path = copiedNode.getPathString();
-    std::string paste_destination_path = destination_directory + "/" + std::filesystem::path(copy_source_path).filename().string();
-
-    copiedNode.setDirectoryEntry(std::filesystem::directory_entry(paste_destination_path));
-
-    dest.addChild(copiedNode);
-
-    try
-    {
-        std::filesystem::copy(copy_source_path, paste_destination_path);
-    }
-    catch (const std::filesystem::filesystem_error& e)
-    {
-        ImGui::Text("Error copying file: %s", e.what());
-    }
-}
-
-void FileTree::openFile(const std::string& filePath) {
-    /* Opens the file in a default program. */
-    std::string command = "open \"" + filePath + "\"";
-    system(command.c_str());
+void FileTree::setRoot() {
+    directory_entry dirEnt(FileExplorerConstants::ASSETS_DIR);
+    FileTreeNode* newRoot = new FileTreeNode(dirEnt);
+    newRoot->init();
+    FileTree::root = *newRoot;
 }
 
 void FileTree::deleteFile(FileTreeNode& toDelete) {
@@ -108,10 +64,20 @@ void FileTree::deleteFile(FileTreeNode& toDelete) {
     }
 }
 
-FileTreeNode& FileTree::getRoot() {
-    return root;
+bool FileTree::createDirectory(FileTreeNode& parentNode, std::string dirName) {
+    bool status = std::filesystem::create_directory(parentNode.getDirectoryEntry().path() / dirName);
+
+    if (status) {
+        directory_entry newDir(parentNode.getDirectoryEntry().path() / dirName);
+        FileTreeNode newTreeNode(newDir);
+
+        newTreeNode.setParent(&parentNode);
+        parentNode.addChild(newTreeNode);
+    }
+
+    return status;
 }
 
-std::unordered_map<std::string, std::vector<std::filesystem::path> >& FileTree::getFileMap() {
-    return fileMap;
+FileTreeNode& FileTree::getRoot() {
+    return root;
 }

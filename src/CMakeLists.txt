@@ -300,6 +300,30 @@ set(src_files
 	UserSettings.hpp
 )
 
+set(src_files_imgui
+	Dependencies/include/imconfig.h
+	Dependencies/include/imgui.cpp
+	Dependencies/include/imgui.h
+	Dependencies/include/imgui_draw.cpp
+	Dependencies/include/imgui_freetype.cpp
+	Dependencies/include/imgui_freetype.h
+	Dependencies/include/imgui_impl_glfw.cpp
+	Dependencies/include/imgui_impl_glfw.h
+	Dependencies/include/imgui_impl_vulkan.cpp
+	Dependencies/include/imgui_impl_vulkan.h
+	Dependencies/include/imgui_internal.h
+	Dependencies/include/imgui_widgets.cpp
+	Dependencies/include/imgui_stdlib.h
+	Dependencies/include/imgui_stdlib.cpp
+	Dependencies/include/imgui_tables.cpp
+	Dependencies/include/imstb_rectpack.h
+	Dependencies/include/imstb_textedit.h
+	Dependencies/include/imstb_truetype.h
+	Dependencies/include/ImGuizmo.cpp
+	Dependencies/include/ImGuizmo.h
+)
+
+
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
@@ -316,6 +340,7 @@ source_group("Vulkan" FILES ${src_files_vulkan})
 source_group("Vulkan.RayTracing" FILES ${src_files_vulkan_raytracing})
 source_group("RayPicker" FILES ${src_files_raypicker})
 source_group("Main" FILES ${src_files})
+source_group("ImGui" FILES ${src_files_imgui})
 
 add_executable(${exe_name} 
 	${src_files_assets}
@@ -336,7 +361,8 @@ add_executable(${exe_name}
 	${src_files_vulkan_raytracing} 
 	${src_files_raypicker}
 	${src_files}
- "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp" "Utilities/FileExplorer/FileTreeNode.h" "Utilities/FileExplorer/FileTree.h" "Utilities/FileExplorer/FileIcon.h" "Utilities/FileExplorer/FileTree.cpp" "Utilities/FileExplorer/FileTreeNode.cpp" "UI/ProjectScreen.h" "UI/ProjectScreen.cpp" "Utilities/FileExplorer/FileIcon.cpp" "Utilities/FileExplorer/FileExplorerConstants.h")
+	${src_files_imgui}
+ "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp" "Utilities/FileExplorer/FileTreeNode.h" "Utilities/FileExplorer/FileTree.h" "Utilities/FileExplorer/FileIcon.h" "Utilities/FileExplorer/FileTree.cpp" "Utilities/FileExplorer/FileTreeNode.cpp" "UI/ProjectScreen.h" "UI/ProjectScreen.cpp" "Utilities/FileExplorer/FileIcon.cpp" "Utilities/FileExplorer/FileExplorerConstants.h" "UI/FileExplorer/FileListView.h" "UI/FileExplorer/FileIconView.h" "UI/FileExplorer/FileListView.cpp" "Utilities/FileExplorer/FileExplorerUtils.h" "Utilities/FileExplorer/FileExplorerUtils.cpp" "UI/FileExplorer/FileIconView.cpp"  "Utilities/DragAndDrop/DragAndDropUtils.h" "Utilities/DragAndDrop/DragAndDropUtils.cpp" "Utilities/DragAndDrop/DragAndDropConstants.h")
 
 if (UNIX)
 	# GCC8 needs an extra lib for <filesystem>.
@@ -354,9 +380,11 @@ target_include_directories(
 	${glfw3_INCLUDE_DIRS} 
 	${glm_INCLUDE_DIRS} 
 	${STB_INCLUDE_DIRS} 
-	${Vulkan_INCLUDE_DIRS})
+	${Vulkan_INCLUDE_DIRS}
+	Dependencies/include
+)
 target_link_directories(${exe_name} PRIVATE Assimp/lib ${Vulkan_LIBRARY})
-target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm imgui::imgui imguizmo::imguizmo ${Vulkan_LIBRARIES} ${extra_libs})
+target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm ${Vulkan_LIBRARIES} ${extra_libs})
 
 #if(${WIN32})
 #add_custom_command(TARGET ${exe_name} POST_BUILD

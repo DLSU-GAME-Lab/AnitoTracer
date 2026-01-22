@@ -11,8 +11,8 @@ vcpkg.exe install ^
 	freetype:x64-windows-static ^
 	glfw3:x64-windows-static ^
 	glm:x64-windows-static ^
-	imgui[core,freetype,glfw-binding,vulkan-binding,docking-experimental]:x64-windows-static ^
-	imguizmo:x64-windows-static ^
+	vulkan:x64-windows-static ^
+	freetype:x64-windows-static ^
 	stb:x64-windows-static ^
 	assimp:x64-windows-static ^
 	nlohmann-json:x64-windows-static ^

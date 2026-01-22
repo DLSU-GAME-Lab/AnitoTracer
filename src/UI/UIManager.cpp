@@ -36,6 +36,13 @@
 #include "Vulkan/Window.hpp"
 #include "IconsMaterialDesign.h"
 #include "EditorTheme.hpp"
+#include "Utilities/DragAndDrop/DragAndDropUtils.h"
+
+// For DragDrop from Windows
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <windows.h>
+#include <shellapi.h> // Required for DragAcceptFiles
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 #include "HotkeySystem/HotkeySystem.hpp"
@@ -54,6 +61,10 @@ bool UIManager::isHidingUI = false;
 UIManager* UIManager::sharedInstance = nullptr;
 
 TransformState UIManager::gizmoBeforeState = {};
+
+// For WndProc subclassing
+LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+WNDPROC imguiWndproc;
 
 namespace
 {
@@ -124,6 +135,11 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 		Throw(std::runtime_error("failed to initialise ImGui GLFW adapter"));
 	}
 
+	HWND hWnd = glfwGetWin32Window(window.Handle());
+	imguiWndproc = (WNDPROC)GetWindowLongPtr(hWnd, GWLP_WNDPROC);
+	SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)DragDropWndProc);
+	DragAcceptFiles(hWnd, TRUE);
+
 	// Initialise ImGui Vulkan adapter
 	ImGui_ImplVulkan_InitInfo vulkanInit = {};
 	vulkanInit.Instance = device.Surface().Instance().Handle();
@@ -132,7 +148,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	vulkanInit.QueueFamily = device.GraphicsFamilyIndex();
 	vulkanInit.Queue = device.GraphicsQueue();
 	vulkanInit.PipelineCache = nullptr;
-	vulkanInit.RenderPass = sharedInstance->renderPass->Handle();
+	vulkanInit.PipelineInfoMain.RenderPass = sharedInstance->renderPass->Handle();
 	vulkanInit.DescriptorPool = sharedInstance->descriptorPool->Handle();
 	vulkanInit.MinImageCount = swapChain->MinImageCount();
 	vulkanInit.ImageCount = static_cast<uint32_t>(swapChain->Images().size());
@@ -164,7 +180,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	ImGui::GetStyle().ScaleAllSizes(scaleFactor);
 
 	// Upload ImGui fonts (use ImGuiFreeType for better font rendering, see https://github.com/ocornut/imgui/tree/master/misc/freetype).
-	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+	io.Fonts->SetFontLoader(ImGuiFreeType::GetFontLoader());
 
 	if (!io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/Cousine-Regular.ttf").data(), 13 * scaleFactor))
 	{
@@ -204,20 +220,15 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	ImFontConfig* iconFontConfig3 = new ImFontConfig();
 	iconFontConfig3->MergeMode = false;
 	iconFontConfig3->PixelSnapH = true;
-	iconFontConfig3->GlyphOffset = ImVec2(1.0f, 0.0f);
+	iconFontConfig3->GlyphOffset = ImVec2(0.0f, 0.0f);
 
 	/* 5 */
-	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 14 * scaleFactor, iconFontConfig3, iconRanges);
+	sharedInstance->iconFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 14 * scaleFactor, iconFontConfig3, iconRanges);
 
 	Vulkan::SingleTimeCommands::Submit(*commandPool, [](VkCommandBuffer commandBuffer)
 		{
-			if (!ImGui_ImplVulkan_CreateFontsTexture())
-			{
-				Throw(std::runtime_error("failed to create ImGui font textures"));
-			}
+			// IMGUI_IMPL_VULKAN NOW SUPPORTS DYNAMIC FONTS OUT OF BOX 
 		});
-
-	//ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 	sharedInstance->initializeUI();
 
@@ -432,12 +443,14 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 	//Allow docking inside the main viewport 
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-
+	
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
 	drawAllUI();
 	//DrawSettings();
 	drawOverlay(statistics);
+
+	DragAndDropUtils::attachModelInstantiateTargetToViewport(ImGui::GetMainViewport());
 
 	//Start ImGuizmo frame.
 	if (ModelManager::getInstance()->getSelectedObject() != nullptr)
@@ -949,3 +962,53 @@ void UIManager::setupImGuiStyle()
 	style.Colors[ImGuiCol_ModalWindowDimBg] = DarkTheme.MODAL_WINDOW_DIM_BG;
 }
 
+LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+	switch (message) {
+		case WM_DROPFILES: {
+			HDROP hDrop = (HDROP)wParam; // Cast wParam to HDROP handle
+			UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, NULL, 0); // Get number of dropped files
+
+			std::vector<std::wstring> files;
+			for (UINT i = 0; i < fileCount; ++i) {
+				// Determine the required buffer size for the file path
+				UINT bufferSize = DragQueryFile(hDrop, i, NULL, 0) + 1;
+				std::wstring filePath(bufferSize, L'\0');
+
+				// Get the actual file path
+				DragQueryFile(hDrop, i, &filePath[0], bufferSize);
+				filePath.pop_back(); // Remove the extra null terminator
+				files.push_back(filePath);
+			}
+
+			if (!files.empty()) {
+				std::wstring listedFilenames = L"";
+				for (std::wstring importedFile : files) {
+					directory_entry importedDirEntry(importedFile.c_str());
+					if (importedDirEntry.is_directory()) continue;
+
+					std::wstring sourcePathW(importedFile.c_str());
+					listedFilenames += sourcePathW + L"\n";
+				}
+
+				std::wstring importPromptMessage(L"Import the following:\n" + listedFilenames + L"to project?");
+				int response = MessageBox(hWnd, importPromptMessage.c_str(), L"Dropped File", MB_YESNO | MB_ICONQUESTION);
+
+				for (std::wstring importedFile : files) {
+					if (response != IDYES) break;
+					directory_entry importedDirEntry(importedFile.c_str());
+					if (importedDirEntry.is_directory()) continue;
+
+					std::wstring sourcePathW(importedFile.c_str());
+					std::string sourcePath(sourcePathW.begin(), sourcePathW.end());
+					DragAndDropUtils::copyFileToAssetsRoot(sourcePath);
+				}
+			}
+
+			DragFinish(hDrop); // Free the memory allocated for the dropped files
+
+			return true;
+		}
+	}
+
+	return CallWindowProc(imguiWndproc, hWnd, message, wParam, lParam);
+}

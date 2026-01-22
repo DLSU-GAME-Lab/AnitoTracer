@@ -6,6 +6,9 @@
 #include "IconsMaterialDesign.h"
 #include "Utilities/FileExplorer/FileTree.h"
 #include "Utilities/FileExplorer/FileExplorerConstants.h"
+#include "Utilities/FileExplorer/FileExplorerUtils.h"
+#include "UI/FileExplorer/FileListView.h"
+#include "UI/FileExplorer/FileIconView.h"
 
 #include <fstream>
 #include <iostream>
@@ -26,11 +29,7 @@ ProjectScreen::ProjectScreen() : AUIScreen(UINames::PROJECT_SCREEN)
         }
     }
 
-    FileTree::getInstance()->populateFileMap();
-    directory_entry dirEnt(FileExplorerConstants::ASSETS_DIR);
-    FileTreeNode root(dirEnt);
-    root.init();
-    FileTree::getInstance()->setRoot(root);
+    FileIconView::getInstance()->setCurrentNode(&FileTree::getInstance()->getRoot());
 }
 
 ProjectScreen::~ProjectScreen()
@@ -38,76 +37,27 @@ ProjectScreen::~ProjectScreen()
 
 void ProjectScreen::drawUI()
 {
-    ImGui::PushFont(nullptr);
-	if (ImGui::Begin(FileExplorerConstants::PANEL_NAME, nullptr, UISettings::GlobalWindowFlags))
-	{
-        renderRootNode(FileTree::getInstance()->getRoot());
-	}
-	ImGui::End();
-    ImGui::PopFont();
-}
+    if (ImGui::Begin(FileExplorerConstants::PANEL_NAME, nullptr, UISettings::GlobalWindowFlags))
+    {
+        if (ImGui::BeginTable("MyTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
 
-std::string ProjectScreen::getFileExtension(const std::string& filename) {
-    std::stringstream ss(filename);
-    std::string item;
-    std::vector<std::string> result;
+            ImGui::TableSetupColumn("Project Files");
+            ImGui::TableSetupColumn(FileIconView::getInstance()->getCurrentNode()->getPathString().c_str());
 
-    // Split by '.'
-    while (std::getline(ss, item, '.')) {
-        result.push_back(item);
-    }
+            ImGui::TableHeadersRow(); // Display table headers
 
-    return result.back();
-}
+            ImGui::TableNextRow(); // Only 1 row
 
-std::string ProjectScreen::chooseIconCode(const FileTreeNode& node) {
-    std::string iconCode;
-    std::string filename = node.getName();
+            ImGui::TableSetColumnIndex(0);
+            FileListView::getInstance()->drawUI();
 
-    try {
-        if (node.isDirectory()) {
-            iconCode = ICON_MD_FOLDER_OPEN;
+            ImGui::TableSetColumnIndex(1);
+            FileIconView::getInstance()->drawUI();
+
+            ImGui::EndTable();
         }
-        else if (filename[0] == '.') iconCode = ICON_MD_SHORT_TEXT;
-        else iconCode = chooseIconBasedOnExtension(filename);
     }
-    catch (const std::filesystem::filesystem_error& e) {
-        std::cerr << "Error accessing entry: " << e.what() << std::endl;
-    }
-
-    return iconCode;
-}
-
-std::string ProjectScreen::chooseIconBasedOnExtension(const std::string& filename) {
-    std::string fileExtension = getFileExtension(filename);
-
-    std::string iconCode;
-    if (fileExtension == "rar" || fileExtension == "zip") {
-        iconCode = ICON_MD_FOLDER_ZIP;
-    }
-    else if (fileExtension == "exe") {
-        iconCode = ICON_MD_TERMINAL;
-    }
-    else if (fileExtension == "txt") {
-        iconCode = ICON_MD_SHORT_TEXT;
-    }
-    else if (fileExtension == "jpg" || fileExtension == "jpeg" || fileExtension == "png" || fileExtension == "PNG" || fileExtension == "bmp") {
-        iconCode = ICON_MD_IMAGE;
-    }
-    else if (fileExtension == "pdf") {
-        iconCode = ICON_MD_PICTURE_AS_PDF;
-    }
-    else if (fileExtension == "json") {
-        iconCode = ICON_MD_DATA_OBJECT;
-    }
-    else if (fileExtension == "meta" || fileExtension == "config") {
-        iconCode = ICON_MD_SETTINGS;
-    }
-    else {
-        iconCode = ICON_MD_QUIZ;
-    }
-
-    return iconCode;
+    ImGui::End();
 }
 
 static bool deletePopup = false;
@@ -140,84 +90,14 @@ void renderDeleteConfirmationPrompt(FileTreeNode& toDelete) {
     }
 }
 
-
 void ProjectScreen::popupWindowNode(FileTreeNode& node) {
 
     if (ImGui::BeginPopup("FileTreeNodePopup")) {
-        if (ImGui::MenuItem(ICON_MD_ARROW_RIGHT "Run")) {
-            FileTree::getInstance()->openFile(node.getPathString());
-        }
-        if (ImGui::MenuItem(ICON_MD_CONTENT_COPY "Copy")) {
-            FileTree::getInstance()->copyNodeSelection(node);
-        }
-        if (ImGui::MenuItem(ICON_MD_CONTENT_PASTE "Paste")) {
-            FileTree::getInstance()->copyFile(node);
-        }
         if (ImGui::MenuItem(ICON_MD_DELETE "Delete")) {
             deletePopup = true;
         }
 
         ImGui::EndPopup();
-    }
-
-}
-
-void ProjectScreen::renderDescendants(FileTreeNode& root) {
-    if (root.getIsOpen()) {
-        for (auto& rootChild : root.getChildren()) { //root.children
-
-            // 1.) Initialize the root children nodes if they are directories, and give them render flags.
-            ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_None;
-            if (rootChild.isDirectory() && rootChild.directoryEntryExists()) {
-                // If the node is a directory, initialize it - if it doesn't have children, it's a leaf.
-                rootChild.init();
-                if (!rootChild.childrenExist()) flag |= ImGuiTreeNodeFlags_Leaf;
-            }
-            else {
-                // If the node represents a file, it's a leaf.
-                flag |= ImGuiTreeNodeFlags_Leaf;
-            }
-
-            // 2.) Render root children and listen for events on those nodes.
-            ImGui::PushFont(UIManager::getInstance()->GetIconFont());
-            std::string iconCode = chooseIconCode(rootChild);
-            if (ImGui::TreeNodeEx((iconCode + " " + rootChild.getName()).c_str(), flag)) {
-                ImGui::PopFont();
-
-                rootChild.setIsOpen(true);
-                renderDescendants(rootChild);
-
-                ImGui::TreePop();
-            }
-            else {
-                rootChild.setIsOpen(false);
-                ImGui::PopFont();
-            }
-        }
-    }
-}
-
-void ProjectScreen::renderRootNode(FileTreeNode& root) {
-    // Renders the root node with the given driveName, initializes it when clicked, and renders the root children.
-    ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_None;
-
-    try {
-        ImGui::PushFont(nullptr);
-        if (ImGui::TreeNodeEx(root.getName().c_str(), flag)) {
-            ImGui::PopFont();
-
-            root.setIsOpen(true);
-            renderDescendants(root);
-
-            ImGui::TreePop();
-        }
-        else {
-            root.setIsOpen(false);
-            ImGui::PopFont();
-        }
-    }
-    catch (const std::filesystem::filesystem_error&) {
-        ImGui::TreePop();
     }
 
 }
