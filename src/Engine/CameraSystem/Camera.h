@@ -38,6 +38,7 @@ public:
 	void setLocalPosition(glm::vec3 pos) override;
 
 	glm::vec3 getForward() { return this->forward_; }
+	CameraMoveMode getCurrentMoveMode() const;
 
 protected:
 

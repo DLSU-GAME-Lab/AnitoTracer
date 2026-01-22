@@ -5,8 +5,9 @@
 #include "Vertex.hpp"
 #include <string>
 #include <memory>
-#include <string>
 #include <vector>
+
+class GameObject;
 
 namespace Assets
 {
@@ -42,9 +43,14 @@ namespace Assets
 		void Transform(const glm::mat4& transform);
 		void ResetVertices();
 
+		void SetOwner(GameObject* owner) { this->owner = owner; }
+		GameObject* GetOwner() const;
+
 		const std::vector<Vertex>& Vertices() const { return vertices_; }
 		const std::vector<uint32_t>& Indices() const { return indices_; }
 		const std::vector<Material>& Materials() const { return materials_; }
+		const std::vector<Vertex>& OriginalVertices() const { return originalVertices_; }
+		const std::vector<Vertex>& TransformedVertices() const { return transformedVertices_; }
 
 		Material* getMaterial(const unsigned index)
 		{
@@ -63,6 +69,9 @@ namespace Assets
 		glm::mat4 GetWorldMatrix() const { return worldMatrix_; };
 		std::string FilePath() const { return filepath; }
 
+		void SetOrigin(glm::vec3 origin) { this->origin = origin; }
+		glm::vec3 GetOrigin() { return this->origin; }
+
 	public:
 
 		std::string name;
@@ -74,6 +83,10 @@ namespace Assets
 		std::shared_ptr<const class Procedural> procedural_;
 		glm::mat4 worldMatrix_;
 		std::string filepath;
+		glm::vec3 origin;
+
+	private:
+		GameObject* owner = nullptr;
 	};
 
 }

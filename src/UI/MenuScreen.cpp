@@ -529,7 +529,7 @@ void MenuScreen::onCreateTeapotClicked()
 		new CreateMeshCommand(
 			filePath,
 			"Teapot",
-			glm::vec3(172.5f, -9, -212.5f),
+			glm::vec3(0.0f, -200.0f, 0.0f),
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			glm::vec3(5.0f)
 		)

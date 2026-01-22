@@ -27,6 +27,7 @@
 
 #include "Engine/Scene/SceneIO.hpp"
 #include "HotkeySystem/HotkeySystem.hpp"
+#include "RayPicker/RayPickerUBO.hpp"
 
 namespace Vulkan {
 
@@ -164,6 +165,7 @@ void Application::CreateSwapChain()
 		renderFinishedSemaphores_.emplace_back(*device_);
 		inFlightFences_.emplace_back(*device_, true);
 		uniformBuffers_.emplace_back(*device_, sizeof(Assets::UniformBufferObject));
+		rayPickerUniformBuffers.emplace_back(*device_, sizeof(RayPickerUBO));
 	}
 
 	graphicsPipeline_.reset(new class GraphicsPipeline(*swapChain_, *depthBuffer_, uniformBuffers_, GetScene(), isWireFrame_));
@@ -355,6 +357,7 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 void Application::UpdateUniformBuffer(const uint32_t imageIndex)
 {
 	uniformBuffers_[imageIndex].SetValue(GetUniformBufferObject(swapChain_->Extent()));
+	rayPickerUniformBuffers[imageIndex].SetValue(GetRayPickerUBO(swapChain_->Extent()));
 }
 
 void Application::RecreateSwapChain()

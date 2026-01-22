@@ -23,8 +23,6 @@
 #include "imgui_freetype.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include "imgui_internal.h"
-#include "imgui_stdlib.h"
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 #include "Vulkan/DescriptorPool.hpp"
@@ -42,6 +40,13 @@
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 #include "HotkeySystem/HotkeySystem.hpp"
 #include "StateManagement/ConcreteCommands/GUICommands.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
+
+#include "glm/fwd.hpp"
+#include "Assets/Model.hpp"
+#include "From-GDGRAP2/MaterialLibrary.h"
+#include <glm/gtx/matrix_decompose.hpp>
+
 
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
@@ -49,8 +54,6 @@ bool UIManager::isHidingUI = false;
 UIManager* UIManager::sharedInstance = nullptr;
 
 TransformState UIManager::gizmoBeforeState = {};
-bool UIManager::wasUsingGizmoLastFrame = false;
-bool UIManager::gizmoWasManipulated = false;
 
 namespace
 {
@@ -70,6 +73,7 @@ UIManager::UIManager()
 
 UIManager::~UIManager()
 {
+	uiConfig->currentGizmoOperation = m_currentGizmoOperation;
 	HotkeySystem::getInstance()->removeListener(this);
 
 	ImGui_ImplVulkan_Shutdown();
@@ -95,6 +99,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	sharedInstance->swapChain = swapChain;
 	sharedInstance->commandPool = commandPool;
 	sharedInstance->uiConfig = uiConfig;
+	sharedInstance->m_currentGizmoOperation = uiConfig->currentGizmoOperation;
 
 	// Initialise descriptor pool and render pass for ImGui.
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
@@ -472,26 +477,6 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(gizmoModelMatrix), translation, rotation, scale);
 
-			if (auto* parent = selectedObject->getParent())
-			{
-				glm::vec3 parentWorldPos = parent->getWorldPosition();
-				translation[0] -= parentWorldPos.x;
-				translation[1] -= parentWorldPos.y;
-				translation[2] -= parentWorldPos.z;
-
-				glm::quat parentRot = glm::quat(glm::radians(parent->getWorldRotation()));
-				glm::quat localRot = glm::inverse(parentRot) * glm::quat(glm::radians(glm::vec3(rotation[0], rotation[1], rotation[2])));
-				glm::vec3 eulerLocal = glm::degrees(glm::eulerAngles(localRot));
-				rotation[0] = eulerLocal.x;
-				rotation[1] = eulerLocal.y;
-				rotation[2] = eulerLocal.z;
-
-				glm::vec3 parentScale = parent->getWorldScale();
-				scale[0] /= parentScale.x;
-				scale[1] /= parentScale.y;
-				scale[2] /= parentScale.z;
-			}
-
 			auto inspector = dynamic_pointer_cast<InspectorScreen>(sharedInstance->findUIByName(UINames::INSPECTOR_SCREEN));
 
 			// Uniform Scaling
@@ -532,14 +517,32 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		{
 			if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
 			{
-				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
-				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
-				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
+				glm::mat4 newLocalMatrix;
+
+				if (selectedObject->getParent())
+				{
+					glm::mat4 parentWorldInverse = glm::inverse(selectedObject->getParent()->getWorldMatrix()); 
+					newLocalMatrix = parentWorldInverse * gizmoModelMatrix; // gizmo is in new world space
+				}
+				else
+				{
+					newLocalMatrix = gizmoModelMatrix;
+				}
+
+				// Decompose to update local position, rotation, scale
+				glm::vec3 skew;
+				glm::vec4 perspective;
+				glm::quat rotationQuat;
+				glm::vec3 newLocalScale;
+				glm::vec3 newLocalPosition;
+				glm::vec3 newLocalRotation;
+				glm::decompose(newLocalMatrix, newLocalScale, rotationQuat,newLocalPosition, skew, perspective);
+				newLocalRotation = glm::degrees(glm::eulerAngles(rotationQuat));
 
 				TransformState afterState = {
-				selectedObject->getLocalPosition(),
-				selectedObject->getLocalRotation(),
-				selectedObject->getLocalScale()
+				newLocalPosition,
+				newLocalRotation,
+				newLocalScale
 				};
 
 				if (gizmoBeforeState != afterState)
@@ -737,6 +740,7 @@ ImFont* UIManager::GetIconFont()
 void UIManager::OnActionPressed(Hotkey::Action action)
 {
 	if (ModelManager::getInstance()->getSelectedObject() == nullptr) return;
+	if (CameraManager::getInstance()->getActiveCamera()->getCurrentMoveMode() != Camera::CameraMoveMode::NONE) return;
 
 	using Action = Hotkey::Action;
 

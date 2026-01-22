@@ -34,6 +34,9 @@
 
 #include "StateManagement/CommandManager.hpp"
 #include "Assets/GameObjectFactory.hpp"
+#include "Assets/ModelLibrary.hpp"
+#include "RayPicker/RayPickerUBO.hpp"
+#include "Vulkan/RayTracing/TopLevelAccelerationStructure.hpp" 
 
 namespace
 {
@@ -58,13 +61,13 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
-	GameObjectFactory::initialize();
+	Assets::ModelLibrary::initialize();
 	CommandManager::initialize();
 }
 
 RayTracer::~RayTracer()
 {
-	GameObjectFactory::destroy();
+	Assets::ModelLibrary::destroy();
 	CommandManager::destroy();
 
 	scene_.reset();
@@ -113,6 +116,18 @@ Assets::PushConstantModel RayTracer::GetPushConstantModel(const Assets::Model& m
 {
 	Assets::PushConstantModel ubo = {};
 	ubo.WorldMatrix = model.GetWorldMatrix();
+
+	return ubo;
+}
+
+RayPickerUBO RayTracer::GetRayPickerUBO(const VkExtent2D extent) const
+{
+	RayPickerUBO ubo = {};
+	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->ModelView();
+	ubo.Projection = CameraManager::getInstance()->getActiveCamera()->GetProjection(userSettings_, extent);
+	ubo.Projection[1][1] *= -1; // Inverting Y for Vulkan, https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
+	ubo.ModelViewInverse = glm::inverse(ubo.ModelView);
+	ubo.ProjectionInverse = glm::inverse(ubo.Projection);
 
 	return ubo;
 }
@@ -212,6 +227,7 @@ void RayTracer::DrawFrame()
 		LoadScene(userSettings_.SceneIndex);
 		CreateAccelerationStructures();
 		CreateSwapChain();
+		ResetPicker();
 		this->isSceneDirty = false;
 		return;
 	}
@@ -227,6 +243,7 @@ void RayTracer::DrawFrame()
 		ReloadModifiedScene();
 		CreateAccelerationStructures();
 		CreateSwapChain();
+		ResetPicker();
 		return;
 	}
 
@@ -247,6 +264,7 @@ void RayTracer::DrawFrame()
 
 	rayScene_->Update(CommandPool());
 	
+	ExecuteScheduledPick();
 	Application::DrawFrame();
 }
 
@@ -349,7 +367,6 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 			// case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 			//case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 
-
 		default: break;
 		}
 	}
@@ -396,6 +413,10 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
 	{
 		UIManager::getInstance()->onLMBReleased();
+
+		double xpos, ypos;
+		glfwGetCursorPos(Window().Handle(), &xpos, &ypos);
+		SchedulePick({ static_cast<float>(xpos), static_cast<float>(ypos) });
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
@@ -623,4 +644,68 @@ void RayTracer::CheckFramebufferSize() const
 
 		Throw(std::runtime_error(out.str()));
 	}
+}
+
+void RayTracer::ResetPicker()
+{
+	rayPicker_.reset(new class RayPicker(*deviceProcedures_, SwapChain(), CommandPool(), topAs_[0], RayPickerUniformBuffers(), GetScene(), *rayTracingProperties_));
+}
+
+void RayTracer::SchedulePick(const glm::vec2& mousePos)
+{
+	this->isPickScheduled = true;
+	this->scheduledMousePos = mousePos;
+}
+
+void RayTracer::ExecuteScheduledPick()
+{
+	if (UIManager::getInstance()->IsGizmoUsed() || //give prio to Gizmo
+		UIManager::getInstance()->wantsToCaptureMouse()) // mouse over GUI
+	{
+		this->isPickScheduled = false;
+		return;
+	}
+
+	if (this->isPickScheduled && rayPicker_)
+	{
+		this->isPickScheduled = false;
+
+		glm::vec3 rayOrigin, rayDirection;
+		ScreenToWorldRay(scheduledMousePos, rayOrigin, rayDirection);
+
+		auto result = rayPicker_->pick(*deviceProcedures_, Device(), rayOrigin, rayDirection, currentFrame_);
+
+		int pickedId = result.objectID;
+		auto gameObject = ModelManager::getInstance()->FindGameObject(pickedId);
+
+		if (gameObject)	ModelManager::getInstance()->setSelectedObject(gameObject);
+		else ModelManager::getInstance()->setSelectedObject(nullptr);
+	}
+}
+
+void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,
+	glm::vec3& outOrigin,
+	glm::vec3& outDirection)
+{
+	VkExtent2D windowSize = Window().WindowSize();
+	float viewportWidth = static_cast<float>(windowSize.width);
+	float viewportHeight = static_cast<float>(windowSize.height);
+
+	float x = (2.0f * mousePos.x) / viewportWidth - 1.0f;
+	float y = 1.0f - (2.0f * mousePos.y) / viewportHeight;
+
+	glm::vec4 rayClip = glm::vec4(x, y, -1.0f, 1.0f);
+
+	auto camera = CameraManager::getInstance()->getActiveCamera();
+
+	glm::mat4 invProjection = glm::inverse(camera->GetProjection());
+	glm::mat4 invView = glm::inverse(camera->GetView());
+
+	glm::vec4 rayEye = invProjection * rayClip;
+	rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0f, 0.0f);
+
+	glm::vec4 rayWorld = invView * rayEye;
+	outDirection = glm::normalize(glm::vec3(rayWorld));
+
+	outOrigin = camera->getLocalPosition();
 }
