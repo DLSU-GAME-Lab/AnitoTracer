@@ -11,6 +11,7 @@
 #include "From-GDGRAP2/GameObject.h"
 #include "From-GDGRAP2/TransformHistory.h"
 #include "IconsMaterialDesign.h"
+#include "Engine/CameraSystem/Camera.h"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 
@@ -140,6 +141,8 @@ void InspectorScreen::drawUI()
 	else {
 		ImGui::TextWrapped("No object selected. Select an object first.");
 	}
+
+	this->drawCameraTab();
 
 	ImGui::End();
 
@@ -293,6 +296,20 @@ void InspectorScreen::drawTransformTab()
 
 			ImGui::EndTable();
 		}
+	}
+}
+
+void InspectorScreen::drawCameraTab()
+{
+	auto cam = static_cast<Camera*>(this->selectedObject);
+	if (!cam) return;
+
+	if (ImGui::CollapsingHeader("Camera"))
+	{
+		ImGui::Text("Forward: ");
+		ImGui::SameLine();
+		glm::vec3 forward = cam->getForward();
+		ImGui::Text(("X: " + std::to_string(forward.x) + " Y: " + std::to_string(forward.y) + " Z: " + std::to_string(forward.z)).c_str());
 	}
 }
 

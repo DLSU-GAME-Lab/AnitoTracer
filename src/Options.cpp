@@ -26,7 +26,7 @@ Options::Options(const int argc, const char* argv[])
 
 	options_description scene("Scene options", lineLength);
 	scene.add_options()
-		("scene", value<uint32_t>(&SceneIndex)->default_value(10), "The scene to start with.")
+		("scene", value<uint32_t>(&SceneIndex)->default_value(18), "The scene to start with.")
 		;
 
 	options_description vulkan("Vulkan options", lineLength);
@@ -45,7 +45,7 @@ Options::Options(const int argc, const char* argv[])
 	options_description desc("Application options", lineLength);
 	desc.add_options()
 		("help", "Display help message.")
-		("benchmark", bool_switch(&Benchmark)->default_value(false), "Run the application in benchmark mode.")
+		("benchmark", bool_switch(&Benchmark)->default_value(true), "Run the application in benchmark mode.")
 		;
 
 	desc.add(benchmark);

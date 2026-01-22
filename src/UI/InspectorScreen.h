@@ -30,6 +30,7 @@ private:
 	void FormatMatImage();
 	void drawMaterialsTab();
 	void drawTransformTab();
+	void drawCameraTab();
 	void drawVector3Field(const char* label, float* values, EditorAction action);
 	glm::vec3 ScaleUniformly(const glm::vec3& beforeScale, const float* values);
 	void setUniformScalingEnabled(bool flag);
