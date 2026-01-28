@@ -42,8 +42,11 @@ public:
 
 	void addObject(GameObjectPtr gameObject);
 	void addObjectAtIndex(GameObjectPtr gameObject, int index);
+	void registerIfLight(GameObject* obj);
+	void unregisterIfLight(GameObject* obj);
+	void registerSubtree(GameObject* root);
+	void unregisterSubtree(GameObject* root);
 	GameObjectPtr removeObject(GameObject* target);
-	void deleteObject(GameObject* gameObject);
 
 	GameObjectPtr CreateCopyOfObject(GameObject* original);
 

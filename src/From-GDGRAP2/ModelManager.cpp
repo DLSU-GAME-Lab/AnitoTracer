@@ -123,25 +123,62 @@ void ModelManager::addObjectAtIndex(GameObjectPtr gameObject, int index)
 	this->sceneGraph.insert(this->sceneGraph.begin() + idx, std::move(gameObject));
 }
 
+void ModelManager::registerIfLight(GameObject* obj)
+{
+	if (auto* light = dynamic_cast<Light*>(obj))
+		lightList.push_back(light);
+}
+
+void ModelManager::unregisterIfLight(GameObject* obj)
+{
+	if (auto* light = dynamic_cast<Light*>(obj))
+	{
+		auto it = std::remove(lightList.begin(), lightList.end(), light);
+		lightList.erase(it, lightList.end());
+	}
+}
+
+void ModelManager::registerSubtree(GameObject* root)
+{
+	if (!root) return;
+	registerIfLight(root);
+	for (auto& ch : root->children)
+		registerSubtree(ch.get());
+}
+
+void ModelManager::unregisterSubtree(GameObject* root)
+{
+	if (!root) return;
+	unregisterIfLight(root);
+	for (auto& ch : root->children)
+		unregisterSubtree(ch.get());
+}
+
 std::unique_ptr<GameObject> ModelManager::removeObject(GameObject* target)
 {
 	if (!target) return nullptr;
 
-	for (auto it = this->sceneGraph.begin(); it != this->sceneGraph.end(); it++)
+	for (auto it = sceneGraph.begin(); it != sceneGraph.end(); ++it)
 	{
 		if (it->get() == target)
 		{
-			std::unique_ptr<GameObject> removed = std::move(*it);
-			this->sceneGraph.erase(it);
+			auto removed = std::move(*it);
+			sceneGraph.erase(it);
+
+			unregisterSubtree(removed.get());
 			return removed;
 		}
-	
-		std::unique_ptr<GameObject> result = removeInSubtree(it->get(), target);
-		if (result)	return result;
+
+		if (auto removed = removeInSubtree(it->get(), target))
+		{
+			unregisterSubtree(removed.get());
+			return removed;
+		}
 	}
 
 	return nullptr;
 }
+
 
 ModelManager::GameObjectPtr ModelManager::removeInSubtree(GameObject* parent, GameObject* target)
 {
@@ -159,32 +196,6 @@ ModelManager::GameObjectPtr ModelManager::removeInSubtree(GameObject* parent, Ga
 	}
 
 	return nullptr;
-}
-
-/* Only Searches Root */
-void ModelManager::deleteObject(GameObject* gameObject)
-{
-	if (!gameObject) return;
-
-	if (auto* lightPtr = dynamic_cast<Light*>(gameObject))
-	{
-		auto itLight = std::find(this->lightList.begin(), this->lightList.end(), lightPtr);
-		if (itLight != this->lightList.end())
-		{
-			this->lightList.erase(itLight);
-		}
-	}
-
-	auto it = std::find_if(this->sceneGraph.begin(), this->sceneGraph.end(),
-		[gameObject](const GameObjectPtr& obj)
-		{
-			return obj.get() == gameObject;
-		});
-	if (it != this->sceneGraph.end())
-	{
-		this->sceneGraph.erase(it);
-	}
-
 }
 
 ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* original)

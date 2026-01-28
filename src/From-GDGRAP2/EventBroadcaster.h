@@ -51,19 +51,23 @@ public:
 	void encodeBool(const String keyName, bool item);
 	void encodeInt(const String keyName, int item);
 	void encodeFloat(const String keyName, float item);
+	void encodeHandle(const String keyName, void* item);
 
 	bool getBoolData(const String keyName, bool defaultValue);
 	int getIntData(const String keyName, int defaultValue);
 	float getFloatData(const String keyName, float defaultValue);
+	void* getHandleData(const String keyName, void* defaultValue);
 
 private:
 	String eventName;
 	typedef std::unordered_map <String, bool> BoolTable;
 	typedef std::unordered_map <String, int> IntTable;
 	typedef std::unordered_map <String, float> FloatTable;
+	typedef std::unordered_map <String, void*> HandleTable;
 
 	BoolTable boolTable;
 	IntTable intTable;
 	FloatTable floatTable;
+	HandleTable handleTable;
 };
 
