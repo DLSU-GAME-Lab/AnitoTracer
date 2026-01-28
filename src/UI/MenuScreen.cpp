@@ -91,6 +91,9 @@ void MenuScreen::drawUI()
 				if (ImGui::MenuItem("Load Breakfast Room")) { this->OnLoadSceneByIndex(14); ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Salle De Bain")) { this->OnLoadSceneByIndex(15); ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Gallery")) { this->OnLoadSceneByIndex(16);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Bistro Exterior cbnm")) { this->OnLoadSceneByIndex(17);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Bistro Interior")) { this->OnLoadSceneByIndex(18);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Balay Anito")) { this->OnLoadSceneByIndex(19);  ShowLoadingPopUp(); }
 
 				ImGui::EndMenu();
 			}

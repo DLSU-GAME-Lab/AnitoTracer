@@ -112,6 +112,9 @@ const std::vector<std::tuple<std::string, std::function<SceneAssets(SceneList::C
 	{"Breakfast Room", BreakfastRoom}, // USED
 	{"Salle De Bain", SalleDeBain}, 
 	{"Gallery", Gallery}, // USED// USED
+	{"Bistro_EXT", BistroEXT}, // USED// USED
+	{"Bistro_INT", BistroINT}, // USED// USED
+	{"balay_anito", BalayAnito}, // USED// USED
 	{"Empty", Empty}, // USED
 };
 
@@ -832,15 +835,15 @@ SceneAssets SceneList::Empty(CameraInitialState& camera)
 
 SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 {
-	glm::vec3 cameraPos(800, 400, -230);
-	glm::vec3 target(-350, 200, 65);
+	glm::vec3 cameraPos(-30, 5, 20);
+	glm::vec3 target(0.73, -0.17, -0.65);
 	glm::vec3 up(0, 1, 0);
 
 	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
-	camera.ControlSpeed = 500.0f;
+	camera.ControlSpeed = 100.0f;
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
 
@@ -859,21 +862,14 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 	areaLightObject->setLocalRotation(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
-	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj.get());
-	ModelManager::getInstance()->addObject(std::move(cameraObj));
-
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
-	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/vokselia_spawn/vokselia_spawn.obj");
-	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "Vokselia" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(std::move(smObj));
-	smObj = nullptr;
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/vokselia_spawn/vokselia_spawn.obj", "vokselia");
+	gameObject->setLocalScale(20.0f, 20.0f, 20.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
@@ -882,7 +878,7 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
 }
 
-SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
+SceneAssets SceneList::BistroEXT(CameraInitialState& camera)
 {
 	glm::vec3 cameraPos(800, 400, -230);
 	glm::vec3 target(-350, 200, 65);
@@ -911,21 +907,151 @@ SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 	areaLightObject->setLocalRotation(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
-	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
-	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj.get());
-	ModelManager::getInstance()->addObject(std::move(cameraObj));
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Bistro/obj/exterior.obj", "Bistro");
+	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
+
+	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+}
+
+SceneAssets SceneList::BistroINT(CameraInitialState& camera)
+{
+	glm::vec3 cameraPos(-179.904, 240.910, -112.142);
+	glm::vec3 target(1089, 196.492, -68.968);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
+
+	std::mt19937 engine(1);
+	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
+
+	bool isProcedural = false;
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotation(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
-	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/breakfast_room/breakfast_room.obj");
-	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "BfastRoom" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Bistro/obj/interior.obj", "Bistro");
+	gameObject->setLocalScale(1.0f, 1.0f, 1.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	ModelManager::getInstance()->addObject(std::move(smObj));
-	smObj = nullptr;
+	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+}
+
+SceneAssets SceneList::BalayAnito(CameraInitialState& camera)
+{
+	glm::vec3 cameraPos(-185.5, 81.2, -155.5);
+	glm::vec3 target(-0.678, 1.282, 6.784);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
+
+	std::mt19937 engine(1);
+	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
+
+	bool isProcedural = false;
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotation(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
+
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	auto path = FileUtils::getAssetsFolderPath().generic_string() + "/models/balay_anito/ANITO_Archvis_Scene_New.obj";
+
+	auto gameObject = GameObjectFactory::CreateFromModelFile(path, "balay_anito");
+	gameObject->setLocalScale(50.0f, 50.0f, 50.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
+
+	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+}
+
+SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
+{
+	glm::vec3 cameraPos(42.475, 67.379, 84.172);
+	glm::vec3 target(-0.33, -0.31, -0.88);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
+
+	std::mt19937 engine(1);
+	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
+
+	bool isProcedural = false;
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotation(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
+
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/breakfast_room/breakfast_room.obj", "breakfast_room");
+	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
 	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
