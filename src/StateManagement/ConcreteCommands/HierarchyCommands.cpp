@@ -237,6 +237,7 @@ void AddObjectCommand::execute()
 	}
 
 	this->objectStorage = nullptr;
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 } 
 
 void AddObjectCommand::undo()
@@ -251,4 +252,5 @@ void AddObjectCommand::undo()
 	{
 		this->objectStorage = this->objectRef->getParent()->removeChild(this->objectRef);
 	}
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }

@@ -26,6 +26,9 @@ public:
     GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::Model> modelRef);
     ~GameObject() = default;
 
+    GameObject(const GameObject& other);
+    virtual GameObject::GameObjectPtr Clone() const;
+
     void setName(std::string name);
     String getName() const;
 

@@ -59,6 +59,13 @@ public:
 		updateSceneView();
 	}
 
+	~Light() = default;
+
+	virtual GameObject::GameObjectPtr Clone() const override 
+	{
+		return std::make_unique<Light>(*this);
+	}
+
 	const Assets::LightProperties Properties() const { return this->props_; }
 
 	glm::vec4 getAmbientColor()

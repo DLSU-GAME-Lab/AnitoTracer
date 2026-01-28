@@ -16,6 +16,8 @@ public:
 	Camera(std::string name, ProjectionMode proj = perspective);
 	~Camera();
 
+	virtual GameObject::GameObjectPtr Clone() const override;
+
 	void Reset(const glm::mat4& modelView);
 
 	glm::mat4 ModelView();

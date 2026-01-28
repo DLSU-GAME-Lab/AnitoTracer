@@ -25,6 +25,11 @@ Camera::~Camera()
 	HotkeySystem::getInstance()->removeListener(this);
 }
 
+GameObject::GameObjectPtr Camera::Clone() const
+{
+	return std::make_unique<Camera>(*this);
+}
+
 void Camera::Reset(const glm::mat4& modelView)
 {
 	const auto inverse = glm::inverse(modelView);

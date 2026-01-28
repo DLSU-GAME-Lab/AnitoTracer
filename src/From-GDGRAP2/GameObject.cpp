@@ -40,6 +40,28 @@ GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
+GameObject::GameObject(const GameObject& other) : name(other.name), type(other.type), active(other.active), visible(other.visible),
+pickable(other.pickable), localPosition(other.localPosition), localRotation(other.localRotation), localScale(other.localScale), 
+localMatrix(other.localMatrix), worldPosition(other.worldPosition), worldRotation(other.worldRotation), worldScale(other.worldScale), 
+worldMatrix(other.worldMatrix), localDirty(other.localDirty), worldDirty(other.worldDirty), isHierarchyNodeOpen(other.isHierarchyNodeOpen)
+{
+	this->parent = nullptr;
+	this->modelRef = other.modelRef->Clone();
+	this->modelRef->SetOwner(this);
+
+	for (const auto& child : other.children)
+	{
+		std::unique_ptr<GameObject> clonedChild = child->Clone();
+		addChild(std::move(clonedChild));
+	}
+}
+
+GameObject::GameObjectPtr GameObject::Clone() const
+{
+	return std::make_unique<GameObject>(*this);
+}
+
+
 void GameObject::setName(std::string name)
 {
 	this->name = name;
