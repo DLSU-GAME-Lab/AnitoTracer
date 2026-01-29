@@ -106,8 +106,8 @@ void DragAndDropUtils::attachFileMoveTarget(FileTreeNode& destNode) {
     }
 }
 
-void DragAndDropUtils::copyFileToAssetsRoot(std::string soucePathString) {
-    fs::path fsSourcePath(soucePathString);
+void DragAndDropUtils::copyFileToAssetsRoot(std::string sourcePathString) {
+    fs::path fsSourcePath(sourcePathString);
     fs::path fsDestPath(FileExplorerConstants::ASSETS_DIR);
     fs::copy(fsSourcePath, fsDestPath);
 
