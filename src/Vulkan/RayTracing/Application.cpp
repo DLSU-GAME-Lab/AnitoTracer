@@ -18,6 +18,7 @@
 #include <chrono>
 #include <iostream>
 #include "From-GDGRAP2/ModelManager.h"
+#include <From-GDGRAP2/Debug.h>
 
 
 namespace Vulkan::RayTracing {
@@ -255,13 +256,16 @@ void Application::CreateBottomLevelStructures(VkCommandBuffer commandBuffer)
 	uint32_t indexOffset = 0;
 	uint32_t aabbOffset = 0;
 
-	for (const auto& model : scene.Models())
+	for (const auto& gameObjects : scene.GameObjects())
 	{
-		const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-		const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
+		auto model = gameObjects->getModel();
+		if (!model) continue;
+
+		const auto vertexCount = static_cast<uint32_t>(model->NumberOfVertices());
+		const auto indexCount = static_cast<uint32_t>(model->NumberOfIndices());
 		BottomLevelGeometry geometries;
 		
-		model.Procedural()
+		model->Procedural()
 			? geometries.AddGeometryAabb(scene, aabbOffset, 1, true)
 			: geometries.AddGeometryTriangles(scene, vertexOffset, vertexCount, indexOffset, indexCount, true);
 
@@ -305,20 +309,25 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 	const auto& scene = GetScene();
 	const auto& debugUtils = Device().DebugUtils();
 
-	// Top level acceleration structure
-	std::vector<VkAccelerationStructureInstanceKHR> instances;
-
-	// Hit group 0: triangles
-	// Hit group 1: procedurals
+	std::vector<VkAccelerationStructureInstanceKHR> instances; //temp fix
 	uint32_t instanceId = 0;
 
-	ModelManager::getInstance()->ClearInstanceToObjectMap();
+	ModelManager::getInstance()->ClearTLASInstances();
 
-	for (const auto& model : scene.Models())
+	for (const auto& gameObject : scene.GameObjects())
 	{
-		ModelManager::getInstance()->RegisterInstance(instanceId, model.GetOwner());
-		instances.push_back(TopLevelAccelerationStructure::CreateInstance(
-			bottomAs_[instanceId], glm::mat4(1), instanceId, model.Procedural() ? 1 : 0));
+		if (!gameObject->getModel()) continue;
+
+		auto world = gameObject->getWorldMatrix();
+		auto instance = TopLevelAccelerationStructure::CreateInstance(
+			bottomAs_[instanceId], // TODO: Replace with blas from ModelManager/ModelLibrary
+			glm::transpose(world),
+			instanceId,
+			gameObject->getModel()->Procedural() ? 1 : 0
+		);
+
+		instances.push_back(instance);
+		ModelManager::getInstance()->RegisterTLASInstance(instanceId, gameObject, instance);
 		instanceId++;
 	}
 

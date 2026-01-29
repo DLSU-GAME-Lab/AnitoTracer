@@ -1,17 +1,16 @@
 #include "ModelManager.h"
 
-#include <iostream>
-#include <glm/gtx/euler_angles.hpp>
-
 #include "Debug.h"
 #include "Utilities/FileUtils.h"
 #include "HotkeySystem/HotkeySystem.hpp"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 #include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
-#include "Assets/GameObjectFactory.hpp"
+#include "Vulkan/CommandPool.hpp"
+#include "Vulkan/BufferUtil.hpp"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "Engine/CameraSystem/Camera.h"
+#include <glm/gtc/type_ptr.hpp>
 
 ModelManager* ModelManager::sharedInstance = nullptr;
 
@@ -29,7 +28,6 @@ void ModelManager::destroy()
 {
 	sharedInstance->sceneGraph.clear();
 	sharedInstance->lightList.clear();
-	sharedInstance->objectGroupList.clear();
 
 	delete sharedInstance;
 }
@@ -257,7 +255,6 @@ GameObject* ModelManager::getSelectedObject()
 void ModelManager::clearAllObjects()
 {
 	this->sceneGraph.clear();
-	this->objectGroupList.clear();
 	this->lightList.clear();
 }
 
@@ -511,51 +508,6 @@ void ModelManager::createObjectFromFile(String name, GameObject::PrimitiveType t
 	addObject(std::move(gameObject));
 }
 
-void ModelManager::createObjectGroupFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale)
-{
-	std::string meshFilePath;
-	std::string fileName;
-
-	if (!FileUtils::getModelFilePath(meshFilePath, fileName))
-	{
-		Debug::Log("Cancelled loading OBJ from path: " + meshFilePath);
-
-		return;
-	}
-
-	if (!meshFilePath.empty()) {
-		Debug::Log("Loading OBJ from path: " + meshFilePath);
-	}
-
-	// load all models of the group into a list
-	std::vector<Assets::Model> models = Assets::Model::LoadModelGroup(meshFilePath);
-	
-	//create a game object for each model
-	for (int i = 0; i < models.size(); i++) 
-	{
-		std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>(name + "_1", type, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(position);
-		gameObject->setLocalRotation(rotation);
-		gameObject->setLocalScale(scale);
-		addObject(std::move(gameObject));
-	}
-}
-
-void ModelManager::createSponza()
-{
-	std::vector<Assets::Model> models = Assets::Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/sponza.obj");
-
-	//create a game object for each model
-	for (int i = 0; i < models.size(); i++)
-	{
-		std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>("Sponza " + i, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(0,0,0);
-		gameObject->setLocalRotation(0,0,0);
-		gameObject->setLocalScale(1,1,1);
-		addObject(std::move(gameObject));
-	}
-}
-
 void ModelManager::OnActionPressed(Hotkey::Action action)
 {
 	/* paste only needs valid copied object */
@@ -681,20 +633,11 @@ void ModelManager::DeleteSelectedObject()
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); //AnitoTracer Specific
 }
 
-void ModelManager::ClearInstanceToObjectMap()
+GameObject* ModelManager::findObjectByID(uint32_t id) const
 {
-	this->instanceIdToGameObjectMap.clear();
-}
+	auto it = this->tlasInstanceMap.find(id);
 
-void ModelManager::RegisterInstance(uint32_t instanceId, GameObject* gameObject)
-{
-	this->instanceIdToGameObjectMap[instanceId] = gameObject;
-}
-
-GameObject* ModelManager::FindGameObject(uint32_t instanceId) const
-{
-	auto it = this->instanceIdToGameObjectMap.find(instanceId);
-	return (it != this->instanceIdToGameObjectMap.end()) ? it->second : nullptr;
+	return (it != this->tlasInstanceMap.end()) ? it->second.obj : nullptr;
 }
 
 /* Where the object is spawned needs to be decided  (world origin vs infront of camera vs beside copy) */
@@ -713,6 +656,80 @@ void ModelManager::PasteObject()
 	this->copiedObject = nullptr;
 
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void ModelManager::ClearTLASInstances()
+{
+	this->tlasInstanceMap.clear();
+}
+
+void ModelManager::RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAccelerationStructureInstanceKHR instance)
+{
+	InstancePair pair{
+		obj,
+		instance
+	};
+
+	auto it = this->tlasInstanceMap.find(objectId);
+
+	if (it != this->tlasInstanceMap.end())
+	{
+		Debug::Log("Warning: TLAS Instance for GameObject with ID " + std::to_string(objectId) + " is already registered in ModelManager TLAS map. Overwriting");
+	}
+
+	this->tlasInstanceMap[objectId] = pair;
+}
+
+std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances(Vulkan::CommandPool& commandPool)
+{
+	//std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
+	//this->dirtyInstanceIds.clear();
+	//tlasInstances.reserve(this->tlasInstanceMap.size());
+
+	//for (const auto& [id, pair] : this->tlasInstanceMap)
+	//{
+	//	VkAccelerationStructureInstanceKHR updatedInstance = pair.instance;
+	//	if (pair.obj->wasDirty())
+	//	{
+	//		dirtyInstanceIds.push_back(id);
+	//		const glm::mat4& worldMat = pair.obj->getWorldMatrix();
+	//		pair.obj->clearDirtyFlag();
+
+	//		// Direct memory copy of transposed matrix
+	//		float* dst = &updatedInstance.transform.matrix[0][0];
+	//		const float* src = glm::value_ptr(worldMat);
+
+	//		// Manual transpose during copy
+	//		for (int col = 0; col < 3; ++col) {
+	//			for (int row = 0; row < 4; ++row) {
+	//				dst[col * 4 + row] = src[row * 4 + col];
+	//			}
+	//		}
+	//	}
+	//	tlasInstances.push_back(updatedInstance);
+	//}
+
+	//std::vector<uint32_t> dirtyBufferData;
+	//dirtyBufferData.reserve(dirtyInstanceIds.size() + 1);
+	//dirtyBufferData.push_back(static_cast<uint32_t>(dirtyInstanceIds.size()));
+	//dirtyBufferData.insert(dirtyBufferData.end(),
+	//	dirtyInstanceIds.begin(),
+	//	dirtyInstanceIds.end());
+
+	//std::vector<uint32_t> dirtyCountData = { static_cast<uint32_t>(dirtyInstanceIds.size()) };
+
+	//Vulkan::BufferUtil::UpdateDeviceBuffer(
+	//	commandPool,
+	//	dirtyBufferData,
+	//	this->dirtyInstancesBuffer
+	//);
+
+	return std::vector<VkAccelerationStructureInstanceKHR>{};
+}
+
+VkBuffer ModelManager::GetDirtyInstancesBuffer() const
+{
+	return dirtyInstancesBuffer->Handle();
 }
 
 

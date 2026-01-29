@@ -4,11 +4,12 @@
 #include <unordered_map>
 #include <vector>
 
-#include "ObjectGroup.h"
-#include "Assets/Texture.hpp"
 #include "Engine/LightSystem/Light.h"
 #include "From-GDGRAP2/GameObject.h"
 #include "HotkeySystem/HotkeyListener.hpp"
+
+#include "Vulkan/Buffer.hpp"
+#include "Vulkan/DeviceMemory.hpp"
 
 /**
  * \brief Similar to the game object manager, this class stores model instances
@@ -16,16 +17,22 @@
 class ModelManager : public HotkeyListener
 {
 public:
+	struct InstancePair
+	{
+		GameObject* obj;
+		VkAccelerationStructureInstanceKHR instance;
+	};
+
 	using vec3 = glm::vec3;
 	using String = std::string;
 
 	using GameObjectPtr = std::unique_ptr<GameObject>;
 	using GameObjectList = std::vector<GameObjectPtr>;
-
+	using GameObjectMap = std::unordered_map<uint32_t, GameObject*>;
 	using LightPtr = std::unique_ptr<Light>;
 	using LightList = std::vector<Light*>;
-
-	typedef std::vector<std::shared_ptr<ObjectGroup>> ObjectGroupList;
+	using TLASInstanceMap = std::unordered_map<uint32_t, InstancePair>;
+	using DirtyInstancesMap = std::unordered_map<uint32_t, VkAccelerationStructureInstanceKHR>;
 
 	using ModelList = std::vector<Assets::Model>;
 	typedef std::vector<Assets::LightProperties> LightPropsList;
@@ -67,9 +74,7 @@ public:
 	void createObject(GameObject::PrimitiveType type);
 	void createPrimitiveFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation, vec3 scale, std::vector<Assets::Material> mats);
 	void createLightFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation, vec3 scale, std::vector<Assets::Material> mats, Assets::LightProperties props);
-	void createObjectFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale); 
-	void createObjectGroupFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale);
-	void createSponza();
+	void createObjectFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale);
 
 	void OnActionPressed(Hotkey::Action action) override;
 
@@ -80,9 +85,15 @@ public:
 	void DuplicateSelectedObject();
 	void DeleteSelectedObject();
 
-	void ClearInstanceToObjectMap();
-	void RegisterInstance(uint32_t instanceId, GameObject* gameObject);
-	GameObject* FindGameObject(uint32_t instanceId) const;
+	GameObject* findObjectByID(uint32_t id) const;
+
+	void ClearTLASInstances();
+	void RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAccelerationStructureInstanceKHR instance);
+	std::vector<VkAccelerationStructureInstanceKHR> GetTLASInstances(Vulkan::CommandPool& commandPool);
+
+	VkBuffer GetDirtyInstancesBuffer() const;
+
+	uint32_t GetDirtyInstancesCount() { return static_cast<uint32_t>(dirtyInstanceIds.size()); }
 
 private:
 	ModelManager();
@@ -92,14 +103,17 @@ private:
 	static ModelManager* sharedInstance;
 
 	GameObjectList sceneGraph;
-
-	ObjectGroupList objectGroupList;
 	LightList lightList;
+
+	GameObjectMap gameObjectMap;
+	TLASInstanceMap tlasInstanceMap;
 
 	GameObject* selectedObject = nullptr;
 	GameObjectPtr copiedObject = nullptr;
 
-	std::unordered_map<uint32_t, GameObject*> instanceIdToGameObjectMap;
+	std::vector<uint32_t> dirtyInstanceIds;
+	std::unique_ptr<Vulkan::Buffer> dirtyInstancesBuffer;
+	std::unique_ptr<Vulkan::DeviceMemory> dirtyInstancesMemory;
 
 	GameObjectPtr removeInSubtree(GameObject* parent, GameObject* target);
 };

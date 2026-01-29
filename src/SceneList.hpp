@@ -13,7 +13,9 @@ namespace Assets
 	class Texture;
 }
 
-typedef std::tuple<std::vector<Assets::Model>, std::vector<Assets::Texture>, std::vector<Assets::LightProperties>> SceneAssets;
+class GameObject;
+
+typedef std::tuple<std::vector<GameObject*>, std::vector<Assets::Texture>, std::vector<Assets::LightProperties>> SceneAssets;
 
 class SceneList final
 {

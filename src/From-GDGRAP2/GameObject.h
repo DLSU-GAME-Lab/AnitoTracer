@@ -59,6 +59,7 @@ public:
     vec3 getWorldScale() const;
 
     std::shared_ptr<Assets::Model> getModel();
+	void setModel(std::shared_ptr<Assets::Model> modelRef);
 
     void addChild(GameObjectPtr child);
     void addChildAtIndex(GameObjectPtr child, int index);
@@ -85,6 +86,8 @@ public:
 	bool isLocalDirty() const;
 	void setWorldDirty();
 	bool isWorldDirty() const;
+    void clearDirtyFlag();
+    bool wasDirty() const;
 
 	bool IsHierarchyNodeOpen() const;
 	void SetHierarchyNodeOpen(bool isOpen);
@@ -128,6 +131,7 @@ protected:
 
 	bool localDirty = true;
 	bool worldDirty = true;
+    bool m_wasDirty = true;
 
     bool isHierarchyNodeOpen = true;
 

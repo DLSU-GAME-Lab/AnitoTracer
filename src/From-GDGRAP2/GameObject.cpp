@@ -235,6 +235,13 @@ std::shared_ptr<Assets::Model> GameObject::getModel()
 	return this->modelRef;
 }
 
+void GameObject::setModel(std::shared_ptr<Assets::Model> modelRef)
+{
+	this->modelRef = modelRef;
+	if (this->modelRef)
+		this->modelRef->SetOwner(this);
+}
+
 void GameObject::addChild(GameObject::GameObjectPtr child)
 {
 	if (!child || child.get() == this || child->parent == this)
@@ -435,52 +442,6 @@ void GameObject::updateWorldMatrix()
 	}
 
 	this->worldDirty = false;
-
-	// Decompose mat_ to get world position, rotation, scale
-	glm::vec3 skew;
-	glm::vec4 perspective;
-	glm::quat rotationQuat;
-	glm::decompose(worldMatrix, worldScale, rotationQuat, worldPosition, skew, perspective);
-	worldRotation = glm::degrees(glm::eulerAngles(rotationQuat));
-
-	// Update bounding box and model matrix
-	if (modelRef && !modelRef->OriginalVertices().empty())
-	{
-		std::vector<glm::vec3> worldPositions;
-		worldPositions.reserve(modelRef->OriginalVertices().size());
-		modelRef->transformedVertices_ = modelRef->originalVertices_;
-
-		for (const auto& vertex : modelRef->TransformedVertices())
-		{
-			glm::vec3 posWorld = glm::vec3(worldMatrix * glm::vec4(vertex.Position, 1.0f));
-			worldPositions.push_back(posWorld);
-		}
-
-		// Calculate OBB axes from rotation matrix
-		glm::mat3 rotMat = glm::mat3_cast(rotationQuat);
-		glm::vec3 axisX = glm::normalize(rotMat[0]);
-		glm::vec3 axisY = glm::normalize(rotMat[1]);
-		glm::vec3 axisZ = glm::normalize(rotMat[2]);
-
-		std::array<glm::vec3, 3> axes = { axisX, axisY, axisZ };
-
-		// Calculate OBB center
-		glm::vec3 computedCenter(0.0f);
-		for (const auto& pos : worldPositions) {
-			computedCenter += pos;
-		}
-		computedCenter /= static_cast<float>(worldPositions.size());
-
-		// Set the new OBB
-		BoundingBox newOBB(worldPosition, worldPositions, axes);
-		setOBB(newOBB);
-	}
-
-	// Apply transformation to model
-	if (modelRef)
-	{
-		modelRef->Transform(worldMatrix);
-	}
 }
 
 glm::mat4 GameObject::getWorldMatrix() const
@@ -583,6 +544,16 @@ void GameObject::setWorldDirty()
 bool GameObject::isWorldDirty() const
 {
 	return this->worldDirty;
+}
+
+void GameObject::clearDirtyFlag()
+{
+	this->m_wasDirty = true;
+}
+
+bool GameObject::wasDirty() const
+{
+	return this->m_wasDirty;
 }
 
 bool GameObject::IsHierarchyNodeOpen() const
