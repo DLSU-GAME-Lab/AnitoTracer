@@ -98,7 +98,7 @@ public:
 			objJson["enabled"] = obj->isActive();
 
 			objJson["position"] = { obj->getWorldPosition().x, obj->getWorldPosition().y, obj->getWorldPosition().z };
-			objJson["rotation"] = { obj->getWorldRotation().x, obj->getWorldRotation().y, obj->getWorldRotation().z };
+			objJson["rotation"] = { obj->getWorldRotationEuler().x, obj->getWorldRotationEuler().y, obj->getWorldRotationEuler().z };
 			objJson["scale"] = { obj->getWorldScale().x, obj->getWorldScale().y, obj->getWorldScale().z };
 
 			// 2. Model
@@ -171,7 +171,7 @@ public:
 				// 3. Create the object.
 				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
 				object->setLocalPosition(pos);
-				object->setLocalRotation(rot);
+				object->setLocalRotationEuler(rot);
 				object->setLocalScale(scale);
 				ModelManager::getInstance()->addObject(std::move(object));
 				// 4. Family TODO

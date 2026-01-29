@@ -1,13 +1,30 @@
 #include "GameObject.h"
 
-#include <iostream>
 #include <glm/gtx/quaternion.hpp>
-#include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include "EventBroadcaster.h"
 #include "ModelManager.h"
 #include "RayTracer.hpp"
+
+
+static glm::vec3 ExtractScale(const glm::mat4& m)
+{
+	glm::vec3 sx = glm::vec3(m[0][0], m[0][1], m[0][2]);
+	glm::vec3 sy = glm::vec3(m[1][0], m[1][1], m[1][2]);
+	glm::vec3 sz = glm::vec3(m[2][0], m[2][1], m[2][2]);
+	return glm::vec3(glm::length(sx), glm::length(sy), glm::length(sz));
+}
+
+static glm::quat ExtractRotation(const glm::mat4& m)
+{
+	glm::mat3 rot{};
+	glm::vec3 scale = ExtractScale(m);
+	if (scale.x != 0.0f) rot[0] = glm::vec3(m[0]) / scale.x; else rot[0] = glm::vec3(m[0]);
+	if (scale.y != 0.0f) rot[1] = glm::vec3(m[1]) / scale.y; else rot[1] = glm::vec3(m[1]);
+	if (scale.z != 0.0f) rot[2] = glm::vec3(m[2]) / scale.z; else rot[2] = glm::vec3(m[2]);
+	return glm::quat_cast(rot);
+}
 
 GameObject::GameObject()
 {
@@ -40,10 +57,10 @@ GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
-GameObject::GameObject(const GameObject& other) : name(other.name), type(other.type), active(other.active), visible(other.visible),
-pickable(other.pickable), localPosition(other.localPosition), localRotation(other.localRotation), localScale(other.localScale), 
-localMatrix(other.localMatrix), worldPosition(other.worldPosition), worldRotation(other.worldRotation), worldScale(other.worldScale), 
-worldMatrix(other.worldMatrix), localDirty(other.localDirty), worldDirty(other.worldDirty), isHierarchyNodeOpen(other.isHierarchyNodeOpen)
+GameObject::GameObject(const GameObject& other) : name(other.name), type(other.type), active(other.active), visible(other.visible), pickable(other.pickable), 
+localPosition(other.localPosition), localRotationQuat(other.localRotationQuat), localRotationEuler(other.localRotationEuler), localScale(other.localScale), localMatrix(other.localMatrix), 
+worldPosition(other.worldPosition), worldRotationQuat(other.worldRotationQuat), worldRotationEuler(other.worldRotationEuler),worldScale(other.worldScale), worldMatrix(other.worldMatrix), 
+localDirty(other.localDirty), worldDirty(other.worldDirty), m_wasDirty(other.m_wasDirty), isHierarchyNodeOpen(other.isHierarchyNodeOpen)
 {
 	this->parent = nullptr;
 	this->modelRef = other.modelRef->Clone();
@@ -147,64 +164,43 @@ GameObject::vec3 GameObject::getWorldPosition() const
 	return this->worldPosition;
 }
 
-void GameObject::setLocalRotation(vec3 newRot)
+void GameObject::setLocalRotationEuler(vec3 newRot)
 {
-	newRot.x = fmod(newRot.x + 180.0f, 360.0f);
-
-	if (newRot.x < 0)
-		newRot.x += 360.0f;
-	newRot.x -= 180.0f;
-
-	newRot.y = fmod(newRot.y + 180.0f, 360.0f);
-
-	if (newRot.y < 0)
-		newRot.y += 360.0f;
-	newRot.y -= 180.0f;
-
-	newRot.z = fmod(newRot.z + 180.0f, 360.0f);
-
-	if (newRot.z < 0)
-		newRot.z += 360.0f;
-	newRot.z -= 180.0f;
-
-	this->localRotation = newRot;
-	this->setLocalDirty();
+	localRotationEuler = newRot;
+	localRotationQuat = glm::quat(glm::radians(newRot));
+	setLocalDirty();
 }
 
-void GameObject::setLocalRotation(float x, float y, float z)
+void GameObject::setLocalRotationEuler(float x, float y, float z)
 {
-	vec3 newRot(x, y, z);
-
-	newRot.x = fmod(newRot.x + 180.0f, 360.0f);
-
-	if (newRot.x < 0)
-		newRot.x += 360.0f;
-	newRot.x -= 180.0f;
-
-	newRot.y = fmod(newRot.y + 180.0f, 360.0f);
-
-	if (newRot.y < 0)
-		newRot.y += 360.0f;
-	newRot.y -= 180.0f;
-
-	newRot.z = fmod(newRot.z + 180.0f, 360.0f);
-
-	if (newRot.z < 0)
-		newRot.z += 360.0f;
-	newRot.z -= 180.0f;
-
-	this->localRotation = newRot;
-	this->setLocalDirty();
+	setLocalRotationEuler(vec3(x, y, z));
 }
 
-GameObject::vec3 GameObject::getLocalRotation() const
+void GameObject::setLocalRotationQuat(quat newRot)
 {
-	return this->localRotation;
+	localRotationQuat = newRot;
+	localRotationEuler = glm::degrees(glm::eulerAngles(newRot));
+	setLocalDirty();
 }
 
-GameObject::vec3 GameObject::getWorldRotation() const
+GameObject::vec3 GameObject::getLocalRotationEuler() const
 {
-	return this->worldRotation;
+	return this->localRotationEuler;
+}
+
+GameObject::vec3 GameObject::getWorldRotationEuler() const
+{
+	return this->worldRotationEuler;
+}
+
+GameObject::quat GameObject::getLocalRotationQuat() const
+{
+	return this->localRotationQuat;
+}
+
+GameObject::quat GameObject::getWorldRotationQuat() const
+{
+	return this->worldRotationQuat;
 }
 
 void GameObject::setLocalScale(vec3 newScale)
@@ -261,7 +257,7 @@ void GameObject::addChild(GameObject::GameObjectPtr child)
 	glm::quat rotationQuat;
 	glm::decompose(child->localMatrix, child->localScale, rotationQuat,
 		child->localPosition, skew, perspective);
-	child->localRotation = glm::degrees(glm::eulerAngles(rotationQuat));
+	child->localRotationEuler = glm::degrees(glm::eulerAngles(rotationQuat));
 
 	child->localDirty = false;
 	child->setWorldDirty();
@@ -397,22 +393,12 @@ bool GameObject::isDescendantOf(const GameObject* potentialParent) const
 	return false;
 }
 
-void GameObject::setOBB(const BoundingBox& obb)
-{
-	this->obb = std::make_shared<BoundingBox>(obb);
-}
-
-std::shared_ptr<BoundingBox> GameObject::getOBB() const
-{
-	return this->obb;
-}
-
 void GameObject::updateLocalMatrix()
 {
 	if (this->localDirty == false)	return;
 
 	glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), this->localScale);
-	glm::mat4 rotationMat = glm::yawPitchRoll(glm::radians(localRotation.y), glm::radians(localRotation.x), glm::radians(localRotation.z));
+	glm::mat4 rotationMat = glm::toMat4(this->localRotationQuat);
 	glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), this->localPosition);
 
 	this->localMatrix = translationMat * rotationMat * scaleMat;
@@ -435,11 +421,17 @@ void GameObject::updateWorldMatrix()
 	if (parent)
 	{
 		this->worldMatrix = parent->getWorldMatrix() * localMat;
+		this->worldRotationQuat = parent->getWorldRotationQuat() * this->localRotationQuat;
 	}
 	else
 	{
 		this->worldMatrix = localMat;
+		this->worldRotationQuat = this->localRotationQuat;
 	}
+
+	worldPosition = glm::vec3(worldMatrix[3]);
+	worldScale = ExtractScale(worldMatrix);
+	worldRotationEuler = glm::degrees(glm::eulerAngles(worldRotationQuat));
 
 	this->worldDirty = false;
 }
@@ -460,58 +452,6 @@ void GameObject::updateSceneView()
 	if (RayTracer::getInstance()->getUserSettings().IsRayTraced) {
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
-}
-
-/**
- * \brief Performs the model transform via model-view-projection matrix form
- */
-void GameObject::performModelTransform()
-{
-	mat4 translateOp = glm::translate(mat4(1), this->worldPosition - this->origin);
-	this->origin = this->worldPosition;
-	if (modelRef)
-		this->modelRef->Transform(translateOp);
-
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-}
-
-void GameObject::performModelRotate()
-{
-	vec3 rotOffset = this->worldRotation - this->originRot;
-
-	mat4 translateToOrigin = glm::translate(mat4(1.0f), -this->worldPosition);
-
-	mat4 rotateXOp = glm::rotate(mat4(1), glm::radians(rotOffset.x), vec3(1, 0, 0));
-	mat4 rotateYOp = glm::rotate(mat4(1), glm::radians(rotOffset.y), vec3(0, 1, 0));
-	mat4 rotateZOp = glm::rotate(mat4(1), glm::radians(rotOffset.z), vec3(0, 0, 1));
-
-	mat4 translateBack = glm::translate(mat4(1.0f), this->worldPosition);
-
-	mat4 finalRotation = translateBack * rotateZOp * rotateYOp * rotateXOp * translateToOrigin;
-
-	if (modelRef)
-		this->modelRef->Transform(finalRotation);
-
-	this->originRot = this->worldRotation;
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-}
-
-void GameObject::performModelScale()
-{
-	vec3 scaleOffset = this->worldScale / this->originScale;
-
-	mat4 translateToOrigin = glm::translate(mat4(1.0f), -this->worldPosition);
-	mat4 scaleOp = glm::scale(mat4(1.0f), scaleOffset);
-	mat4 translateBack = glm::translate(mat4(1.0f), this->worldPosition);
-
-	mat4 finalScale = translateBack * scaleOp * translateToOrigin;
-
-	if (modelRef)
-		this->modelRef->Transform(finalScale);
-
-	this->originScale = this->worldScale;
-
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void GameObject::setLocalDirty()

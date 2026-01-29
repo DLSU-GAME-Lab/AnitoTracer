@@ -3,9 +3,10 @@
 #include <string>
 #include <vector>
 
+#include <glm/gtx/quaternion.hpp>
 #include "Assets/Model.hpp"
 #include "From-GDGRAP2/VectorUtils.h"
-#include "OBB/BoundingBox.hpp"
+
 
 
 class GameObject
@@ -13,8 +14,9 @@ class GameObject
 public:
     using GameObjectPtr = std::unique_ptr<GameObject>;
     using vec3 = glm::vec3;
-    using String = std::string;
+	using quat = glm::quat;
     using mat4 = glm::mat4;
+    using String = std::string;
 
     enum PrimitiveType {
         CAMERA, CUBE, OBJECT_GROUP, QUAD, PLANE, CYLINDER, CAPSULE, SPHERE,
@@ -48,10 +50,13 @@ public:
     vec3 getLocalPosition() const;
     vec3 getWorldPosition() const;
 
-    virtual void setLocalRotation(vec3 newRot);
-    virtual void setLocalRotation(float x, float y, float z);
-    vec3 getLocalRotation() const;
-    vec3 getWorldRotation() const;
+    virtual void setLocalRotationEuler(vec3 newRot);
+    virtual void setLocalRotationEuler(float x, float y, float z);
+    virtual void setLocalRotationQuat(quat newRot);
+    vec3 getLocalRotationEuler() const;
+    vec3 getWorldRotationEuler() const;
+	quat getLocalRotationQuat() const;
+	quat getWorldRotationQuat() const;
 
     void setLocalScale(vec3 newScale);
     void setLocalScale(float x, float y, float z);
@@ -72,9 +77,6 @@ public:
     GameObject* getParent() const;
 
     bool isDescendantOf(const GameObject* potentialParent) const;
-
-    void setOBB(const BoundingBox& obb);
-    std::shared_ptr<BoundingBox> getOBB() const;
 
     void updateLocalMatrix();
     glm::mat4 getLocalMatrix() const;
@@ -100,17 +102,14 @@ protected:
     bool visible = true;
     bool pickable = true;
 
-    std::shared_ptr<GameObject> debugCube = nullptr;
-
-    vec3 origin = VectorUtils::zeros();
-    vec3 originRot = VectorUtils::zeros();
-    vec3 originScale = VectorUtils::ones();
     vec3 localPosition = VectorUtils::zeros();
-    vec3 localRotation = VectorUtils::zeros();
+    quat localRotationQuat = glm::quat(1,0,0,0);
+	vec3 localRotationEuler = VectorUtils::zeros();
     vec3 localScale = VectorUtils::ones();
 
     vec3 worldPosition = VectorUtils::zeros();
-    vec3 worldRotation = VectorUtils::zeros();
+	quat worldRotationQuat = glm::quat(1, 0, 0, 0);
+    vec3 worldRotationEuler = VectorUtils::zeros();
     vec3 worldScale = VectorUtils::ones();
 
     glm::mat4 localMatrix = glm::mat4(1.0);
@@ -120,12 +119,6 @@ protected:
 
     GameObject* parent = nullptr;
     std::vector<GameObjectPtr> children;
-
-    std::shared_ptr<BoundingBox> obb;
-
-    virtual void performModelTransform();
-    virtual void performModelRotate();
-    virtual void performModelScale();
 
     void updateSceneView();
 

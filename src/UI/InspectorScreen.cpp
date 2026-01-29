@@ -256,7 +256,7 @@ void InspectorScreen::updateTransformDisplays()
 	this->positionDisplay[1] = pos.y;
 	this->positionDisplay[2] = pos.z;
 
-	vec3 rot = this->selectedObject->getLocalRotation();
+	vec3 rot = this->selectedObject->getLocalRotationEuler();
 	this->rotationDisplay[0] = rot.x;
 	this->rotationDisplay[1] = rot.y;
 	this->rotationDisplay[2] = rot.z;
@@ -391,7 +391,7 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 	switch (action)
 	{
 	case EditorAction::Move:   before = selectedObject->getLocalPosition(); break;
-	case EditorAction::Rotate: before = selectedObject->getLocalRotation(); break;
+	case EditorAction::Rotate: before = selectedObject->getLocalRotationEuler(); break;
 	case EditorAction::Scale:  before = selectedObject->getLocalScale();    break;
 	}
 
@@ -421,7 +421,7 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
 					selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotation(std::get<glm::vec3>(v)); },
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotationEuler(std::get<glm::vec3>(v)); },
 					before,
 					after));
 			break;

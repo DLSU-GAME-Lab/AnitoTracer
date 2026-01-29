@@ -99,15 +99,15 @@ public:
 		updateSceneView();
 	}
 
-	void setLocalRotation(vec3 newRot) override
+	void setLocalRotationEuler(vec3 newRot) override
 	{
-		GameObject::setLocalRotation(newRot);
+		GameObject::setLocalRotationEuler(newRot);
 		props_.LightDir = calculateDirection();
 	}
 	
-	void setLocalRotation(float x, float y, float z) override
+	void setLocalRotationEuler(float x, float y, float z) override
 	{
-		GameObject::setLocalRotation(x, y, z);
+		GameObject::setLocalRotationEuler(x, y, z);
 		props_.LightDir = calculateDirection();
 	}
 

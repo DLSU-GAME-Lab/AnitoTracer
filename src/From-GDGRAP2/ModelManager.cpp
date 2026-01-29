@@ -374,7 +374,7 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 	case GameObject::DIRECTIONAL_LIGHT:
 	{
 		std::unique_ptr<Light> dl = std::make_unique<Light>("Light Source", Light::LightType::DirectionalLight);
-		dl->setLocalRotation(-180, 0, 0);
+		dl->setLocalRotationEuler(-180, 0, 0);
 		addLightObject(std::move(dl));
 	}
 	break;
@@ -438,7 +438,7 @@ void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveTy
 	if (obj)
 	{
 		obj->setLocalPosition(position);
-		obj->setLocalRotation(rotation);
+		obj->setLocalRotationEuler(rotation);
 		obj->setLocalScale(scale);
 		obj->setActive(active);
 		addObject(std::move(obj));
@@ -476,7 +476,7 @@ void ModelManager::createLightFromScene(String name, GameObject::PrimitiveType t
 	{
 		light->setName(name);
 		light->setLocalPosition(position);
-		light->setLocalRotation(rotation);
+		light->setLocalRotationEuler(rotation);
 		light->setLocalScale(scale);
 		light->setActive(active);
 		addLightObject(std::move(light));
@@ -503,7 +503,7 @@ void ModelManager::createObjectFromFile(String name, GameObject::PrimitiveType t
 	auto model = Assets::Model::LoadModel(meshFilePath);
 	std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>(name, type, std::make_shared<Assets::Model>(model));
 	gameObject->setLocalPosition(position);
-	gameObject->setLocalRotation(rotation);
+	gameObject->setLocalRotationEuler(rotation);
 	gameObject->setLocalScale(scale);
 	addObject(std::move(gameObject));
 }

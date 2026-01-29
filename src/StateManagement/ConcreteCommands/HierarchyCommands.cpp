@@ -113,7 +113,7 @@ void CreateObjectCommand::applyPostCreation(GameObject* obj)
 {
 	if (!obj) return;
 	obj->setLocalPosition(this->storedPosition);
-	obj->setLocalRotation(this->storedRotation);
+	obj->setLocalRotationEuler(this->storedRotation);
 	obj->setLocalScale(this->storedScale);
 }
 
@@ -157,7 +157,7 @@ void CreateLightCommand::execute()
 	{
 		this->createdObjectRef = this->createdObjectStorage.get();
 		this->createdObjectRef->setLocalPosition(this->storedPosition);
-		this->createdObjectRef->setLocalRotation(this->storedRotation);
+		this->createdObjectRef->setLocalRotationEuler(this->storedRotation);
 		this->createdObjectRef->setLocalScale(this->storedScale);
 		ModelManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
@@ -168,7 +168,7 @@ void CreateLightCommand::execute()
 	this->createdObjectStorage = GameObjectFactory::CreateLight(this->type, this->name);
 	this->createdObjectRef = this->createdObjectStorage.get();
 	this->createdObjectRef->setLocalPosition(this->storedPosition);
-	this->createdObjectRef->setLocalRotation(this->storedRotation);
+	this->createdObjectRef->setLocalRotationEuler(this->storedRotation);
 	this->createdObjectRef->setLocalScale(this->storedScale);
 	ModelManager::getInstance()->addLightObject(std::move(this->createdObjectStorage));
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);

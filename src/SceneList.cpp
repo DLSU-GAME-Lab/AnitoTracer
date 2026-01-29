@@ -43,7 +43,7 @@ namespace
 		float roll = 0.0f;
 
 		glm::vec3 rotation(pitch, yaw, roll);
-		cameraObject->setLocalRotation(rotation);
+		cameraObject->setLocalRotationEuler(rotation);
 	}
 
 	void AddRayTracingInOneWeekendCommonScene(const bool& isProc, std::function<float()>& random)
@@ -565,13 +565,13 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 
 	auto box0 = GameObjectFactory::CreateCube("Right Box");
 	box0->setLocalPosition(vec3(125, -194, 100));
-	box0->setLocalRotation(vec3(0, 50, 0));
+	box0->setLocalRotationEuler(vec3(0, 50, 0));
 	box0->setLocalScale(glm::vec3(3, 3.3f, 3));
 	ModelManager::getInstance()->addObject(std::move(box0));
 
 	auto box1 = GameObjectFactory::CreateCube("Tall Box");
 	box1->setLocalPosition(vec3(-100, -112, -100));
-	box1->setLocalRotation(vec3(0, -60, 0));
+	box1->setLocalRotationEuler(vec3(0, -60, 0));
 	box1->setLocalScale(glm::vec3(3, 6.6f, 3));
 	ModelManager::getInstance()->addObject(std::move(box1));
 
@@ -673,7 +673,7 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 		sphereGroup->addChild(std::make_unique<GameObject>("SmallSphereInstance", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereInstance)));
 	}
 
-	sphereGroup->setLocalRotation(0, -45, 0);
+	sphereGroup->setLocalRotationEuler(0, -45, 0);
 	sphereGroup->setLocalPosition(vec3(-200, 300, 450));
 	ModelManager::getInstance()->addObject(std::move(sphereGroup));
 
@@ -713,13 +713,13 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 	auto box0 = GameObjectFactory::CreateCube("Right Box");
 	box0->setLocalPosition(vec3(125, -194, -400));
-	box0->setLocalRotation(vec3(0, 50, 0));
+	box0->setLocalRotationEuler(vec3(0, 50, 0));
 	box0->setLocalScale(glm::vec3(3, 3.3f, 3));
 	ModelManager::getInstance()->addObject(std::move(box0));
 
 	auto box1 = GameObjectFactory::CreateCube("Tall Box");
 	box1->setLocalPosition(vec3(-100, -112, -500));
-	box1->setLocalRotation(vec3(0, -60, 0));
+	box1->setLocalRotationEuler(vec3(0, -60, 0));
 	box1->setLocalScale(glm::vec3(3, 6.6f, 3));
 	ModelManager::getInstance()->addObject(std::move(box1));
 
@@ -729,7 +729,7 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 	auto lucy = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj", "Lucy");
 	lucy->setLocalPosition(vec3(-100, -170, -350));
-	lucy->setLocalRotation(vec3(0, 90, 0));
+	lucy->setLocalRotationEuler(vec3(0, 90, 0));
 	lucy->setLocalScale(vec3(0.25));
 
 	ModelManager::getInstance()->addObject(std::move(lucy));
@@ -783,7 +783,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	auto areaLightObject = GameObjectFactory::CreateEmpty("AreaLight");
 	areaLightObject->setModel(std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj", "sponza");
@@ -819,7 +819,7 @@ SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
@@ -882,7 +882,7 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
@@ -927,7 +927,7 @@ SceneAssets SceneList::BistroEXT(CameraInitialState& camera)
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	const auto i = mat4(1);
@@ -971,7 +971,7 @@ SceneAssets SceneList::BistroINT(CameraInitialState& camera)
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	const auto i = mat4(1);
@@ -1015,7 +1015,7 @@ SceneAssets SceneList::BalayAnito(CameraInitialState& camera)
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	const auto i = mat4(1);
@@ -1057,7 +1057,7 @@ SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
@@ -1097,7 +1097,7 @@ SceneAssets SceneList::SalleDeBain(CameraInitialState& camera)
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
@@ -1160,7 +1160,7 @@ SceneAssets SceneList::Gallery(CameraInitialState& camera)
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");

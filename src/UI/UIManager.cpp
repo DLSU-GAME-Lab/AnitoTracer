@@ -472,7 +472,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 			gizmoBeforeState = {
 				selectedObject->getLocalPosition(),
-				selectedObject->getLocalRotation(),
+				selectedObject->getLocalRotationEuler(),
 				selectedObject->getLocalScale()
 			};
 		}
@@ -521,7 +521,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced) // For Rasterized Mode
 			{
 				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
-				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
+				selectedObject->setLocalRotationEuler(rotation[0], rotation[1], rotation[2]);
 				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
 			}
 		}
