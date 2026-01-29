@@ -54,7 +54,9 @@ void FileListView::renderDescendants(FileTreeNode& nodeToRender) {
 
             // 2.) Render root children and listen for events on those nodes.
             //ImGui::PushFont(UIManager::getInstance()->GetIconFont());
-            std::string iconCode = chooseIconCode(*childNodeIt);
+            //std::string iconCode = chooseIconCode(*childNodeIt);
+
+            std::string iconCode = "";
 
             bool isNodeOpen = ImGui::TreeNodeEx((iconCode + " " + childNodeIt->getName() + "##list").c_str(), flag);
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && childNodeIt->isDirectory() && childNodeIt->directoryEntryExists()) {
