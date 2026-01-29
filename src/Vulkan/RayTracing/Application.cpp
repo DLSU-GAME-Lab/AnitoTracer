@@ -161,20 +161,47 @@ void Application::CreateSwapChain()
 	Vulkan::Application::CreateSwapChain();
 
 	CreateOutputImage();
+	CreatePixelMetaDataBuffers();
 
 	rayTracingPipeline_.reset(new RayTracingPipeline(*deviceProcedures_, SwapChain(), topAs_[0], *accumulationImageView_, *outputImageView_, UniformBuffers(), GetScene(), GetRayScene()));
+
+	computePipeline_.reset(new ComputePipeline(SwapChain(), this->pixelSamplesBuffer_->Handle(), this->workQueueBuffer_->Handle(), this->workQueueCountBuffer_->Handle()));
 
 	const std::vector<ShaderBindingTable::Entry> rayGenPrograms = { {rayTracingPipeline_->RayGenShaderIndex(), {}} };
 	const std::vector<ShaderBindingTable::Entry> missPrograms = { {rayTracingPipeline_->MissShaderIndex(), {}} };
 	const std::vector<ShaderBindingTable::Entry> hitGroups = { {rayTracingPipeline_->TriangleHitGroupIndex(), {}}, {rayTracingPipeline_->ProceduralHitGroupIndex(), {}} };
 
 	shaderBindingTable_.reset(new ShaderBindingTable(*deviceProcedures_, *rayTracingPipeline_, *rayTracingProperties_, rayGenPrograms, missPrograms, hitGroups));
+
+}
+
+void Application::CreatePixelMetaDataBuffers()
+{
+	const uint32_t width = SwapChain().Extent().width;
+	const uint32_t height = SwapChain().Extent().height;
+	const uint32_t maxInstancesPerPixel = 8;
+
+	// Size calculation
+	const size_t pixelCount = width * height;
+	const size_t sizePerPixel = sizeof(uint32_t) + // instance count
+		maxInstancesPerPixel * sizeof(uint32_t); // instance IDs
+	const size_t totalSize = pixelCount * sizePerPixel;
+
+	this->pixelSamplesBuffer_.reset(new Buffer(Device(), totalSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+	this->pixelMetaDataBufferMemory_.reset(new DeviceMemory(pixelSamplesBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+	this->pixelSampleCountBuffer_.reset(new Buffer(Device(), sizeof(uint32_t) * pixelCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+	this->pixelSampleCountBufferMemory_.reset(new DeviceMemory(pixelSampleCountBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+	this->workQueueBuffer_.reset(new Buffer(Device(), sizeof(uint32_t) * 2 * pixelCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+	this->workQueueBufferMemory_.reset(new DeviceMemory(workQueueBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+	this->workQueueCountBuffer_.reset(new Buffer(Device(), sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+	this->workQueueCountBufferMemory_.reset(new DeviceMemory(workQueueCountBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
 }
 
 void Application::DeleteSwapChain()
 {
 	shaderBindingTable_.reset();
 	rayTracingPipeline_.reset();
+	computePipeline_.reset();
 	outputImageView_.reset();
 	outputImage_.reset();
 	outputImageMemory_.reset();

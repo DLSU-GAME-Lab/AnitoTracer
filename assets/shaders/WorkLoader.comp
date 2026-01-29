@@ -1,0 +1,51 @@
+#version 460
+#extension GL_EXT_scalar_block_layout : enable
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// Binding 0: pixel sample counts
+layout(binding = 1, scalar) buffer SampleBuffer
+{
+    uint samples[];
+} sampleBuffer;
+
+// Binding 1: work queue (pixel coordinates)
+layout(binding = 2, scalar) buffer WorkQueue
+{
+    uvec2 pixels[];
+} workQueue;
+
+// Binding 2: queue counter
+layout(binding = 3, scalar) buffer QueueCounter
+{
+    uint count;
+} queueCounter;
+
+layout(push_constant) uniform PushConstants
+{
+    uint width;
+    uint height;
+    uint targetSPP;
+    uint maxQueueSize; // safety clamp
+} pc;
+
+void main()
+{
+    uvec2 pixel = gl_GlobalInvocationID.xy;
+
+    if (pixel.x >= pc.width || pixel.y >= pc.height) return;
+
+    uint index = pixel.y * pc.width + pixel.x;
+    uint sampleCount = sampleBuffer.samples[index];
+
+    // Only enqueue pixels that need more samples
+    if (sampleCount >= pc.targetSPP)
+        return;
+
+    uint queueIndex = atomicAdd(queueCounter.count, 1);
+
+    // Prevent overflow
+    if (queueIndex >= pc.maxQueueSize) return;
+
+    workQueue.pixels[queueIndex] = pixel;
+}

@@ -1,4 +1,4 @@
-	set(exe_name ${MAIN_PROJECT})
+set(exe_name ${MAIN_PROJECT})
 
 set(src_files_assets
 	Assets/CornellBox.cpp
@@ -98,6 +98,13 @@ set(src_files_utilities
 	Utilities/StbImage.hpp
 	Utilities/FileUtils.cpp
 	Utilities/FileUtils.h
+)
+
+set(src_files_computeshaders
+	Compute/ComputePipeline.hpp
+	Compute/ComputePipeline.cpp
+	Compute/ComputePipelineLayout.hpp
+	Compute/ComputePipelineLayout.cpp
 )
 
 set(src_files_vulkan
@@ -315,12 +322,13 @@ source_group("From-GDGRAP2" FILES ${src_files_from_gdgrap2})
 source_group("Vulkan" FILES ${src_files_vulkan})
 source_group("Vulkan.RayTracing" FILES ${src_files_vulkan_raytracing})
 source_group("RayPicker" FILES ${src_files_raypicker})
+source_group("ComputePipeline" FILES ${src_files_computeshaders})
 source_group("Main" FILES ${src_files})
 
 add_executable(${exe_name} 
 	${src_files_assets}
 	${src_files_obb}
-
+	${src_files_computeshaders}
 	${src_files_camerasystem} 
 	${src_files_lightsystem}
 	${stc_files_hotkeysystem}
