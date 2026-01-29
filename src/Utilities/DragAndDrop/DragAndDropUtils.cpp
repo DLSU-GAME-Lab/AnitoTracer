@@ -109,13 +109,20 @@ void DragAndDropUtils::attachFileMoveTarget(FileTreeNode& destNode) {
 void DragAndDropUtils::copyFileToAssetsRoot(std::string sourcePathString) {
     fs::path fsSourcePath(sourcePathString);
     fs::path fsDestPath(FileExplorerConstants::ASSETS_DIR);
-    fs::copy(fsSourcePath, fsDestPath);
 
-    directory_entry newFile(fsDestPath / fsSourcePath.filename());
-    FileTreeNode newTreeNode(newFile);
+    directory_entry dirEntSource(fsSourcePath);
+    if (dirEntSource.is_directory()) {
+        fs::copy(fsSourcePath, fsDestPath / fsSourcePath.stem(), fs::copy_options::recursive);
+    } else {
+        fs::copy(fsSourcePath, fsDestPath, fs::copy_options::recursive);
+    }
 
+    directory_entry newEntry(fsDestPath / fsSourcePath.filename());
+    FileTreeNode newTreeNode(newEntry);
     newTreeNode.setParent(&(FileTree::getInstance()->getRoot()));
     FileTree::getInstance()->getRoot().addChild(newTreeNode);
+
+    newTreeNode.init();
 }
 
 void DragAndDropUtils::loadObject(std::string path, std::string name) {
