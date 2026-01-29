@@ -93,6 +93,8 @@ public:
 
     void updateSceneView();
 
+	AABB& GetAABB() { return *aabb; }
+
 protected:
     String name;
 

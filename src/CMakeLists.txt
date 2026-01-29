@@ -109,6 +109,7 @@ set(src_files_utilities
 	Utilities/StbImage.hpp
 	Utilities/FileUtils.cpp
 	Utilities/FileUtils.h
+	Utilities/MathUtils.h
 )
 
 set(src_files_vulkan

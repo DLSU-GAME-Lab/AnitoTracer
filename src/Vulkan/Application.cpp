@@ -178,11 +178,14 @@ void Application::CreateSwapChain()
 
 	commandBuffers_.reset(new CommandBuffers(*commandPool_, static_cast<uint32_t>(swapChainFramebuffers_.size())));
 	computeCommandBuffers_.reset(new CommandBuffers(*computeCommandPool_, static_cast<uint32_t>(swapChainFramebuffers_.size())));
+
+	imagesInFlight_.assign(swapChain_->Images().size(), VK_NULL_HANDLE);
 }
 
 void Application::DeleteSwapChain()
 {
 	commandBuffers_.reset();
+	computeCommandBuffers_.reset();
 	swapChainFramebuffers_.clear();
 	graphicsPipeline_.reset();
 	uniformBuffers_.clear();
@@ -209,11 +212,11 @@ void Application::DrawFrame()
 {
 	const auto noTimeout = std::numeric_limits<uint64_t>::max();
 
-	auto& inFlightFence = inFlightFences_[currentFrame_];
+	VkFence frameFence = inFlightFences_[currentFrame_].Handle();
 	const auto imageAvailableSemaphore = imageAvailableSemaphores_[currentFrame_].Handle();
 	const auto renderFinishedSemaphore = renderFinishedSemaphores_[currentFrame_].Handle();
 
-	inFlightFence.Wait(noTimeout);
+	inFlightFences_[currentFrame_].Wait(noTimeout);
 
 	uint32_t imageIndex;
 	auto result = vkAcquireNextImageKHR(device_->Handle(), swapChain_->Handle(), noTimeout, imageAvailableSemaphore, nullptr, &imageIndex);
@@ -229,6 +232,22 @@ void Application::DrawFrame()
 		Throw(std::runtime_error(std::string("failed to acquire next image (") + ToString(result) + ")"));
 	}
 
+	if (imagesInFlight_.size() != swapChain_->Images().size())
+		imagesInFlight_.assign(swapChain_->Images().size(), VK_NULL_HANDLE);
+
+	if (imagesInFlight_[imageIndex] != VK_NULL_HANDLE)
+	{
+		vkWaitForFences(device_->Handle(), 1, &imagesInFlight_[imageIndex], VK_TRUE, noTimeout);
+	}
+
+	imagesInFlight_[imageIndex] = frameFence;
+	inFlightFences_[currentFrame_].Reset();
+
+	const auto computeCommandBuffer = computeCommandBuffers_->Begin(imageIndex);
+	Compute(computeCommandBuffer, imageIndex);
+	computeCommandBuffers_->End(imageIndex);
+
+
 	const auto commandBuffer = commandBuffers_->Begin(imageIndex);
 	profiler_->BeginFrame(commandBuffer);
 	profiler_->BeginSection("RenderScene", commandBuffer);
@@ -240,36 +259,33 @@ void Application::DrawFrame()
 
 	UpdateUniformBuffer(imageIndex);
 
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-	VkCommandBuffer commandBuffers[]{ commandBuffer };
-	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
 	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
+	VkCommandBuffer submitCmds[] = { commandBuffer };
 
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = commandBuffers;
+	submitInfo.pCommandBuffers = submitCmds;
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	inFlightFence.Reset();
-
-	Check(vkQueueSubmit(device_->GraphicsQueue(), 1, &submitInfo, inFlightFence.Handle()),
+	Check(vkQueueSubmit(device_->GraphicsQueue(), 1, &submitInfo, frameFence),
 		"submit draw command buffer");
 
 	VkSwapchainKHR swapChains[] = { swapChain_->Handle() };
-	VkPresentInfoKHR presentInfo = {};
+
+	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapChains;
 	presentInfo.pImageIndices = &imageIndex;
-	presentInfo.pResults = nullptr; // Optional
 
 	result = vkQueuePresentKHR(device_->PresentQueue(), &presentInfo);
 
@@ -278,7 +294,6 @@ void Application::DrawFrame()
 		RecreateSwapChain();
 		return;
 	}
-	
 	if (result != VK_SUCCESS)
 	{
 		Throw(std::runtime_error(std::string("failed to present next image (") + ToString(result) + ")"));
@@ -286,10 +301,7 @@ void Application::DrawFrame()
 
 	profiler_->EndFrame(commandBuffer);
 	profiler_->FetchResults();
-
-	if (profiler_) {
-		profiler_->UpdateMemoryStats();
-	}
+	if (profiler_) profiler_->UpdateMemoryStats();
 
 	currentFrame_ = (currentFrame_ + 1) % inFlightFences_.size();
 }
@@ -354,6 +366,11 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	}
 
 	vkCmdEndRenderPass(commandBuffer);
+}
+
+void Application::Application::Compute(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
+{
+	// Default implementation does nothing.
 }
 
 void Application::UpdateUniformBuffer(const uint32_t imageIndex)

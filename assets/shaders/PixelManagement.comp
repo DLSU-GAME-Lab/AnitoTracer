@@ -12,7 +12,7 @@ const uint SOFT_RAY_THRESHOLD = 64;
 
 layout(std430, binding = 0) readonly buffer DirtyObjectBoundsBuffer
 {
-    uint objectBounds[];
+    uvec4 objectBounds[];
 };
 
 layout(std430, binding = 1) readonly buffer DirtyObjectCountBuffer
@@ -46,6 +46,12 @@ uint BucketBoost(uint rc)
     return 1u;
 }
 
+bool InRectExclusive(uvec2 p, uvec4 r)
+{
+    return (p.x >= r.x && p.x < r.z &&
+            p.y >= r.y && p.y < r.w);
+}
+
 void main()
 {
     uvec2 pix = gl_GlobalInvocationID.xy;
@@ -57,19 +63,18 @@ void main()
     uint count = objectBoundsCount;
 
     bool isDirty = false;
-    for (uint i = 0; i < count; ++i)
-    {
-        uint base = i * 4u;
-        uint minX = objectBounds[base + 0u];
-        uint minY = objectBounds[base + 1u];
-        uint maxX = objectBounds[base + 2u];
-        uint maxY = objectBounds[base + 3u];
 
-        if (pix.x >= minX && pix.x < maxX &&
-            pix.y >= minY && pix.y < maxY)
+    uint prevRC = rayCount[idx];
+
+    for (uint i = 0u; i < count; ++i)
+    {
+        uvec4 r = objectBounds[i];
+
+        if (r.z <= r.x || r.w <= r.y) continue;
+
+        if (InRectExclusive(pix, r))
         {
             isDirty = true;
-            rayCount[idx] = 0u;
             break;
         }
     }
@@ -82,4 +87,5 @@ void main()
     dirty[idx] = 1u;
 
     weights[idx] = DIRTY_BONUS + BucketBoost(rayCount[idx]);
+    rayCount[idx] = 0u;
 }

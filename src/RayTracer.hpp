@@ -25,7 +25,7 @@ public:
 	static RayTracer* getInstance();
 
 	UserSettings getUserSettings() const { return userSettings_; }
-
+	glm::vec2 GetWindowSize() const;
 protected:
 
 	const Assets::Scene& GetScene() const override { return *scene_; }
@@ -52,6 +52,7 @@ protected:
 	void OnScroll(double xoffset, double yoffset) override;
 
 	void onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters) override;
+
 
 private:
 	void LoadScene(uint32_t sceneIndex);

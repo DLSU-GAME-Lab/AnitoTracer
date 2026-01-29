@@ -9,6 +9,7 @@
 #include "Engine/LightSystem/Light.h"
 #include "From-GDGRAP2/GameObject.h"
 #include "HotkeySystem/HotkeyListener.hpp"
+#include "Utilities/MathUtils.h"
 
 /**
  * \brief Similar to the game object manager, this class stores model instances
@@ -82,7 +83,9 @@ public:
 
 	void ClearTLASInstances();
 	void RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAccelerationStructureInstanceKHR instance);
-	std::vector<VkAccelerationStructureInstanceKHR> GetTLASInstances() const;
+	std::vector<VkAccelerationStructureInstanceKHR> GetTLASInstances();
+
+	std::vector<DirtyRectU32> GetDirtyRects() const { return dirtyRects; }
 
 private:
 	ModelManager();
@@ -96,6 +99,8 @@ private:
 
 	GameObjectMap gameObjectMap;
 	TLASInstanceMap tlasInstanceMap; //move somewhere appropriate
+
+	std::vector<DirtyRectU32> dirtyRects;
 
 	GameObject* selectedObject = nullptr;
 	GameObjectPtr copiedObject = nullptr;

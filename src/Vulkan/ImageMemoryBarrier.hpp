@@ -35,4 +35,22 @@ namespace Vulkan
 		}
 	};
 
+	class MemoryBarrier final
+	{
+		public:
+		static void Insert(
+			const VkCommandBuffer commandBuffer,
+			const VkAccessFlags srcAccessMask,
+			const VkAccessFlags dstAccessMask)
+		{
+			VkMemoryBarrier barrier;
+			barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			barrier.pNext = nullptr;
+			barrier.srcAccessMask = srcAccessMask;
+			barrier.dstAccessMask = dstAccessMask;
+			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0,
+				nullptr);
+		}
+	};
 }

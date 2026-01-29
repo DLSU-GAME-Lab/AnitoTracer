@@ -26,7 +26,10 @@ RayTracingPipeline::RayTracingPipeline(
 	const ImageView& outputImageView,
 	const std::vector<Assets::UniformBuffer>& uniformBuffers,
 	const Assets::Scene& scene,
-	const Assets::RayScene& rayScene) :
+	const Assets::RayScene& rayScene,
+	const VkBuffer RayCountBuffer, 
+	const VkBuffer WorkQueueBuffer, 
+	const VkBuffer WorkQueueCountBuffer) :
 	swapChain_(swapChain)
 {
 	// Create descriptor pool/sets.
@@ -65,6 +68,9 @@ RayTracingPipeline::RayTracingPipeline(
 		{ 14, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
 
 
+		{ 15, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+		{ 16, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+		{ 17, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
 	};
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -145,6 +151,21 @@ RayTracingPipeline::RayTracingPipeline(
 		rayInfoBufferInfo.buffer = rayScene.RayInfoBuffer().Handle();
 		rayInfoBufferInfo.range = VK_WHOLE_SIZE;
 
+		// Ray Count Buffer
+		VkDescriptorBufferInfo rayCountBufferInfo = {};
+		rayCountBufferInfo.buffer = RayCountBuffer;
+		rayCountBufferInfo.range = VK_WHOLE_SIZE;
+
+		// Work Queue Buffer
+		VkDescriptorBufferInfo workQueueBufferinfo = {};
+		workQueueBufferinfo.buffer = WorkQueueCountBuffer;
+		workQueueBufferinfo.range = VK_WHOLE_SIZE;
+
+		// Work Queue Count Buffer
+		VkDescriptorBufferInfo workQueueCountBufferinfo = {};
+		workQueueCountBufferinfo.buffer = WorkQueueCountBuffer;
+		workQueueCountBufferinfo.range = VK_WHOLE_SIZE;
+
 		for (size_t t = 0; t != imageInfos.size(); ++t)
 		{
 			auto& imageInfo = imageInfos[t];
@@ -165,6 +186,9 @@ RayTracingPipeline::RayTracingPipeline(
 			descriptorSets.Bind(i, 7, lightBufferInfo),
 			descriptorSets.Bind(i, 8, offsetsBufferInfo),
 			descriptorSets.Bind(i, 9, *imageInfos.data(), static_cast<uint32_t>(imageInfos.size())),
+			descriptorSets.Bind(i, 15, rayCountBufferInfo),
+			descriptorSets.Bind(i, 16, workQueueBufferinfo),
+			descriptorSets.Bind(i, 17, workQueueCountBufferinfo),
 		};
 
 		// Procedural buffer (optional)

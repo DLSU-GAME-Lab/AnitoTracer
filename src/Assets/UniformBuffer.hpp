@@ -30,6 +30,8 @@ namespace Assets
 		uint32_t MaxRays;
 		uint32_t HasSky; // bool
 		uint32_t ShowHeatmap; // bool
+		uint32_t RenderWidth;
+		uint32_t RenderHeight;
 	};
 
 	// might move to a push constant class

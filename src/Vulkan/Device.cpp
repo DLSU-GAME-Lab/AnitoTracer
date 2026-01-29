@@ -35,7 +35,7 @@ namespace Vulkan {
 		}
 	}
 
-	Device::Device(
+	Device::Device (
 		VkPhysicalDevice physicalDevice,
 		const class Surface& surface,
 		const std::vector<const char*>& requiredExtensions,

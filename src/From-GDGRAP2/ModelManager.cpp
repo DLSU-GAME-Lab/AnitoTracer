@@ -13,6 +13,7 @@
 #include "Engine/CameraSystem/CameraManager.h"
 #include "Engine/CameraSystem/Camera.h"
 #include <glm/gtc/type_ptr.hpp>
+#include "RayTracer.hpp"
 
 ModelManager* ModelManager::sharedInstance = nullptr;
 
@@ -767,34 +768,54 @@ void ModelManager::RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAc
 	this->tlasInstanceMap[objectId] = pair;
 }
 
-std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances() const
+std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances()
 {
 	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
 	tlasInstances.reserve(this->tlasInstanceMap.size());
+	this->dirtyRects.clear();
+
+	Camera* cam = CameraManager::getInstance()->getActiveCamera();
+
+	glm::mat4 view = cam->GetView();
+	glm::mat4 proj = cam->GetProjection();
+	glm::mat4 viewProj = proj * view;
+
+	auto wSize = RayTracer::getInstance()->GetWindowSize();
+	uint32_t viewportW = wSize.x;
+	uint32_t viewportH = wSize.y;
 
 	for (const auto& [id, pair] : this->tlasInstanceMap)
 	{
+		if (!pair.obj->WasDirty()) continue;
+
 		VkAccelerationStructureInstanceKHR updatedInstance = pair.instance;
+		const glm::mat4& worldMat = pair.obj->getWorldMatrix();
+		pair.obj->GetAABB().Update(worldMat);
+		AABB::Bounds u = pair.obj->GetAABB().GetUnionBounds();
 
-		if (pair.obj->WasDirty())
+		DirtyRectU32 r = ProjectWorldAabbToScreenRect(u, viewProj, viewportW, viewportH);
+
+		if (!(r.minX == 0 && r.minY == 0 && r.maxX == 0 && r.maxY == 0))
 		{
-			const glm::mat4& worldMat = pair.obj->getWorldMatrix();
-			pair.obj->ClearDirtyFlag();
+			this->dirtyRects.push_back(r);
+		}
 
-			// Direct memory copy of transposed matrix
-			float* dst = &updatedInstance.transform.matrix[0][0];
-			const float* src = glm::value_ptr(worldMat);
+		pair.obj->ClearDirtyFlag();
 
-			// Manual transpose during copy
-			for (int col = 0; col < 3; ++col) {
-				for (int row = 0; row < 4; ++row) {
-					dst[col * 4 + row] = src[row * 4 + col];
-				}
+		// Direct memory copy of transposed matrix
+		float* dst = &updatedInstance.transform.matrix[0][0];
+		const float* src = glm::value_ptr(worldMat);
+
+		// Manual transpose during copy
+		for (int col = 0; col < 3; ++col) {
+			for (int row = 0; row < 4; ++row) {
+				dst[col * 4 + row] = src[row * 4 + col];
 			}
 		}
 
 		tlasInstances.push_back(updatedInstance);
 	}
+
 	return tlasInstances;
 }
 

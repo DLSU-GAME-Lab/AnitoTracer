@@ -166,7 +166,9 @@ void Application::CreateSwapChain()
 	CreateOutputImage();
 	CreatePixelManagementBuffers();
 
-	rayTracingPipeline_.reset(new RayTracingPipeline(*deviceProcedures_, SwapChain(), topAs_[0], *accumulationImageView_, *outputImageView_, UniformBuffers(), GetScene(), GetRayScene()));
+	rayTracingPipeline_.reset(new RayTracingPipeline(*deviceProcedures_, SwapChain(), topAs_[0], *accumulationImageView_, *outputImageView_, 
+		UniformBuffers(), GetScene(), GetRayScene(), rayCountBuffer_->Handle(), workQueueBuffer_->Handle(), workQueueCountBuffer_->Handle()));
+
 	pixelManagementPipeline_.reset(new PixelManagementPipeline(SwapChain(),	
 		cleanStatusBuffer_->Handle(), 
 		rayCountBuffer_->Handle(), 
@@ -244,7 +246,7 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	// Execute ray tracing shaders.
 	deviceProcedures_->vkCmdTraceRaysKHR(commandBuffer,
 		&raygenShaderBindingTable, &missShaderBindingTable, &hitShaderBindingTable, &callableShaderBindingTable,
-		extent.width, extent.height, 1);
+		extent.width * extent.height, 1, 1);
 
 	// Acquire output image and swap-chain image for copying.
 	ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 
@@ -288,20 +290,14 @@ void Application::Compute(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 
 	vkCmdFillBuffer(commandBuffer, workQueueCountBuffer_->Handle(), 0, sizeof(uint32_t), 0u);
 
-	{
-		VkBufferMemoryBarrier2 b{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2 };
-		b.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-		b.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-		b.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		b.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
-		b.buffer = workQueueCountBuffer_->Handle();
-		b.offset = 0;
-		b.size = sizeof(uint32_t);
+	auto dirtyRects = ModelManager::getInstance()->GetDirtyRects();
+	const uint32_t dirtyCount = static_cast<uint32_t>(dirtyRects.size());
 
-		VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
-		dep.bufferMemoryBarrierCount = 1;
-		dep.pBufferMemoryBarriers = &b;
-		vkCmdPipelineBarrier2(commandBuffer, &dep);
+	BufferUtil::CopyFromStagingBuffer(CommandPool(),*dirtyObjectCountBuffer_,std::vector<uint32_t>{ dirtyCount });
+
+	if (dirtyCount > 0)
+	{
+		BufferUtil::CopyFromStagingBuffer(CommandPool(), *dirtyObjectBoundsBuffer_, dirtyRects);
 	}
 
 	{
@@ -309,7 +305,7 @@ void Application::Compute(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pixelManagementPipeline_->Handle());
 		vkCmdBindDescriptorSets(
-			commandBuffer,
+			commandBuffer, 
 			VK_PIPELINE_BIND_POINT_COMPUTE,
 			pixelManagementPipeline_->PipelineLayout().Handle(),
 			0, 1, &ds,
@@ -327,30 +323,33 @@ void Application::Compute(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 
 		vkCmdDispatch(commandBuffer, groupSizeX, groupSizeY, 1);
 
-		VkBufferMemoryBarrier2 barriers[2]{};
+		//MemoryBarrier::Insert(
+		//	commandBuffer,
+		//	VK_ACCESS_SHADER_WRITE_BIT,
+		//	VK_ACCESS_SHADER_READ_BIT
+		//);
 
-		barriers[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-		barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		barriers[0].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-		barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		barriers[0].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-		barriers[0].buffer = cleanStatusBuffer_->Handle();   // dirty[] buffer
-		barriers[0].offset = 0;
-		barriers[0].size = VK_WHOLE_SIZE;
+		//{
+		//	const auto contentSize = 512 * sizeof(uint32_t) * 4u;
 
-		barriers[1].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-		barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		barriers[1].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-		barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-		barriers[1].buffer = pixelWeightBuffer_->Handle();   // weights[] buffer
-		barriers[1].offset = 0;
-		barriers[1].size = VK_WHOLE_SIZE;
+		//	auto stagingBuffer = std::make_unique<Vulkan::Buffer>(Device(), contentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		//	auto stagingBufferMemory = stagingBuffer->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-		VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
-		dep.bufferMemoryBarrierCount = 2;
-		dep.pBufferMemoryBarriers = barriers;
-		vkCmdPipelineBarrier2(commandBuffer, &dep);
+		//	stagingBuffer->CopyFrom(CommandPool(), *dirtyObjectBoundsBuffer_, contentSize);
+
+		//	uint32_t rayVertices[512*4u];
+		//	const auto data = stagingBufferMemory.Map(0, contentSize);
+		//	std::memcpy(&rayVertices, data, contentSize);
+		//	stagingBufferMemory.Unmap();
+
+		//	stagingBuffer.reset();
+
+		//	for (int i = 0; i < 512 * 4u; i++)
+		//	{
+		//		Debug::Log(std::to_string(rayVertices[i]));
+		//	}
+		//}
+
 	}
 
 	{
@@ -376,30 +375,36 @@ void Application::Compute(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 
 		vkCmdDispatch(commandBuffer, groupSizeX, groupSizeY, 1);
 
-		VkBufferMemoryBarrier2 barriers[2]{};
+		MemoryBarrier::Insert(
+			commandBuffer,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT
+		);
 
-		barriers[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-		barriers[0].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		barriers[0].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-		barriers[0].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		barriers[0].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-		barriers[0].buffer = workQueueBuffer_->Handle();
-		barriers[0].offset = 0;
-		barriers[0].size = VK_WHOLE_SIZE;
+		{
+			const auto pixelCount = SwapChain().Extent().width * SwapChain().Extent().height;
+			const auto contentSize = pixelCount * 2u * sizeof(uint32_t);
 
-		barriers[1].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-		barriers[1].srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		barriers[1].srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-		barriers[1].dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		barriers[1].dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-		barriers[1].buffer = workQueueCountBuffer_->Handle();
-		barriers[1].offset = 0;
-		barriers[1].size = sizeof(uint32_t);
+			auto stagingBuffer = std::make_unique<Vulkan::Buffer>(Device(), contentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+			auto stagingBufferMemory = stagingBuffer->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-		VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
-		dep.bufferMemoryBarrierCount = 2;
-		dep.pBufferMemoryBarriers = barriers;
-		vkCmdPipelineBarrier2(commandBuffer, &dep);
+			stagingBuffer->CopyFrom(CommandPool(), *workQueueBuffer_, contentSize);
+
+			auto count = pixelCount * 2u;
+			std::vector<uint32_t> rayVertices;
+			rayVertices.resize(count);
+
+			const auto data = stagingBufferMemory.Map(0, contentSize);
+			std::memcpy(rayVertices.data(), data, contentSize);
+			stagingBufferMemory.Unmap();
+
+			stagingBuffer.reset();
+
+			for (int i = 0; i < count; i = +2)
+			{
+				Debug::Log(std::to_string(rayVertices[i]) +" " + std::to_string(rayVertices[i+1]));
+			}
+		}
 	}
 }
 

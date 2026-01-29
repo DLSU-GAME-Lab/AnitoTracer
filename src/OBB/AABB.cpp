@@ -35,29 +35,25 @@ AABB::Bounds AABB::ComputeBoundingBox(const std::vector<Assets::Vertex>& vertice
 
 AABB::Bounds AABB::TransformBounds(const Bounds& bounds, const glm::mat4& matrix)
 {
-    glm::vec3 corners[8];
+    const glm::vec3 mn = bounds.min;
+    const glm::vec3 mx = bounds.max;
 
-    corners[0] = glm::vec3(bounds.min.x, bounds.min.y, bounds.min.z);
-    corners[1] = glm::vec3(bounds.max.x, bounds.min.y, bounds.min.z);
-    corners[2] = glm::vec3(bounds.min.x, bounds.max.y, bounds.min.z);
-    corners[3] = glm::vec3(bounds.max.x, bounds.max.y, bounds.min.z);
-    corners[4] = glm::vec3(bounds.min.x, bounds.min.y, bounds.max.z);
-    corners[5] = glm::vec3(bounds.max.x, bounds.min.y, bounds.max.z);
-    corners[6] = glm::vec3(bounds.min.x, bounds.max.y, bounds.max.z);
-    corners[7] = glm::vec3(bounds.max.x, bounds.max.y, bounds.max.z);
+    glm::vec3 corners[8] = {
+        {mn.x,mn.y,mn.z},{mx.x,mn.y,mn.z},{mn.x,mx.y,mn.z},{mx.x,mx.y,mn.z},
+        {mn.x,mn.y,mx.z},{mx.x,mn.y,mx.z},{mn.x,mx.y,mx.z},{mx.x,mx.y,mx.z},
+    };
 
-    glm::vec3 transformedMin = glm::vec3(matrix * glm::vec4(corners[0], 1.0f));
-    glm::vec3 transformedMax = transformedMin;
-    for (int i = 1; i < 8; i++)
+    Bounds out;
+    out.min = glm::vec3(std::numeric_limits<float>::infinity());
+    out.max = glm::vec3(-std::numeric_limits<float>::infinity());
+
+    for (int i = 0; i < 8; ++i)
     {
-        glm::vec3 transformedCorner = glm::vec3(matrix * glm::vec4(corners[i], 1.0f));
-        transformedMin = glm::min(transformedMin, transformedCorner);
-        transformedMax = glm::max(transformedMax, transformedCorner);
+        glm::vec3 p = glm::vec3(matrix * glm::vec4(corners[i], 1.0f));
+        out.min = glm::min(out.min, p);
+        out.max = glm::max(out.max, p);
     }
-    Bounds result;
-    result.min = transformedMin;
-    result.max = transformedMax;
-	return result;
+    return out;
 }
 
 void AABB::Update(const glm::mat4& worldMat)

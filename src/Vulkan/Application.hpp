@@ -73,6 +73,7 @@ namespace Vulkan
 		virtual void CreateProfiler();
 		virtual void DrawFrame();
 		virtual void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+		virtual void Compute(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 		virtual void OnKey(int key, int scancode, int action, int mods) { }
 		virtual void OnCursorPosition(double xpos, double ypos) { }
@@ -108,6 +109,7 @@ namespace Vulkan
 		std::vector<class Semaphore> imageAvailableSemaphores_;
 		std::vector<class Semaphore> renderFinishedSemaphores_;
 		std::vector<class Fence> inFlightFences_;
+		std::vector<VkFence> imagesInFlight_;
 		GLFWInputAdapter* inputAdapter_;
 	};
 

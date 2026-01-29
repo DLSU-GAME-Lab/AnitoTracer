@@ -112,6 +112,8 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.HasSky = init.HasSky;
 	ubo.ShowHeatmap = userSettings_.ShowHeatmap;
 	ubo.HeatmapScale = userSettings_.HeatmapScale;
+	ubo.RenderWidth = extent.width;
+	ubo.RenderHeight = extent.height;
 
 	return ubo;
 }
@@ -288,15 +290,10 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	CheckAndUpdateBenchmarkState(prevTime);
 
 	// Render the scene
-	if (userSettings_.IsRayTraced)
-	{
-		Vulkan::RayTracing::Application::Compute(commandBuffer, imageIndex);
-		Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex);
-	}
-	else
-	{
+	userSettings_.IsRayTraced ? 
+		Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
+		:
 		Vulkan::Application::Render(commandBuffer, imageIndex);
-	}
 
 	// Render ray visualization
 	if (isVisualizeRays_)
@@ -503,6 +500,14 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 		UpdateAccelerationStructures();
 		resetAccumulation_ = true;
 	}
+}
+
+glm::vec2 RayTracer::GetWindowSize() const
+{
+	return glm::vec2(
+		static_cast<float>(Window().FramebufferSize().width),
+		static_cast<float>(Window().FramebufferSize().height)
+	);
 }
 
 void RayTracer::LoadScene(const uint32_t sceneIndex)

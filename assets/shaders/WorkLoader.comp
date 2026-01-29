@@ -7,29 +7,30 @@ layout(push_constant) uniform PC
     uint height;
 } pc;
 
-layout(std430, binding = 0) readonly buffer PixelWeightsBuffer
+// Add set=0 explicitly (recommended for Vulkan)
+layout(set = 0, binding = 0, std430) readonly buffer PixelWeightsBuffer
 {
     uint weights[];
 };
 
-layout(std430, binding = 1) buffer WorkQueueBuffer
+layout(set = 0, binding = 1, std430) buffer WorkQueueBuffer
 {
     uint workQueue[];
 };
 
-layout(std430, binding = 2) buffer WorkCountBuffer
+layout(set = 0, binding = 2, std430) buffer WorkCountBuffer
 {
     uint workCount;
 };
 
-layout(std430, binding = 3) buffer RayCountBuffer
+// Unused in this shader, ok to remove if not needed
+layout(set = 0, binding = 3, std430) buffer RayCountBuffer
 {
     uint rayCount[];
 };
 
-const uint MAX_WORK_ITEMS = 1920u * 1200u;
-const uint WEIGHT_SHIFT = 1;
-const uint FRAME_SEED = 123456789u;
+const uint WEIGHT_SHIFT = 1u;
+const uint FRAME_SEED   = 123456789u;
 
 uint hash_u32(uint x)
 {
@@ -48,18 +49,26 @@ void main()
 
     uint idx = pix.y * pc.width + pix.x;
     uint weight = weights[idx];
-    if (weight == 0u) return;
 
     uint r = hash_u32(idx ^ FRAME_SEED);
+
     uint threshold16 = weight >> WEIGHT_SHIFT;
-    if (threshold16 > 65535u) threshold16 = 65535u;
+    threshold16 = min(threshold16, 65535u);
 
     uint r16 = r >> 16;
-    if(r16 >= threshold16) return;
+    if (r16 >= threshold16) return;
+
+    // Capacity matches the actual frame size (and your workQueue must be sized accordingly!)
+    uint maxWorkItems = pc.width * pc.height;
 
     uint slot = atomicAdd(workCount, 1u);
-    if (slot < MAX_WORK_ITEMS)
+
+    // If we overflow, clamp the count so readers don't see nonsense
+    if (slot >= maxWorkItems)
     {
-        workQueue[slot] = idx;
+        atomicMin(workCount, maxWorkItems);
+        return;
     }
+
+    workQueue[slot] = idx;
 }
