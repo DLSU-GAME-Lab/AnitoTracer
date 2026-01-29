@@ -188,7 +188,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	}
 
 	/* 1 */
-	auto defaultFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.EDITOR_FONT).data(), 18 * scaleFactor);
+	auto defaultFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.EDITOR_FONT).data(), 15 * scaleFactor);
 	if (!defaultFont)
 	{
 		Throw(std::runtime_error("failed to load Inter font"));
@@ -207,7 +207,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	iconFontConfig->GlyphOffset =ImVec2(1.0f, 0.0f);
 
 	/* 3 */
-	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 20 * scaleFactor, iconFontConfig, iconRanges);
+	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 16 * scaleFactor, iconFontConfig, iconRanges);
 
 	ImFontConfig* iconFontConfig2 = new ImFontConfig();
 	iconFontConfig2->MergeMode = false;

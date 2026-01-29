@@ -16,20 +16,21 @@ class InspectorScreen :    public AUIScreen
 public:
 	InspectorScreen();
 	~InspectorScreen();
-	void SendResult(String materialPath);
 
 	bool IsUniformScalingEnabled() const;
 	
 private:
 
-	void onLightPropsUpdate() const;
-	void showColorPickerWindow();
 	virtual void drawUI() override;
+
+	void drawTransformTab();
+	void drawLightTab();
+	void showColorPickerWindow();
+
 	void updateTransformDisplays();
 	void updateLightPropsDisplays();
-	void FormatMatImage();
-	void drawMaterialsTab();
-	void drawTransformTab();
+	void onLightPropsUpdate() const;
+
 	void drawVector3Field(const char* label, float* values, EditorAction action);
 	glm::vec3 ScaleUniformly(const glm::vec3& beforeScale, const float* values);
 	void setUniformScalingEnabled(bool flag);
@@ -57,9 +58,5 @@ private:
 	Texture* materialDisplay;
 	
 	float lightIntensityMultiplier = 500000.0f;
-
-	float transformUniformScalingButtonWidth = 28.0f;
-	float transformLabelWidth = 100.0f;
-
 	
 };
