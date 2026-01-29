@@ -4,8 +4,12 @@
 #include "imgui_internal.h"
 #include "glm/fwd.hpp"
 #include "Assets/Model.hpp"
+#include "Assets/GameObjectFactory.hpp"
+#include "Assets/Material.hpp"
+#include "Assets/Texture.hpp"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/ModelManager.h"
+#include "From-GDGRAP2/TextureLibrary.h"
 #include "Utilities/DragAndDrop/DragAndDropConstants.h"
 
 #include <filesystem>
@@ -39,12 +43,10 @@ void DragAndDropUtils::attachModelInstantiateTarget() {
         {
             IM_ASSERT(payload->DataSize == sizeof(FileTreeNode*));
             FileTreeNode* srcNode = *(FileTreeNode**)payload->Data;
-            auto path = srcNode->getPathString();
+            fs::path path(srcNode->getPathString());
 
-            if (fs::path(path).extension() == ".obj") {
-                Assets::Model draggedModel = Assets::Model::LoadModel(path);
-                auto draggedObj = std::make_unique<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
-                ModelManager::getInstance()->addObject(std::move(draggedObj));
+            if (path.extension() == ".obj") {
+                loadObject(path.string(), path.stem().string());
             }
         }
         ImGui::EndDragDropTarget();
@@ -59,12 +61,10 @@ void DragAndDropUtils::attachModelInstantiateTargetToViewport(ImGuiViewport* vie
             {
                 IM_ASSERT(payload->DataSize == sizeof(FileTreeNode*));
                 FileTreeNode* srcNode = *(FileTreeNode**)payload->Data;
-                auto path = srcNode->getPathString();
+                fs::path path(srcNode->getPathString());
 
-                if (fs::path(path).extension() == ".obj") {
-                    Assets::Model draggedModel = Assets::Model::LoadModel(path);
-                    auto draggedObj = std::make_unique<GameObject>(path, GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(draggedModel));
-                    ModelManager::getInstance()->addObject(std::move(draggedObj));
+                if (path.extension() == ".obj") {
+                    loadObject(path.string(), path.stem().string());
                 }
             }
             ImGui::EndDragDropTarget();
@@ -116,4 +116,13 @@ void DragAndDropUtils::copyFileToAssetsRoot(std::string soucePathString) {
 
     newTreeNode.setParent(&(FileTree::getInstance()->getRoot()));
     FileTree::getInstance()->getRoot().addChild(newTreeNode);
+}
+
+void DragAndDropUtils::loadObject(std::string path, std::string name) {
+    auto gameObject = GameObjectFactory::CreateFromModelFile(path, name);
+    ModelManager::getInstance()->addObject(std::move(gameObject));
+
+    std::vector<Assets::Model> models = ModelManager::getInstance()->getAllObjectModels();
+    std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+    std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 }

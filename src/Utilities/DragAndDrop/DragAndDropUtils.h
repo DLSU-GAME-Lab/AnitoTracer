@@ -14,4 +14,7 @@ public:
 	static void attachFileMoveTarget(FileTreeNode& destNode);
 
 	static void copyFileToAssetsRoot(std::string souceFilePath);
+
+private:
+	static void loadObject(std::string path, std::string name);
 };
