@@ -1,5 +1,6 @@
 #pragma once
 
+#include "imgui.h"
 #include "Utilities/FileExplorer/FileTreeNode.h"
 
 class FileIconView {
@@ -9,6 +10,8 @@ public:
 	void drawUI();
 	void setCurrentNode(FileTreeNode* node);
 	FileTreeNode* getCurrentNode() { return currentNode; };
+
+	void initButtonTexture();
 
 private:
 	static FileIconView* instance;
@@ -21,6 +24,7 @@ private:
 	void renderCurrentNodeChildrenIcons();
 
 	FileTreeNode* currentNode;
+	ImTextureID currTexId;
 
 	void renderDeleteConfirmationPrompt(FileTreeNode& toDelete);
 	void renderNewFolderSetupPrompt(FileTreeNode& targetNode);

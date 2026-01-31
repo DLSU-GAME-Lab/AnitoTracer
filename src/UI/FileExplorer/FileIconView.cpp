@@ -9,11 +9,18 @@
 #include "UI/IconsMaterialDesign.h"
 #include "UI/UIManager.h"
 
+#include "imgui_impl_vulkan.h"
+#include "Assets/TextureImage.hpp"
+#include "Assets/Texture.hpp"
+#include <From-GDGRAP2/TextureLibrary.h>
+#include <UI/ButtonTexture.hpp>
+#include <Utilities/FileUtils.h>
+
 static bool newFolderPopup = false;
 static bool deletePopup = false;
 FileIconView* FileIconView::instance = nullptr;
 
-FileIconView::FileIconView() : currentNode(&(FileTree::getInstance()->getRoot())) {
+FileIconView::FileIconView() : currentNode(&(FileTree::getInstance()->getRoot())), currTexId((ImTextureID)0) {
 
 }
 
@@ -27,17 +34,31 @@ FileIconView* FileIconView::getInstance() {
 void FileIconView::drawUI() {
     
     renderCurrentNodeChildrenIcons();
-    
+
+}
+
+void FileIconView::initButtonTexture() {
+    TextureLibrary::getInstance()->addTexture("folderIcon", FileUtils::getAssetsFolderPath().generic_string() + "/textures/Vulkan.png");
+
+    Assets::TextureImage* textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("folderIcon"));
+    VkDescriptorSet vds = ImGui_ImplVulkan_AddTexture(textureimg->Sampler().Handle(), textureimg->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+    currTexId = (ImTextureID)vds;
 }
 
 void FileIconView::renderCurrentNodeChildrenIcons() {
+
+    float farLeftPosX = ImGui::GetCursorPosX();
+    float currentPosX = farLeftPosX;
 
     int i = 0;
     for (FileTreeNode &childNode : currentNode->getChildren()) {
         ImGui::PushID(i++);
 
-        ImGui::PushFont(UIManager::getInstance()->GetIconFont(), 30.0f);
-        if (ImGui::Button(chooseIconCode(childNode).append("##").append(childNode.getPathString()).c_str()))
+        //ImGui::PushFont(UIManager::getInstance()->GetIconFont(), 30.0f);
+
+        ImGui::BeginGroup();
+
+        if (ImGui::ImageButton(chooseIconCode(childNode).append("##").append(childNode.getPathString()).c_str(), currTexId, ImVec2(120, 120)))
         {
             if (childNode.isDirectory() && childNode.directoryEntryExists())
             {
@@ -48,7 +69,8 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
                 setCurrentNode(&childNode);
             }
         }
-        ImGui::PopFont();
+
+        //ImGui::PopFont();
 
         ImGui::PushFont(nullptr);
         DragAndDropUtils::attachFileTreeNodeSource(&childNode);
@@ -77,7 +99,24 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
         ImGui::PopFont();
 
         ImGui::PopID();
+
+        ImGui::EndGroup();
+
+        
+        if (currentPosX + 150 < ImGui::GetContentRegionAvail().x - 100)
+        {
+            currentPosX += 150;
+            ImGui::SameLine();
+        }
+        else {
+            currentPosX = farLeftPosX;
+            ImGui::NewLine();
+        }
+        
     }
+
+    //ImGui_ImplVulkan_RemoveTexture(vds);
+    //delete textureimg;
 
 }
 
