@@ -636,6 +636,17 @@ Model::Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint3
 	this->worldMatrix_ = mat4(1.0f);
 }
 
+std::shared_ptr<Model> Model::Clone() const
+{
+	return std::make_shared<Model>(
+		this->name,
+		std::vector<Vertex>(this->vertices_),
+		std::vector<uint32_t>(this->indices_),
+		std::vector<Material>(this->materials_),
+		nullptr
+	);
+}
+
 void Model::SetName(std::string name)
 {
 	this->name = name;

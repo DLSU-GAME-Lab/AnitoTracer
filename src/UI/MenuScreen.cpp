@@ -91,6 +91,9 @@ void MenuScreen::drawUI()
 				if (ImGui::MenuItem("Load Breakfast Room")) { this->OnLoadSceneByIndex(14); ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Salle De Bain")) { this->OnLoadSceneByIndex(15); ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Gallery")) { this->OnLoadSceneByIndex(16);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Bistro Exterior cbnm")) { this->OnLoadSceneByIndex(17);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Bistro Interior")) { this->OnLoadSceneByIndex(18);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load Balay Anito")) { this->OnLoadSceneByIndex(19);  ShowLoadingPopUp(); }
 
 				ImGui::EndMenu();
 			}
@@ -393,39 +396,6 @@ void MenuScreen::ShowLoadObjMenu()
 		{
 
 			ModelManager::getInstance()->createObjectFromFile(
-				name,
-				GameObject::PrimitiveType::CUBE,
-				glm::vec3(position[0], position[1], position[2]),
-				glm::vec3(rotation[0], rotation[1], rotation[2]),
-				glm::vec3(scale[0], scale[1], scale[2])
-			);
-
-		}
-	}
-
-	else if (ImGui::Begin("Create GameObject Group from File", &isLoadSceneOpen))
-	{
-		static std::string name = "GameObject";
-		//GameObject::PrimitiveType type;
-		static float position[3] = { 0, 0, 0 };
-		static float rotation[3] = { 0, 0, 0 };
-		static float scale[3] = { 1, 1, 1 };
-
-		ImGui::Text("Spawn with the following attributes: ");
-		ImGui::InputTextWithHint("GameObject Name", "Name...", &name);
-		//ImGui::SameLine();
-		ImGui::InputFloat3("Position", position);
-		//ImGui::SameLine();
-		ImGui::InputFloat3("Rotation", rotation);
-		//ImGui::SameLine();	
-		ImGui::InputFloat3("Scale", scale);
-		ImGui::Separator();
-
-
-		if (ImGui::Button("Select File...", ImVec2(150, 25)))
-		{
-
-			ModelManager::getInstance()->createObjectGroupFromFile(
 				name,
 				GameObject::PrimitiveType::CUBE,
 				glm::vec3(position[0], position[1], position[2]),

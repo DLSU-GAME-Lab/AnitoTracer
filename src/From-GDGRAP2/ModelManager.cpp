@@ -1,17 +1,16 @@
 #include "ModelManager.h"
 
-#include <iostream>
-#include <glm/gtx/euler_angles.hpp>
-
 #include "Debug.h"
 #include "Utilities/FileUtils.h"
 #include "HotkeySystem/HotkeySystem.hpp"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 #include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
-#include "Assets/GameObjectFactory.hpp"
+#include "Vulkan/CommandPool.hpp"
+#include "Vulkan/BufferUtil.hpp"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "Engine/CameraSystem/Camera.h"
+#include <glm/gtc/type_ptr.hpp>
 
 ModelManager* ModelManager::sharedInstance = nullptr;
 
@@ -29,7 +28,6 @@ void ModelManager::destroy()
 {
 	sharedInstance->sceneGraph.clear();
 	sharedInstance->lightList.clear();
-	sharedInstance->objectGroupList.clear();
 
 	delete sharedInstance;
 }
@@ -123,25 +121,62 @@ void ModelManager::addObjectAtIndex(GameObjectPtr gameObject, int index)
 	this->sceneGraph.insert(this->sceneGraph.begin() + idx, std::move(gameObject));
 }
 
+void ModelManager::registerIfLight(GameObject* obj)
+{
+	if (auto* light = dynamic_cast<Light*>(obj))
+		lightList.push_back(light);
+}
+
+void ModelManager::unregisterIfLight(GameObject* obj)
+{
+	if (auto* light = dynamic_cast<Light*>(obj))
+	{
+		auto it = std::remove(lightList.begin(), lightList.end(), light);
+		lightList.erase(it, lightList.end());
+	}
+}
+
+void ModelManager::registerSubtree(GameObject* root)
+{
+	if (!root) return;
+	registerIfLight(root);
+	for (auto& ch : root->children)
+		registerSubtree(ch.get());
+}
+
+void ModelManager::unregisterSubtree(GameObject* root)
+{
+	if (!root) return;
+	unregisterIfLight(root);
+	for (auto& ch : root->children)
+		unregisterSubtree(ch.get());
+}
+
 std::unique_ptr<GameObject> ModelManager::removeObject(GameObject* target)
 {
 	if (!target) return nullptr;
 
-	for (auto it = this->sceneGraph.begin(); it != this->sceneGraph.end(); it++)
+	for (auto it = sceneGraph.begin(); it != sceneGraph.end(); ++it)
 	{
 		if (it->get() == target)
 		{
-			std::unique_ptr<GameObject> removed = std::move(*it);
-			this->sceneGraph.erase(it);
+			auto removed = std::move(*it);
+			sceneGraph.erase(it);
+
+			unregisterSubtree(removed.get());
 			return removed;
 		}
-	
-		std::unique_ptr<GameObject> result = removeInSubtree(it->get(), target);
-		if (result)	return result;
+
+		if (auto removed = removeInSubtree(it->get(), target))
+		{
+			unregisterSubtree(removed.get());
+			return removed;
+		}
 	}
 
 	return nullptr;
 }
+
 
 ModelManager::GameObjectPtr ModelManager::removeInSubtree(GameObject* parent, GameObject* target)
 {
@@ -161,117 +196,10 @@ ModelManager::GameObjectPtr ModelManager::removeInSubtree(GameObject* parent, Ga
 	return nullptr;
 }
 
-/* Only Searches Root */
-void ModelManager::deleteObject(GameObject* gameObject)
-{
-	if (!gameObject) return;
-
-	if (auto* lightPtr = dynamic_cast<Light*>(gameObject))
-	{
-		auto itLight = std::find(this->lightList.begin(), this->lightList.end(), lightPtr);
-		if (itLight != this->lightList.end())
-		{
-			this->lightList.erase(itLight);
-		}
-	}
-
-	auto it = std::find_if(this->sceneGraph.begin(), this->sceneGraph.end(),
-		[gameObject](const GameObjectPtr& obj)
-		{
-			return obj.get() == gameObject;
-		});
-	if (it != this->sceneGraph.end())
-	{
-		this->sceneGraph.erase(it);
-	}
-
-}
-
 ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* original)
 {
-	auto copyObject = [&](GameObject* gameObject) -> std::unique_ptr<GameObject>
-		{
-			auto type = gameObject->getType();
-			auto name = gameObject->getName();
-			auto position = gameObject->getLocalPosition();
-			auto rotation = gameObject->getLocalRotation();
-			auto scale = gameObject->getLocalScale();
-			auto active = gameObject->isActive();
-			auto visible = gameObject->isVisible();
-			auto pickable = gameObject->isPickable();
-			auto parent = gameObject->getParent();
-			auto material = gameObject->getModel()->getMaterial(0);
-
-			// Copy Material
-			std::shared_ptr<Assets::Material> copiedMat = std::make_shared<Assets::Material>();
-
-			copiedMat->Diffuse = material->Diffuse;
-			copiedMat->DiffuseTextureId = material->DiffuseTextureId;
-			copiedMat->Fuzziness = material->Fuzziness;
-			copiedMat->RefractionIndex = material->RefractionIndex;
-			copiedMat->MaterialModel = material->MaterialModel;
-
-			std::unique_ptr<GameObject> resultCopy;
-
-			switch (type)
-			{
-			case GameObject::CUBE:
-				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
-				break;
-
-			case GameObject::SPHERE:
-				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
-				break;
-
-			case GameObject::PLANE:
-				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
-				break;
-
-			case GameObject::CYLINDER:
-				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
-				break;
-
-			case GameObject::CAPSULE:
-				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
-				break;
-
-			case GameObject::CORNELL_BOX:
-				resultCopy = GameObjectFactory::CreatePrimitive(type, name);
-				break;
-
-			case GameObject::MESH:
-				resultCopy = GameObjectFactory::CreateFromModelFile(original->getModel()->filepath, name);
-				break;
-
-			default:
-				Debug::Log("[ERROR] unable to load game object!");
-				return nullptr;
-			}
-			
-			if (!resultCopy) return nullptr;
-	
-			resultCopy->setName(name);
-			resultCopy->setLocalPosition(position);
-			resultCopy->setLocalRotation(rotation);
-			resultCopy->setLocalScale(scale);
-			resultCopy->setActive(active);
-			resultCopy->setVisible(visible);
-			resultCopy->setPickable(pickable);
-			resultCopy->setParent(parent);
-			resultCopy->getModel()->SetMaterial(*copiedMat);
-
-			return resultCopy;
-		};
-
-	auto parent = std::move(copyObject(original));
-
-	for (const auto& child : original->getChildrenRecursive())
-	{
-		std::unique_ptr<GameObject> childCopy = copyObject(child);
-		childCopy->getParent()->addChild(std::move(childCopy));
-	}
-
-	return std::move(parent);
+	auto copy = original->Clone();
+	return copy;
 }
 
 void ModelManager::addLightObject(LightPtr lightObj)
@@ -327,7 +255,6 @@ GameObject* ModelManager::getSelectedObject()
 void ModelManager::clearAllObjects()
 {
 	this->sceneGraph.clear();
-	this->objectGroupList.clear();
 	this->lightList.clear();
 }
 
@@ -447,7 +374,7 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 	case GameObject::DIRECTIONAL_LIGHT:
 	{
 		std::unique_ptr<Light> dl = std::make_unique<Light>("Light Source", Light::LightType::DirectionalLight);
-		dl->setLocalRotation(-180, 0, 0);
+		dl->setLocalRotationEuler(-180, 0, 0);
 		addLightObject(std::move(dl));
 	}
 	break;
@@ -511,7 +438,7 @@ void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveTy
 	if (obj)
 	{
 		obj->setLocalPosition(position);
-		obj->setLocalRotation(rotation);
+		obj->setLocalRotationEuler(rotation);
 		obj->setLocalScale(scale);
 		obj->setActive(active);
 		addObject(std::move(obj));
@@ -549,7 +476,7 @@ void ModelManager::createLightFromScene(String name, GameObject::PrimitiveType t
 	{
 		light->setName(name);
 		light->setLocalPosition(position);
-		light->setLocalRotation(rotation);
+		light->setLocalRotationEuler(rotation);
 		light->setLocalScale(scale);
 		light->setActive(active);
 		addLightObject(std::move(light));
@@ -576,54 +503,9 @@ void ModelManager::createObjectFromFile(String name, GameObject::PrimitiveType t
 	auto model = Assets::Model::LoadModel(meshFilePath);
 	std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>(name, type, std::make_shared<Assets::Model>(model));
 	gameObject->setLocalPosition(position);
-	gameObject->setLocalRotation(rotation);
+	gameObject->setLocalRotationEuler(rotation);
 	gameObject->setLocalScale(scale);
 	addObject(std::move(gameObject));
-}
-
-void ModelManager::createObjectGroupFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale)
-{
-	std::string meshFilePath;
-	std::string fileName;
-
-	if (!FileUtils::getModelFilePath(meshFilePath, fileName))
-	{
-		Debug::Log("Cancelled loading OBJ from path: " + meshFilePath);
-
-		return;
-	}
-
-	if (!meshFilePath.empty()) {
-		Debug::Log("Loading OBJ from path: " + meshFilePath);
-	}
-
-	// load all models of the group into a list
-	std::vector<Assets::Model> models = Assets::Model::LoadModelGroup(meshFilePath);
-	
-	//create a game object for each model
-	for (int i = 0; i < models.size(); i++) 
-	{
-		std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>(name + "_1", type, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(position);
-		gameObject->setLocalRotation(rotation);
-		gameObject->setLocalScale(scale);
-		addObject(std::move(gameObject));
-	}
-}
-
-void ModelManager::createSponza()
-{
-	std::vector<Assets::Model> models = Assets::Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/sponza.obj");
-
-	//create a game object for each model
-	for (int i = 0; i < models.size(); i++)
-	{
-		std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>("Sponza " + i, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(0,0,0);
-		gameObject->setLocalRotation(0,0,0);
-		gameObject->setLocalScale(1,1,1);
-		addObject(std::move(gameObject));
-	}
 }
 
 void ModelManager::OnActionPressed(Hotkey::Action action)
@@ -751,20 +633,11 @@ void ModelManager::DeleteSelectedObject()
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); //AnitoTracer Specific
 }
 
-void ModelManager::ClearInstanceToObjectMap()
+GameObject* ModelManager::findObjectByID(uint32_t id) const
 {
-	this->instanceIdToGameObjectMap.clear();
-}
+	auto it = this->tlasInstanceMap.find(id);
 
-void ModelManager::RegisterInstance(uint32_t instanceId, GameObject* gameObject)
-{
-	this->instanceIdToGameObjectMap[instanceId] = gameObject;
-}
-
-GameObject* ModelManager::FindGameObject(uint32_t instanceId) const
-{
-	auto it = this->instanceIdToGameObjectMap.find(instanceId);
-	return (it != this->instanceIdToGameObjectMap.end()) ? it->second : nullptr;
+	return (it != this->tlasInstanceMap.end()) ? it->second.obj : nullptr;
 }
 
 /* Where the object is spawned needs to be decided  (world origin vs infront of camera vs beside copy) */
@@ -783,6 +656,80 @@ void ModelManager::PasteObject()
 	this->copiedObject = nullptr;
 
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void ModelManager::ClearTLASInstances()
+{
+	this->tlasInstanceMap.clear();
+}
+
+void ModelManager::RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAccelerationStructureInstanceKHR instance)
+{
+	InstancePair pair{
+		obj,
+		instance
+	};
+
+	auto it = this->tlasInstanceMap.find(objectId);
+
+	if (it != this->tlasInstanceMap.end())
+	{
+		Debug::Log("Warning: TLAS Instance for GameObject with ID " + std::to_string(objectId) + " is already registered in ModelManager TLAS map. Overwriting");
+	}
+
+	this->tlasInstanceMap[objectId] = pair;
+}
+
+std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances(Vulkan::CommandPool& commandPool)
+{
+	//std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
+	//this->dirtyInstanceIds.clear();
+	//tlasInstances.reserve(this->tlasInstanceMap.size());
+
+	//for (const auto& [id, pair] : this->tlasInstanceMap)
+	//{
+	//	VkAccelerationStructureInstanceKHR updatedInstance = pair.instance;
+	//	if (pair.obj->wasDirty())
+	//	{
+	//		dirtyInstanceIds.push_back(id);
+	//		const glm::mat4& worldMat = pair.obj->getWorldMatrix();
+	//		pair.obj->clearDirtyFlag();
+
+	//		// Direct memory copy of transposed matrix
+	//		float* dst = &updatedInstance.transform.matrix[0][0];
+	//		const float* src = glm::value_ptr(worldMat);
+
+	//		// Manual transpose during copy
+	//		for (int col = 0; col < 3; ++col) {
+	//			for (int row = 0; row < 4; ++row) {
+	//				dst[col * 4 + row] = src[row * 4 + col];
+	//			}
+	//		}
+	//	}
+	//	tlasInstances.push_back(updatedInstance);
+	//}
+
+	//std::vector<uint32_t> dirtyBufferData;
+	//dirtyBufferData.reserve(dirtyInstanceIds.size() + 1);
+	//dirtyBufferData.push_back(static_cast<uint32_t>(dirtyInstanceIds.size()));
+	//dirtyBufferData.insert(dirtyBufferData.end(),
+	//	dirtyInstanceIds.begin(),
+	//	dirtyInstanceIds.end());
+
+	//std::vector<uint32_t> dirtyCountData = { static_cast<uint32_t>(dirtyInstanceIds.size()) };
+
+	//Vulkan::BufferUtil::UpdateDeviceBuffer(
+	//	commandPool,
+	//	dirtyBufferData,
+	//	this->dirtyInstancesBuffer
+	//);
+
+	return std::vector<VkAccelerationStructureInstanceKHR>{};
+}
+
+VkBuffer ModelManager::GetDirtyInstancesBuffer() const
+{
+	return dirtyInstancesBuffer->Handle();
 }
 
 

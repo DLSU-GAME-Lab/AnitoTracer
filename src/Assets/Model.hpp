@@ -36,6 +36,8 @@ namespace Assets
 		~Model() = default;
 		Model(std::string name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices, std::vector<Material>&& materials, const class Procedural* procedural);
 
+		virtual std::shared_ptr<Model> Clone() const;
+
 		void SetName(std::string name);
 		void SetMaterial(const Material& material);
 		void SetMaterials(std::vector<Material> mats);

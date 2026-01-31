@@ -1,18 +1,32 @@
 #include "InspectorScreen.h"
 
-#include <glm/gtx/string_cast.hpp>
-
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "UIManager.h"
-#include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/GameObject.h"
-#include "From-GDGRAP2/TransformHistory.h"
 #include "IconsMaterialDesign.h"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
+
+
+template <typename ButtonFn, typename FieldFn>
+static void DrawTransformRow(const char* label, float labelWidth, float buttonWidth, ButtonFn&& button, FieldFn&& field)
+{
+	ImGui::TableNextRow();
+
+	ImGui::TableSetColumnIndex(0);
+	ImGui::AlignTextToFramePadding();
+	ImGui::TextUnformatted(label);
+
+	ImGui::TableSetColumnIndex(1);
+	button(buttonWidth);
+
+	ImGui::TableSetColumnIndex(2);
+	field();
+}
+
 
 InspectorScreen::InspectorScreen() : AUIScreen(UINames::INSPECTOR_SCREEN)
 {
@@ -24,8 +38,6 @@ InspectorScreen::~InspectorScreen()
 
 void InspectorScreen::drawUI()
 {
-	//setWindowAlignment(ScreenAlign::TOP_RIGHT);
-
 	ImGui::Begin("Inspector", &enabled, UISettings::GlobalWindowFlags);
 
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
@@ -92,50 +104,8 @@ void InspectorScreen::drawUI()
 		this->updateLightPropsDisplays();
 		this->drawTransformTab();
 
-		// Light "Component"
-		if (this->selectedObject->getType() == GameObject::PrimitiveType::POINT_LIGHT
-			|| this->selectedObject->getType() == GameObject::PrimitiveType::DIRECTIONAL_LIGHT
-			|| this->selectedObject->getType() == GameObject::PrimitiveType::SPOT_LIGHT)
-		{
-			isLight = true;
-			ImGui::Separator();
+		this->drawLightTab();
 
-			ImGui::Text("Light Color");
-			ImGui::SameLine();
-			if (ImGui::ColorButton("Light Color", lightColorDisplay, 0, ImVec2(75, 25)))
-			{
-				isColorPickerOpen = !isColorPickerOpen;
-			}
-			if (ImGui::SliderFloat("Intensity", &this->intensityDisplay, 0, 1))
-			{
-				this->onLightPropsUpdate();
-				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-			}
-
-			// TODO : Light Type
-			std::string lightTypes[3] = { "Point Light", "Directional Light", "Spot Light" };
-			std::string currentType = (this->selectedObject->getType() == GameObject::POINT_LIGHT) ? lightTypes[0] :
-				(this->selectedObject->getType() == GameObject::DIRECTIONAL_LIGHT) ? lightTypes[1] :
-				(this->selectedObject->getType() == GameObject::SPOT_LIGHT) ? lightTypes[2] : "None";
-			if (ImGui::BeginCombo("Light Type", currentType.c_str(), ImGuiComboFlags_None))
-			{
-				for (std::string type : lightTypes)
-				{
-					if (ImGui::Selectable(type.c_str()))
-					{
-						lightTypeDisplay = (type == lightTypes[0]) ? Light::PointLight :
-							(type == lightTypes[1]) ? Light::DirectionalLight :
-							(type == lightTypes[2]) ? Light::SpotLight : Light::PointLight;
-
-						this->onLightPropsUpdate();
-					}
-				}
-				ImGui::EndCombo();
-			}
-		}
-		else { isLight = false; }
-
-		this->drawMaterialsTab();
 	}
 	else {
 		ImGui::TextWrapped("No object selected. Select an object first.");
@@ -144,12 +114,139 @@ void InspectorScreen::drawUI()
 	ImGui::End();
 
 	// Color Picker
-	if (isColorPickerOpen && !this->selectedObject->isActive())
+	if (isColorPickerOpen && !enabled)
 		isColorPickerOpen = false;
 
 	if (isColorPickerOpen)
 		showColorPickerWindow();
 }
+
+void InspectorScreen::drawLightTab()
+{
+	const auto type = selectedObject->getType();
+	const bool isLight =
+		type == GameObject::PrimitiveType::POINT_LIGHT ||
+		type == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
+		type == GameObject::PrimitiveType::SPOT_LIGHT;
+
+	if (!isLight) return;
+	if (!ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen)) return;
+
+	if (!ImGui::BeginTable("LightInputsTable", 2,
+		ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody))
+		return;
+
+	const float labelWidth = ImGui::CalcTextSize("Light Type").x;
+	ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
+	ImGui::TableSetupColumn("InputFields", ImGuiTableColumnFlags_WidthStretch);
+
+	const auto& style = ImGui::GetStyle();
+	const float spacingX = style.ItemSpacing.x;
+
+	auto labelCell = [](const char* text)
+		{
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::AlignTextToFramePadding();
+			ImGui::TextUnformatted(text);
+			ImGui::TableNextColumn();
+		};
+
+	auto markDirtyAndApply = [&]()
+		{
+			onLightPropsUpdate();
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+		};
+
+	// ---- Light Color ----
+	labelCell("Light Color");
+	{
+		const float avail = ImGui::GetContentRegionAvail().x;
+		const float previewW = (avail - spacingX) * 0.9f;
+		const float buttonW = (avail - spacingX - style.FrameBorderSize) * 0.1f;
+
+		if (ImGui::ColorButton("##LightColor_Preview", lightColorDisplay, 0, ImVec2(previewW, 20.0f)))
+			isColorPickerOpen = !isColorPickerOpen;
+
+		ImGui::SameLine();
+
+		ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[5]);
+		if (ImGui::Button(ICON_MD_COLORIZE, ImVec2(buttonW, 20.0f)))
+			isColorPickerOpen = !isColorPickerOpen;
+		ImGui::PopFont();
+	}
+
+	// ---- Intensity ----
+	labelCell("Intensity");
+	{
+		const float avail = ImGui::GetContentRegionAvail().x;
+		const float sliderW = (avail - spacingX) * 0.8f;
+		const float inputW = (avail - spacingX - style.FrameBorderSize) * 0.2f;
+
+		ImGui::SetNextItemWidth(sliderW);
+		const bool sliderChanged =
+			ImGui::SliderFloat("##Intensity_Slider", &intensityDisplay, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_NoInput);
+
+		ImGui::SameLine();
+
+		ImGui::SetNextItemWidth(inputW);
+		const bool inputChanged =
+			ImGui::InputFloat("##Intensity_Input", &intensityDisplay, 0.0f, 0.0f, "%.2f");
+
+		if (sliderChanged || inputChanged)
+			markDirtyAndApply();
+	}
+
+	// ---- Light Type ----
+	labelCell("Light Type");
+	{
+		static constexpr const char* kNames[] = { "Point Light", "Directional Light", "Spot Light" };
+
+		auto typeToIndex = [](GameObject::PrimitiveType t) -> int
+			{
+				switch (t)
+				{
+				case GameObject::PrimitiveType::POINT_LIGHT:       return 0;
+				case GameObject::PrimitiveType::DIRECTIONAL_LIGHT: return 1;
+				case GameObject::PrimitiveType::SPOT_LIGHT:        return 2;
+				default:                                           return 0;
+				}
+			};
+
+		auto indexToLightType = [](int i) -> Light::LightType
+			{
+				switch (i)
+				{
+				case 0: return Light::PointLight;
+				case 1: return Light::DirectionalLight;
+				case 2: return Light::SpotLight;
+				default: return Light::PointLight;
+				}
+			};
+
+		int currentIndex = typeToIndex(type);
+
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+		if (ImGui::BeginCombo("##LightType_Combo", kNames[currentIndex]))
+		{
+			for (int i = 0; i < 3; ++i)
+			{
+				const bool selected = (i == currentIndex);
+				if (ImGui::Selectable(kNames[i], selected))
+				{
+					lightTypeDisplay = indexToLightType(i);
+					markDirtyAndApply();
+					currentIndex = i;
+				}
+				if (selected) ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+	}
+
+	ImGui::EndTable();
+}
+
 
 void InspectorScreen::updateTransformDisplays()
 {
@@ -159,7 +256,7 @@ void InspectorScreen::updateTransformDisplays()
 	this->positionDisplay[1] = pos.y;
 	this->positionDisplay[2] = pos.z;
 
-	vec3 rot = this->selectedObject->getLocalRotation();
+	vec3 rot = this->selectedObject->getLocalRotationEuler();
 	this->rotationDisplay[0] = rot.x;
 	this->rotationDisplay[1] = rot.y;
 	this->rotationDisplay[2] = rot.z;
@@ -191,211 +288,158 @@ void InspectorScreen::updateLightPropsDisplays()
 	}
 }
 
-void InspectorScreen::SendResult(String materialPath)
-{
-	// TexturedCube* texturedObj = static_cast<TexturedCube*>(this->selectedObject);
-	// texturedObj->getRenderer()->setMaterialPath(materialPath);
-	// this->popupOpen = false;
-}
-
 bool InspectorScreen::IsUniformScalingEnabled() const
 {
 	return this->isUniformScalingEnabled;
-}
-
-void InspectorScreen::FormatMatImage()
-{
-	//convert to wchar format
-	// String textureString = this->materialPath;
-	// std::wstring widestr = std::wstring(textureString.begin(), textureString.end());
-	// const wchar_t* texturePath = widestr.c_str();
-	//
-	// this->materialDisplay = static_cast<Texture*>(TextureManager::getInstance()->createTextureFromFile(texturePath));
-}
-
-void InspectorScreen::drawMaterialsTab()
-{
-	int BUTTON_WIDTH = 225;
-	int BUTTON_HEIGHT = 20;
-
-	// if(this->selectedObject->getType() != AHittable::TEXTURED_CUBE)
-	// {
-	// 	return;
-	// }
-
-	// TexturedCube* texturedObj = static_cast<TexturedCube*>(this->selectedObject);
-	// this->materialPath = texturedObj->getRenderer()->getMaterialPath();
-	// this->FormatMatImage();
-	// ImGui::SetCursorPosX(50);
-	// ImGui::Image(static_cast<void*>(this->materialDisplay->getShaderResource()), ImVec2(150, 150));
-	//
-	// std::vector<String> paths = StringUtils::split(this->materialPath, '\\');
-	// this->materialName = paths[paths.size() - 1];
-	// String displayText = "Material: " + this->materialName;
-	// ImGui::Text(displayText.c_str());
-	// if (ImGui::Button("Add Material", ImVec2(BUTTON_WIDTH, BUTTON_HEIGHT))) {
-	// 	this->popupOpen = !this->popupOpen;
-	// 	UINames uiNames;
-	// 	MaterialScreen* materialScreen = static_cast<MaterialScreen*>(UIManager::getInstance()->findUIByName(uiNames.MATERIAL_SCREEN));
-	// 	materialScreen->linkInspectorScreen(this, this->materialPath);
-	// 	UIManager::getInstance()->setEnabled(uiNames.MATERIAL_SCREEN, this->popupOpen);
-	// }
 }
 
 void InspectorScreen::drawTransformTab()
 {
 	if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody)) // Label, Button, Input Rects
+		if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody))
 		{
-			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, this->transformLabelWidth);
-			ImGui::TableSetupColumn("Button", ImGuiTableColumnFlags_WidthFixed, this->transformUniformScalingButtonWidth); // reserve space for link button
+			auto transformLabelWidth = ImGui::CalcTextSize("Rotation").x;
+			auto linkIconWidth = ImGui::CalcTextSize(ICON_MD_LINK).x;
+
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, transformLabelWidth);
+			ImGui::TableSetupColumn("Button", ImGuiTableColumnFlags_WidthFixed, linkIconWidth);
 			ImGui::TableSetupColumn("Fields", ImGuiTableColumnFlags_WidthStretch);
 
-			ImGui::TableNextRow();
-			ImGui::TableSetColumnIndex(0);
-			ImGui::AlignTextToFramePadding();
-			ImGui::Text("Position");
-			ImGui::TableSetColumnIndex(1);
-			ImGui::Dummy(ImVec2(this->transformUniformScalingButtonWidth, 0.0f)); // placeholder to keep alignment
-			ImGui::TableSetColumnIndex(2);
-			this->drawVector3Field("Pos", this->positionDisplay, EditorAction::Move);
+			auto placeholder = [](float buttonWidth)
+				{
+					ImGui::Dummy(ImVec2(buttonWidth, 0.0f));
+				};
 
-			ImGui::TableNextRow();
-			ImGui::TableSetColumnIndex(0);
-			ImGui::TextUnformatted("Rotation");
-			ImGui::TableSetColumnIndex(1);
-			ImGui::Dummy(ImVec2(this->transformUniformScalingButtonWidth, 0.0f));
-			ImGui::TableSetColumnIndex(2);
-			this->drawVector3Field("Rot", this->rotationDisplay, EditorAction::Rotate);
+			DrawTransformRow("Position", transformLabelWidth, linkIconWidth,
+				placeholder,
+				[&] { drawVector3Field("Pos", positionDisplay, EditorAction::Move); }
+			);
 
-			ImGui::TableNextRow();
-			ImGui::TableSetColumnIndex(0);
-			ImGui::TextUnformatted("Scale");
-			ImGui::TableSetColumnIndex(1);
-			ImGui::PushID("ScaleLink");
+			DrawTransformRow("Rotation", transformLabelWidth, linkIconWidth,
+				placeholder,
+				[&] { drawVector3Field("Rot", rotationDisplay, EditorAction::Rotate); }
+			);
 
-			ImGui::PushFont(UIManager::getInstance()->GetIconFont());
+			DrawTransformRow("Scale", transformLabelWidth, linkIconWidth,
+				[&](float buttonWidth)
+				{
+					ImGui::PushID("ScaleLink");
+					ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[3]); 
 
-			ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[3]);
-			if (ImGui::Button(this->isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF, ImVec2(this->transformUniformScalingButtonWidth, this->transformUniformScalingButtonWidth)))
-			{
-				this->isUniformScalingEnabled = !this->isUniformScalingEnabled;
-				UIManager::getInstance()->config()->inspectorUniformScaling = this->isUniformScalingEnabled;
-			}
-			ImGui::PopFont();
+					const char* icon = isUniformScalingEnabled ? ICON_MD_LINK : ICON_MD_LINK_OFF;
+					if (ImGui::Selectable(icon))
+					{
+						isUniformScalingEnabled = !isUniformScalingEnabled;
+						UIManager::getInstance()->config()->inspectorUniformScaling = isUniformScalingEnabled;
+					}
 
-			ImGui::PopFont();
-			ImGui::PopID();
-
-			ImGui::TableSetColumnIndex(2);
-			this->drawVector3Field("Sca", this->scaleDisplay, EditorAction::Scale);
+					ImGui::PopFont();
+					ImGui::PopID();
+				},
+				[&] { drawVector3Field("Sca", scaleDisplay, EditorAction::Scale); }
+			);
 
 			ImGui::EndTable();
 		}
 	}
+
 }
 
 void InspectorScreen::drawVector3Field(const char* label, float* values, EditorAction action)
 {
 	ImGui::PushID(label);
 
-	bool isUpdated = false;
-	glm::vec3 scale;
+	// Width calculation
+	const float avail = ImGui::GetContentRegionAvail().x;
+	const float spacing = ImGui::GetStyle().ItemSpacing.x;
+	const float inner = ImGui::GetStyle().ItemInnerSpacing.x;
 
-	//Calculate Field Width
-	float totalAvailableSpace = ImGui::GetContentRegionAvail().x;
-	float spacing = ImGui::GetStyle().ItemSpacing.x;
+	float axisLabelW = ImGui::CalcTextSize("X").x;
+	axisLabelW = std::max(axisLabelW, ImGui::CalcTextSize("Y").x);
+	axisLabelW = std::max(axisLabelW, ImGui::CalcTextSize("Z").x);
+	axisLabelW += inner;
 
-	float labelWidth = ImGui::CalcTextSize("X").x;
-	labelWidth = std::max(labelWidth, ImGui::CalcTextSize("Y").x);
-	labelWidth = std::max(labelWidth, ImGui::CalcTextSize("Z").x);
+	const float totalLabelSpace = (axisLabelW * 3.0f) + (spacing * 2.0f); // X [space] Y [space] Z
+	float inputW = (avail - totalLabelSpace) / 3.0f;
+	if (inputW < 1.0f) inputW = 1.0f;
 
-	labelWidth += ImGui::GetStyle().ItemInnerSpacing.x;
+	bool anyChanged = false;
+	bool anyEditEnded = false;
 
-	float totalLabelSpace = (labelWidth + spacing) * 3.0f - spacing;
-
-	float inputWidth = (totalAvailableSpace - totalLabelSpace) / 3.0f;
-	if (inputWidth < 1.0f) inputWidth = 1.0f; // min spacing
-
-	auto axisInput = [&](const char* name, float& v)
+	auto axisInput = [&](const char* axis, int idx)
 		{
 			ImGui::AlignTextToFramePadding();
-			ImGui::Text(name);
+			ImGui::TextUnformatted(axis);
 			ImGui::SameLine();
 
-			ImGui::PushItemWidth(inputWidth - ImGui::GetStyle().ItemSpacing.x / 2.0f);
+			ImGui::PushItemWidth(inputW);
 
-			std::string id = "##";
-			id += label;
-			id += name;
+			const bool changed = ImGui::InputFloat(axis[0] == 'X' ? "##X" : axis[0] == 'Y' ? "##Y" : "##Z", &values[idx], 0, 0, "%.2f");
 
-			if (ImGui::InputFloat(id.c_str(), &v, 0.0f, 0.0f, "%0.3f"))
-			{
-				if (ImGui::IsItemDeactivatedAfterEdit())
-					isUpdated = true;
-			}
+			anyChanged |= changed;
+			if (ImGui::IsItemDeactivatedAfterEdit())
+				anyEditEnded = true;
 
 			ImGui::PopItemWidth();
 
-			ImGui::SameLine();
+			if (axis[0] != 'Z')
+				ImGui::SameLine();
 		};
 
-	if (action == EditorAction::Scale) //record old scale for uniform scaling
+	glm::vec3 before;
+	switch (action)
 	{
-		scale = { values[0], values[1], values[2] };
+	case EditorAction::Move:   before = selectedObject->getLocalPosition(); break;
+	case EditorAction::Rotate: before = selectedObject->getLocalRotationEuler(); break;
+	case EditorAction::Scale:  before = selectedObject->getLocalScale();    break;
 	}
 
-	axisInput("X", values[0]);
-	axisInput("Y", values[1]);
-	axisInput("Z", values[2]);
+	axisInput("X", 0);
+	axisInput("Y", 1);
+	axisInput("Z", 2);
 
-	if (isUpdated)
+	if (anyChanged && anyEditEnded)
 	{
+		glm::vec3 after(values[0], values[1], values[2]);
+
+		if (action == EditorAction::Scale && IsUniformScalingEnabled())
+			after = ScaleUniformly(before, values);
+
 		switch (action)
 		{
-		case EditorAction::Move: 
-
+		case EditorAction::Move:
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
-					this->selectedObject,
+					selectedObject,
 					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalPosition(std::get<glm::vec3>(v)); },
-					this->selectedObject->getLocalPosition(),
-					glm::vec3(values[0], values[1], values[2])
-				));
-
+					before,
+					after));
 			break;
 
 		case EditorAction::Rotate:
-
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
-					this->selectedObject,
-					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotation(std::get<glm::vec3>(v)); },
-					this->selectedObject->getLocalRotation(),
-					glm::vec3(values[0], values[1], values[2])
-				));
-
+					selectedObject,
+					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotationEuler(std::get<glm::vec3>(v)); },
+					before,
+					after));
 			break;
 
 		case EditorAction::Scale:
-			if(IsUniformScalingEnabled()) 
-				scale = ScaleUniformly(scale, values);
-
 			CommandManager::getInstance()->executeCommand(
 				new AlterTransformCommand(
-					this->selectedObject,
+					selectedObject,
 					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalScale(std::get<glm::vec3>(v)); },
-					this->selectedObject->getLocalScale(),
-					scale)
-				);
-
+					before,
+					after));
 			break;
 		}
 	}
 
 	ImGui::PopID();
 }
+
 
 // Helper function
 glm::vec3 InspectorScreen::ScaleUniformly(const glm::vec3& beforeScale, const float* values)

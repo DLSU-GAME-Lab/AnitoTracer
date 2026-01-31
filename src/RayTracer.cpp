@@ -488,7 +488,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 {
 	auto& commandPool = CommandPool();
 
-	auto [models, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
+	auto [objects, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
 
 	Assets::CubeMapTexture skyboxCubeMap;
 
@@ -514,7 +514,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 		lights.push_back(Assets::LightProperties(glm::vec3(2600, 20, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 0.4, 0.5, 1000000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
-	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_.reset(new Assets::Scene(CommandPool(), std::move(objects), std::move(textures), std::move(lights)));
 	scene_->SetSkybox(
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
@@ -541,14 +541,9 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
  */
 void RayTracer::ReloadModifiedScene()
 {
-	std::vector<Assets::Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> objects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
-
-	for (auto& model : models)
-	{
-		model.ResetVertices();
-	}
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())
@@ -561,7 +556,7 @@ void RayTracer::ReloadModifiedScene()
 		lights.push_back(Assets::LightProperties(glm::vec3(1000, 500, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 1.0, 1.0, 1000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
-	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_.reset(new Assets::Scene(CommandPool(), std::move(objects), std::move(textures), std::move(lights)));
 	scene_->SetSkybox(
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
@@ -676,7 +671,7 @@ void RayTracer::ExecuteScheduledPick()
 		auto result = rayPicker_->pick(*deviceProcedures_, Device(), rayOrigin, rayDirection, currentFrame_);
 
 		int pickedId = result.objectID;
-		auto gameObject = ModelManager::getInstance()->FindGameObject(pickedId);
+		auto gameObject = ModelManager::getInstance()->findObjectByID(pickedId);
 
 		if (gameObject)	ModelManager::getInstance()->setSelectedObject(gameObject);
 		else ModelManager::getInstance()->setSelectedObject(nullptr);

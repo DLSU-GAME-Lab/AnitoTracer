@@ -25,6 +25,11 @@ Camera::~Camera()
 	HotkeySystem::getInstance()->removeListener(this);
 }
 
+GameObject::GameObjectPtr Camera::Clone() const
+{
+	return std::make_unique<Camera>(*this);
+}
+
 void Camera::Reset(const glm::mat4& modelView)
 {
 	const auto inverse = glm::inverse(modelView);
@@ -77,14 +82,14 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 	if (m_currentMode == FPS)
 	{
 		cameraRotX_ += deltaX;
-		this->localRotation.x -= deltaX;
+		this->localRotationEuler.x -= deltaX;
 
 		cameraRotY_ += deltaY;
-		this->localRotation.y += deltaY;
-		if (localRotation.y > limit) { cameraRotY_ = 0; this->localRotation.y -= deltaY; }
-		if (localRotation.y < -limit) { cameraRotY_ = 0; this->localRotation.y -= deltaY; }
+		this->localRotationEuler.y += deltaY;
+		if (localRotationEuler.y > limit) { cameraRotY_ = 0; this->localRotationEuler.y -= deltaY; }
+		if (localRotationEuler.y < -limit) { cameraRotY_ = 0; this->localRotationEuler.y -= deltaY; }
 
-		this->setLocalRotation(glm::vec3(localRotation));
+		this->setLocalRotationEuler(glm::vec3(localRotationEuler));
 		UpdateVectors();
 	}
 

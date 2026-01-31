@@ -43,16 +43,20 @@ namespace
 		float roll = 0.0f;
 
 		glm::vec3 rotation(pitch, yaw, roll);
-		cameraObject->setLocalRotation(rotation);
+		cameraObject->setLocalRotationEuler(rotation);
 	}
 
-	void AddRayTracingInOneWeekendCommonScene(std::vector<Assets::Model>& models, const bool& isProc, std::function<float()>& random)
+	void AddRayTracingInOneWeekendCommonScene(const bool& isProc, std::function<float()>& random)
 	{
 		// Common models from the final scene from Ray Tracing In One Weekend book. Only the three central spheres are missing.
 		// Calls to random() are always explicit and non-inlined to avoid C++ undefined evaluation order of function arguments,
 		// this guarantees consistent and reproducible behaviour across different platforms and compilers.
 
-		models.push_back(Model::CreateSphere(vec3(0, -1000, 0), 1000, *Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)), isProc));
+		{
+			Model m = Model::CreateSphere(vec3(0, -1000, 0), 1000, *Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)), isProc);
+			auto go = std::make_unique<GameObject>("GroundSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+			ModelManager::getInstance()->addObject(std::move(go));
+		}
 
 		for (int i = -11; i < 11; ++i)
 		{
@@ -71,7 +75,9 @@ namespace
 						const float g = random() * random();
 						const float r = random() * random();
 
-						models.push_back(Model::CreateSphere(center, 0.2f, *Material::Lambertian(vec3(r, g, b)), isProc));
+						Model m = Model::CreateSphere(center, 0.2f, *Material::Lambertian(vec3(r, g, b)), isProc);
+						auto go = std::make_unique<GameObject>("SmallSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+						ModelManager::getInstance()->addObject(std::move(go));
 					}
 					else if (chooseMat < 0.95f) // Metal
 					{
@@ -80,11 +86,15 @@ namespace
 						const float g = 0.5f * (1 + random());
 						const float r = 0.5f * (1 + random());
 
-						models.push_back(Model::CreateSphere(center, 0.2f, *Material::Metallic(vec3(r, g, b), fuzziness), isProc));
+						Model m = Model::CreateSphere(center, 0.2f, *Material::Metallic(vec3(r, g, b), fuzziness), isProc);
+						auto go = std::make_unique<GameObject>("SmallSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+						ModelManager::getInstance()->addObject(std::move(go));
 					}
 					else // Glass
 					{
-						models.push_back(Model::CreateSphere(center, 0.2f, *Material::Dielectric(1.5f), isProc));
+						Model m = Model::CreateSphere(center, 0.2f, *Material::Dielectric(1.5f), isProc);
+						auto go = std::make_unique<GameObject>("SmallSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+						ModelManager::getInstance()->addObject(std::move(go));
 					}
 				}
 			}
@@ -112,14 +122,20 @@ const std::vector<std::tuple<std::string, std::function<SceneAssets(SceneList::C
 	{"Breakfast Room", BreakfastRoom}, // USED
 	{"Salle De Bain", SalleDeBain}, 
 	{"Gallery", Gallery}, // USED// USED
+	{"Bistro_EXT", BistroEXT}, // USED// USED
+	{"Bistro_INT", BistroINT}, // USED// USED
+	{"balay_anito", BalayAnito}, // USED// USED
 	{"Empty", Empty}, // USED
 };
 
 SceneAssets SceneList::CubeAndSpheres(CameraInitialState& camera)
 {
 	// Basic test scene.
+	glm::vec3 cameraPos = { 0.0f, 0.0f, -2 };
+	glm::vec3 target = { 0.0f, 0.0f, 0.0f };
+	glm::vec3 up = { 0.0f, 1.0f, 0.0f };
 
-	camera.ModelView = translate(mat4(1), vec3(0, 0, -2));
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 90;
 	camera.Aperture = 0.05f;
 	camera.FocusDistance = 2.0f;
@@ -127,25 +143,43 @@ SceneAssets SceneList::CubeAndSpheres(CameraInitialState& camera)
 	camera.GammaCorrection = false;
 	camera.HasSky = true;
 
-	std::vector<Model> models;
+	UpdateCameraObject(cameraPos, target, up);
+
+	std::vector<GameObject*> gameObjects;
 	std::vector<Texture> textures;
 
-	models.push_back(Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/cube_multi.obj"));
-	models.push_back(Model::CreateSphere(vec3(1, 0, 0), 0.5, *Material::Metallic(vec3(0.7f, 0.5f, 0.8f), 0.2f), true));
-	models.push_back(Model::CreateSphere(vec3(-1, 0, 0), 0.5, *Material::Dielectric(1.5f), true));
-	models.push_back(Model::CreateSphere(vec3(0, 1, 0), 0.5, *Material::Lambertian(vec3(1.0f), 0), true));
+	auto model = std::make_shared<Model>(Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/cube_multi.obj"));
+	auto cube = GameObjectFactory::CreateEmpty();
+	cube->setModel(std::move(model));
+	ModelManager::getInstance()->addObject(std::move(cube));
+
+	model = std::make_shared<Model>(Model::CreateSphere(vec3(1, 0, 0), 0.5, *Material::Metallic(vec3(0.7f, 0.5f, 0.8f), 0.2f), true));
+	auto metalSphere = GameObjectFactory::CreateEmpty();
+	metalSphere->setModel(std::move(model));
+	ModelManager::getInstance()->addObject(std::move(metalSphere));
+
+	model = std::make_shared<Model>(Model::CreateSphere(vec3(-1, 0, 0), 0.5, *Material::Dielectric(1.5f), true));
+	auto dielecSphere = GameObjectFactory::CreateEmpty();
+	dielecSphere->setModel(std::move(model));
+	ModelManager::getInstance()->addObject(std::move(dielecSphere));
+
+	model = std::make_shared<Model>(Model::CreateSphere(vec3(0, 1, 0), 0.5, *Material::Lambertian(vec3(1.0f), 0), true));
+	auto lambSphere = GameObjectFactory::CreateEmpty();
+	lambSphere->setModel(std::move(model));
+	ModelManager::getInstance()->addObject(std::move(lambSphere));
 
 	textures.push_back(Texture::LoadTexture(FileUtils::getAssetsFolderPath().generic_string() + "/textures/land_ocean_ice_cloud_2048.png", Vulkan::SamplerConfig()));
-
 
 	// Add light objects
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::vector<Texture>(), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
 }
+
 
 SceneAssets SceneList::RayTracingInOneWeekend(CameraInitialState& camera)
 {
@@ -166,20 +200,33 @@ SceneAssets SceneList::RayTracingInOneWeekend(CameraInitialState& camera)
 
 	std::vector<Model> models;
 
-	AddRayTracingInOneWeekendCommonScene(models, isProc, random);
+	AddRayTracingInOneWeekendCommonScene(isProc, random);
 
-	models.push_back(Model::CreateSphere(vec3(0, 1, 0), 1.0f, *Material::Dielectric(1.5f), isProc));
-	models.push_back(Model::CreateSphere(vec3(-4, 1, 0), 1.0f, *Material::Lambertian(vec3(0.4f, 0.2f, 0.1f)), isProc));
-	models.push_back(Model::CreateSphere(vec3(4, 1, 0), 1.0f, *Material::Metallic(vec3(0.7f, 0.6f, 0.5f), 0.0f), isProc));
-
+	// add three central spheres
+	{
+		Model m = Model::CreateSphere(vec3(0, 1, 0), 1.0f, *Material::Dielectric(1.5f), isProc);
+		auto go = std::make_unique<GameObject>("CenterDielectric", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+		ModelManager::getInstance()->addObject(std::move(go));
+	}
+	{
+		Model m = Model::CreateSphere(vec3(-4, 1, 0), 1.0f, *Material::Lambertian(vec3(0.4f, 0.2f, 0.1f)), isProc);
+		auto go = std::make_unique<GameObject>("LeftLambert", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+		ModelManager::getInstance()->addObject(std::move(go));
+	}
+	{
+		Model m = Model::CreateSphere(vec3(4, 1, 0), 1.0f, *Material::Metallic(vec3(0.7f, 0.6f, 0.5f), 0.0f), isProc);
+		auto go = std::make_unique<GameObject>("RightMetal", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+		ModelManager::getInstance()->addObject(std::move(go));
+	}
 
 	// Add light objects
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::vector<Texture>(), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
 }
 
 SceneAssets SceneList::PlanetsInOneWeekend(CameraInitialState& camera)
@@ -199,27 +246,37 @@ SceneAssets SceneList::PlanetsInOneWeekend(CameraInitialState& camera)
 	std::mt19937 engine(42);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
 
-	std::vector<Model> models;
+	AddRayTracingInOneWeekendCommonScene(isProc, random);
+
+	{
+		Model m = Model::CreateSphere(vec3(0, 1, 0), 1.0f, *Material::Metallic(vec3(1.0f), 0.1f, 2), isProc);
+		auto go = std::make_unique<GameObject>("CenterMetallic", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+		ModelManager::getInstance()->addObject(std::move(go));
+	}
+	{
+		Model m = Model::CreateSphere(vec3(-4, 1, 0), 1.0f, *Material::Lambertian(vec3(1.0f), 0), isProc);
+		auto go = std::make_unique<GameObject>("LeftLambert", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+		ModelManager::getInstance()->addObject(std::move(go));
+	}
+	{
+		Model m = Model::CreateSphere(vec3(4, 1, 0), 1.0f, *Material::Metallic(vec3(1.0f), 0.0f, 1), isProc);
+		auto go = std::make_unique<GameObject>("RightMetallic", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(m));
+		ModelManager::getInstance()->addObject(std::move(go));
+	}
+
 	std::vector<Texture> textures;
-
-	AddRayTracingInOneWeekendCommonScene(models, isProc, random);
-
-	models.push_back(Model::CreateSphere(vec3(0, 1, 0), 1.0f, *Material::Metallic(vec3(1.0f), 0.1f, 2), isProc));
-	models.push_back(Model::CreateSphere(vec3(-4, 1, 0), 1.0f, *Material::Lambertian(vec3(1.0f), 0), isProc));
-	models.push_back(Model::CreateSphere(vec3(4, 1, 0), 1.0f, *Material::Metallic(vec3(1.0f), 0.0f, 1), isProc));
-
 	textures.push_back(Texture::LoadTexture(FileUtils::getAssetsFolderPath().generic_string() + "/textures/2k_mars.jpg", Vulkan::SamplerConfig()));
 	textures.push_back(Texture::LoadTexture(FileUtils::getAssetsFolderPath().generic_string() + "/textures/2k_moon.jpg", Vulkan::SamplerConfig()));
 	textures.push_back(Texture::LoadTexture(FileUtils::getAssetsFolderPath().generic_string() + "/textures/land_ocean_ice_cloud_2048.png", Vulkan::SamplerConfig()));
-
 
 	// Add light objects
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
+	auto gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::vector<Texture>(), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::LucyInOneWeekend(CameraInitialState& camera)
@@ -241,7 +298,7 @@ SceneAssets SceneList::LucyInOneWeekend(CameraInitialState& camera)
 
 	std::vector<Model> models;
 
-	AddRayTracingInOneWeekendCommonScene(models, isProc, random);
+	AddRayTracingInOneWeekendCommonScene(isProc, random);
 
 	auto lucy0 = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
 	auto lucy1 = lucy0;
@@ -275,17 +332,27 @@ SceneAssets SceneList::LucyInOneWeekend(CameraInitialState& camera)
 	lucy1.SetMaterial(*Material::Lambertian(vec3(0.4f, 0.2f, 0.1f)));
 	lucy2.SetMaterial(*Material::Metallic(vec3(0.7f, 0.6f, 0.5f), 0.05f));
 
-	models.push_back(std::move(lucy0));
-	models.push_back(std::move(lucy1));
-	models.push_back(std::move(lucy2));
+	{
+		auto go = std::make_unique<GameObject>("Lucy_Diel", GameObject::PrimitiveType::MESH, std::make_shared<Model>(std::move(lucy0)));
+		ModelManager::getInstance()->addObject(std::move(go));
+	}
+	{
+		auto go = std::make_unique<GameObject>("Lucy_Lambert", GameObject::PrimitiveType::MESH, std::make_shared<Model>(std::move(lucy1)));
+		ModelManager::getInstance()->addObject(std::move(go));
+	}
+	{
+		auto go = std::make_unique<GameObject>("Lucy_Metal", GameObject::PrimitiveType::MESH, std::make_shared<Model>(std::move(lucy2)));
+		ModelManager::getInstance()->addObject(std::move(go));
+	}
 
 	// Add light objects
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::vector<Texture>(), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
 }
 
 SceneAssets SceneList::CornellBox(CameraInitialState& camera)
@@ -307,24 +374,30 @@ SceneAssets SceneList::CornellBox(CameraInitialState& camera)
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 
-	auto box0 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
-	auto box1 = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
+	auto box0Model = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
+	auto box1Model = Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *white);
 
-	box0.Transform(rotate(translate(i, vec3(555 - 130 - 165, 0, -65)), radians(-18.0f), vec3(0, 1, 0)));
-	box1.Transform(rotate(translate(i, vec3(555 - 265 - 165, 0, -295)), radians(15.0f), vec3(0, 1, 0)));
+	box0Model.Transform(rotate(translate(i, vec3(555 - 130 - 165, 0, -65)), radians(-18.0f), vec3(0, 1, 0)));
+	box1Model.Transform(rotate(translate(i, vec3(555 - 265 - 165, 0, -295)), radians(15.0f), vec3(0, 1, 0)));
 
-	std::vector<Model> models;
-	models.push_back(Model::CreateCornellBox(555));
-	models.push_back(box0);
-	models.push_back(box1);
+	auto cornellModel = Model::CreateCornellBox(555);
+
+	auto goCornell = std::make_unique<GameObject>("CornellBox", GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Model>(cornellModel));
+	auto goBox0 = std::make_unique<GameObject>("Box0", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0Model));
+	auto goBox1 = std::make_unique<GameObject>("Box1", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1Model));
+
+	ModelManager::getInstance()->addObject(std::move(goCornell));
+	ModelManager::getInstance()->addObject(std::move(goBox0));
+	ModelManager::getInstance()->addObject(std::move(goBox1));
 
 	// Add light objects
 	auto pl = std::make_unique<Light>("Center Light", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::vector<Texture>(), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
 }
 
 SceneAssets SceneList::CornellBoxLucy(CameraInitialState& camera)
@@ -344,28 +417,32 @@ SceneAssets SceneList::CornellBoxLucy(CameraInitialState& camera)
 	UpdateCameraObject(cameraPos, target, up);
 
 	const auto i = mat4(1);
-	const auto sphere = Model::CreateSphere(vec3(555 - 130, 165.0f, -165.0f / 2 - 65), 80.0f, *Material::Dielectric(1.5f), true);
-	auto lucy0 = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
+	const auto sphereModel = Model::CreateSphere(vec3(555 - 130, 165.0f, -165.0f / 2 - 65), 80.0f, *Material::Dielectric(1.5f), true);
+	auto lucyModel = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj");
 
-	lucy0.Transform(
+	lucyModel.Transform(
 		rotate(
 			scale(
 				translate(i, vec3(555 - 300 - 165 / 2, -9, -295 - 165 / 2)),
 				vec3(0.6f)),
 			radians(75.0f), vec3(0, 1, 0)));
 
-	std::vector<Model> models;
-	models.push_back(Model::CreateCornellBox(555));
-	models.push_back(sphere);
-	models.push_back(lucy0);
+	auto goCornell = std::make_unique<GameObject>("CornellBox", GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Model>(Model::CreateCornellBox(555)));
+	auto goSphere = std::make_unique<GameObject>("LargeSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereModel));
+	auto goLucy = std::make_unique<GameObject>("Lucy", GameObject::PrimitiveType::MESH, std::make_shared<Model>(lucyModel));
+
+	ModelManager::getInstance()->addObject(std::move(goCornell));
+	ModelManager::getInstance()->addObject(std::move(goSphere));
+	ModelManager::getInstance()->addObject(std::move(goLucy));
 
 	// Add light objects
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::vector<Texture>(), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
 }
 
 /**
@@ -450,7 +527,6 @@ SceneAssets SceneList::GDGRAP2_SphereWorld(CameraInitialState& camera)
 			{
 				vec3 center(a + 0.9f * MathUtils::randomFloat(), 0.2 + (5 * MathUtils::randomFloat()), b + 0.9 * MathUtils::randomFloat());
 
-				//add additional reflective spheres
 				std::shared_ptr<Material> materialInstance = Material::Dielectric(1.5f);
 				Model modelInstance = Model::CreateSphere(center, MathUtils::randomFloat(0.1f, 0.2f), *materialInstance, isProcedural);
 				auto objectInstance = std::make_unique<GameObject>("SmallSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(modelInstance));
@@ -459,21 +535,25 @@ SceneAssets SceneList::GDGRAP2_SphereWorld(CameraInitialState& camera)
 		}
 	}
 
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
-
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+
 	// Add light objects
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 {
-	camera.ModelView = lookAt(vec3(0, 0, 1800), vec3(0, 0, 0), vec3(0, 1, 0));
+	glm::vec3 cameraPos(0, 0, 1800);
+	glm::vec3 target(0, 0, 0);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
 	camera.FieldOfView = 40;
 	camera.Aperture = 0.0f;
 	camera.FocusDistance = 10.0f;
@@ -481,15 +561,17 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 	camera.GammaCorrection = true;
 	camera.HasSky = true;
 
+	UpdateCameraObject(cameraPos, target, up);
+
 	auto box0 = GameObjectFactory::CreateCube("Right Box");
 	box0->setLocalPosition(vec3(125, -194, 100));
-	box0->setLocalRotation(vec3(0, 50, 0));
+	box0->setLocalRotationEuler(vec3(0, 50, 0));
 	box0->setLocalScale(glm::vec3(3, 3.3f, 3));
 	ModelManager::getInstance()->addObject(std::move(box0));
-	
+
 	auto box1 = GameObjectFactory::CreateCube("Tall Box");
 	box1->setLocalPosition(vec3(-100, -112, -100));
-	box1->setLocalRotation(vec3(0, -60, 0));
+	box1->setLocalRotationEuler(vec3(0, -60, 0));
 	box1->setLocalScale(glm::vec3(3, 6.6f, 3));
 	ModelManager::getInstance()->addObject(std::move(box1));
 
@@ -500,11 +582,11 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 	auto pl = GameObjectFactory::CreateLight(Light::LightType::PointLight, "Sample Point Light");
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
@@ -520,9 +602,7 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
 	auto boxGround = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
-
 	boxGround->setLocalPosition(-250.0f, 600.0f, -500.0f);
-
 	ModelManager::getInstance()->addObject(std::move(boxGround));
 
 	const int boxesPerSide = 20;
@@ -584,19 +664,20 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 	auto metalObj = std::make_unique<GameObject>("MetalSphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(metalModel));
 	ModelManager::getInstance()->addObject(std::move(metalObj));
 
-	auto sphereGroup = std::make_shared<ObjectGroup>("SphereGroup");
+	auto sphereGroup = GameObjectFactory::CreateEmpty("SphereGroup");
+
 	for (int i = 0; i < 1000; i++)
 	{
 		auto metalMat = Material::Metallic(vec3(0.73, 0.73, 0.73), MathUtils::randomFloat(0.0f, 0.5f));
 		Model sphereInstance = Model::CreateSphere(VectorUtils::randomFloatVec3(0, 165), 10.0f, *metalMat, false);
-		sphereGroup->addModel(std::make_shared<Model>(sphereInstance));
+		sphereGroup->addChild(std::make_unique<GameObject>("SmallSphereInstance", GameObject::PrimitiveType::SPHERE, std::make_shared<Model>(sphereInstance)));
 	}
 
-	sphereGroup->setLocalRotation(0, -45, 0);
+	sphereGroup->setLocalRotationEuler(0, -45, 0);
 	sphereGroup->setLocalPosition(vec3(-200, 300, 450));
-	//ModelManager::getInstance()->addObject(sphereGroup);
+	ModelManager::getInstance()->addObject(std::move(sphereGroup));
 
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 
 	// Add light objects
@@ -605,7 +686,7 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
@@ -632,13 +713,13 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 	auto box0 = GameObjectFactory::CreateCube("Right Box");
 	box0->setLocalPosition(vec3(125, -194, -400));
-	box0->setLocalRotation(vec3(0, 50, 0));
+	box0->setLocalRotationEuler(vec3(0, 50, 0));
 	box0->setLocalScale(glm::vec3(3, 3.3f, 3));
 	ModelManager::getInstance()->addObject(std::move(box0));
 
 	auto box1 = GameObjectFactory::CreateCube("Tall Box");
 	box1->setLocalPosition(vec3(-100, -112, -500));
-	box1->setLocalRotation(vec3(0, -60, 0));
+	box1->setLocalRotationEuler(vec3(0, -60, 0));
 	box1->setLocalScale(glm::vec3(3, 6.6f, 3));
 	ModelManager::getInstance()->addObject(std::move(box1));
 
@@ -648,16 +729,16 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 	auto lucy = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/lucy.obj", "Lucy");
 	lucy->setLocalPosition(vec3(-100, -170, -350));
-	lucy->setLocalRotation(vec3(0, 90, 0));
+	lucy->setLocalRotationEuler(vec3(0, 90, 0));
 	lucy->setLocalScale(vec3(0.25));
 
 	ModelManager::getInstance()->addObject(std::move(lucy));
 
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
@@ -676,82 +757,45 @@ SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 
 	UpdateCameraObject(cameraPos, target, up);
 
-	std::mt19937 engine(1);
-	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
-
-	bool isProcedural = false;
-
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.73, 0.73, 0.73) * 7.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(1000, 10, 1000), *areaLight);
-	std::unique_ptr<GameObject> areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	std::unique_ptr<GameObject> areaLightObject = GameObjectFactory::CreateEmpty("AreaLight");
 	areaLightObject->setLocalPosition(0, 1000.0f, 500.0f);
+	areaLightObject->setModel(std::make_shared<Model>(areaLightModel));
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
-
-	/*std::unique_ptr<Camera> camObj = std::make_unique<Camera>("Camera");
-	ModelManager::getInstance()->addObject(camObj);
-	CameraManager::getInstance()->addCamera(camObj);
-	camObj->setLocalPosition(0, 100, 5);*/
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = MaterialLibrary::getInstance()->getMaterial(L"Mirror");
-	//const auto mirror = Material::Dielectric(1.6f, 0.0f); 
 
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::Sponza(CameraInitialState& camera)
 {
-	glm::vec3 cameraPos(800, 400, -230);
-	glm::vec3 target(-350, 200, 65);
-	glm::vec3 up(0, 1, 0);
-
-	camera.ModelView = lookAt(cameraPos, target, up);
-	camera.FieldOfView = 40;
-	camera.Aperture = 0.0f;
-	camera.FocusDistance = 10.0f;
-	camera.ControlSpeed = 500.0f;
-	camera.GammaCorrection = true;
-	camera.HasSky = true;
-
-	UpdateCameraObject(cameraPos, target, up);
-
-	std::mt19937 engine(1);
-	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
-
-	bool isProcedural = false;
-
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
-	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	auto areaLightObject = GameObjectFactory::CreateEmpty("AreaLight");
+	areaLightObject->setModel(std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
-
-	const auto i = mat4(1);
-	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
-	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
 	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj", "sponza");
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	////Add light objects
-	//std::shared_ptr<Light> pl1 = std::make_shared<Light>("Point Light 1", Light::LightType::PointLight);
-	//ModelManager::getInstance()->addLightObject(pl1);
-
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
 	textures.push_back(Texture::LoadTexture(FileUtils::getAssetsFolderPath().generic_string() + "/textures/2k_moon.jpg", Vulkan::SamplerConfig()));
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
@@ -770,17 +814,12 @@ SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 
 	UpdateCameraObject(cameraPos, target, up);
 
-	std::mt19937 engine(1);
-	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
-
-	bool isProcedural = false;
-
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
@@ -788,23 +827,15 @@ SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 	CameraManager::getInstance()->addCamera(cameraObj.get());
 	ModelManager::getInstance()->addObject(std::move(cameraObj));
 
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/San_Miguel/san-miguel.obj", "san-miguel");
+	gameObject->setLocalScale(20.0f, 20.0f, 20.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	const auto i = mat4(1);
-	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
-	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
-
-	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/San_Miguel/san-miguel.obj");
-	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "San Miguel" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(std::move(smObj));
-	smObj = nullptr;
-
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::Empty(CameraInitialState& camera)
@@ -823,11 +854,11 @@ SceneAssets SceneList::Empty(CameraInitialState& camera)
 
 	UpdateCameraObject(cameraPos, target, up);
 
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::Vokselia(CameraInitialState& camera)
@@ -846,6 +877,46 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 
 	UpdateCameraObject(cameraPos, target, up);
 
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
+
+	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
+	cameraObj->setLocalPosition(0, 10.0f, 0);
+	CameraManager::getInstance()->addCamera(cameraObj.get());
+	ModelManager::getInstance()->addObject(std::move(cameraObj));
+
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/vokselia_spawn/vokselia_spawn.obj", "vokselia");
+	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
+
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
+}
+
+SceneAssets SceneList::BistroEXT(CameraInitialState& camera)
+{
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
+
 	std::mt19937 engine(1);
 	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
 
@@ -856,30 +927,113 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
-
-	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
-	cameraObj->setLocalPosition(0, 10.0f, 0);
-	CameraManager::getInstance()->addCamera(cameraObj.get());
-	ModelManager::getInstance()->addObject(std::move(cameraObj));
 
 	const auto i = mat4(1);
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
 	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
 
-	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/vokselia_spawn/vokselia_spawn.obj");
-	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "Vokselia" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Bistro/obj/exterior.obj", "Bistro");
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	ModelManager::getInstance()->addObject(std::move(smObj));
-	smObj = nullptr;
-
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
+}
+
+SceneAssets SceneList::BistroINT(CameraInitialState& camera)
+{
+	glm::vec3 cameraPos(-179.904, 240.910, -112.142);
+	glm::vec3 target(1089, 196.492, -68.968);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
+
+	std::mt19937 engine(1);
+	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
+
+	bool isProcedural = false;
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
+
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Bistro/obj/interior.obj", "Bistro");
+	ModelManager::getInstance()->addObject(std::move(gameObject));
+
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
+}
+
+SceneAssets SceneList::BalayAnito(CameraInitialState& camera)
+{
+	glm::vec3 cameraPos(-185.5, 81.2, -155.5);
+	glm::vec3 target(-0.678, 1.282, 6.784);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
+
+	std::mt19937 engine(1);
+	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
+
+	bool isProcedural = false;
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
+
+	const auto i = mat4(1);
+	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
+	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
+	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+
+	auto path = FileUtils::getAssetsFolderPath().generic_string() + "/models/balay_anito/ANITO_Archvis_Scene_New.obj";
+
+	auto gameObject = GameObjectFactory::CreateFromModelFile(path, "balay_anito");
+	gameObject->setLocalScale(50.0f, 50.0f, 50.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
+
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
@@ -898,17 +1052,12 @@ SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 
 	UpdateCameraObject(cameraPos, target, up);
 
-	std::mt19937 engine(1);
-	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
-
-	bool isProcedural = false;
-
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
@@ -916,27 +1065,19 @@ SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 	CameraManager::getInstance()->addCamera(cameraObj.get());
 	ModelManager::getInstance()->addObject(std::move(cameraObj));
 
-	const auto i = mat4(1);
-	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
-	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/breakfast_room/breakfast_room.obj", "breakfast_room");
+	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/breakfast_room/breakfast_room.obj");
-	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "BfastRoom" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(std::move(smObj));
-	smObj = nullptr;
-
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::SalleDeBain(CameraInitialState& camera)
 {
-
 	glm::vec3 cameraPos(800, 400, -230);
 	glm::vec3 target(-350, 200, 65);
 	glm::vec3 up(0, 1, 0);
@@ -951,17 +1092,12 @@ SceneAssets SceneList::SalleDeBain(CameraInitialState& camera)
 
 	UpdateCameraObject(cameraPos, target, up);
 
-	std::mt19937 engine(1);
-	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
-
-	bool isProcedural = false;
-
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
@@ -983,26 +1119,24 @@ SceneAssets SceneList::SalleDeBain(CameraInitialState& camera)
 	auto box0_Object = std::make_unique<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box0));
 	ModelManager::getInstance()->addObject(std::move(box0_Object));
 	box0_Object = nullptr;
-	
+
 	auto box1_Object = std::make_unique<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box1));
 	ModelManager::getInstance()->addObject(std::move(box1_Object));
 	box1_Object = nullptr;
-	
+
 	auto box2_Object = std::make_unique<GameObject>("Box", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(box2));
 	ModelManager::getInstance()->addObject(std::move(box2_Object));
 	box2_Object = nullptr;
 
-	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/salle_de_bain/salle_de_bain.obj");
-	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "SalleDeBain" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/salle_de_bain/salle_de_bain.obj", "SalleDeBain");
+	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	ModelManager::getInstance()->addObject(std::move(smObj));
-	smObj = nullptr;
-
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 SceneAssets SceneList::Gallery(CameraInitialState& camera)
@@ -1021,17 +1155,12 @@ SceneAssets SceneList::Gallery(CameraInitialState& camera)
 
 	UpdateCameraObject(cameraPos, target, up);
 
-	std::mt19937 engine(1);
-	std::function<float()> random = std::bind(std::uniform_real_distribution<float>(), engine);
-
-	bool isProcedural = false;
-
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
 	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
 	areaLightObject->setLocalPosition(0, 1500, -500);
-	areaLightObject->setLocalRotation(0, 0, 0);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
 	ModelManager::getInstance()->addObject(std::move(areaLightObject));
 
 	std::unique_ptr<Camera> cameraObj = std::make_unique<Camera>("Camera");
@@ -1039,23 +1168,15 @@ SceneAssets SceneList::Gallery(CameraInitialState& camera)
 	CameraManager::getInstance()->addCamera(cameraObj.get());
 	ModelManager::getInstance()->addObject(std::move(cameraObj));
 
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/gallery/gallery.obj", "Gallery");
+	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	const auto i = mat4(1);
-	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
-	const auto mirror = Material::Metallic(vec3(0.1f, 0.1f, 0.1f), 0.0f);
-	std::shared_ptr<Material> groundReflectMat = Material::Dielectric(1.5f);
-
-	Model sm = Model::LoadModel(FileUtils::getAssetsFolderPath().generic_string() + "/models/gallery/gallery.obj");
-	auto smObj = std::make_unique<GameObject>(sm.GetName().empty() ? "Gallery" : sm.GetName(), GameObject::PrimitiveType::MESH, std::make_shared<Model>(sm));
-
-	ModelManager::getInstance()->addObject(std::move(smObj));
-	smObj = nullptr;
-
-	std::vector<Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
-	return std::forward_as_tuple(std::move(models), std::move(textures), std::move(lights));
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
 }
 
 std::vector<Assets::Texture> SceneList::AssembleTextureList()

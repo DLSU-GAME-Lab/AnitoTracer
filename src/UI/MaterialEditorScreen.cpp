@@ -16,6 +16,7 @@
 #include "IconsMaterialDesign.h"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/MaterialCommands.hpp"
+#include "Assets/Texture.hpp"
 
 using namespace gdeng03;
 
