@@ -20,7 +20,7 @@ static bool newFolderPopup = false;
 static bool deletePopup = false;
 FileIconView* FileIconView::instance = nullptr;
 
-FileIconView::FileIconView() : currentNode(&(FileTree::getInstance()->getRoot())), currTexId((ImTextureID)0) {
+FileIconView::FileIconView() : currentNode(&(FileTree::getInstance()->getRoot())), currTexId((ImTextureID)0), iconMap({}) {
 
 }
 
@@ -38,11 +38,28 @@ void FileIconView::drawUI() {
 }
 
 void FileIconView::initButtonTexture() {
-    TextureLibrary::getInstance()->addTexture("folderIcon", FileUtils::getAssetsFolderPath().generic_string() + "/textures/Vulkan.png");
+    TextureLibrary::getInstance()->addTexture("folderIcon", FileUtils::getAssetsFolderPath().generic_string() + "/textures/UI/Icons/folder.png");
+    TextureLibrary::getInstance()->addTexture("imageIcon", FileUtils::getAssetsFolderPath().generic_string() + "/textures/UI/Icons/gallery.png");
+    TextureLibrary::getInstance()->addTexture("modelIcon", FileUtils::getAssetsFolderPath().generic_string() + "/textures/UI/Icons/model.png");
+    TextureLibrary::getInstance()->addTexture("textIcon", FileUtils::getAssetsFolderPath().generic_string() + "/textures/UI/Icons/note.png");
 
-    Assets::TextureImage* textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("folderIcon"));
-    VkDescriptorSet vds = ImGui_ImplVulkan_AddTexture(textureimg->Sampler().Handle(), textureimg->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
-    currTexId = (ImTextureID)vds;
+    Assets::TextureImage* folderTex = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("folderIcon"));
+    VkDescriptorSet folderVds = ImGui_ImplVulkan_AddTexture(folderTex->Sampler().Handle(), folderTex->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+    iconMap.insert_or_assign("folderIcon", std::make_shared<ImTextureID>((ImTextureID)folderVds));
+
+    Assets::TextureImage* imageTex = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("imageIcon"));
+    VkDescriptorSet imageVds = ImGui_ImplVulkan_AddTexture(imageTex->Sampler().Handle(), imageTex->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+    iconMap.insert_or_assign("imageIcon", std::make_shared<ImTextureID>((ImTextureID)(ImTextureID)imageVds));
+
+    Assets::TextureImage* modelTex = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("modelIcon"));
+    VkDescriptorSet modelVds = ImGui_ImplVulkan_AddTexture(modelTex->Sampler().Handle(), modelTex->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+    iconMap.insert_or_assign("modelIcon", std::make_shared<ImTextureID>((ImTextureID)(ImTextureID)modelVds));
+
+    Assets::TextureImage* textTex = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("textIcon"));
+    VkDescriptorSet textVds = ImGui_ImplVulkan_AddTexture(textTex->Sampler().Handle(), textTex->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+    iconMap.insert_or_assign("textIcon", std::make_shared<ImTextureID>((ImTextureID)(ImTextureID)textVds));
+
+    currTexId = *iconMap["modelIcon"];
 }
 
 void FileIconView::renderCurrentNodeChildrenIcons() {
@@ -57,8 +74,9 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
         //ImGui::PushFont(UIManager::getInstance()->GetIconFont(), 30.0f);
 
         ImGui::BeginGroup();
+        chooseIconCode(childNode);
 
-        if (ImGui::ImageButton(chooseIconCode(childNode).append("##").append(childNode.getPathString()).c_str(), currTexId, ImVec2(120, 120)))
+        if (ImGui::ImageButton(childNode.getPathString().c_str(), currTexId, ImVec2(120, 120)))
         {
             if (childNode.isDirectory() && childNode.directoryEntryExists())
             {
@@ -88,7 +106,13 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
             ImGui::EndPopup();
         }
         
-        ImGui::Text(childNode.getName().c_str());
+
+        std::string truncatedText = childNode.getName().c_str();
+        const float textWidth = ImGui::CalcTextSize(truncatedText.c_str(), nullptr, true).x;
+        if (textWidth > 120) {
+            truncatedText = truncatedText.substr(0, 15) + "...";
+        }
+        ImGui::Text(truncatedText.c_str());
         DragAndDropUtils::attachFileTreeNodeSource(&childNode);
         if (childNode.isDirectory()) {
             DragAndDropUtils::attachFileMoveTarget(childNode);
@@ -103,9 +127,9 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
         ImGui::EndGroup();
 
         
-        if (currentPosX + 150 < ImGui::GetContentRegionAvail().x - 100)
+        if (currentPosX + 120 < ImGui::GetContentRegionAvail().x)
         {
-            currentPosX += 150;
+            currentPosX += 120;
             ImGui::SameLine();
         }
         else {
@@ -127,8 +151,12 @@ std::string FileIconView::chooseIconCode(const FileTreeNode& node) {
     try {
         if (node.isDirectory()) {
             iconCode = ICON_MD_FOLDER_OPEN;
+            currTexId = *iconMap["folderIcon"];
         }
-        else if (filename[0] == '.') iconCode = ICON_MD_SHORT_TEXT;
+        else if (filename[0] == '.') {
+            iconCode = ICON_MD_SHORT_TEXT;
+            currTexId = *iconMap["textIcon"];
+        }
         else iconCode = chooseIconBasedOnExtension(filename);
     }
     catch (const std::filesystem::filesystem_error& e) {
@@ -150,9 +178,11 @@ std::string FileIconView::chooseIconBasedOnExtension(const std::string& filename
     }
     else if (fileExtension == "txt") {
         iconCode = ICON_MD_SHORT_TEXT;
+        currTexId = *iconMap["textIcon"];
     }
     else if (fileExtension == "jpg" || fileExtension == "jpeg" || fileExtension == "png" || fileExtension == "PNG" || fileExtension == "bmp") {
         iconCode = ICON_MD_IMAGE;
+        currTexId = *iconMap["imageIcon"];
     }
     else if (fileExtension == "pdf") {
         iconCode = ICON_MD_PICTURE_AS_PDF;
@@ -165,6 +195,7 @@ std::string FileIconView::chooseIconBasedOnExtension(const std::string& filename
     }
     else if (fileExtension == "obj") {
         iconCode = ICON_MD_LANDSCAPE;
+        currTexId = *iconMap["modelIcon"];
     }
     else {
         iconCode = ICON_MD_QUIZ;

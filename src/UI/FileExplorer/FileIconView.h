@@ -2,6 +2,8 @@
 
 #include "imgui.h"
 #include "Utilities/FileExplorer/FileTreeNode.h"
+#include <unordered_map>
+#include <memory>
 
 class FileIconView {
 public:
@@ -25,6 +27,7 @@ private:
 
 	FileTreeNode* currentNode;
 	ImTextureID currTexId;
+	std::unordered_map <std::string, std::shared_ptr<ImTextureID>> iconMap;
 
 	void renderDeleteConfirmationPrompt(FileTreeNode& toDelete);
 	void renderNewFolderSetupPrompt(FileTreeNode& targetNode);
