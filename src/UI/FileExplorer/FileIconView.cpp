@@ -64,8 +64,7 @@ void FileIconView::initButtonTexture() {
 
 void FileIconView::renderCurrentNodeChildrenIcons() {
 
-    float farLeftPosX = ImGui::GetCursorPosX();
-    float currentPosX = farLeftPosX;
+    float iconWidth = 120;
 
     int i = 0;
     for (FileTreeNode &childNode : currentNode->getChildren()) {
@@ -76,7 +75,7 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
         ImGui::BeginGroup();
         chooseIconCode(childNode);
 
-        if (ImGui::ImageButton(childNode.getPathString().c_str(), currTexId, ImVec2(120, 120)))
+        if (ImGui::ImageButton(childNode.getPathString().c_str(), currTexId, ImVec2(iconWidth, iconWidth)))
         {
             if (childNode.isDirectory() && childNode.directoryEntryExists())
             {
@@ -124,16 +123,15 @@ void FileIconView::renderCurrentNodeChildrenIcons() {
 
         ImGui::PopID();
 
+        float availableRegionX = ImGui::GetContentRegionAvail().x;
+
         ImGui::EndGroup();
 
-        
-        if (currentPosX + 120 < ImGui::GetContentRegionAvail().x)
+        if (availableRegionX > iconWidth * 2.2)
         {
-            currentPosX += 120;
             ImGui::SameLine();
         }
         else {
-            currentPosX = farLeftPosX;
             ImGui::NewLine();
         }
         
@@ -199,6 +197,7 @@ std::string FileIconView::chooseIconBasedOnExtension(const std::string& filename
     }
     else {
         iconCode = ICON_MD_QUIZ;
+        currTexId = *iconMap["textIcon"];
     }
 
     return iconCode;
