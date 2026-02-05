@@ -129,7 +129,7 @@ void DragAndDropUtils::loadObject(std::string path, std::string name) {
     auto gameObject = GameObjectFactory::CreateFromModelFile(path, name);
     ModelManager::getInstance()->addObject(std::move(gameObject));
 
-    std::vector<Assets::Model> models = ModelManager::getInstance()->getAllObjectModels();
+    std::vector<GameObject*> models = ModelManager::getInstance()->getAllActiveObjects();
     std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
     std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 }

@@ -42,6 +42,8 @@ public:
 	glm::vec3 getForward() { return this->forward_; }
 	CameraMoveMode getCurrentMoveMode() const;
 
+	void lookAt(const glm::vec3& target);
+
 protected:
 
 	virtual void MoveForward(float d);

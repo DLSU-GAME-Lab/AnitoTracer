@@ -19,6 +19,7 @@ namespace Assets
 
 class RayPickerUBO;
 class RayPickerUniformBuffer;
+class GameObject;
 
 namespace Vulkan 
 {
@@ -58,7 +59,7 @@ namespace Vulkan
 		virtual const Assets::Scene& GetScene() const = 0;
 		virtual const Assets::RayScene& GetRayScene() const = 0;
 		virtual Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const = 0;
-		virtual Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const = 0;
+		virtual Assets::PushConstantModel GetPushConstantModel(const GameObject& model) const = 0;
 		virtual RayPickerUBO GetRayPickerUBO(const VkExtent2D extent) const = 0;
 
 		virtual void SetPhysicalDevice(

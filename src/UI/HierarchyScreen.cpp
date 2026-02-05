@@ -62,10 +62,88 @@ void HierarchyScreen::drawUI()
     if (ImGui::CollapsingHeader("Scene Objects", ImGuiTreeNodeFlags_DefaultOpen))
     {
         this->updateObjectList(searchBuffer);
+
+        if (ImGui::BeginPopupContextWindow())
+        {
+            HierarchyMenuPopup();
+            ImGui::EndPopup();
+        }
     }
 
 	ImGui::End();
     ImGui::PopStyleColor();
+}
+
+void HierarchyScreen::HierarchyMenuPopup()
+{
+    bool isThereSelected = !ModelManager::getInstance()->getSelectedObject();
+
+    if (isThereSelected) //grey out and unselectable if no selected object
+    {
+        ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+    }
+
+    if (ImGui::Selectable("Cut"))       ModelManager::getInstance()->CutSelectedObject();
+    if (ImGui::Selectable("Copy"))      ModelManager::getInstance()->CopySelectedObject();
+    if (ImGui::Selectable("Paste"))     ModelManager::getInstance()->PasteObject();
+    if (ImGui::Selectable("Duplicate")) ModelManager::getInstance()->DuplicateSelectedObject();
+    if (ImGui::Selectable("Delete"))    ModelManager::getInstance()->DeleteSelectedObject();
+
+    if (isThereSelected)
+    {
+        ImGui::PopItemFlag();
+        ImGui::PopStyleVar();
+    }
+
+    ImGui::Separator();
+
+    if (ImGui::BeginMenu("3D Objects"))
+    {
+        if (ImGui::MenuItem("Cube"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::CUBE, "Cube");
+        }
+
+        if (ImGui::MenuItem("Sphere"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::SPHERE, "Sphere");
+        }
+
+        if (ImGui::MenuItem("Plane"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::PLANE, "Plane");
+        }
+
+        if (ImGui::MenuItem("Cylinder"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::CYLINDER, "Cylinder");
+        }
+
+        if (ImGui::MenuItem("Capsule"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::CAPSULE, "Capsule");
+        }
+
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Lights"))
+    {
+        ImGui::MenuItem("Point Light");
+        ImGui::MenuItem("Directional Light");
+        ImGui::MenuItem("Spot Light");
+
+        ImGui::EndMenu();
+    }
+}
+
+/* Helper */
+void HierarchyScreen::CreatePrimitive(GameObject::PrimitiveType type, String name)
+{
+    CommandManager::getInstance()->executeCommand(
+        new CreatePrimitiveCommand(type, name)
+    );
 }
 
 void HierarchyScreen::CreateObjectPopup()
@@ -74,20 +152,39 @@ void HierarchyScreen::CreateObjectPopup()
     {
         if (ImGui::BeginMenu("3D Objects"))
         {
-			ImGui::MenuItem("Cube");
-			ImGui::MenuItem("Sphere");
-			ImGui::MenuItem("Plane");
-			ImGui::MenuItem("Cylinder");
-			ImGui::MenuItem("Capsule");
+            if (ImGui::MenuItem("Cube"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::CUBE, "Cube");
+            }
 
-			ImGui::EndMenu();
+            if (ImGui::MenuItem("Sphere"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::SPHERE, "Sphere");
+            }
+
+            if (ImGui::MenuItem("Plane"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::PLANE, "Plane");
+            }
+
+            if (ImGui::MenuItem("Cylinder"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::CYLINDER, "Cylinder");
+            }
+
+            if (ImGui::MenuItem("Capsule"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::CAPSULE, "Capsule");
+            }
+
+            ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("Lights"))
         {
-			ImGui::MenuItem("Point Light");
-			ImGui::MenuItem("Directional Light");
-			ImGui::MenuItem("Spot Light");
+            ImGui::MenuItem("Point Light");
+            ImGui::MenuItem("Directional Light");
+            ImGui::MenuItem("Spot Light");
 
             ImGui::EndMenu();
         }
@@ -98,12 +195,15 @@ void HierarchyScreen::CreateObjectPopup()
 
 void HierarchyScreen::updateObjectList(const char* filter)
 {
-    const auto objectList = ModelManager::getInstance()->getSceneGraph();
-    std::string activeCamName = CameraManager::getInstance()->getActiveCamera()->getName();
+    auto objectList = ModelManager::getInstance()->getSceneGraph();
+    auto camera = CameraManager::getInstance()->getActiveCamera();
+    std::string activeCamName = camera->getName();
     ImGui::Text("Active Camera: %s", activeCamName.c_str());
 
     std::string filterStr(filter);
     std::transform(filterStr.begin(), filterStr.end(), filterStr.begin(), ::tolower);
+
+    objectList.insert(objectList.begin(), static_cast<GameObject*>(camera));
 
     for (const auto& obj : objectList)
     {

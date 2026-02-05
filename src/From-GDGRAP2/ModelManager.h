@@ -27,7 +27,8 @@ public:
 	using String = std::string;
 
 	using GameObjectPtr = std::unique_ptr<GameObject>;
-	using GameObjectList = std::vector<GameObjectPtr>;
+	using SceneGraph = std::vector<GameObjectPtr>;
+	using GameObjectList = std::vector<GameObject*>;
 	using GameObjectMap = std::unordered_map<uint32_t, GameObject*>;
 	using LightPtr = std::unique_ptr<Light>;
 	using LightList = std::vector<Light*>;
@@ -41,7 +42,7 @@ public:
 	static void initialize();
 	static void destroy();
 
-	std::vector<GameObject*> getAllObjects() const;
+	std::vector<GameObject*> getObjectList() const;
 	std::vector<GameObject*> getAllActiveObjects() const;
 	std::vector<GameObject*> getSceneGraph() const;
 	
@@ -55,7 +56,7 @@ public:
 	void unregisterSubtree(GameObject* root);
 	GameObjectPtr removeObject(GameObject* target);
 
-	GameObjectPtr CreateCopyOfObject(GameObject* original);
+	GameObjectPtr createCopyOfObject(GameObject* original);
 
 	void addLightObject(LightPtr lightObj);
 	LightPtr removeLightObject(Light* gameObject);
@@ -65,7 +66,6 @@ public:
 
 	void clearAllObjects();
 
-	ModelList getAllObjectModels() const;
 	LightPropsList getAllLightProperties() const;
 
 	int getObjectIndex(GameObject* gameObject) const;
@@ -102,7 +102,7 @@ private:
 	ModelManager& operator=(ModelManager const&) {};  // assignment operator is private*/
 	static ModelManager* sharedInstance;
 
-	GameObjectList sceneGraph;
+	SceneGraph sceneGraph;
 	LightList lightList;
 
 	GameObjectMap gameObjectMap;

@@ -36,6 +36,7 @@
 #include "Assets/GameObjectFactory.hpp"
 #include "Assets/ModelLibrary.hpp"
 #include "RayPicker/RayPickerUBO.hpp"
+#include "Vulkan/Window.hpp"
 #include "Vulkan/RayTracing/TopLevelAccelerationStructure.hpp" 
 
 namespace
@@ -112,10 +113,10 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	return ubo;
 }
 
-Assets::PushConstantModel RayTracer::GetPushConstantModel(const Assets::Model& model) const
+Assets::PushConstantModel RayTracer::GetPushConstantModel(const GameObject& gameObject) const
 {
 	Assets::PushConstantModel ubo = {};
-	ubo.WorldMatrix = model.GetWorldMatrix();
+	ubo.WorldMatrix = gameObject.getWorldMatrix();
 
 	return ubo;
 }
@@ -541,7 +542,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
  */
 void RayTracer::ReloadModifiedScene()
 {
-	std::vector<GameObject*> objects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> objects = ModelManager::getInstance()->getObjectList();
 	std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
