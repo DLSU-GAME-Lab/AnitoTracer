@@ -30,6 +30,7 @@ ProjectScreen::ProjectScreen() : AUIScreen(UINames::PROJECT_SCREEN)
     }
 
     FileIconView::getInstance()->setCurrentNode(&FileTree::getInstance()->getRoot());
+    FileIconView::getInstance()->initButtonTexture();
 }
 
 ProjectScreen::~ProjectScreen()

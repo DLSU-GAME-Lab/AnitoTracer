@@ -66,6 +66,19 @@ void FileListView::renderDescendants(FileTreeNode& nodeToRender) {
             if (childNodeIt->isDirectory()) {
                 DragAndDropUtils::attachFileMoveTarget(*childNodeIt);
             }
+
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("New Folder")) {
+                    newFolderPopup = true;
+                }
+                else if (ImGui::MenuItem("Delete")) {
+                    deletePopup = true;
+                }
+                ImGui::EndPopup();
+            }
+            renderNewFolderSetupPrompt(*childNodeIt);
+            renderDeleteConfirmationPrompt(*childNodeIt);
+
             if (isNodeOpen) {
                 //ImGui::PopFont();
 
@@ -81,17 +94,6 @@ void FileListView::renderDescendants(FileTreeNode& nodeToRender) {
                 childNodeIt->setIsOpen(false);
                 //ImGui::PopFont();
             }
-
-            if (ImGui::BeginPopupContextItem()) {
-                if (ImGui::MenuItem("New Folder")) {
-                    newFolderPopup = true;
-                } else if (ImGui::MenuItem("Delete")) {
-                    deletePopup = true;
-                }
-                ImGui::EndPopup();
-            }
-            renderNewFolderSetupPrompt(*childNodeIt);
-            renderDeleteConfirmationPrompt(*childNodeIt);
 
             ImGui::PopID();
         }

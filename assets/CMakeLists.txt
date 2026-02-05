@@ -20,6 +20,7 @@ file(GLOB texture_files
 	textures/*.jpg 
 	textures/*.png 
 	textures*.PNG
+	textures/UI/Icons/*.png
 	textures/*.txt)
 
 file(GLOB shader_extra_files shaders/*.glsl)

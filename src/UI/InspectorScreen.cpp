@@ -124,7 +124,7 @@ void InspectorScreen::drawUI()
 void InspectorScreen::drawLightTab()
 {
 	const auto type = selectedObject->getType();
-	const bool isLight =
+	isLight =
 		type == GameObject::PrimitiveType::POINT_LIGHT ||
 		type == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
 		type == GameObject::PrimitiveType::SPOT_LIGHT;

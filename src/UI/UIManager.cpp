@@ -602,6 +602,9 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	TransformHistory::getInstance().resetUndoRedoFlag();
 
 	this->detectAndRecordLayoutChanges(); // detect layout changes for recording after docking is set
+
+	// FONTS ARE IN SAME DESC_POOL, SO DOING THIS REMOVES FONTS
+	//vkResetDescriptorPool(sharedInstance->swapChain->Device().Handle(), sharedInstance->descriptorPool->Handle(), 0);
 }
 
 void UIManager::drawOverlay(const Statistics& statistics) const
