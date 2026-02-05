@@ -2,7 +2,9 @@
 #include <unordered_set>
 
 #include "AUIScreen.h"
+
 #include "From-GDGRAP2/GameObject.h"
+#include "Engine/LightSystem/Light.h"
 
 class HierarchyScreen :    public AUIScreen
 {
@@ -16,7 +18,7 @@ private:
 	void HierarchyMenuPopup();
 
 	void CreatePrimitive(GameObject::PrimitiveType type, String name);
-
+	void CreateLight(Light::LightType type, String name);
 	void CreateObjectPopup();
 	void updateObjectList(const char* filter);
 	void drawObjectNode(GameObject* obj);
