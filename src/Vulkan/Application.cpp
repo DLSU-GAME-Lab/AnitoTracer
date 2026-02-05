@@ -335,14 +335,14 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 		uint32_t vertexOffset = 0;
 		uint32_t indexOffset = 0;
 
-		for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
+		for (GameObject* gameObject : ModelManager::getInstance()->getObjectList())
 		{
-			auto pushConstantModel = GetPushConstantModel(model);
+			Assets::PushConstantModel pushConstantModel = GetPushConstantModel(*gameObject);
 			vkCmdPushConstants(commandBuffer, graphicsPipeline_->PipelineLayout().Handle(),
 				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantModel), &pushConstantModel);
 
-			uint32_t vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-			uint32_t indexCount = static_cast<uint32_t>(model.NumberOfIndices());
+			uint32_t vertexCount = static_cast<uint32_t>(gameObject->getModel()->NumberOfVertices());
+			uint32_t indexCount = static_cast<uint32_t>(gameObject->getModel()->NumberOfIndices());
 
 			vkCmdDrawIndexed(commandBuffer, indexCount, 1, indexOffset, vertexOffset, 0);
 

@@ -25,6 +25,7 @@ private:
 
 	void drawTransformTab();
 	void drawLightTab();
+	void drawCameraTab();
 	void showColorPickerWindow();
 
 	void updateTransformDisplays();

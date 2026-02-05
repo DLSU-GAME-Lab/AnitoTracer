@@ -2,11 +2,12 @@
 
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "From-GDGRAP2/ModelManager.h"
 #include "UIManager.h"
+#include "From-GDGRAP2/ModelManager.h"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/GameObject.h"
 #include "IconsMaterialDesign.h"
+#include "Engine/CameraSystem/Camera.h"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 
@@ -102,9 +103,10 @@ void InspectorScreen::drawUI()
 
 		this->updateTransformDisplays();
 		this->updateLightPropsDisplays();
-		this->drawTransformTab();
 
+		this->drawTransformTab();
 		this->drawLightTab();
+		this->drawCameraTab();
 
 	}
 	else {
@@ -245,6 +247,30 @@ void InspectorScreen::drawLightTab()
 	}
 
 	ImGui::EndTable();
+}
+
+void InspectorScreen::drawCameraTab()
+{
+	auto cam = dynamic_cast<Camera*>(this->selectedObject);
+	if (!cam) return;
+
+	if (ImGui::CollapsingHeader("Camera"))
+	{
+		static float editLookAt[3] = { 0, 0, 0 };
+		static bool initialized = false;
+
+		ImGui::Text("Set Look At:");
+		ImGui::InputFloat3("##LookAt", editLookAt);
+
+		if (ImGui::Button("Apply LookAt"))
+		{
+			auto activeCam = cam;
+			if (activeCam)
+			{
+				activeCam->lookAt(glm::vec3(editLookAt[0], editLookAt[1], editLookAt[2]));
+			}
+		}
+	}
 }
 
 

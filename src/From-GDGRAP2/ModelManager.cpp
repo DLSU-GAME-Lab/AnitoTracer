@@ -42,17 +42,26 @@ ModelManager::~ModelManager()
 	HotkeySystem::getInstance()->removeListener(this);
 }
 
-std::vector<GameObject*> ModelManager::getAllObjects() const
+std::vector<GameObject*> ModelManager::getObjectList() const
 {
 	std::vector<GameObject*> objectList;
 
 	for (const auto& gameObject : this->sceneGraph)
 	{
-		objectList.push_back(gameObject.get());
+		if (gameObject->getModel() != nullptr)
+		{
+			objectList.push_back(gameObject.get());
+		}
 
 		auto descendants = gameObject->getChildrenRecursive();
 
-		objectList.insert(objectList.end(), descendants.begin(), descendants.end());
+		for (auto* child : descendants)
+		{
+			if (child->getModel() != nullptr)
+			{
+				objectList.push_back(child);
+			}
+		}
 	}
 
 	return objectList;
@@ -196,7 +205,7 @@ ModelManager::GameObjectPtr ModelManager::removeInSubtree(GameObject* parent, Ga
 	return nullptr;
 }
 
-ModelManager::GameObjectPtr ModelManager::CreateCopyOfObject(GameObject* original)
+ModelManager::GameObjectPtr ModelManager::createCopyOfObject(GameObject* original)
 {
 	auto copy = original->Clone();
 	return copy;
@@ -256,37 +265,6 @@ void ModelManager::clearAllObjects()
 {
 	this->sceneGraph.clear();
 	this->lightList.clear();
-}
-
-/**
- * \brief Returns associated model representations of objects added.
- * \return
- */
-std::vector<Assets::Model> ModelManager::getAllObjectModels() const
-{
-	ModelList modelList;
-
-	for (const auto& gameObject : this->sceneGraph)
-	{
-		if (!gameObject->isActive()) continue;
-
-		gameObject->updateWorldMatrix();
-
-		auto model = gameObject->getModel();
-
-		if (model) // lights and emptyies have no models
-			modelList.push_back(*model);
-
-		auto descendants = gameObject->getChildrenRecursive();
-
-		for (auto descendant : descendants)
-		{
-			if (descendant->isActive())
-				modelList.push_back(*descendant->getModel().get());
-		}
-	}
-
-	return modelList;
 }
 
 ModelManager::LightPropsList ModelManager::getAllLightProperties() const
@@ -596,7 +574,7 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 
 void ModelManager::CutSelectedObject()
 {
-	this->copiedObject = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
+	this->copiedObject = ModelManager::getInstance()->createCopyOfObject(this->selectedObject);
 	CommandManager::getInstance()->executeCommand(
 		new DeleteObjectCommand(this->selectedObject)
 	);
@@ -606,12 +584,12 @@ void ModelManager::CutSelectedObject()
 
 void ModelManager::CopySelectedObject()
 {
-	this->copiedObject = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
+	this->copiedObject = ModelManager::getInstance()->createCopyOfObject(this->selectedObject);
 }
 
 void ModelManager::DuplicateSelectedObject()
 {
-	auto duplicate = ModelManager::getInstance()->CreateCopyOfObject(this->selectedObject);
+	auto duplicate = ModelManager::getInstance()->createCopyOfObject(this->selectedObject);
 
 	glm::vec3 offset = { 10.0f, 10.0f, 10.0 }; //offset spawn
 	duplicate->setLocalPosition(this->selectedObject->getLocalPosition() + offset);
@@ -644,10 +622,11 @@ GameObject* ModelManager::findObjectByID(uint32_t id) const
 void ModelManager::PasteObject()
 {
 	if (!this->copiedObject) return;
-
+	       
 	auto sceneCamera = CameraManager::getInstance()->getActiveCamera();
 
-	this->copiedObject->setLocalPosition(sceneCamera->getForward() * 500.0f);
+	glm::vec3 offset = { 10.0f, 10.0f, 10.0 }; //offset spawn
+	this->copiedObject->setLocalPosition(this->selectedObject->getLocalPosition() + offset);
 
 	CommandManager::getInstance()->executeCommand(
 		new AddObjectCommand(std::move(this->copiedObject))

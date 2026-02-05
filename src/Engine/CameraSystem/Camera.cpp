@@ -399,6 +399,19 @@ Camera::CameraMoveMode Camera::getCurrentMoveMode() const
 	return this->m_currentMode;
 }
 
+void Camera::lookAt(const glm::vec3& target)
+{
+	auto direction = glm::normalize(target - glm::vec3(position_));
+
+	float pitch = glm::asin(direction.y);
+	float yaw = glm::atan(direction.x, -direction.z);
+
+	orientation_ =
+		glm::rotate(glm::mat4(1), -pitch, glm::vec3(1, 0, 0)) *
+		glm::rotate(glm::mat4(1), yaw, glm::vec3(0, 1, 0));
+	UpdateVectors();
+}
+
 void Camera::MoveForward(const float d)
 {
 	position_ += d * forward_;

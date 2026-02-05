@@ -174,7 +174,7 @@ SceneAssets SceneList::CubeAndSpheres(CameraInitialState& camera)
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
 	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
@@ -223,7 +223,7 @@ SceneAssets SceneList::RayTracingInOneWeekend(CameraInitialState& camera)
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
 	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
@@ -273,7 +273,7 @@ SceneAssets SceneList::PlanetsInOneWeekend(CameraInitialState& camera)
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
-	auto gameobjects = ModelManager::getInstance()->getAllObjects();
+	auto gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
 	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
@@ -349,7 +349,7 @@ SceneAssets SceneList::LucyInOneWeekend(CameraInitialState& camera)
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
 	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
@@ -394,7 +394,7 @@ SceneAssets SceneList::CornellBox(CameraInitialState& camera)
 	auto pl = std::make_unique<Light>("Center Light", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
 	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
@@ -439,7 +439,7 @@ SceneAssets SceneList::CornellBoxLucy(CameraInitialState& camera)
 	auto pl = std::make_unique<Light>("Point Light 1", Light::LightType::PointLight);
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
 	return std::forward_as_tuple(std::move(gameobjects), std::vector<Texture>(), std::move(lights));
@@ -535,7 +535,7 @@ SceneAssets SceneList::GDGRAP2_SphereWorld(CameraInitialState& camera)
 		}
 	}
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 
 	// Add light objects
@@ -582,7 +582,7 @@ SceneAssets SceneList::GDGRAP2_CornellBox(CameraInitialState& camera)
 	auto pl = GameObjectFactory::CreateLight(Light::LightType::PointLight, "Sample Point Light");
 	ModelManager::getInstance()->addLightObject(std::move(pl));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -677,7 +677,7 @@ SceneAssets SceneList::GDGRAP2_BoxWorld(CameraInitialState& camera)
 	sphereGroup->setLocalPosition(vec3(-200, 300, 450));
 	ModelManager::getInstance()->addObject(std::move(sphereGroup));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 
 	// Add light objects
@@ -734,7 +734,7 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 	ModelManager::getInstance()->addObject(std::move(lucy));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -768,7 +768,7 @@ SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 	const auto white = MaterialLibrary::getInstance()->getMaterial(L"White");
 	const auto mirror = MaterialLibrary::getInstance()->getMaterial(L"Mirror");
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -789,7 +789,7 @@ SceneAssets SceneList::Sponza(CameraInitialState& camera)
 	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Sponza/sponza.obj", "sponza");
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -831,7 +831,7 @@ SceneAssets SceneList::SanMiguel(CameraInitialState& camera)
 	gameObject->setLocalScale(20.0f, 20.0f, 20.0f);
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -854,7 +854,7 @@ SceneAssets SceneList::Empty(CameraInitialState& camera)
 
 	UpdateCameraObject(cameraPos, target, up);
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -894,7 +894,7 @@ SceneAssets SceneList::Vokselia(CameraInitialState& camera)
 	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -938,7 +938,7 @@ SceneAssets SceneList::BistroEXT(CameraInitialState& camera)
 	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Bistro/obj/exterior.obj", "Bistro");
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -982,7 +982,7 @@ SceneAssets SceneList::BistroINT(CameraInitialState& camera)
 	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/Bistro/obj/interior.obj", "Bistro");
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -1029,7 +1029,7 @@ SceneAssets SceneList::BalayAnito(CameraInitialState& camera)
 	gameObject->setLocalScale(50.0f, 50.0f, 50.0f);
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -1069,7 +1069,7 @@ SceneAssets SceneList::BreakfastRoom(CameraInitialState& camera)
 	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -1132,7 +1132,7 @@ SceneAssets SceneList::SalleDeBain(CameraInitialState& camera)
 	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 
@@ -1172,7 +1172,7 @@ SceneAssets SceneList::Gallery(CameraInitialState& camera)
 	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
-	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getAllObjects();
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
 	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
 

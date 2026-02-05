@@ -80,7 +80,7 @@ public:
 		if (sceneName == "New Scene") sceneName = "New Scene " + std::to_string(scenes.size());
 		else if (map[sceneName] != nullptr) { /* Already exists */ }
 
-		auto objects = ModelManager::getInstance()->getAllObjects();
+		auto objects = ModelManager::getInstance()->getObjectList();
 		ModelManager::LightPropsList lights = ModelManager::getInstance()->getAllLightProperties();
 		int lightIndex = 0;
 
