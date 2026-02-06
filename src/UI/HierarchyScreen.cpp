@@ -3,8 +3,6 @@
 #include <imgui_internal.h>
 #include "imgui.h"
 #include "From-GDGRAP2/ModelManager.h"
-#include "From-GDGRAP2/GameObject.h"
-#include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
 #include "Utilities/DragAndDrop/DragAndDropUtils.h"
@@ -130,9 +128,20 @@ void HierarchyScreen::HierarchyMenuPopup()
 
     if (ImGui::BeginMenu("Lights"))
     {
-        ImGui::MenuItem("Point Light");
-        ImGui::MenuItem("Directional Light");
-        ImGui::MenuItem("Spot Light");
+        if (ImGui::MenuItem("Point Light"))
+        {
+            CreateLight(Light::PointLight, "Point_Light");
+        }
+
+		if (ImGui::MenuItem("Directional Light"))
+        {
+            CreateLight(Light::DirectionalLight, "Directional_Light");
+        }
+
+        if (ImGui::MenuItem("Spot Light"))
+        {
+            CreateLight(Light::SpotLight, "Spot_Light");
+		}
 
         ImGui::EndMenu();
     }
@@ -144,6 +153,13 @@ void HierarchyScreen::CreatePrimitive(GameObject::PrimitiveType type, String nam
     CommandManager::getInstance()->executeCommand(
         new CreatePrimitiveCommand(type, name)
     );
+}
+
+void HierarchyScreen::CreateLight(Light::LightType type, String name)
+{
+    CommandManager::getInstance()->executeCommand(
+        new CreateLightCommand(type, name)
+	);
 }
 
 void HierarchyScreen::CreateObjectPopup()
