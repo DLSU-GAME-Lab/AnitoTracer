@@ -113,6 +113,19 @@ void FileListView::renderRootNode(FileTreeNode& root) {
             FileIconView::getInstance()->setCurrentNode(&root);
         }
         DragAndDropUtils::attachFileMoveTarget(root);
+
+        if (ImGui::BeginPopupContextItem()) {
+            if (ImGui::MenuItem("New Folder")) {
+                newFolderPopup = true;
+            }
+            else if (ImGui::MenuItem("Delete")) {
+                deletePopup = true;
+            }
+            ImGui::EndPopup();
+        }
+        renderNewFolderSetupPrompt(root);
+        renderDeleteConfirmationPrompt(root);
+
         if (isNodeOpen) {
             //ImGui::PopFont();
 

@@ -28,6 +28,7 @@ MaterialEditorScreen::MaterialEditorScreen() : AUIScreen(UINames::MATERIAL_EDITO
 	//currTexId = (ImTextureID)(buttonImg.textureDset);
 
 	//loadDefaultTextures();
+	textureimg = nullptr;
 }
 
 bool MaterialEditorScreen::canSelectMaterial() const
@@ -50,6 +51,9 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 		this->refractionIndex = mat->RefractionIndex;
 	}
 
+	if (textureimg != nullptr) {
+		delete textureimg;
+	}
 	textureimg = nullptr;
 
 	if (mat->DiffuseTextureId == -1)
@@ -58,6 +62,10 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 		textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(mat->DiffuseTextureId));
 
 	Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
+
+	if (currTexId != 0) {
+		ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)currTexId);
+	}
 	currTexId = 0;
 	currTexId = (ImTextureID)(newButtonimg.textureDset);
 
@@ -290,12 +298,12 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 				float inputSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x - ImGui::GetStyle().FrameBorderSize) * 0.2f;
 
 				ImGui::SetNextItemWidth(sliderSize);
-				ImGui::SliderFloat("##Metal_Slider", &this->fuzziness, 0, 1, " %.05f", ImGuiSliderFlags_NoInput);
+				ImGui::SliderFloat("##Metal_Slider", &this->fuzziness, 0, 1, " %.02f", ImGuiSliderFlags_NoInput);
 
 				ImGui::SameLine();
 
 				ImGui::SetNextItemWidth(inputSize);
-				ImGui::InputFloat("##Metal_Input", &this->fuzziness, 0.0f, 0.0f, " %.05f");
+				ImGui::InputFloat("##Metal_Input", &this->fuzziness, 0.0f, 0.0f, " %.02f");
 			}
 
 			/* Dielectric */

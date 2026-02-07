@@ -198,9 +198,20 @@ void HierarchyScreen::CreateObjectPopup()
 
         if (ImGui::BeginMenu("Lights"))
         {
-            ImGui::MenuItem("Point Light");
-            ImGui::MenuItem("Directional Light");
-            ImGui::MenuItem("Spot Light");
+            if (ImGui::MenuItem("Point Light"))
+            {
+                CreateLight(Light::PointLight, "Point_Light");
+            }
+
+            if (ImGui::MenuItem("Directional Light"))
+            {
+                CreateLight(Light::DirectionalLight, "Directional_Light");
+            }
+
+            if (ImGui::MenuItem("Spot Light"))
+            {
+                CreateLight(Light::SpotLight, "Spot_Light");
+            }
 
             ImGui::EndMenu();
         }
