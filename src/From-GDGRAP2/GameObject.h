@@ -94,6 +94,10 @@ public:
 	bool IsHierarchyNodeOpen() const;
 	void SetHierarchyNodeOpen(bool isOpen);
 
+	glm::vec3 getForward() const;
+	glm::vec3 getRight() const;
+	glm::vec3 getUp() const;
+
 protected:
     String name;
     PrimitiveType type;

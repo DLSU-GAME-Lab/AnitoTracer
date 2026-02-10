@@ -1,12 +1,9 @@
 #include "Camera.h"
 
-#include <iostream>
 #include <glm/fwd.hpp>
-#include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/orthonormalize.hpp>
 
-#include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/ModelManager.h"
-#include "OBB/Ray.hpp"
 #include "Vulkan/Vulkan.hpp"
 
 #include "HotkeySystem\HotkeySystem.hpp"
@@ -30,88 +27,73 @@ GameObject::GameObjectPtr Camera::Clone() const
 	return std::make_unique<Camera>(*this);
 }
 
-void Camera::Reset(const glm::mat4& modelView)
+void Camera::Reset()
 {
-	const auto inverse = glm::inverse(modelView);
+	const glm::vec3 defaultPosition = glm::vec3(0.0f, 0.0f, 500.0f);
+	const glm::quat defaultRotation = glm::quat(glm::vec3(0.0f));
 
-	position_ = inverse * glm::vec4(0, 0, 0, 1);
-	orientation_ = glm::mat4(glm::mat3(modelView));
+	Reset(defaultPosition, defaultRotation);
+}
 
-	cameraRotX_ = 0;
-	cameraRotY_ = 0;
-	modelRotX_ = 0;
-	modelRotY_ = 0;
+void Camera::Reset(const glm::vec3& position, const glm::quat& orientation)
+{
+	this->setLocalPosition(position);
+	this->setLocalRotationQuat(orientation);
+
+	cameraRotX_ = 0.0f;
+	cameraRotY_ = 0.0f;
+	modelRotX_ = 0.0f;
+	modelRotY_ = 0.0f;
 
 	mouseLeftPressed_ = false;
 	mouseRightPressed_ = false;
-
-	UpdateVectors();
 }
 
-glm::mat4 Camera::ModelView()
+glm::mat4 Camera::getViewMatrix()
 {
-	auto cameraRotX = static_cast<float>(modelRotY_ / 300.0);
-	auto cameraRotY = static_cast<float>(modelRotX_ / 300.0);
+	const glm::quat q = glm::normalize(getLocalRotationQuat());
 
-	auto model =
-		glm::rotate(glm::mat4(1.0f), cameraRotY * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
-		glm::rotate(glm::mat4(1.0f), cameraRotX * glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	const glm::mat4 Rinv = glm::toMat4(glm::conjugate(q));
+	const glm::mat4 Tinv = glm::translate(glm::mat4(1.0f), -getLocalPosition());
 
-	auto view = orientation_ * glm::translate(glm::mat4(1), -glm::vec3(position_));
-
-	view_ = view;
-
-	return view * model;
+	view_ = Rinv * Tinv;
+	return view_;
 }
 
 bool Camera::OnKey(const int key, const int scancode, const int action, const int mods)
 {
-	if (key == GLFW_KEY_ESCAPE && action != GLFW_REPEAT) 
-	{
-		exit(0); // temp exit lol 
-	}
+	return false;
 }
 
 bool Camera::OnCursorPosition(const double xpos, const double ypos)
 {
-	const auto deltaX = static_cast<float>(xpos - mousePosX_);
-	const auto deltaY = static_cast<float>(ypos - mousePosY_);
-
-	const auto limit = 360 * 2;
-
-	if (m_currentMode == FPS)
-	{
-		cameraRotX_ += deltaX;
-		this->localRotationEuler.x -= deltaX;
-
-		cameraRotY_ += deltaY;
-		this->localRotationEuler.y += deltaY;
-		if (localRotationEuler.y > limit) { cameraRotY_ = 0; this->localRotationEuler.y -= deltaY; }
-		if (localRotationEuler.y < -limit) { cameraRotY_ = 0; this->localRotationEuler.y -= deltaY; }
-
-		this->setLocalRotationEuler(glm::vec3(localRotationEuler));
-		UpdateVectors();
-	}
-
-	if (m_currentMode == PAN)
-	{
-		// Needs Sensitivity Settings
-		MoveRight(deltaX * camSpeed_);
-		MoveUp(deltaY * camSpeed_);
-		UpdateVectors();
-	}
-
-	if (m_currentMode == ZOOM)
-	{
-		MoveForward(deltaX);
-		MoveForward(deltaY);
-		UpdateVectors();
-	}
+	const float dx = static_cast<float>(xpos - mousePosX_);
+	const float dy = static_cast<float>(ypos - mousePosY_);
 
 	mousePosX_ = xpos;
 	mousePosY_ = ypos;
 
-	return m_currentMode != NONE;
+	if (m_currentMode == FPS)
+	{
+		const float sensitivity = 0.0025f;
+		cameraRotX_ += -dx * sensitivity;
+		cameraRotY_ += -dy * sensitivity;
+		return true;
+	}
+
+	if (m_currentMode == PAN)
+	{
+
+		return true;
+	}
+
+	if (m_currentMode == ZOOM)
+	{
+
+		return true;
+	}
+
+	return false;
 }
 
 bool Camera::OnMouseButton(const int button, const int action, const int mods)
@@ -121,45 +103,67 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 
 bool Camera::UpdateCamera(const double speed, const double timeDelta)
 {
+	bool moved = false;
+	bool rotated = false;
+
 	if (camSlowed) camSpeed_ = camSlowSpeed;
 	else if (camSpedUp) camSpeed_ = camFastSpeed;
 	else camSpeed_ = camNormalSpeed;
 
-	const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;
+	this->updateWorldMatrix();
 
-	if (cameraMovingLeft_) MoveRight(-d);
-	if (cameraMovingRight_) MoveRight(d);
-	if (cameraMovingBackward_) MoveForward(-d);
-	if (cameraMovingForward_) MoveForward(d);
-	if (cameraMovingDown_) MoveUp(-d);
-	if (cameraMovingUp_) MoveUp(d);
+	glm::vec3 moveDirection = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	const float rotationDiv = 300;
-	Rotate(cameraRotX_ / rotationDiv, cameraRotY_ / rotationDiv);
+	if (cameraMovingForward_)	moveDirection -= this->getForward();
+	if (cameraMovingBackward_)	moveDirection += this->getForward();
+	if (cameraMovingRight_)		moveDirection += this->getRight();
+	if (cameraMovingLeft_)		moveDirection -= this->getRight();
+	if (cameraMovingUp_)		moveDirection += this->getUp();
+	if (cameraMovingDown_)		moveDirection -= this->getUp();
 
-	const bool updated =
-		cameraMovingLeft_ ||
-		cameraMovingRight_ ||
-		cameraMovingBackward_ ||
-		cameraMovingForward_ ||
-		cameraMovingDown_ ||
-		cameraMovingUp_ ||
-		cameraRotY_ != 0 ||
-		cameraRotX_ != 0;
+	if (glm::length2(moveDirection) > 1e-8f)
+	{
+		moved = true;
+		moveDirection = glm::normalize(moveDirection);
+		auto d = moveDirection * this->camSpeed_ * (float)timeDelta * 500.0f;
+		this->setLocalPosition(this->getLocalPosition() + d);
+	}
 
-	cameraRotY_ = 0;
-	cameraRotX_ = 0;
+	if (m_currentMode == FPS && (cameraRotX_ != 0.0f || cameraRotY_ != 0.0f))
+	{
+		yaw_ += cameraRotX_;
+		pitch_ += cameraRotY_;
+
+		constexpr float maxPitch = glm::radians(89.0f);
+		pitch_ = glm::clamp(pitch_, -maxPitch, maxPitch);
+
+		const glm::quat qYaw = glm::angleAxis(yaw_, glm::vec3(0, 1, 0));
+		const glm::vec3 right = glm::normalize(qYaw * glm::vec3(1, 0, 0));
+		const glm::quat qPitch = glm::angleAxis(pitch_, right);
+
+		const glm::quat orientation = glm::normalize(qPitch * qYaw);
+
+		setLocalRotationQuat(orientation);
+		rotated = true;
+	}
+
+	const bool updated = moved || rotated;
+
+	// consume deltas
+	cameraRotX_ = 0.0f;
+	cameraRotY_ = 0.0f;
 
 	if (updated)
+	{
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
+	}
 
 	return updated;
 }
 
+
 void Camera::OnActionPressed(Hotkey::Action action)
 {
-	UpdateVectors();
-
 	if (action == Hotkey::Action::Camera_FPSMode)
 	{
 		m_currentMode = FPS;
@@ -240,7 +244,7 @@ void Camera::OnActionPressed(Hotkey::Action action)
 		auto currentObj = ModelManager::getInstance()->getSelectedObject();
 		if (!currentObj) return;
 
-		currentObj->setLocalPosition(this->getLocalPosition() + glm::normalize(glm::vec3(forward_)) * m_defaultPivotDistance );
+		currentObj->setLocalPosition(this->getLocalPosition() + glm::normalize(this->getForward() * m_defaultPivotDistance));
 
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
@@ -250,11 +254,7 @@ void Camera::OnActionPressed(Hotkey::Action action)
 		auto selected = ModelManager::getInstance()->getSelectedObject();
 
 		if (selected) {
-			this->Reset(glm::lookAt(
-				selected->getWorldPosition() - glm::vec3(0, 0, 1000),
-				selected->getWorldPosition(),
-				glm::vec3(0, 1, 0)
-			));
+			this->Reset();
 		}
 
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
@@ -382,18 +382,6 @@ glm::mat4 Camera::GetView()
 	return this->view_;
 }
 
-void Camera::setLocalPosition(float x, float y, float z)
-{
-	this->position_ = glm::vec4(x, y, z, 1.0);
-	GameObject::setLocalPosition(x, y, z);
-}
-
-void Camera::setLocalPosition(glm::vec3 pos)
-{
-	this->position_ = glm::vec4(pos, 1.0);
-	GameObject::setLocalPosition(pos);
-}
-
 Camera::CameraMoveMode Camera::getCurrentMoveMode() const
 {
 	return this->m_currentMode;
@@ -401,54 +389,20 @@ Camera::CameraMoveMode Camera::getCurrentMoveMode() const
 
 void Camera::lookAt(const glm::vec3& target)
 {
-	auto direction = glm::normalize(target - glm::vec3(position_));
+	const glm::vec3 position = this->getLocalPosition();
+	const glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-	float pitch = glm::asin(direction.y);
-	float yaw = glm::atan(direction.x, -direction.z);
+	glm::vec3 dir = target - position;
+	const float len2 = glm::dot(dir, dir);
+	if (len2 < 1e-12f) return;
 
-	orientation_ =
-		glm::rotate(glm::mat4(1), -pitch, glm::vec3(1, 0, 0)) *
-		glm::rotate(glm::mat4(1), yaw, glm::vec3(0, 1, 0));
-	UpdateVectors();
-}
+	const glm::mat4 view = glm::lookAt(position, target, worldUp);
+	const glm::mat4 inv = glm::inverse(view);
 
-void Camera::MoveForward(const float d)
-{
-	position_ += d * forward_;
-	GameObject::setLocalPosition(position_.x, position_.y, position_.z);
-	UpdateVectors();
-}
+	glm::mat3 rotM = glm::mat3(inv);
 
-void Camera::MoveRight(const float d)
-{
-	position_ += d * right_;
-	GameObject::setLocalPosition(position_.x, position_.y, position_.z);
-	UpdateVectors();
-}
+	rotM = glm::orthonormalize(rotM);
 
-void Camera::MoveUp(const float d)
-{
-	position_ += d * up_;
-	GameObject::setLocalPosition(position_.x, position_.y, position_.z);
-	UpdateVectors();
-}
-
-void Camera::Rotate(const float y, const float x)
-{
-	orientation_ =
-		glm::rotate(glm::mat4(1), x, glm::vec3(1, 0, 0)) *
-		orientation_ *
-		glm::rotate(glm::mat4(1), y, glm::vec3(0, 1, 0));
-
-	UpdateVectors();
-}
-
-void Camera::UpdateVectors()
-{
-	// Given the ortientation matrix, find out the x,y,z vector orientation.
-	const auto inverse = glm::inverse(orientation_);
-
-	right_ = inverse * glm::vec4(1, 0, 0, 0);
-	up_ = inverse * glm::vec4(0, 1, 0, 0);
-	forward_ = inverse * glm::vec4(0, 0, -1, 0);
+	const glm::quat q = glm::quat_cast(rotM);
+	this->setLocalRotationQuat(q);
 }

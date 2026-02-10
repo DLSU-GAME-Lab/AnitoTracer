@@ -743,8 +743,8 @@ SceneAssets SceneList::AnitoTracer_DemoScene(CameraInitialState& camera)
 
 SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 {
-	glm::vec3 cameraPos(0, 0, 800);
-	glm::vec3 target(0, 0, 0);
+	glm::vec3 cameraPos(0, 0, 500);
+	glm::vec3 target(0, 0, 1);
 	glm::vec3 up(0, 1, 0);
 
 	camera.ModelView = lookAt(cameraPos, target, up);

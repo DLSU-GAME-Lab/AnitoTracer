@@ -505,3 +505,18 @@ void GameObject::SetHierarchyNodeOpen(bool isOpen)
 {
 	this->isHierarchyNodeOpen = isOpen;
 }
+
+glm::vec3 GameObject::getForward() const
+{
+	return glm::normalize(worldRotationQuat * glm::vec3(0, 0, 1));
+}
+
+glm::vec3 GameObject::getRight() const
+{
+	return glm::normalize(this->worldRotationQuat * glm::vec3(1.0f, 0.0f, 0.0f));
+}
+
+glm::vec3 GameObject::getUp() const
+{
+	return glm::normalize(this->worldRotationQuat * glm::vec3(0.0f, -1.0f, 0.0f));
+}

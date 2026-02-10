@@ -18,9 +18,10 @@ public:
 
 	virtual GameObject::GameObjectPtr Clone() const override;
 
-	void Reset(const glm::mat4& modelView);
+	void Reset();
+	void Reset(const glm::vec3& position, const glm::quat& orientation);
 
-	glm::mat4 ModelView();
+	glm::mat4 getViewMatrix();
 
 	bool OnKey(int key, int scancode, int action, int mods);
 	bool OnCursorPosition(double xpos, double ypos);
@@ -36,34 +37,18 @@ public:
 
 	glm::mat4 GetView();
 
-	void setLocalPosition(float x, float y, float z) override;
-	void setLocalPosition(glm::vec3 pos) override;
-
-	glm::vec3 getForward() { return this->forward_; }
 	CameraMoveMode getCurrentMoveMode() const;
 
 	void lookAt(const glm::vec3& target);
 
 protected:
 
-	virtual void MoveForward(float d);
-	virtual void MoveRight(float d);
-	virtual void MoveUp(float d);
-	virtual void Rotate(float y, float x);
-	void UpdateVectors();
-
 	std::string name;
 	ProjectionMode projMode;
 
 	// Matrices and vectors.
-	glm::mat4 orientation_ = glm::mat4(1);
 	glm::mat4 projection_{};
 	glm::mat4 view_ = glm::mat4(1.0f);;
-
-	glm::vec4 position_{ 0, 0, 0, 0 };
-	glm::vec4 right_{ 1, 0, 0, 0 };
-	glm::vec4 up_{ 0, 1, 0, 0 };
-	glm::vec4 forward_{ 0, 0, -1, 0 };
 
 	// Control states.
 	bool cameraMovingLeft_{};
@@ -93,6 +78,9 @@ protected:
 	float camNormalSpeed = 1.0f;
 	float camSlowSpeed = 0.2f;
 	float camFastSpeed = 1.5f;
+
+	float yaw_ = 0;
+	float pitch_ = 0;
 
 	float m_defaultPivotDistance = 1000.0f;
 

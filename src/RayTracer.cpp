@@ -94,7 +94,7 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 
 	Assets::UniformBufferObject ubo = {};
 	//ubo.ModelView = modelViewController_.ModelView();
-	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->ModelView();
+	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->getViewMatrix();
 	ubo.Projection = CameraManager::getInstance()->getActiveCamera()->GetProjection(userSettings_, extent);
 	ubo.Projection[1][1] *= -1; // Inverting Y for Vulkan, https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
 	ubo.ModelViewInverse = glm::inverse(ubo.ModelView);
@@ -124,7 +124,7 @@ Assets::PushConstantModel RayTracer::GetPushConstantModel(const GameObject& game
 RayPickerUBO RayTracer::GetRayPickerUBO(const VkExtent2D extent) const
 {
 	RayPickerUBO ubo = {};
-	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->ModelView();
+	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->getViewMatrix();
 	ubo.Projection = CameraManager::getInstance()->getActiveCamera()->GetProjection(userSettings_, extent);
 	ubo.Projection[1][1] *= -1; // Inverting Y for Vulkan, https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
 	ubo.ModelViewInverse = glm::inverse(ubo.ModelView);
@@ -353,7 +353,6 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 	// Settings (toggle switches)
 	if (action == GLFW_PRESS)
 	{
-		isMoving = true;
 		switch (key)
 		{
 		case GLFW_KEY_F1: UIManager::getInstance()->toggleEnabled(UINames::SETTINGS_SCREEN); return;
@@ -372,29 +371,18 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		}
 	}
 
-	if (UIManager::wantsToCaptureKeyboard())
-	{
-		return;
-	}
-
 	// Camera motions
 	if (!userSettings_.Benchmark)
 	{
 		resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnKey(key, scancode, action, mods);
 
 	}
-
-	if (action == GLFW_RELEASE) {
-		isMoving = false;
-	}
 }
 
 void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 {
 	if (!HasSwapChain() ||
-		userSettings_.Benchmark ||
-		UIManager::wantsToCaptureKeyboard() ||
-		UIManager::wantsToCaptureMouse())
+		userSettings_.Benchmark)
 	{
 		return;
 	}
@@ -420,28 +408,14 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 		SchedulePick({ static_cast<float>(xpos), static_cast<float>(ypos) });
 	}
 
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
-	{
-		isMoving = true;
-		mousePressed = true;
-	}
 
-	if (!HasSwapChain() ||
-		userSettings_.Benchmark ||
-		UIManager::wantsToCaptureMouse())
+	if (!HasSwapChain() || userSettings_.Benchmark)
 	{
 		return;
 	}
 
-	// Camera motions
 
 	resetAccumulation_ |= CameraManager::getInstance()->getActiveCamera()->OnMouseButton(button, action, mods);
-	
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
-	{
-		isMoving = false;
-		mousePressed = false;
-	}
 }
 
 void RayTracer::OnScroll(const double xoffset, const double yoffset)
@@ -530,7 +504,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	userSettings_.Aperture = cameraInitialSate_.Aperture;
 	userSettings_.FocusDistance = cameraInitialSate_.FocusDistance;
 
-	CameraManager::getInstance()->getActiveCamera()->Reset(cameraInitialSate_.ModelView);
+	CameraManager::getInstance()->getActiveCamera()->Reset();
 
 	periodTotalFrames_ = 0;
 	resetAccumulation_ = true;
