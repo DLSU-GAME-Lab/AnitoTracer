@@ -40,8 +40,6 @@ public:
 		props_.LightType = convertLightTypeEnum(type);
 
 		GameObject::setLocalPosition(props_.LightPos);
-
-		updateSceneView();
 	}
 
 	Light(String name, LightType type, glm::vec3 pos, glm::vec4 ambientCol, glm::vec4 lightCol)
@@ -55,8 +53,6 @@ public:
 		GameObject::setLocalPosition(props_.LightPos);
 
 		props_.LightDir = calculateDirection();
-
-		updateSceneView();
 	}
 
 	~Light() = default;
@@ -88,15 +84,11 @@ public:
 	{
 		props_.LightPos = glm::vec3(x, y, z);
 		GameObject::setLocalPosition(x, y, z);
-
-		updateSceneView();
 	}
 	void setLocalPosition(vec3 newPos) override
 	{
 		props_.LightPos = newPos;
 		GameObject::setLocalPosition(newPos);
-
-		updateSceneView();
 	}
 
 	void setLocalRotationEuler(vec3 newRot) override
@@ -124,23 +116,17 @@ public:
 	void setLightColor(float r, float g, float b, float a)
 	{
 		this->props_.LightColor = glm::vec4(r, g, b, a);
-
-		updateSceneView();
 	}
 
 	void setLightColor(glm::vec4 lightCol)
 	{
 		this->props_.LightColor = lightCol;
-
-		updateSceneView();
 	}
 
 	void setLightType(LightType type)
 	{
 		this->props_.LightType = convertLightTypeEnum(type);
 		this->type = convertLightTypeToGameObjectType(type);
-
-		updateSceneView();
 	}
 
 private:

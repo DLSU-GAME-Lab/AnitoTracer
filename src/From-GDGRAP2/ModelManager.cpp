@@ -106,12 +106,12 @@ bool ModelManager::AreTransformsDirty() const
 	return std::any_of(this->sceneGraph.begin(), this->sceneGraph.end(),
 		[](const GameObjectPtr& obj)
 		{
-			if (obj->IsLocalDirty() || obj->IsWorldDirty()) return true;
-			auto descendants = obj->GetChildrenRecursive();
+			if (obj->isLocalDirty() || obj->isWorldDirty()) return true;
+			auto descendants = obj->getChildrenRecursive();
 			return std::any_of(descendants.begin(), descendants.end(),
 				[](GameObject* descendant)
 				{
-					return descendant->IsLocalDirty() || descendant->IsWorldDirty();
+					return descendant->isLocalDirty() || descendant->isWorldDirty();
 				});
 		});
 }
@@ -587,35 +587,6 @@ void ModelManager::OnActionPressed(Hotkey::Action action)
 	}
 }
 
-GameObject* ModelManager::FindObjectByID(uint32_t id) const
-{
-	auto it = this->tlasInstanceMap.find(id);
-
-	return (it != this->tlasInstanceMap.end()) ? it->second.obj : nullptr;
-}
-
-void ModelManager::ClearTLASInstances()
-{
-	this->tlasInstanceMap.clear();
-}
-
-void ModelManager::RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAccelerationStructureInstanceKHR instance)
-{
-	InstancePair pair{
-		obj,
-		instance
-	};
-
-	auto it = this->tlasInstanceMap.find(objectId);
-
-	if (it != this->tlasInstanceMap.end())
-	{
-		Debug::Log("Warning: TLAS Instance for GameObject with ID " + std::to_string(objectId) + " is already registered in ModelManager TLAS map. Overwriting");
-	}
-
-	this->tlasInstanceMap[objectId] = pair;
-}
-
 std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances() const
 {
 	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
@@ -625,10 +596,10 @@ std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances()
 	{
 		VkAccelerationStructureInstanceKHR updatedInstance = pair.instance;
 
-		if (pair.obj->WasDirty())
+		if (pair.obj->wasDirty())
 		{
 			const glm::mat4& worldMat = pair.obj->getWorldMatrix();
-			pair.obj->ClearDirtyFlag();
+			pair.obj->clearDirtyFlag();
 
 			// Direct memory copy of transposed matrix
 			float* dst = &updatedInstance.transform.matrix[0][0];
@@ -732,53 +703,6 @@ void ModelManager::RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAc
 	}
 
 	this->tlasInstanceMap[objectId] = pair;
-}
-
-std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances(Vulkan::CommandPool& commandPool)
-{
-	//std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
-	//this->dirtyInstanceIds.clear();
-	//tlasInstances.reserve(this->tlasInstanceMap.size());
-
-	//for (const auto& [id, pair] : this->tlasInstanceMap)
-	//{
-	//	VkAccelerationStructureInstanceKHR updatedInstance = pair.instance;
-	//	if (pair.obj->wasDirty())
-	//	{
-	//		dirtyInstanceIds.push_back(id);
-	//		const glm::mat4& worldMat = pair.obj->getWorldMatrix();
-	//		pair.obj->clearDirtyFlag();
-
-	//		// Direct memory copy of transposed matrix
-	//		float* dst = &updatedInstance.transform.matrix[0][0];
-	//		const float* src = glm::value_ptr(worldMat);
-
-	//		// Manual transpose during copy
-	//		for (int col = 0; col < 3; ++col) {
-	//			for (int row = 0; row < 4; ++row) {
-	//				dst[col * 4 + row] = src[row * 4 + col];
-	//			}
-	//		}
-	//	}
-	//	tlasInstances.push_back(updatedInstance);
-	//}
-
-	//std::vector<uint32_t> dirtyBufferData;
-	//dirtyBufferData.reserve(dirtyInstanceIds.size() + 1);
-	//dirtyBufferData.push_back(static_cast<uint32_t>(dirtyInstanceIds.size()));
-	//dirtyBufferData.insert(dirtyBufferData.end(),
-	//	dirtyInstanceIds.begin(),
-	//	dirtyInstanceIds.end());
-
-	//std::vector<uint32_t> dirtyCountData = { static_cast<uint32_t>(dirtyInstanceIds.size()) };
-
-	//Vulkan::BufferUtil::UpdateDeviceBuffer(
-	//	commandPool,
-	//	dirtyBufferData,
-	//	this->dirtyInstancesBuffer
-	//);
-
-	return std::vector<VkAccelerationStructureInstanceKHR>{};
 }
 
 VkBuffer ModelManager::GetDirtyInstancesBuffer() const

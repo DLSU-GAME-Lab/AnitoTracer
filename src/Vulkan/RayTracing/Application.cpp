@@ -127,7 +127,7 @@ void Application::UpdateAccelerationStructures()
 
  	const auto timer = std::chrono::high_resolution_clock::now();
 
-	SingleTimeCommands::Submit(CommandPool(), [this](VkCommandBuffer commandBuffer)
+	SingleTimeCommands::Submit(GraphicsCommandPool(), [this](VkCommandBuffer commandBuffer)
 		{
 			UpdateTopLevelStructures(commandBuffer);
 		});
@@ -363,8 +363,6 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 		instanceId++;
 	}
 
-	auto instances = ModelManager::getInstance()->GetTLASInstances();
-
 	// Create and copy instances buffer (do it in a separate one-time synchronous command buffer).
 	BufferUtil::CreateDeviceBuffer(GraphicsCommandPool(), "TLAS Instances", VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, instances, instancesBuffer_, instancesBufferMemory_);
 
@@ -405,7 +403,7 @@ void Application::UpdateTopLevelStructures(VkCommandBuffer commandBuffer)
 
 	if (instances.empty()) return;
 
-	BufferUtil::CopyFromStagingBuffer(CommandPool(), *instancesBuffer_, instances);
+	BufferUtil::CopyFromStagingBuffer(GraphicsCommandPool(), *instancesBuffer_, instances);
 
 	const auto total = GetTotalRequirements(topAs_); 
 

@@ -100,11 +100,6 @@ public:
 
 protected:
     String name;
-    PrimitiveType type;
-
-    bool active = true;
-    bool visible = true;
-    bool pickable = true;
 
     vec3 localPosition = VectorUtils::zeros();
     quat localRotationQuat = glm::quat(1,0,0,0);
@@ -122,11 +117,10 @@ protected:
     PrimitiveType type;
 
 private:
-    bool isActive = true;
-    bool isVisible = true;
-    bool isPickable = true;
 
-    bool wasDirty = true; //TLAS update flag
+    bool active = true;
+    bool visible = true;
+    bool pickable = true;
 
     std::shared_ptr<GameObject> debugCube = nullptr;
 

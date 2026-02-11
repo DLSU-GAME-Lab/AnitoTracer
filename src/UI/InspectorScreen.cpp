@@ -436,15 +436,15 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 		switch (action)
 		{
 		case Move:
-			this->selectedObject->SetLocalPosition(glm::vec3(values[0], values[1], values[2]));
+			this->selectedObject->setLocalPosition(glm::vec3(values[0], values[1], values[2]));
 			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
 			break;
 		case Rotate:
-			this->selectedObject->SetLocalRotation(glm::vec3(values[0], values[1], values[2]));
+			this->selectedObject->setLocalRotationEuler(glm::vec3(values[0], values[1], values[2]));
 			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
 			break;
 		case Scale:
-			this->selectedObject->SetLocalScale(glm::vec3(values[0], values[1], values[2]));
+			this->selectedObject->setLocalScale(glm::vec3(values[0], values[1], values[2]));
 			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_TLAS_UPDATE_REQUIRED);
 			break;
 		default:

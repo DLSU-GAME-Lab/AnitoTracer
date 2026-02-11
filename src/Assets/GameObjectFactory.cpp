@@ -116,20 +116,3 @@ GameObjectFactory::LightPtr GameObjectFactory::CreateLight(Light::LightType type
     auto light = std::make_unique<Light>(name, type);
     return std::move(light);
 }
-
-uint32_t GameObjectFactory::AcquireId()
-{
-    if (!freeIds.empty())
-    {
-        uint32_t id = freeIds.back();
-        freeIds.pop_back();
-        return id;
-    }
-
-    return nextId++;
-}
-
-void GameObjectFactory::ReleaseId(uint32_t id)
-{
-    freeIds.push_back(id);
-}
