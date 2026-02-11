@@ -47,6 +47,15 @@ set(src_files_obb
 	OBB/Ray.hpp
 )
 
+set(src_files_compute
+	Compute/WorkLoaderPipeline.hpp
+	Compute/WorkLoaderPipeline.cpp
+	Compute/ComputePipelineLayout.hpp
+	Compute/ComputePipelineLayout.cpp
+	Compute/ComputePass.hpp
+	Compute/ComputePass.cpp
+)
+
 set(src_files_camerasystem
 	Engine/CameraSystem/Camera.cpp
 	Engine/CameraSystem/Camera.h
@@ -138,7 +147,7 @@ set(src_files_vulkan
 	Vulkan/GraphicsPipeline.hpp
 	Vulkan/Image.cpp
 	Vulkan/Image.hpp	
-	Vulkan/ImageMemoryBarrier.hpp	
+	Vulkan/MemoryBarrierUtil.hpp	
 	Vulkan/ImageView.cpp
 	Vulkan/ImageView.hpp	
 	Vulkan/Instance.cpp
@@ -325,6 +334,7 @@ set(src_files_imgui
 
 
 source_group("Assets" FILES ${src_files_assets})
+source_group("Compute" FILES ${src_files_compute})
 source_group("OBB" FILES ${src_files_obb})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
@@ -345,7 +355,7 @@ source_group("ImGui" FILES ${src_files_imgui})
 add_executable(${exe_name} 
 	${src_files_assets}
 	${src_files_obb}
-
+	${src_files_compute}
 	${src_files_camerasystem} 
 	${src_files_lightsystem}
 	${stc_files_hotkeysystem}

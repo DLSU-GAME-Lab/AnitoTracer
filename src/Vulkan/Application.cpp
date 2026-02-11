@@ -61,7 +61,7 @@ Application::~Application()
 {
 	Application::DeleteSwapChain();
 
-	commandPool_.reset();
+	graphicsCommandPool_.reset();
 	device_.reset();
 	surface_.reset();
 	debugUtilsMessenger_.reset();
@@ -139,7 +139,8 @@ void Application::SetPhysicalDevice(
 	void* nextDeviceFeatures)
 {
 	device_.reset(new class Device(physicalDevice, *surface_, requiredExtensions, deviceFeatures, nextDeviceFeatures));
-	commandPool_.reset(new class CommandPool(*device_, device_->GraphicsFamilyIndex(), true));
+	graphicsCommandPool_.reset(new class CommandPool(*device_, device_->GraphicsFamilyIndex(), true));
+	computeCommandPool_.reset(new class CommandPool(*device_, device_->ComputeFamilyIndex(), true));
 
 	Application::CreateProfiler();
 }
@@ -157,7 +158,7 @@ void Application::CreateSwapChain()
 	}
 
 	swapChain_.reset(new class SwapChain(*device_, presentMode_));
-	depthBuffer_.reset(new class DepthBuffer(*commandPool_, swapChain_->Extent()));
+	depthBuffer_.reset(new class DepthBuffer(*graphicsCommandPool_, swapChain_->Extent()));
 
 	for (size_t i = 0; i != swapChain_->ImageViews().size(); ++i)
 	{
@@ -175,7 +176,7 @@ void Application::CreateSwapChain()
 		swapChainFramebuffers_.emplace_back(*imageView, graphicsPipeline_->RenderPass());
 	}
 
-	commandBuffers_.reset(new CommandBuffers(*commandPool_, static_cast<uint32_t>(swapChainFramebuffers_.size())));
+	commandBuffers_.reset(new CommandBuffers(*graphicsCommandPool_, static_cast<uint32_t>(swapChainFramebuffers_.size())));
 }
 
 void Application::DeleteSwapChain()

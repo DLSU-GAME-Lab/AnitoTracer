@@ -17,11 +17,9 @@
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/GlobalConfig.h"
 #include "From-GDGRAP2/ModelManager.h"
-#include "From-GDGRAP2/TransformHistory.h"
 #include "UI/UIManager.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
-#include "imgui_impl_vulkan.h"
 #include "Assets/Ray.hpp"
 
 #include "Engine/CameraSystem/CameraManager.h"
@@ -33,11 +31,8 @@
 #include "Vulkan/PipelineLayout.hpp"
 
 #include "StateManagement/CommandManager.hpp"
-#include "Assets/GameObjectFactory.hpp"
 #include "Assets/ModelLibrary.hpp"
 #include "RayPicker/RayPickerUBO.hpp"
-#include "Vulkan/Window.hpp"
-#include "Vulkan/RayTracing/TopLevelAccelerationStructure.hpp" 
 
 namespace
 {
@@ -109,6 +104,8 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.HasSky = init.HasSky;
 	ubo.ShowHeatmap = userSettings_.ShowHeatmap;
 	ubo.HeatmapScale = userSettings_.HeatmapScale;
+	ubo.ImageWidth = extent.width;
+	ubo.ImageHeight = extent.height;
 
 	return ubo;
 }
@@ -175,7 +172,7 @@ void RayTracer::CreateSwapChain()
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
 	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
 	//UIManager::reset();
-	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
+ 	UIManager::initialize(&GraphicsCommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
 	UIManager::getInstance()->SetProfiler(profiler_.get());
 
 	if (!initializedUI)
@@ -263,8 +260,8 @@ void RayTracer::DrawFrame()
 	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
 	totalNumberOfSamples_ += numberOfSamples_;
 
-	rayScene_->Update(CommandPool());
-	
+	rayScene_->Update(GraphicsCommandPool());
+	computePass_->ProcessComputePass(currentFrame_);
 	ExecuteScheduledPick();
 	Application::DrawFrame();
 }
@@ -461,7 +458,7 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 
 void RayTracer::LoadScene(const uint32_t sceneIndex)
 {
-	auto& commandPool = CommandPool();
+	auto& commandPool = GraphicsCommandPool();
 
 	auto [objects, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
 
@@ -489,7 +486,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 		lights.push_back(Assets::LightProperties(glm::vec3(2600, 20, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 0.4, 0.5, 1000000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
-	scene_.reset(new Assets::Scene(CommandPool(), std::move(objects), std::move(textures), std::move(lights)));
+	scene_.reset(new Assets::Scene(GraphicsCommandPool(), std::move(objects), std::move(textures), std::move(lights)));
 	scene_->SetSkybox(
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
@@ -497,7 +494,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 	//std::cout << "Skybox ImageView: " << scene_->SkyboxImageView() << std::endl;
 	//std::cout << "Skybox Sampler: " << scene_->SkyboxSampler() << std::endl;
 
-	rayScene_.reset(new Assets::RayScene(CommandPool(), userSettings_));
+	rayScene_.reset(new Assets::RayScene(GraphicsCommandPool(), userSettings_));
 	sceneIndex_ = sceneIndex;
 
 	userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
@@ -531,12 +528,12 @@ void RayTracer::ReloadModifiedScene()
 		lights.push_back(Assets::LightProperties(glm::vec3(1000, 500, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 1.0, 1.0, 1000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
-	scene_.reset(new Assets::Scene(CommandPool(), std::move(objects), std::move(textures), std::move(lights)));
+	scene_.reset(new Assets::Scene(GraphicsCommandPool(), std::move(objects), std::move(textures), std::move(lights)));
 	scene_->SetSkybox(
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
 	);
-	rayScene_.reset(new Assets::RayScene(CommandPool(), userSettings_));
+	rayScene_.reset(new Assets::RayScene(GraphicsCommandPool(), userSettings_));
 
 	// userSettings_.FieldOfView = cameraInitialSate_.FieldOfView;
 	// userSettings_.Aperture = cameraInitialSate_.Aperture;
@@ -618,7 +615,7 @@ void RayTracer::CheckFramebufferSize() const
 
 void RayTracer::ResetPicker()
 {
-	rayPicker_.reset(new class RayPicker(*deviceProcedures_, SwapChain(), CommandPool(), topAs_[0], RayPickerUniformBuffers(), GetScene(), *rayTracingProperties_));
+	rayPicker_.reset(new class RayPicker(*deviceProcedures_, SwapChain(), GraphicsCommandPool(), topAs_[0], RayPickerUniformBuffers(), GetScene(), *rayTracingProperties_));
 }
 
 void RayTracer::SchedulePick(const glm::vec2& mousePos)

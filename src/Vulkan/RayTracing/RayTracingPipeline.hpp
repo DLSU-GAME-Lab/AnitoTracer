@@ -38,7 +38,9 @@ namespace Vulkan::RayTracing
 			const ImageView& outputImageView,
 			const std::vector<Assets::UniformBuffer>& uniformBuffers,
 			const Assets::Scene& scene,
-			const Assets::RayScene& rayScene);
+			const Assets::RayScene& rayScene,
+			VkBuffer workQueuebuffer,
+			VkBuffer workQueueCountBuffer);
 		~RayTracingPipeline();
 
 		uint32_t RayGenShaderIndex() const { return rayGenIndex_; }

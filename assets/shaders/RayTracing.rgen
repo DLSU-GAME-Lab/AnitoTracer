@@ -19,144 +19,103 @@ layout(binding = 12) buffer RayCounter { uint rayCounter; };
 layout(binding = 13) buffer RayVertexBuffer { RayVertex Vertices[]; };
 layout(binding = 14) buffer RayInfoBuffer { RayInfo info[]; };
 
+
+struct PixelWorkItem {
+    uint x;
+    uint y;
+};
+
+
+layout(binding = 15) buffer WorkQueueBuffer { PixelWorkItem workQueue[]; };
+layout(binding = 16) buffer WorkQueueCountBuffer { uint workCount; };
+
+
 layout(location = 0) rayPayloadEXT RayPayload Ray;
 
-void main() 
+uint hash_u32(uint x)
 {
-	const uint64_t clock = Camera.ShowHeatmap ? clockARB() : 0;
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x864ca68bu;
+    x ^= x >> 16;
+    return x;
+}
 
-	// Initialise separate random seeds for the pixel and the rays.
-	// - pixel: we want the same random seed for each pixel to get a homogeneous anti-aliasing.
-	// - ray: we want a noisy random seed, different for each pixel.
-	uint pixelRandomSeed = Camera.RandomSeed;
-	Ray.RandomSeed = InitRandomSeed(InitRandomSeed(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y), Camera.TotalNumberOfSamples);
+void main()
+{
+    uint workIndex = gl_LaunchIDEXT.x;
+    if (workIndex >= workCount) return;
 
-	vec3 pixelColor = vec3(0);
+    PixelWorkItem item = workQueue[workIndex];
+    uvec2 pix = uvec2(item.x, item.y);
 
-	// Count the rays and set the index
-	uint rayIndex = -1;
+    const uint64_t clock = Camera.ShowHeatmap ? clockARB() : 0;
 
-	uint i = 0;
-	uint rayOffset = Camera.NumberOfBounces + 1;
+    uint pixelId = pix.x + pix.y * Camera.ImageWidth;
+    uint pixelRandomSeed = Camera.RandomSeed ^ hash_u32(pixelId);
+    uint workSalt = hash_u32(workIndex ^ Camera.TotalNumberOfSamples);
 
+    Ray.RandomSeed = InitRandomSeed(hash_u32(pixelId ^ workSalt), Camera.TotalNumberOfSamples);
 
-	// Accumulate all the rays for this pixels.
-	for (uint s = 0; s < Camera.NumberOfSamples; ++s)
-	{
-		//if (Camera.NumberOfSamples != Camera.TotalNumberOfSamples) break;
-		const vec2 pixel = vec2(gl_LaunchIDEXT.x + RandomFloat(pixelRandomSeed), gl_LaunchIDEXT.y + RandomFloat(pixelRandomSeed));
-		const vec2 uv = (pixel / gl_LaunchSizeEXT.xy) * 2.0 - 1.0;
+    vec3 pixelColor = vec3(0);
 
-		vec2 offset = Camera.Aperture/2 * RandomInUnitDisk(Ray.RandomSeed);
-		vec4 origin = Camera.ModelViewInverse * vec4(offset, 0, 1);
-		vec4 target = Camera.ProjectionInverse * (vec4(uv.x, uv.y, 1, 1));
-		vec4 direction = Camera.ModelViewInverse * vec4(normalize(target.xyz * Camera.FocusDistance - vec3(offset, 0)), 0);
-		vec3 rayColor = vec3(1);
+    uint rayIndex = uint(-1);
+    uint i = 0;
+    uint rayOffset = Camera.NumberOfBounces + 1;
 
-		// Ray scatters are handled in this loop. There are no recursive traceRayEXT() calls in other shaders.
-		for (uint b = 0; b <= Camera.NumberOfBounces; ++b)
-		{
-			const float tMin = 0.001;
-			const float tMax = 10000.0;
+    for (uint s = 0; s < Camera.NumberOfSamples; ++s)
+    {
+        vec2 pixel = vec2(pix.x + RandomFloat(pixelRandomSeed),
+                          pix.y + RandomFloat(pixelRandomSeed));
 
-			// If we've exceeded the ray bounce limit without hitting a light source, no light is gathered.
-			// Light emitting materials never scatter in this implementation, allowing us to make this logical shortcut.
-			if (b == Camera.NumberOfBounces) 
-			{
-				rayColor = vec3(0, 0, 0);
-				break;
-			}
+        vec2 screenSize = vec2(Camera.ImageWidth, Camera.ImageHeight);
+        vec2 uv = (pixel / screenSize) * 2.0 - 1.0;
 
-			traceRayEXT(
-				Scene, gl_RayFlagsNoneEXT, 0xff, 
-				0 /*sbtRecordOffset*/, 0 /*sbtRecordStride*/, 0 /*missIndex*/, 
-				origin.xyz, tMin, direction.xyz, tMax, 0 /*payload*/);
+        vec2 offset = Camera.Aperture / 2 * RandomInUnitDisk(Ray.RandomSeed);
+        vec4 origin = Camera.ModelViewInverse * vec4(offset, 0, 1);
+        vec4 target = Camera.ProjectionInverse * vec4(uv.x, uv.y, 1, 1);
+        vec4 direction = Camera.ModelViewInverse * vec4(normalize(target.xyz * Camera.FocusDistance - vec3(offset, 0)), 0);
 
-			const vec3 hitColor = Ray.ColorAndDistance.rgb;
-			const float t = Ray.ColorAndDistance.w;
-			const bool isScattered = Ray.ScatterDirection.w > 0;
+        vec3 rayColor = vec3(1);
 
-			rayColor *= hitColor;
+        for (uint b = 0; b <= Camera.NumberOfBounces; ++b)
+        {
+            if (b == Camera.NumberOfBounces) { rayColor = vec3(0); break; }
 
-			// Trace missed, or end of trace.
-			if (t < 0 || !isScattered)
-			{				
-				break;
-			}
+            traceRayEXT(Scene, gl_RayFlagsNoneEXT, 0xff,
+                        0, 0, 0,
+                        origin.xyz, 0.001, direction.xyz, 10000.0, 0);
 
-			// Only check the first sample for each pixel
-			// If first bounce and did not miss, increment ray counter and store ray info
-			if (rayIndex == -1 && s == 0 && b == 0)
-			{
-				// Atomic Increment, implemented with busy-waiting
-				// TODO: isolate this into a function for reusability.
-				uint oldCounter, assumedCounter;
-				do
-				{
-					assumedCounter = rayCounter;
+            vec3 hitColor = Ray.ColorAndDistance.rgb;
+            float t = Ray.ColorAndDistance.w;
+            bool isScattered = (Ray.ScatterDirection.w > 0);
 
-					if (assumedCounter >= Camera.MaxRays)
-						break;
+            rayColor *= hitColor;
 
-					oldCounter = atomicCompSwap(rayCounter, assumedCounter, assumedCounter + 1);
+            if (t < 0 || !isScattered) break;
 
-					if (oldCounter == assumedCounter)
-					{
-				        rayIndex = assumedCounter;
-				    }
-				} while (oldCounter != assumedCounter);
+            origin = origin + t * direction;
+            direction = vec4(Ray.ScatterDirection.xyz, 0);
+        }
 
-				if (rayIndex != -1) {
-					RayVertex vertex;
-					vertex.Position = origin.xyz;
-					vertex.Color = vec4(1.0);
+        pixelColor += rayColor;
+    }
 
-					Vertices[rayIndex * rayOffset] = vertex;
-					Vertices[rayIndex * rayOffset] = vertex;
-					i++;
+    bool accumulate = Camera.NumberOfSamples != Camera.TotalNumberOfSamples;
+    vec3 accumulatedColor = (accumulate ? imageLoad(AccumulationImage, ivec2(pix)) : vec4(0)).rgb + pixelColor;
 
-					info[rayIndex].offset = rayOffset;
-					info[rayIndex].count  = i;
-				}
-			}
+    pixelColor = accumulatedColor / Camera.TotalNumberOfSamples;
+    pixelColor = sqrt(pixelColor);
 
-			// Trace hit.
-			origin = origin + t * direction;
-			direction = vec4(Ray.ScatterDirection.xyz, 0);
+    if (Camera.ShowHeatmap)
+    {
+        uint64_t dt = clockARB() - clock;
+        float heatmapScale = 1000000.0f * Camera.HeatmapScale * Camera.HeatmapScale;
+        float dtScaled = clamp(float(dt) / heatmapScale, 0.0f, 1.0f);
+        pixelColor = heatmap(dtScaled);
+    }
 
-			if (rayIndex != -1 && s == 0)
-			{
-				RayVertex vertex;
-				vertex.Position = origin.xyz;
-				vertex.Color = vec4(rayColor, 1.0);
-				Vertices[rayIndex * rayOffset + i] = vertex;
-				i++;
-
-				info[rayIndex].offset = rayOffset;
-				info[rayIndex].count  = i;
-			}
-		}
-
-		pixelColor += rayColor;
-	}
-
-	const bool accumulate = Camera.NumberOfSamples != Camera.TotalNumberOfSamples;
-	const vec3 accumulatedColor = (accumulate ? imageLoad(AccumulationImage, ivec2(gl_LaunchIDEXT.xy)) : vec4(0)).rgb + pixelColor;
-
-	pixelColor = accumulatedColor / Camera.TotalNumberOfSamples;
-
-	// Apply raytracing-in-one-weekend gamma correction.
-	pixelColor = sqrt(pixelColor);
-
-	if (Camera.ShowHeatmap)
-	{
-		const uint64_t deltaTime = clockARB() - clock;
-		const float heatmapScale = 1000000.0f * Camera.HeatmapScale * Camera.HeatmapScale;
-		const float deltaTimeScaled = clamp(float(deltaTime) / heatmapScale, 0.0f, 1.0f);
-
-		pixelColor = heatmap(deltaTimeScaled);
-	}
-
-	imageStore(AccumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(accumulatedColor, 0));
-    imageStore(OutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(pixelColor, 0));
+    imageStore(AccumulationImage, ivec2(pix), vec4(accumulatedColor, 0));
+    imageStore(OutputImage, ivec2(pix), vec4(pixelColor, 0));
 }

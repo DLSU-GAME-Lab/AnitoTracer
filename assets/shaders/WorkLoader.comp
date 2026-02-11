@@ -1,0 +1,63 @@
+#version 460
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(push_constant) uniform PC
+{
+    uint  width;
+    uint  height;
+    float raysPerPixel;   // lambda (can be fractional)
+    uint  frameSeed;
+    uint  maxQueueItems; 
+} pc;
+
+struct PixelWorkItem {
+    uint x;
+    uint y;
+};
+
+layout(set=0, binding=0, std430) buffer WorkQueueBuffer { PixelWorkItem workQueue[]; };
+layout(set=0, binding=1, std430) buffer WorkCountBuffer { uint workCount; };
+
+uint hash_u32(uint x)
+{
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x864ca68bu;
+    x ^= x >> 16;
+    return x;
+}
+
+float rand01(uvec2 pix, uint seed)
+{
+    uint id = pix.x + pix.y * pc.width;
+    uint h  = hash_u32(id ^ seed);
+    return (h >> 8) * (1.0 / 16777216.0);
+}
+
+void main()
+{
+    uvec2 pix = gl_GlobalInvocationID.xy;
+    if (pix.x >= pc.width || pix.y >= pc.height)
+        return;
+
+     float lambda = pc.raysPerPixel;
+
+    uint base = uint(floor(lambda));
+    float frac = lambda - float(base);
+
+    uint r = base + (rand01(pix, pc.frameSeed) < frac ? 1u : 0u);
+
+    if (r == 0u) return;
+
+    uint start = atomicAdd(workCount, r);
+
+    for (uint i = 0u; i < r; ++i)
+    {
+        uint slot = start + i;
+        if (slot >= pc.maxQueueItems) break;
+        workQueue[slot].x = pix.x;
+        workQueue[slot].y = pix.y;
+    }
+
+}

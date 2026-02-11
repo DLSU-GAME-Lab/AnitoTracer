@@ -2,6 +2,8 @@
 
 #include "Vulkan/Application.hpp"
 #include "RayTracingProperties.hpp"
+#include "Compute/ComputePass.hpp"
+#include "Vulkan/RayTracing/TopLevelAccelerationStructure.hpp"
 
 namespace Vulkan
 {
@@ -69,6 +71,8 @@ namespace Vulkan::RayTracing
 		
 		std::unique_ptr<class RayTracingPipeline> rayTracingPipeline_;
 		std::unique_ptr<class ShaderBindingTable> shaderBindingTable_;
+
+		std::unique_ptr<class ComputePass> computePass_;
 	};
 
 }

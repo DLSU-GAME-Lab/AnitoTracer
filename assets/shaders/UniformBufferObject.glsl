@@ -15,6 +15,8 @@ struct UniformBufferObject
 	uint MaxRays;
 	bool HasSky;
 	bool ShowHeatmap;
+	uint ImageWidth;
+	uint ImageHeight;
 };
 
 struct PushConstantModel {

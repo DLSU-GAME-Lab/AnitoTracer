@@ -10,7 +10,7 @@
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/BufferUtil.hpp"
 #include "Vulkan/Image.hpp"
-#include "Vulkan/ImageMemoryBarrier.hpp"
+#include "Vulkan/MemoryBarrierUtil.hpp"
 #include "Vulkan/ImageView.hpp"
 #include "Vulkan/PipelineLayout.hpp"
 #include "Vulkan/SingleTimeCommands.hpp"
@@ -106,7 +106,7 @@ void Application::CreateAccelerationStructures()
 {
 	const auto timer = std::chrono::high_resolution_clock::now();
 
-	SingleTimeCommands::Submit(CommandPool(), [this](VkCommandBuffer commandBuffer)
+	SingleTimeCommands::Submit(GraphicsCommandPool(), [this](VkCommandBuffer commandBuffer)
 	{
 		CreateBottomLevelStructures(commandBuffer);
 		CreateTopLevelStructures(commandBuffer);
@@ -144,7 +144,19 @@ void Application::CreateSwapChain()
 
 	CreateOutputImage();
 
-	rayTracingPipeline_.reset(new RayTracingPipeline(*deviceProcedures_, SwapChain(), topAs_[0], *accumulationImageView_, *outputImageView_, UniformBuffers(), GetScene(), GetRayScene()));
+	computePass_.reset(new ComputePass(&Device(), SwapChain(), ComputeCommandPool()));
+	rayTracingPipeline_.reset(new RayTracingPipeline(
+		*deviceProcedures_, 
+		SwapChain(), 
+		topAs_[0], 
+		*accumulationImageView_, 
+		*outputImageView_, 
+		UniformBuffers(), 
+		GetScene(), 
+		GetRayScene(),
+		computePass_->getWorkQueueBuffer(),
+		computePass_->getWorkQueueCountBuffer()
+	));
 
 	const std::vector<ShaderBindingTable::Entry> rayGenPrograms = { {rayTracingPipeline_->RayGenShaderIndex(), {}} };
 	const std::vector<ShaderBindingTable::Entry> missPrograms = { {rayTracingPipeline_->MissShaderIndex(), {}} };
@@ -212,7 +224,7 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	// Execute ray tracing shaders.
 	deviceProcedures_->vkCmdTraceRaysKHR(commandBuffer,
 		&raygenShaderBindingTable, &missShaderBindingTable, &hitShaderBindingTable, &callableShaderBindingTable,
-		extent.width, extent.height, 1);
+		extent.width * extent.height, 1, 1);
 
 	// Acquire output image and swap-chain image for copying.
 	ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 
@@ -332,7 +344,7 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 	}
 
 	// Create and copy instances buffer (do it in a separate one-time synchronous command buffer).
-	BufferUtil::CreateDeviceBuffer(CommandPool(), "TLAS Instances", VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, instances, instancesBuffer_, instancesBufferMemory_);
+	BufferUtil::CreateDeviceBuffer(GraphicsCommandPool(), "TLAS Instances", VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, instances, instancesBuffer_, instancesBufferMemory_);
 
 	// Memory barrier for the bottom level acceleration structure builds.
 	AccelerationStructure::MemoryBarrier(commandBuffer);

@@ -8,6 +8,7 @@
 #include "UI/UIConfig.hpp"
 #include "RayPicker/RayPicker.hpp"
 
+
 namespace Vulkan {
 	class RayVisualizationPipeline;
 }
@@ -103,5 +104,6 @@ private:
 
 	std::unique_ptr<class Vulkan::RayVisualizationPipeline> rayVisualizationPipeline_;
 	std::unique_ptr<class RayPicker> rayPicker_;
+
 	glm::vec2 scheduledMousePos;
 };

@@ -49,7 +49,8 @@ namespace Vulkan
 		Application(const WindowConfig& windowConfig, VkPresentModeKHR presentMode, bool enableValidationLayers);
 
 		const class Device& Device() const { return *device_; }
-		class CommandPool& CommandPool() { return *commandPool_; }
+		class CommandPool& GraphicsCommandPool() { return *graphicsCommandPool_; }
+		class CommandPool& ComputeCommandPool() { return *computeCommandPool_; }
 		const class DepthBuffer& DepthBuffer() const { return *depthBuffer_; }
 		const std::vector<Assets::UniformBuffer>& UniformBuffers() const { return uniformBuffers_; }
 		const std::vector<RayPickerUniformBuffer>& RayPickerUniformBuffers() const { return rayPickerUniformBuffers; }
@@ -102,7 +103,8 @@ namespace Vulkan
 		std::unique_ptr<class DepthBuffer> depthBuffer_;
 		std::unique_ptr<class GraphicsPipeline> graphicsPipeline_;
 		std::vector<class FrameBuffer> swapChainFramebuffers_;
-		std::unique_ptr<class CommandPool> commandPool_;
+		std::unique_ptr<class CommandPool> graphicsCommandPool_;
+		std::unique_ptr<class CommandPool> computeCommandPool_;
 		std::unique_ptr<class CommandBuffers> commandBuffers_;
 		std::vector<class Semaphore> imageAvailableSemaphores_;
 		std::vector<class Semaphore> renderFinishedSemaphores_;
