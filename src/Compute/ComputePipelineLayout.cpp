@@ -1,16 +1,23 @@
 #include "ComputePipelineLayout.hpp"
 #include "Vulkan/DescriptorSetLayout.hpp"
-#include "ComputePass.hpp"
 #include "Vulkan/Device.hpp"
 
 ComputePipelineLayout::ComputePipelineLayout(const Vulkan::Device& device, const Vulkan::DescriptorSetLayout& descriptorSetLayout) : device_(device)
 {
 	VkDescriptorSetLayout descriptorSetLayouts[] = { descriptorSetLayout.Handle() };
 
+	struct GenericPC
+	{
+		uint32_t width;
+		uint32_t height;
+		float probability;
+		uint32_t frameSeed;
+	};
+
 	VkPushConstantRange pushConstantRange = {};
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(PushConstantsWorkLoader);
+	pushConstantRange.size = sizeof(GenericPC);
 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

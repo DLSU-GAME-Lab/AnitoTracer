@@ -5,9 +5,8 @@ layout(push_constant) uniform PC
 {
     uint  width;
     uint  height;
-    float raysPerPixel;   // lambda (can be fractional)
-    uint  frameSeed;
-    uint  maxQueueItems; 
+    float raysPerPixel;  
+    uint  frameSeed; 
 } pc;
 
 struct PixelWorkItem {
@@ -52,10 +51,12 @@ void main()
 
     uint start = atomicAdd(workCount, r);
 
+    uint N = pc.width * pc.height;
+
     for (uint i = 0u; i < r; ++i)
     {
         uint slot = start + i;
-        if (slot >= pc.maxQueueItems) break;
+        if (slot >= N) break;
         workQueue[slot].x = pix.x;
         workQueue[slot].y = pix.y;
     }

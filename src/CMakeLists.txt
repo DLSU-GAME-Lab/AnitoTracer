@@ -48,8 +48,8 @@ set(src_files_obb
 )
 
 set(src_files_compute
-	Compute/WorkLoaderPipeline.hpp
-	Compute/WorkLoaderPipeline.cpp
+	Compute/ComputePipeline.hpp
+	Compute/ComputePipeline.cpp
 	Compute/ComputePipelineLayout.hpp
 	Compute/ComputePipelineLayout.cpp
 	Compute/ComputePass.hpp

@@ -1,6 +1,6 @@
 #include "ComputePass.hpp"
 #include "ComputePipelineLayout.hpp"
-#include "WorkLoaderPipeline.hpp"
+#include "ComputePipeline.hpp"
 #include "Vulkan/SwapChain.hpp"
 #include "Vulkan/MemoryBarrierUtil.hpp"
 #include "Vulkan/BufferUtil.hpp"
@@ -10,6 +10,7 @@
 #include <vulkan/vulkan.h>
 #include <limits>
 #include <From-GDGRAP2/Debug.h>
+#include <Utilities/FileUtils.h>
 
 namespace
 {
@@ -54,10 +55,11 @@ ComputePass::ComputePass(const Vulkan::Device* device,
 
     commandBuffers = std::make_unique<Vulkan::CommandBuffers>(commandPool, numberOfFrames);
 
-    workLoaderPipeline = std::make_unique<WorkLoaderPipeline>(*device_,
-        workQueueBuffer.buffer->Handle(),
-        workQueueCountBuffer.buffer->Handle(),
-        numberOfFrames);
+    // init pipelines
+	computePipeline = std::make_unique<ComputePipeline>(*device_, numberOfFrames);
+
+	// 0 = work loader pass
+	computePipeline->CreatePipeline(FileUtils::getAssetsFolderPath().generic_string() + "/shaders/WorkLoader.comp.spv");
 
     inFlightFences.reserve(numberOfFrames);
     for (uint32_t i = 0; i < numberOfFrames; ++i)
@@ -68,7 +70,7 @@ ComputePass::ComputePass(const Vulkan::Device* device,
 
 ComputePass::~ComputePass()
 {
-    workLoaderPipeline.reset();
+    computePipeline.reset();
     commandBuffers.reset();
     scratchBuffer.memory.reset();
     scratchBuffer.buffer.reset();
@@ -156,23 +158,26 @@ void ComputePass::RecordLoadWorkPass(VkCommandBuffer cmd, uint32_t frameIndex)
         queueRanges
     );
 
-    // Bind pipeline + descriptors
-    VkDescriptorSet ds = workLoaderPipeline->DescriptorSet(frameIndex);
+	const std::vector<Vulkan::Buffer*> buffers = { workQueueBuffer.buffer.get(), workQueueCountBuffer.buffer.get() };
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, workLoaderPipeline->Handle());
+	computePipeline->UpdateDescriptorSet(buffers, frameIndex);
+    VkDescriptorSet ds = computePipeline->DescriptorSet(frameIndex);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->GetPipeline(0));
     vkCmdBindDescriptorSets(
         cmd,
         VK_PIPELINE_BIND_POINT_COMPUTE,
-        workLoaderPipeline->PipelineLayout().Handle(),
+        computePipeline->PipelineLayout().Handle(),
         0, 1, &ds,
         0, nullptr
     );
 
     // Push constants
-    const PushConstantsWorkLoader pc{ width, height, 1.0f, frameIndex, pixelCount };
+    const PushConstantsWorkLoader pc{ width, height, 1.0f, frameIndex };
+
     vkCmdPushConstants(
         cmd,
-        workLoaderPipeline->PipelineLayout().Handle(),
+        computePipeline->PipelineLayout().Handle(),
         VK_SHADER_STAGE_COMPUTE_BIT,
         0, sizeof(PushConstantsWorkLoader),
         &pc
@@ -190,39 +195,39 @@ void ComputePass::RecordLoadWorkPass(VkCommandBuffer cmd, uint32_t frameIndex)
         queueRanges
     );
 
-	//{   // Readback to CPU for debugging/analysis
- //       // Compute -> Transfer: make shader writes visible for copy
- //       Vulkan::BufferMemoryBarrier::Insert(
- //           cmd,
- //           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
- //           VK_PIPELINE_STAGE_TRANSFER_BIT,
- //           VK_ACCESS_SHADER_WRITE_BIT,
- //           VK_ACCESS_TRANSFER_READ_BIT,
- //           queueRanges
- //       );
+	{   // Readback to CPU for debugging/analysis
+        // Compute -> Transfer: make shader writes visible for copy
+        //Vulkan::BufferMemoryBarrier::Insert(
+        //    cmd,
+        //    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        //    VK_PIPELINE_STAGE_TRANSFER_BIT,
+        //    VK_ACCESS_SHADER_WRITE_BIT,
+        //    VK_ACCESS_TRANSFER_READ_BIT,
+        //    queueRanges
+        //);
 
- //       // Copy work queue to host-visible scratch
- //       VkBufferCopy copy{};
- //       copy.srcOffset = 0;
- //       copy.dstOffset = 0;
- //       copy.size = bytes;
+        //// Copy work queue to host-visible scratch
+        //VkBufferCopy copy{};
+        //copy.srcOffset = 0;
+        //copy.dstOffset = 0;
+        //copy.size = bytes;
 
- //       vkCmdCopyBuffer(cmd,
- //           workQueueBuffer.buffer->Handle(),
- //           scratchBuffer.buffer->Handle(),
- //           1,
- //           &copy);
+        //vkCmdCopyBuffer(cmd,
+        //    workQueueBuffer.buffer->Handle(),
+        //    scratchBuffer.buffer->Handle(),
+        //    1,
+        //    &copy);
 
- //       // Transfer -> Host: make copy visible for CPU readback
- //       Vulkan::BufferMemoryBarrier::Insert(
- //           cmd,
- //           VK_PIPELINE_STAGE_TRANSFER_BIT,
- //           VK_PIPELINE_STAGE_HOST_BIT,
- //           VK_ACCESS_TRANSFER_WRITE_BIT,
- //           VK_ACCESS_HOST_READ_BIT,
- //           scratchBuffer.buffer->Handle(),
- //           0,
- //           bytes
- //       );
- //   }
+        //// Transfer -> Host: make copy visible for CPU readback
+        //Vulkan::BufferMemoryBarrier::Insert(
+        //    cmd,
+        //    VK_PIPELINE_STAGE_TRANSFER_BIT,
+        //    VK_PIPELINE_STAGE_HOST_BIT,
+        //    VK_ACCESS_TRANSFER_WRITE_BIT,
+        //    VK_ACCESS_HOST_READ_BIT,
+        //    scratchBuffer.buffer->Handle(),
+        //    0,
+        //    bytes
+        //);
+    }
 }

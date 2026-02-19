@@ -8,6 +8,7 @@
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/DeviceMemory.hpp"
 #include "Vulkan/CommandBuffers.hpp"
+#include "ComputePipeline.hpp"
 
 namespace Vulkan
 {
@@ -17,15 +18,14 @@ namespace Vulkan
     class Fence;
 }
 
-class WorkLoaderPipeline;
+class ComputePipeline;
 
 struct PushConstantsWorkLoader
 {
     uint32_t width;
     uint32_t height;
-    float raysPerPixel;
-    uint32_t frameSeed;
-    uint32_t maxQueueItems;
+    float probability;
+    uint32_t pixelCount;
 };
 
 struct PixelWorkItem
@@ -73,7 +73,7 @@ private:
     BufferBundle scratchBuffer;
 
     std::unique_ptr<Vulkan::CommandBuffers> commandBuffers;
-    std::unique_ptr<WorkLoaderPipeline> workLoaderPipeline;
+    std::unique_ptr<ComputePipeline> computePipeline;
 
     std::vector<Vulkan::Fence> inFlightFences;
 };
