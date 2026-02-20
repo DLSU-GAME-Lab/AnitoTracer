@@ -1,0 +1,54 @@
+#version 460
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+
+#define WAVE_SIZE 32
+#define WAVE_SIZE_BASE 5u
+
+layout(local_size_x = WAVE_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant) uniform PC
+{
+    uint  treeDepth;
+    uint  numActiveThreads;
+    float fillerFloat;  
+    uint  filler; 
+} pc;
+
+layout(set=0, binding=0, std430) buffer TreeBuffer { uint tree[]; };
+layout(set=0, binding=2, std430) readonly buffer TreeOffsetsBuffer { uint treeOffsets[]; };
+
+shared uint s[WAVE_SIZE];
+
+void main() 
+{
+    uint groupId = gl_WorkGroupID.x;
+    uint lane    = gl_LocalInvocationID.x;
+
+    for (int i = 0; i < pc.treeDepth; i++)
+    {
+        uint globalThreadId = (groupId << WAVE_SIZE_BASE) + lane;
+        uint weight = (globalThreadId < pc.numActiveThreads)
+            ? tree[treeOffsets[i] + globalThreadId]
+            : 0u;
+
+        s[lane] = weight;
+        barrier();
+
+        for (uint offset = 1u; offset < WAVE_SIZE; offset <<= 1u)
+        {
+            uint v = 0u;
+            if (lane >= offset) v = s[lane - offset];
+            barrier();
+            s[lane] += v;
+            barrier();
+        }
+
+        if (lane == (WAVE_SIZE - 1u))
+        {
+            tree[treeOffsets[i + 1u] + groupId] = s[lane]; // total
+        }
+
+        barrier();
+    }
+}

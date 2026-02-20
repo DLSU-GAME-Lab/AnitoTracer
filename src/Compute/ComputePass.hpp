@@ -54,6 +54,7 @@ public:
 private:
     void RecordComputeCommands(VkCommandBuffer cmd, uint32_t frameIndex);
     void RecordLoadWorkPass(VkCommandBuffer cmd, uint32_t frameIndex);
+    void RecordCDFBuildPass(VkCommandBuffer cmd, uint32_t frameIndex);
 
 private:
     struct BufferBundle
@@ -68,8 +69,12 @@ private:
     uint32_t height = 0;
     uint32_t numberOfFrames = 0;
 
+    BufferBundle treeBuffer;
+	BufferBundle treeOffsetBuffer;
+
     BufferBundle workQueueBuffer;
     BufferBundle workQueueCountBuffer;
+
     BufferBundle scratchBuffer;
 
     std::unique_ptr<Vulkan::CommandBuffers> commandBuffers;

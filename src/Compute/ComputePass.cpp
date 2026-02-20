@@ -60,6 +60,7 @@ ComputePass::ComputePass(const Vulkan::Device* device,
 
 	// 0 = work loader pass
 	computePipeline->CreatePipeline(FileUtils::getAssetsFolderPath().generic_string() + "/shaders/WorkLoader.comp.spv");
+	computePipeline->CreatePipeline(FileUtils::getAssetsFolderPath().generic_string() + "/shaders/CDFBuilder.comp.spv");
 
     inFlightFences.reserve(numberOfFrames);
     for (uint32_t i = 0; i < numberOfFrames; ++i)
@@ -126,8 +127,8 @@ void ComputePass::ProcessComputePass(uint32_t frameIndex)
 
 void ComputePass::RecordComputeCommands(VkCommandBuffer cmd, uint32_t frameIndex)
 {
-    // Future-friendly: add more passes here.
-    // RecordSomeOtherComputePass(cmd, frameIndex);
+    // add more passes here.
+	RecordCDFBuildPass(cmd, frameIndex);
     RecordLoadWorkPass(cmd, frameIndex);
 }
 
@@ -231,3 +232,75 @@ void ComputePass::RecordLoadWorkPass(VkCommandBuffer cmd, uint32_t frameIndex)
         //);
     }
 }
+
+void ComputePass::RecordCDFBuildPass(VkCommandBuffer cmd, uint32_t frameIndex)
+{
+    constexpr uint32_t kWaveSize = 32u;
+
+    const uint32_t pixelCount = width * height;
+
+    const std::vector<Vulkan::Buffer*> buffers = {
+        treeBuffer.buffer.get(),
+        treeOffsetBuffer.buffer.get()
+    };
+
+    computePipeline->UpdateDescriptorSet(buffers, frameIndex);
+    VkDescriptorSet ds = computePipeline->DescriptorSet(frameIndex);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->GetPipeline(1));
+    vkCmdBindDescriptorSets(
+        cmd,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        computePipeline->PipelineLayout().Handle(),
+        0, 1, &ds,
+        0, nullptr
+    );
+
+    struct PushConstantsCDF
+    {
+        uint32_t treeDepth;        
+        uint32_t numActiveThreads;
+        float    fillerFloat;
+        uint32_t filler;
+    };
+
+    uint32_t active = pixelCount;
+
+    while (active > 1)
+    {
+        const uint32_t groupCountX = (active + kWaveSize - 1) / kWaveSize;
+
+        PushConstantsCDF pc{
+            1u,
+            active,
+            0.0f,
+            0u
+        };
+
+        vkCmdPushConstants(
+            cmd,
+            computePipeline->PipelineLayout().Handle(),
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            0, sizeof(PushConstantsCDF),
+            &pc
+        );
+
+        vkCmdDispatch(cmd, groupCountX, 1, 1);
+
+        const std::vector<Vulkan::BufferMemoryBarrier::BufferRange> ranges = {
+            { treeBuffer.buffer->Handle(), 0, VK_WHOLE_SIZE }
+        };
+
+        Vulkan::BufferMemoryBarrier::Insert(
+            cmd,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_ACCESS_SHADER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            ranges
+        );
+
+        active = (active + 1) >> 1;
+    }
+}
+
