@@ -1,6 +1,6 @@
 #include "HotkeySystem.hpp"
 #include "InputEvent.hpp"
-#include "From-GDGRAP2/Debug.h"
+#include "UI/UIManager.h"
 
 HotkeySystem* HotkeySystem::sharedInstance = nullptr;
 
@@ -46,6 +46,9 @@ void HotkeySystem::bindMouseHotkey(EventKey event, Action action)
 
 void HotkeySystem::processInputEvent(const InputEvent& event)
 {
+	if (UIManager::getInstance()->wantsToCaptureMouse() || UIManager::getInstance()->wantsToCaptureKeyboard())
+        return;
+
 	EventKey ek{ event.key, event.modifiers };
 
     HotkeySystem::BindingTable bindings;
@@ -121,6 +124,8 @@ void HotkeySystem::setupDefaultBindings()
 
 	bindHotkey({ KeyCode::Z, Modifiers::Ctrl }, Action::Undo);
 	bindHotkey({ KeyCode::Y, Modifiers::Ctrl }, Action::Redo);
+
+	bindHotkey({ KeyCode::K, Modifiers::Ctrl }, Action::ScreenShot);
 }
 
 

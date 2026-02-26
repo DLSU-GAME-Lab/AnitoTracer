@@ -98,6 +98,7 @@ set(src_files_utilities
 	Utilities/StbImage.hpp
 	Utilities/FileUtils.cpp
 	Utilities/FileUtils.h
+	Utilities/Screenshot.hpp
 )
 
 set(src_files_vulkan

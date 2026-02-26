@@ -19,6 +19,8 @@
 #include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
 #include "StateManagement/ConcreteCommands/MenuBarCommands.hpp"
 
+#include "RayTracer.hpp"
+
 using namespace Assets;
 using namespace glm;
 
@@ -71,6 +73,16 @@ void MenuScreen::drawUI()
 				// Walnut::Application::Get().Close();
 				exit(0); // temp exit lol 
 			}
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Export"))
+		{
+			if (ImGui::MenuItem("Screenshot", nullptr, isScreenshotMenuOpen))
+			{
+				isScreenshotMenuOpen = !isScreenshotMenuOpen;
+			}
+
 			ImGui::EndMenu();
 		}
 
@@ -294,6 +306,8 @@ void MenuScreen::drawUI()
 			ShowSaveLayoutAsMenu();
 		if (isLoadLayoutOpen)
 			ShowLoadLayoutAsMenu();
+		if (isScreenshotMenuOpen)
+			ShowScreenshotMenu();
 
 		ImGui::EndMainMenuBar();
 	}
@@ -603,6 +617,36 @@ void MenuScreen::ShowLoadLayoutAsMenu()
 			isLoadLayoutOpen = false;
 		}
 	}
+	ImGui::End();
+}
+
+void MenuScreen::ShowScreenshotMenu()
+{
+	if (ImGui::Begin("Save As...", &isScreenshotMenuOpen))
+	{
+		ImGui::Text("Enter file name:");
+		if (ImGui::InputText("##filename", screenshotName, sizeof(screenshotName), ImGuiInputTextFlags_EnterReturnsTrue))
+		{
+			RayTracer::getInstance()->TakeScreenshot(std::string(screenshotName));
+			isScreenshotMenuOpen = false;
+		}
+
+		ImGui::Spacing();
+
+		if (ImGui::Button("Save As PNG", ImVec2(100, 0)))
+		{
+			RayTracer::getInstance()->TakeScreenshot(std::string(screenshotName));
+			isScreenshotMenuOpen = false;
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Cancel", ImVec2(100, 0)))
+		{
+			isScreenshotMenuOpen = false;
+		}
+	}
+
 	ImGui::End();
 }
 

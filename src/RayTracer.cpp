@@ -21,7 +21,6 @@
 #include "UI/UIManager.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
-#include "imgui_impl_vulkan.h"
 #include "Assets/Ray.hpp"
 
 #include "Engine/CameraSystem/CameraManager.h"
@@ -33,11 +32,10 @@
 #include "Vulkan/PipelineLayout.hpp"
 
 #include "StateManagement/CommandManager.hpp"
-#include "Assets/GameObjectFactory.hpp"
 #include "Assets/ModelLibrary.hpp"
 #include "RayPicker/RayPickerUBO.hpp"
-#include "Vulkan/Window.hpp"
-#include "Vulkan/RayTracing/TopLevelAccelerationStructure.hpp" 
+#include "HotkeySystem/HotkeySystem.hpp"
+#include "Utilities/Screenshot.hpp"
 
 namespace
 {
@@ -59,6 +57,8 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SCENE_LOADED, this);
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MARK_SCENE_DIRTY, this);
 
+	HotkeySystem::getInstance()->addListener(this);
+
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
@@ -73,6 +73,7 @@ RayTracer::~RayTracer()
 
 	scene_.reset();
 	rayScene_.reset();
+	HotkeySystem::getInstance()->removeListener(this);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
 }
@@ -462,6 +463,14 @@ void RayTracer::OnScroll(const double xoffset, const double yoffset)
 	resetAccumulation_ = prevFov != userSettings_.FieldOfView;
 }
 
+void RayTracer::OnActionPressed(Hotkey::Action action)
+{
+	if (action == Hotkey::Action::ScreenShot)
+	{
+		TakeScreenshot("screenshot");
+	}
+}
+
 void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters)
 {
 	// {"Cube And Spheres", CubeAndSpheres},
@@ -677,6 +686,23 @@ void RayTracer::ExecuteScheduledPick()
 		if (gameObject)	ModelManager::getInstance()->setSelectedObject(gameObject);
 		else ModelManager::getInstance()->setSelectedObject(nullptr);
 	}
+}
+
+void RayTracer::TakeScreenshot(std::string name)
+{
+	auto extent = SwapChain().Extent();
+
+	const uint32_t width = extent.width;
+	const uint32_t height = extent.height;
+	const uint32_t bytesPerPixel = 4; // RGBA8
+
+	const VkDeviceSize byteSize = VkDeviceSize(width) * height * bytesPerPixel;
+
+	void* mapped = hostCaptureBufferMemory_->Map(0, byteSize);
+
+	Export::SavePNG(name, width, height, bytesPerPixel, mapped);
+
+	hostCaptureBufferMemory_->Unmap();
 }
 
 void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,

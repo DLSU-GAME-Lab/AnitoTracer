@@ -7,22 +7,25 @@
 #include "Assets/RayScene.hpp"
 #include "UI/UIConfig.hpp"
 #include "RayPicker/RayPicker.hpp"
+#include "HotkeySystem/HotkeyListener.hpp"
 
 namespace Vulkan {
 	class RayVisualizationPipeline;
+	class SwapChain;
 }
-class RayTracer final : public Vulkan::RayTracing::Application, public Observer
+class RayTracer final : public Vulkan::RayTracing::Application, public Observer, public HotkeyListener
 {
+
 public:
 
 	VULKAN_NON_COPIABLE(RayTracer)
-
 
 	RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, VkPresentModeKHR presentMode);
 	~RayTracer();
 
 	static void initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, VkPresentModeKHR presentMode);
 	static RayTracer* getInstance();
+	void TakeScreenshot(std::string path);
 
 	UserSettings getUserSettings() const { return userSettings_; }
 
@@ -51,6 +54,7 @@ protected:
 	void OnMouseButton(int button, int action, int mods) override;
 	void OnScroll(double xoffset, double yoffset) override;
 
+	void OnActionPressed(Hotkey::Action action) override;
 	void onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters) override;
 
 private:
@@ -61,6 +65,7 @@ private:
 	void ResetPicker();
 	void SchedulePick(const glm::vec2& mousePos);
 	void ExecuteScheduledPick();
+
 
 	void ScreenToWorldRay(const glm::vec2& mousePos, glm::vec3& outOrigin, glm::vec3& outDirection);
 

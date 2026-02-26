@@ -24,6 +24,7 @@ RayTracingPipeline::RayTracingPipeline(
 	const TopLevelAccelerationStructure& accelerationStructure,
 	const ImageView& accumulationImageView,
 	const ImageView& outputImageView,
+	const ImageView& outputImageViewS,
 	const std::vector<Assets::UniformBuffer>& uniformBuffers,
 	const Assets::Scene& scene,
 	const Assets::RayScene& rayScene) :
@@ -63,6 +64,9 @@ RayTracingPipeline::RayTracingPipeline(
 		{ 12, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
 		{ 13, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
 		{ 14, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+
+		// Pre-Swizzled Image Buffer
+		{15, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR},
 	};
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -143,6 +147,11 @@ RayTracingPipeline::RayTracingPipeline(
 		rayInfoBufferInfo.buffer = rayScene.RayInfoBuffer().Handle();
 		rayInfoBufferInfo.range = VK_WHOLE_SIZE;
 
+		// OutputS image
+		VkDescriptorImageInfo outputImageInfoS = {};
+		outputImageInfoS.imageView = outputImageViewS.Handle();
+		outputImageInfoS.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
 		for (size_t t = 0; t != imageInfos.size(); ++t)
 		{
 			auto& imageInfo = imageInfos[t];
@@ -163,6 +172,7 @@ RayTracingPipeline::RayTracingPipeline(
 			descriptorSets.Bind(i, 7, lightBufferInfo),
 			descriptorSets.Bind(i, 8, offsetsBufferInfo),
 			descriptorSets.Bind(i, 9, *imageInfos.data(), static_cast<uint32_t>(imageInfos.size())),
+			descriptorSets.Bind(i, 15, outputImageInfoS),
 		};
 
 		// Procedural buffer (optional)
