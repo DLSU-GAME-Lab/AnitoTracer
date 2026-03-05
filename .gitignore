@@ -23,6 +23,9 @@ bld/
 [Oo]bj/
 [Ll]og/
 
+Dependencies/ispc/*
+!Dependencies/ispc/.gitkeep
+
 out/
 
 # Visual Studio 2015/2017 cache/options directory

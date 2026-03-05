@@ -1,4 +1,4 @@
-	set(exe_name ${MAIN_PROJECT})
+set(exe_name ${MAIN_PROJECT})
 
 set(src_files_assets
 	Assets/CornellBox.cpp
@@ -397,6 +397,7 @@ target_link_libraries(
     avdevice
     avfilter
 	${extra_libs}
+	OpenImageDenoise
 )
 
 #if(${WIN32})

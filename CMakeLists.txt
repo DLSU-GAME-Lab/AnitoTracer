@@ -90,6 +90,18 @@ endif()
 set(MAIN_PROJECT "AnitoTracer")
 add_subdirectory(assets)
 
+# OIDN
+set(OIDN_APPS OFF CACHE BOOL "" FORCE)
+set(OIDN_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(OIDN_TESTS OFF CACHE BOOL "" FORCE)
+
+if (WIN32)
+  set(ISPC_EXECUTABLE "${CMAKE_SOURCE_DIR}/Dependencies/ispc/bin/ispc.exe"
+      CACHE FILEPATH "" FORCE)
+endif()
+
+add_subdirectory(Dependencies/oidn)
+
 add_definitions(-DSOLUTION_DIR="${CMAKE_SOURCE_DIR}")
 add_subdirectory(src)
 

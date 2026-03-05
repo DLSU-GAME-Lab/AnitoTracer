@@ -1,0 +1,3 @@
+[submodule "Dependencies/oidn"]
+	path = Dependencies/oidn
+	url = https://github.com/RenderKit/oidn.git
