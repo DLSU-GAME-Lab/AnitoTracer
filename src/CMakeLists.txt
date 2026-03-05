@@ -76,19 +76,6 @@ set(src_files_ray_visualization
 	RayVisualization/RayVisualizationPipeline.h
 )
 
-set(src_files_imgui
-	ImGui/imgui_freetype.cpp
-	ImGui/imgui_freetype.h
-	ImGui/imgui_impl_glfw.cpp
-	ImGui/imgui_impl_glfw.h
-	ImGui/imgui_impl_vulkan.cpp
-	ImGui/imgui_impl_vulkan.h
-	ImGui/imgui_stdlib.cpp
-	ImGui/imgui_stdlib.h
-	ImGui/ImGuizmo.cpp
-	ImGui/ImGuizmo.h
-)
-
 set(src_files_utilities
 	Utilities/Console.cpp
 	Utilities/Console.hpp
@@ -267,7 +254,7 @@ set(src_files_statemanagement
 	StateManagement/ConcreteCommands/GUICommands.cpp
 )
 
-set(src_files_hotkeysytem
+set(src_files_hotkeysystem
 	HotkeySystem/HotkeySystem.hpp
 	HotkeySystem/HotkeySystem.cpp
 	HotkeySystem/HotkeyListener.hpp
@@ -277,6 +264,11 @@ set(src_files_hotkeysytem
 	HotkeySystem/ActionMap.hpp
 	HotkeySystem/InputEvent.hpp
 
+)
+
+set(src_files_recordingsystem
+	RecordingSystem/ScreenRecorder.cpp
+	RecordingSystem/ScreenRecorder.hpp
 )
 
 set(src_files_raypicker
@@ -329,7 +321,7 @@ source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
-source_group("HotkeySystem" FILES ${src_files_hotkeysytem})
+source_group("HotkeySystem" FILES ${src_files_hotkeysystem})
 source_group("Profiler" FILES ${src_files_profiler})
 source_group("Scene IO" FILES ${src_files_sceneio})
 source_group("RayVisualization" FILES ${src_files_ray_visualization})
@@ -342,17 +334,17 @@ source_group("Vulkan.RayTracing" FILES ${src_files_vulkan_raytracing})
 source_group("RayPicker" FILES ${src_files_raypicker})
 source_group("Main" FILES ${src_files})
 source_group("ImGui" FILES ${src_files_imgui})
+source_group("Recordingsystem" FILES ${src_files_recordingsystem})
 
 add_executable(${exe_name} 
 	${src_files_assets}
 	${src_files_obb}
-
+	${src_files_recordingsystem}
 	${src_files_camerasystem} 
 	${src_files_lightsystem}
-	${stc_files_hotkeysystem}
+	${src_files_hotkeysystem}
 	${src_files_profiler}
 	${src_files_sceneio}
-	${src_files_hotkeysytem}
 	${src_files_ray_visualization} 
 	${src_files_statemanagement}
 	${src_files_utilities}
@@ -382,10 +374,30 @@ target_include_directories(
 	${glm_INCLUDE_DIRS} 
 	${STB_INCLUDE_DIRS} 
 	${Vulkan_INCLUDE_DIRS}
+	${FFMPEG_INCLUDE_DIRS}
 	Dependencies/include
 )
-target_link_directories(${exe_name} PRIVATE Assimp/lib ${Vulkan_LIBRARY})
-target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm ${Vulkan_LIBRARIES} ${extra_libs})
+target_link_directories(${exe_name} PRIVATE Assimp/lib  ${Vulkan_LIBRARY} ${FFMPEG_LIBRARY_DIRS})
+
+target_link_libraries(
+	${exe_name} 
+	PRIVATE 
+	assimp::assimp 
+	${Boost_LIBRARIES} 
+	freetype 
+	glfw 
+	glm::glm 
+	${Vulkan_LIBRARIES} 
+	${FFMPEG_LIBRARIES} 
+	avcodec
+    avformat
+    avutil
+    swscale
+    swresample
+    avdevice
+    avfilter
+	${extra_libs}
+)
 
 #if(${WIN32})
 #add_custom_command(TARGET ${exe_name} POST_BUILD

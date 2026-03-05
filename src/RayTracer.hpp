@@ -8,6 +8,7 @@
 #include "UI/UIConfig.hpp"
 #include "RayPicker/RayPicker.hpp"
 #include "HotkeySystem/HotkeyListener.hpp"
+#include "RecordingSystem/ScreenRecorder.hpp"
 
 namespace Vulkan {
 	class RayVisualizationPipeline;
@@ -25,7 +26,10 @@ public:
 
 	static void initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig, VkPresentModeKHR presentMode);
 	static RayTracer* getInstance();
-	void TakeScreenshot(std::string path);
+
+	void TakeScreenshot(std::string fileName);
+	void StartRecording(const std::string& fileName);
+	void StopRecording();
 
 	UserSettings getUserSettings() const { return userSettings_; }
 
@@ -48,6 +52,7 @@ protected:
 	void DeleteSwapChain() override;
 	void DrawFrame() override;
 	void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex) override;
+	void PreRender() override;
 
 	void OnKey(int key, int scancode, int action, int mods) override;
 	void OnCursorPosition(double xpos, double ypos) override;
@@ -108,5 +113,6 @@ private:
 
 	std::unique_ptr<class Vulkan::RayVisualizationPipeline> rayVisualizationPipeline_;
 	std::unique_ptr<class RayPicker> rayPicker_;
+	std::unique_ptr<class ScreenRecorder> screenRecorder_;
 	glm::vec2 scheduledMousePos;
 };

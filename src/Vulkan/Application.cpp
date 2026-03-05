@@ -213,6 +213,8 @@ void Application::DrawFrame()
 
 	inFlightFence.Wait(noTimeout);
 
+	PreRender();
+
 	uint32_t imageIndex;
 	auto result = vkAcquireNextImageKHR(device_->Handle(), swapChain_->Handle(), noTimeout, imageAvailableSemaphore, nullptr, &imageIndex);
 
@@ -352,6 +354,11 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	}
 
 	vkCmdEndRenderPass(commandBuffer);
+}
+
+void Application::PreRender()
+{
+
 }
 
 void Application::UpdateUniformBuffer(const uint32_t imageIndex)

@@ -59,6 +59,8 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 
 	HotkeySystem::getInstance()->addListener(this);
 
+	screenRecorder_ = std::make_unique<ScreenRecorder>();
+
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
@@ -347,6 +349,25 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 	if (renderUI_)
 		UIManager::getInstance()->render(commandBuffer, SwapChainFrameBuffer(imageIndex), stats);
+}
+
+void RayTracer::PreRender()
+{
+	if (screenRecorder_->IsRecording())
+	{
+		const uint32_t width = SwapChain().Extent().width;
+		const uint32_t height = SwapChain().Extent().height;
+		const uint32_t bytesPerPixel = 4; // RGBA8
+
+		const VkDeviceSize byteSize = VkDeviceSize(width) * height * bytesPerPixel;
+
+		void* mapped = hostCaptureBufferMemory_->Map(0, byteSize);
+
+		screenRecorder_->PushFrame(static_cast<const uint8_t*>(mapped),	width * bytesPerPixel, ScreenRecorder::Clock::now());
+
+		hostCaptureBufferMemory_->Unmap();
+
+	}
 }
 
 void RayTracer::OnKey(int key, int scancode, int action, int mods)
@@ -688,7 +709,7 @@ void RayTracer::ExecuteScheduledPick()
 	}
 }
 
-void RayTracer::TakeScreenshot(std::string name)
+void RayTracer::TakeScreenshot(std::string fileName)
 {
 	auto extent = SwapChain().Extent();
 
@@ -700,9 +721,31 @@ void RayTracer::TakeScreenshot(std::string name)
 
 	void* mapped = hostCaptureBufferMemory_->Map(0, byteSize);
 
-	Export::SavePNG(name, width, height, bytesPerPixel, mapped);
+	Export::SavePNG(fileName, width, height, bytesPerPixel, mapped);
 
 	hostCaptureBufferMemory_->Unmap();
+}
+
+void RayTracer::StartRecording(const std::string& fileName)
+{
+	if (screenRecorder_->IsRecording())
+	{
+		Debug::Log("Already recording!");
+		return;
+	}
+
+	ScreenRecorder::Config config;
+	config.width = SwapChain().Extent().width;
+	config.height = SwapChain().Extent().height;
+	config.targetFps = 24.0;
+	config.flipY = false;
+
+	screenRecorder_->Start(fileName, config);
+}
+
+void RayTracer::StopRecording()
+{
+	screenRecorder_->Stop();
 }
 
 void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,

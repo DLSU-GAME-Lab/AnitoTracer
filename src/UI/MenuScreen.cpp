@@ -83,6 +83,11 @@ void MenuScreen::drawUI()
 				isScreenshotMenuOpen = !isScreenshotMenuOpen;
 			}
 
+			if (ImGui::MenuItem("Record Screen", nullptr, isRecordingScreenOpen))
+			{
+				isRecordingScreenOpen = !isRecordingScreenOpen;
+			}
+
 			ImGui::EndMenu();
 		}
 
@@ -294,20 +299,14 @@ void MenuScreen::drawUI()
 			ImGui::EndMenu();
 		}
 
-		if (isLoadObjOpen)
-			ShowLoadObjMenu();
-		if (isLoadSceneOpen)
-			ShowLoadObjMenu();
-		if (isColorPickerOpen)
-			ShowColorPickerWindow();
-		if (isSaveSceneAsOpen)
-			ShowSaveSceneAsMenu();
-		if (isSaveLayoutOpen)
-			ShowSaveLayoutAsMenu();
-		if (isLoadLayoutOpen)
-			ShowLoadLayoutAsMenu();
-		if (isScreenshotMenuOpen)
-			ShowScreenshotMenu();
+		if (isLoadObjOpen)			ShowLoadObjMenu();
+		if (isLoadSceneOpen)		ShowLoadObjMenu();
+		if (isColorPickerOpen)		ShowColorPickerWindow();
+		if (isSaveSceneAsOpen)		ShowSaveSceneAsMenu();
+		if (isSaveLayoutOpen)		ShowSaveLayoutAsMenu();
+		if (isLoadLayoutOpen)		ShowLoadLayoutAsMenu();
+		if (isScreenshotMenuOpen)	ShowScreenshotMenu();
+		if (isRecordingScreenOpen)	ShowRecordingMenu();
 
 		ImGui::EndMainMenuBar();
 	}
@@ -644,6 +643,40 @@ void MenuScreen::ShowScreenshotMenu()
 		if (ImGui::Button("Cancel", ImVec2(100, 0)))
 		{
 			isScreenshotMenuOpen = false;
+		}
+	}
+
+	ImGui::End();
+}
+
+void MenuScreen::ShowRecordingMenu()
+{
+	if (ImGui::Begin("Screen Recorder", &isRecordingScreenOpen))
+	{
+		ImGui::InputText("File Name", recordingName, sizeof(recordingName));
+
+		if(!isRecording)
+		{
+			if (ImGui::Button("Start"))
+			{
+				std::string fileName = std::string(recordingName) + ".mp4";
+				RayTracer::getInstance()->StartRecording(fileName);
+				isRecording = true;
+			}
+		}
+		else
+		{
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.1f, 0.1f, 1.0f));
+
+			if (ImGui::Button("Stop"))
+			{
+				RayTracer::getInstance()->StopRecording();
+				isRecording = false;
+			}
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+			ImGui::TextColored(ImVec4(1, 0.3f, 0.3f, 1), "● REC");
 		}
 	}
 

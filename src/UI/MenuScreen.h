@@ -31,6 +31,7 @@ private:
 	void ShowSaveLayoutAsMenu();
 	void ShowLoadLayoutAsMenu();
 	void ShowScreenshotMenu();
+	void ShowRecordingMenu();
 
 	void ShowLoadObjMenu();
 	void OnMaterialComponentClicked();
@@ -63,11 +64,14 @@ private:
 	bool isSaveLayoutOpen = false;
 	bool isLoadLayoutOpen = false;
 	bool isScreenshotMenuOpen = false;
+	bool isRecordingScreenOpen = false;
 
 	bool openSceneSelected = false;
 	bool isLoading = false;
 
 	char screenshotName[128] = "screenshot";
+	char recordingName[128] = "recording";
+	bool isRecording = false;
 
 	// ImGui::FileBrowser* saveSceneDialog;
 	// ImGui::FileBrowser* openSceneDialog;

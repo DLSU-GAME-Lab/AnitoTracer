@@ -16,6 +16,7 @@ vcpkg.exe install ^
 	stb:x64-windows-static ^
 	assimp:x64-windows-static ^
 	nlohmann-json:x64-windows-static ^
+	ffmpeg:x64-windows-static
 	|| goto :error
 
 cd ..

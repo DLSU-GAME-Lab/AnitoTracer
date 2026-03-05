@@ -74,6 +74,7 @@ namespace Vulkan
 		virtual void CreateProfiler();
 		virtual void DrawFrame();
 		virtual void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+		virtual void PreRender();
 
 		virtual void OnKey(int key, int scancode, int action, int mods) { }
 		virtual void OnCursorPosition(double xpos, double ypos) { }
