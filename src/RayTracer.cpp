@@ -36,6 +36,7 @@
 #include "RayPicker/RayPickerUBO.hpp"
 #include "HotkeySystem/HotkeySystem.hpp"
 #include "Utilities/Screenshot.hpp"
+#include "Denoise/Denoiser.hpp"
 
 namespace
 {
@@ -176,6 +177,7 @@ void RayTracer::CreateSwapChain()
 	Application::CreateSwapChain();
 
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
+	denoiser_ = std::make_unique<Denoiser>(SwapChain().Extent().width, SwapChain().Extent().height);
 	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
 	//UIManager::reset();
 	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
@@ -258,6 +260,8 @@ void RayTracer::DrawFrame()
 	{
 		totalNumberOfSamples_ = 0;
 		resetAccumulation_ = false;
+		gotDenoisedData_ = false;
+		startedDenoising_ = false;
 	}
 
 	previousSettings_ = userSettings_;
@@ -358,7 +362,6 @@ void RayTracer::PreRender()
 		const uint32_t width = SwapChain().Extent().width;
 		const uint32_t height = SwapChain().Extent().height;
 		const uint32_t bytesPerPixel = 4; // RGBA8
-
 		const VkDeviceSize byteSize = VkDeviceSize(width) * height * bytesPerPixel;
 
 		void* mapped = hostCaptureBufferMemory_->Map(0, byteSize);
@@ -367,6 +370,36 @@ void RayTracer::PreRender()
 
 		hostCaptureBufferMemory_->Unmap();
 
+	}
+
+	if (denoiser_->IsFinished() && !gotDenoisedData_)
+	{
+		auto extent = SwapChain().Extent();
+
+		const uint32_t width = extent.width;
+		const uint32_t height = extent.height;
+		const uint32_t bytesPerPixel = 4; // RGBA8
+
+		auto denoisedData = denoiser_->GetDenoisedData();
+		Export::SavePNG("denoise", width, height, bytesPerPixel, denoisedData);
+		Debug::Log("Denoising finished, saved result to disk");
+
+		gotDenoisedData_ = true;
+
+	}
+
+	if (totalNumberOfSamples_ >= 64 && userSettings_.IsRayTraced && !startedDenoising_)
+	{
+		const uint32_t width = SwapChain().Extent().width;
+		const uint32_t height = SwapChain().Extent().height;
+		const uint32_t bytesPerPixel = 4; // RGBA8
+		const VkDeviceSize byteSize = VkDeviceSize(width) * height * bytesPerPixel;
+
+		void* mapped = hostCaptureBufferMemory_->Map(0, byteSize);
+		denoiser_->RunDenoising(mapped);
+		hostCaptureBufferMemory_->Unmap();
+
+		startedDenoising_ = true;
 	}
 }
 

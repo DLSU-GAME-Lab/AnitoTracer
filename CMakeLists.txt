@@ -66,6 +66,7 @@ find_package(Stb REQUIRED)
 find_package(Assimp REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(FFMPEG REQUIRED)
+find_package(TBB CONFIG REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED libavcodec libavformat libavutil libswscale)

@@ -108,11 +108,14 @@ private:
 	bool mousePressed = false;
 
 	bool isPickScheduled = false;
+	bool gotDenoisedData_ = false;
+	bool startedDenoising_ = false;
 
 	static RayTracer* sharedInstance;
 
 	std::unique_ptr<class Vulkan::RayVisualizationPipeline> rayVisualizationPipeline_;
 	std::unique_ptr<class RayPicker> rayPicker_;
 	std::unique_ptr<class ScreenRecorder> screenRecorder_;
+	std::unique_ptr<class Denoiser> denoiser_;
 	glm::vec2 scheduledMousePos;
 };

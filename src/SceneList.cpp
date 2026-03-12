@@ -777,6 +777,19 @@ SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 
 SceneAssets SceneList::Sponza(CameraInitialState& camera)
 {
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 

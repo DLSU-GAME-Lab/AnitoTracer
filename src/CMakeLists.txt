@@ -235,6 +235,7 @@ set(src_files_from_gdgrap2
 	From-GDGRAP2/TextureLibrary.h
 	From-GDGRAP2/TransformHistory.cpp
 	From-GDGRAP2/TransformHistory.h
+	From-GDGRAP2/IExecutionEvent.h
 )
 
 
@@ -282,6 +283,13 @@ set(src_files_raypicker
 	RayPicker/RayPickerUBO.cpp
 )
 
+set(src_files_denoise
+	Denoise/Denoiser.hpp
+	Denoise/Denoiser.cpp
+	Denoise/DenoiseWorker.hpp
+	Denoise/DenoiseWorker.cpp
+)
+
 set(src_files
 	main.cpp
 	Options.cpp
@@ -320,6 +328,7 @@ set(src_files_imgui
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
+source_group("Denoise" FILES ${src_files_denoise})
 source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("HotkeySystem" FILES ${src_files_hotkeysystem})
 source_group("Profiler" FILES ${src_files_profiler})
@@ -341,6 +350,7 @@ add_executable(${exe_name}
 	${src_files_obb}
 	${src_files_recordingsystem}
 	${src_files_camerasystem} 
+	${src_files_denoise}
 	${src_files_lightsystem}
 	${src_files_hotkeysystem}
 	${src_files_profiler}
@@ -398,6 +408,8 @@ target_link_libraries(
     avfilter
 	${extra_libs}
 	OpenImageDenoise
+	TBB::tbb
+	TBB::tbbmalloc
 )
 
 #if(${WIN32})
