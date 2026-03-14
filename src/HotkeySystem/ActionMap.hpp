@@ -49,6 +49,8 @@ namespace Hotkey
 		GameObject_TogglePickabilityWithDescendants,
 
 		Undo,
-		Redo
+		Redo,
+
+		ScreenShot
 	};
 }
