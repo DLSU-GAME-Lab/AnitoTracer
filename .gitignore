@@ -23,8 +23,7 @@ bld/
 [Oo]bj/
 [Ll]og/
 
-Dependencies/ispc/*
-!Dependencies/ispc/.gitkeep
+Dependencies/
 
 out/
 
