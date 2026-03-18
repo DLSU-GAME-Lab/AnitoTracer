@@ -271,6 +271,34 @@ void InspectorScreen::drawCameraTab()
 			}
 		}
 	}
+	if (ImGui::CollapsingHeader("Animation")) 
+	{
+		static float duration = 3.0f;
+
+		//TODO: Add keyframe list
+		for (const auto& keyframe : cam->getKeyFrames())
+		{
+			ImGui::Text("Keyframe");
+		}
+		if (ImGui::Button("Add Keyframe"))
+		{
+			auto activeCam = cam;
+			if (activeCam)
+			{
+				activeCam->addKeyFrame();
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Play"))
+		{
+			auto activeCam = cam;
+			if (activeCam)
+			{
+				activeCam->setDuration(duration);
+				activeCam->Animate();
+			}
+		}
+	}
 }
 
 

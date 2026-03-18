@@ -420,6 +420,7 @@ void Camera::addKeyFrame()
 
 void Camera::Animate()
 {
+	this->currentKeyFrame = 0;
 	this->timePerKeyframe = this->duration / (this->m_keyFrames.size() - 1);
 	
 	while (this->currentKeyFrame < this->m_keyFrames.size() - 1)
@@ -432,8 +433,10 @@ void Camera::Animate()
 void Camera::AnimateStep()
 {
 	if (this->currentKeyFrame >= this->m_keyFrames.size() - 1) return;
+
 	KeyFrame* start = this->m_keyFrames[this->currentKeyFrame];
 	KeyFrame* end = this->m_keyFrames[this->currentKeyFrame + 1];
+
 	float t = 0.0f;
 	const auto timer = std::chrono::high_resolution_clock::now();
 	while (t < timePerKeyframe)
@@ -446,8 +449,13 @@ void Camera::AnimateStep()
 		this->forward_ = glm::mix(start->forward, end->forward, alpha);
 		GameObject::setLocalPosition(position_.x, position_.y, position_.z);
 		UpdateVectors();
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 	currentKeyFrame++;
+}
+
+void Camera::setToKeyFrame(int index)
+{
 }
 
 void Camera::MoveForward(const float d)

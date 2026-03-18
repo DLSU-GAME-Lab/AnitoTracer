@@ -57,6 +57,10 @@ public:
 	void Animate();
 	void AnimateStep();
 
+	void setToKeyFrame(int index);
+	void setDuration(float duration) { this->duration = duration; }
+	std::vector<KeyFrame*> getKeyFrames() { return m_keyFrames; }
+
 protected:
 
 	virtual void MoveForward(float d);
