@@ -1,6 +1,7 @@
 #include "Camera.h"
 
 #include <iostream>
+#include <chrono>
 #include <glm/fwd.hpp>
 #include <glm/gtx/string_cast.hpp>
 
@@ -410,6 +411,43 @@ void Camera::lookAt(const glm::vec3& target)
 		glm::rotate(glm::mat4(1), -pitch, glm::vec3(1, 0, 0)) *
 		glm::rotate(glm::mat4(1), yaw, glm::vec3(0, 1, 0));
 	UpdateVectors();
+}
+
+void Camera::addKeyFrame()
+{
+	this->m_keyFrames.push_back(new KeyFrame(this->position_, this->right_, this->up_, this->forward_));
+}
+
+void Camera::Animate()
+{
+	this->timePerKeyframe = this->duration / (this->m_keyFrames.size() - 1);
+	
+	while (this->currentKeyFrame < this->m_keyFrames.size() - 1)
+	{
+		this->AnimateStep();
+	}
+
+}
+
+void Camera::AnimateStep()
+{
+	if (this->currentKeyFrame >= this->m_keyFrames.size() - 1) return;
+	KeyFrame* start = this->m_keyFrames[this->currentKeyFrame];
+	KeyFrame* end = this->m_keyFrames[this->currentKeyFrame + 1];
+	float t = 0.0f;
+	const auto timer = std::chrono::high_resolution_clock::now();
+	while (t < timePerKeyframe)
+	{
+		t += std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - timer).count(); //delta time
+		float alpha = t / timePerKeyframe;
+		this->position_ = glm::mix(start->position, end->position, alpha);
+		this->right_ = glm::mix(start->right, end->right, alpha);
+		this->up_ = glm::mix(start->up, end->up, alpha);
+		this->forward_ = glm::mix(start->forward, end->forward, alpha);
+		GameObject::setLocalPosition(position_.x, position_.y, position_.z);
+		UpdateVectors();
+	}
+	currentKeyFrame++;
 }
 
 void Camera::MoveForward(const float d)

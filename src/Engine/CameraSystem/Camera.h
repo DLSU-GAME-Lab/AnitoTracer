@@ -7,6 +7,14 @@
 #include "Utilities/Glm.hpp"
 #include "HotkeySystem/HotkeyListener.hpp"
 
+struct KeyFrame 
+{
+	glm::vec4 position;
+	glm::vec4 right;
+	glm::vec4 up;
+	glm::vec4 forward;
+};
+
 class Camera : public GameObject, public HotkeyListener
 {
 public:
@@ -43,6 +51,11 @@ public:
 	CameraMoveMode getCurrentMoveMode() const;
 
 	void lookAt(const glm::vec3& target);
+
+	//KEYFRAMES & ANIMATION
+	void addKeyFrame();
+	void Animate();
+	void AnimateStep();
 
 protected:
 
@@ -97,4 +110,14 @@ protected:
 	float m_defaultPivotDistance = 1000.0f;
 
 	CameraMoveMode m_currentMode = NONE;
-};
+
+	//KEYFRAMES
+	std::vector<KeyFrame*> m_keyFrames;
+	bool hasKeyFrames = false;
+	int currentKeyFrame = 0;
+
+	//ANIMATION
+	bool isAnimating = false;
+	float duration = 0.0f;
+	float timePerKeyframe = 0.0f;
+	};
