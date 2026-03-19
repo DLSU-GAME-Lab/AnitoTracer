@@ -128,4 +128,5 @@ protected:
 	bool isAnimating = false;
 	float duration = 3.0f;
 	float timePerKeyframe = 0.0f;
+	float animationTime = 0.0f;
 	};

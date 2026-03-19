@@ -451,22 +451,29 @@ void Camera::AnimateStep(double timeDelta)
 		this->isAnimating = false;
 		return;
 	}
+	
+	animationTime += timeDelta;
+	float keyframeProgress = animationTime / timePerKeyframe;
+
+	if (keyframeProgress > 1.0f) 
+		keyframeProgress = 1.0f;
 
 	this->currentFrame = new KeyFrame(this->position_, this->right_, this->up_, this->forward_);
 	this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
 
 	//apply lerp via glm::mix
 	//TODO: This is broken need to fix interpolation formula, time needs to be based on elapsed instead of a constant value
-	this->currentFrame->position = glm::mix(this->currentFrame->position, this->endFrame->position, timePerKeyframe * timeDelta);
-	this->currentFrame->right = glm::mix(this->currentFrame->right, this->endFrame->right, timePerKeyframe * timeDelta);
-	this->currentFrame->up = glm::mix(this->currentFrame->up, this->endFrame->up, timePerKeyframe * timeDelta);
-	this->currentFrame->forward = glm::mix(this->currentFrame->forward, this->endFrame->forward, timePerKeyframe * timeDelta);
+	this->currentFrame->position = glm::mix(this->currentFrame->position, this->endFrame->position, keyframeProgress);
+	this->currentFrame->right = glm::mix(this->currentFrame->right, this->endFrame->right, keyframeProgress);
+	this->currentFrame->up = glm::mix(this->currentFrame->up, this->endFrame->up, keyframeProgress);
+	this->currentFrame->forward = glm::mix(this->currentFrame->forward, this->endFrame->forward, keyframeProgress);
 
 	this->setToKeyFrame(this->currentFrame);
 	
-	if (currentFrame == this->endFrame) 
+	if (keyframeProgress >= 1) 
 	{
 		currentKeyFrame++;
+		animationTime = 0.0f;
 	}
 	
 }
