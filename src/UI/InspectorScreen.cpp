@@ -298,6 +298,15 @@ void InspectorScreen::drawCameraTab()
 				activeCam->Animate();
 			}
 		}
+		ImGui::SameLine();
+		if (ImGui::Button("Stop"))
+		{
+			auto activeCam = cam;
+			if (activeCam)
+			{
+				activeCam->StopAnimate();
+			}
+		}
 	}
 }
 

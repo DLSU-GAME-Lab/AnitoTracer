@@ -55,9 +55,10 @@ public:
 	//KEYFRAMES & ANIMATION
 	void addKeyFrame();
 	void Animate();
-	void AnimateStep();
+	void StopAnimate();
+	void AnimateStep(double timeDelta);
 
-	void setToKeyFrame(int index);
+	void setToKeyFrame(KeyFrame* frame);
 	void setDuration(float duration) { this->duration = duration; }
 	std::vector<KeyFrame*> getKeyFrames() { return m_keyFrames; }
 
@@ -119,9 +120,12 @@ protected:
 	std::vector<KeyFrame*> m_keyFrames;
 	bool hasKeyFrames = false;
 	int currentKeyFrame = 0;
+	KeyFrame* startFrame;
+	KeyFrame* currentFrame;
+	KeyFrame* endFrame;
 
 	//ANIMATION
 	bool isAnimating = false;
-	float duration = 0.0f;
+	float duration = 3.0f;
 	float timePerKeyframe = 0.0f;
 	};

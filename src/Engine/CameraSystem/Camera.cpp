@@ -122,39 +122,45 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 
 bool Camera::UpdateCamera(const double speed, const double timeDelta)
 {
-	if (camSlowed) camSpeed_ = camSlowSpeed;
-	else if (camSpedUp) camSpeed_ = camFastSpeed;
-	else camSpeed_ = camNormalSpeed;
 
-	const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;
+		if (camSlowed) camSpeed_ = camSlowSpeed;
+		else if (camSpedUp) camSpeed_ = camFastSpeed;
+		else camSpeed_ = camNormalSpeed;
 
-	if (cameraMovingLeft_) MoveRight(-d);
-	if (cameraMovingRight_) MoveRight(d);
-	if (cameraMovingBackward_) MoveForward(-d);
-	if (cameraMovingForward_) MoveForward(d);
-	if (cameraMovingDown_) MoveUp(-d);
-	if (cameraMovingUp_) MoveUp(d);
+		const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;
 
-	const float rotationDiv = 300;
-	Rotate(cameraRotX_ / rotationDiv, cameraRotY_ / rotationDiv);
+		if (cameraMovingLeft_) MoveRight(-d);
+		if (cameraMovingRight_) MoveRight(d);
+		if (cameraMovingBackward_) MoveForward(-d);
+		if (cameraMovingForward_) MoveForward(d);
+		if (cameraMovingDown_) MoveUp(-d);
+		if (cameraMovingUp_) MoveUp(d);
 
-	const bool updated =
-		cameraMovingLeft_ ||
-		cameraMovingRight_ ||
-		cameraMovingBackward_ ||
-		cameraMovingForward_ ||
-		cameraMovingDown_ ||
-		cameraMovingUp_ ||
-		cameraRotY_ != 0 ||
-		cameraRotX_ != 0;
+		const float rotationDiv = 300;
+		Rotate(cameraRotX_ / rotationDiv, cameraRotY_ / rotationDiv);
 
-	cameraRotY_ = 0;
-	cameraRotX_ = 0;
+		if (isAnimating) this->AnimateStep(timeDelta);
 
-	if (updated)
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
+		const bool updated =
+			cameraMovingLeft_ ||
+			cameraMovingRight_ ||
+			cameraMovingBackward_ ||
+			cameraMovingForward_ ||
+			cameraMovingDown_ ||
+			cameraMovingUp_ ||
+			cameraRotY_ != 0 ||
+			isAnimating ||
+			cameraRotX_ != 0;
 
-	return updated;
+		cameraRotY_ = 0;
+		cameraRotX_ = 0;
+
+		if (updated)
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
+		return updated;
+
+
+		
 }
 
 void Camera::OnActionPressed(Hotkey::Action action)
@@ -420,42 +426,61 @@ void Camera::addKeyFrame()
 
 void Camera::Animate()
 {
+	this->isAnimating = true;
 	this->currentKeyFrame = 0;
-	this->timePerKeyframe = this->duration / (this->m_keyFrames.size() - 1);
+	this->timePerKeyframe = this->duration / (this->m_keyFrames.size());
+
+	this->currentFrame = this->m_keyFrames[this->currentKeyFrame];
+	this->setToKeyFrame(this->currentFrame);
+}
+
+void Camera::StopAnimate()
+{
+	this->isAnimating = false;
+	this->currentKeyFrame = 0;
+
+	this->currentFrame = this->m_keyFrames[this->currentKeyFrame];
+	this->setToKeyFrame(this->currentFrame);
+}
+
+void Camera::AnimateStep(double timeDelta)
+{
+	//check if done
+	if (currentKeyFrame >= this->m_keyFrames.size() - 1)
+	{
+		this->isAnimating = false;
+		return;
+	}
+
+	this->currentFrame = new KeyFrame(this->position_, this->right_, this->up_, this->forward_);
+	this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
+
+	//apply lerp via glm::mix
+	//TODO: This is broken need to fix interpolation formula, time needs to be based on elapsed instead of a constant value
+	this->currentFrame->position = glm::mix(this->currentFrame->position, this->endFrame->position, timePerKeyframe * timeDelta);
+	this->currentFrame->right = glm::mix(this->currentFrame->right, this->endFrame->right, timePerKeyframe * timeDelta);
+	this->currentFrame->up = glm::mix(this->currentFrame->up, this->endFrame->up, timePerKeyframe * timeDelta);
+	this->currentFrame->forward = glm::mix(this->currentFrame->forward, this->endFrame->forward, timePerKeyframe * timeDelta);
+
+	this->setToKeyFrame(this->currentFrame);
 	
-	while (this->currentKeyFrame < this->m_keyFrames.size() - 1)
+	if (currentFrame == this->endFrame) 
 	{
-		this->AnimateStep();
+		currentKeyFrame++;
 	}
-
+	
 }
 
-void Camera::AnimateStep()
+void Camera::setToKeyFrame(KeyFrame* frame)
 {
-	if (this->currentKeyFrame >= this->m_keyFrames.size() - 1) return;
+	this->position_ = frame->position;
+	this->up_ = frame->up;
+	this->right_ = frame->right;
+	this->forward_ = frame->forward;
+	GameObject::setLocalPosition(frame->position.x, frame->position.y, frame->position.z);
+	UpdateVectors();
 
-	KeyFrame* start = this->m_keyFrames[this->currentKeyFrame];
-	KeyFrame* end = this->m_keyFrames[this->currentKeyFrame + 1];
-
-	float t = 0.0f;
-	const auto timer = std::chrono::high_resolution_clock::now();
-	while (t < timePerKeyframe)
-	{
-		t += std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - timer).count(); //delta time
-		float alpha = t / timePerKeyframe;
-		this->position_ = glm::mix(start->position, end->position, alpha);
-		this->right_ = glm::mix(start->right, end->right, alpha);
-		this->up_ = glm::mix(start->up, end->up, alpha);
-		this->forward_ = glm::mix(start->forward, end->forward, alpha);
-		GameObject::setLocalPosition(position_.x, position_.y, position_.z);
-		UpdateVectors();
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
-	currentKeyFrame++;
-}
-
-void Camera::setToKeyFrame(int index)
-{
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void Camera::MoveForward(const float d)
