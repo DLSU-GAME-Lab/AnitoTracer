@@ -13,6 +13,7 @@ struct KeyFrame
 	glm::vec4 right;
 	glm::vec4 up;
 	glm::vec4 forward;
+	glm::mat4 orientation;
 };
 
 class Camera : public GameObject, public HotkeyListener

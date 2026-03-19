@@ -4,6 +4,12 @@
 #include <chrono>
 #include <glm/fwd.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/compatibility.hpp>
 
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/ModelManager.h"
@@ -122,12 +128,14 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 
 bool Camera::UpdateCamera(const double speed, const double timeDelta)
 {
-
+	if (!isAnimating)
+	{
 		if (camSlowed) camSpeed_ = camSlowSpeed;
 		else if (camSpedUp) camSpeed_ = camFastSpeed;
 		else camSpeed_ = camNormalSpeed;
 
 		const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;
+
 
 		if (cameraMovingLeft_) MoveRight(-d);
 		if (cameraMovingRight_) MoveRight(d);
@@ -136,9 +144,10 @@ bool Camera::UpdateCamera(const double speed, const double timeDelta)
 		if (cameraMovingDown_) MoveUp(-d);
 		if (cameraMovingUp_) MoveUp(d);
 
+
 		const float rotationDiv = 300;
 		Rotate(cameraRotX_ / rotationDiv, cameraRotY_ / rotationDiv);
-
+	}
 		if (isAnimating) this->AnimateStep(timeDelta);
 
 		const bool updated =
@@ -421,7 +430,7 @@ void Camera::lookAt(const glm::vec3& target)
 
 void Camera::addKeyFrame()
 {
-	this->m_keyFrames.push_back(new KeyFrame(this->position_, this->right_, this->up_, this->forward_));
+	this->m_keyFrames.push_back(new KeyFrame(this->position_, this->right_, this->up_, this->forward_, this->orientation_));
 }
 
 void Camera::Animate()
@@ -458,15 +467,22 @@ void Camera::AnimateStep(double timeDelta)
 	if (keyframeProgress > 1.0f) 
 		keyframeProgress = 1.0f;
 
-	this->currentFrame = new KeyFrame(this->position_, this->right_, this->up_, this->forward_);
+	this->currentFrame = new KeyFrame(this->position_, this->right_, this->up_, this->forward_, this->orientation_);
 	this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
 
 	//apply lerp via glm::mix
-	//TODO: This is broken need to fix interpolation formula, time needs to be based on elapsed instead of a constant value
+	//TODO: Needs to include rotation
 	this->currentFrame->position = glm::mix(this->currentFrame->position, this->endFrame->position, keyframeProgress);
 	this->currentFrame->right = glm::mix(this->currentFrame->right, this->endFrame->right, keyframeProgress);
 	this->currentFrame->up = glm::mix(this->currentFrame->up, this->endFrame->up, keyframeProgress);
 	this->currentFrame->forward = glm::mix(this->currentFrame->forward, this->endFrame->forward, keyframeProgress);
+
+	//this->currentFrame->orientation = glm::mix(this->currentFrame->orientation, this->endFrame->orientation, keyframeProgress);
+	glm::quat currOrientation = glm::toQuat(this->currentFrame->orientation);
+	glm::quat endOrientation = glm::toQuat(this->endFrame->orientation);
+
+	glm::quat Final = glm::mix(currOrientation, endOrientation, keyframeProgress);
+	this->currentFrame->orientation = glm::toMat4(Final);
 
 	this->setToKeyFrame(this->currentFrame);
 	
@@ -484,6 +500,7 @@ void Camera::setToKeyFrame(KeyFrame* frame)
 	this->up_ = frame->up;
 	this->right_ = frame->right;
 	this->forward_ = frame->forward;
+	this->orientation_ = frame->orientation;
 	GameObject::setLocalPosition(frame->position.x, frame->position.y, frame->position.z);
 	UpdateVectors();
 
