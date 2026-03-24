@@ -435,11 +435,20 @@ void Camera::addKeyFrame()
 
 void Camera::Animate()
 {
+	if (this->m_keyFrames.size() < 2) {
+		std::cerr << "Need at least 2 keyframes to animate!" << std::endl;
+		return;
+	}
+
 	this->isAnimating = true;
+	this->timePerKeyframe = 0;
 	this->currentKeyFrame = 0;
-	this->timePerKeyframe = this->duration / (this->m_keyFrames.size());
+	this->animationTime = 0;
+	this->timePerKeyframe = this->duration / (this->m_keyFrames.size() - 1);
 
 	this->currentFrame = this->m_keyFrames[this->currentKeyFrame];
+	this->startFrame = this->m_keyFrames[this->currentKeyFrame];
+	this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
 	this->setToKeyFrame(this->currentFrame);
 }
 
@@ -448,53 +457,60 @@ void Camera::StopAnimate()
 	this->isAnimating = false;
 	this->currentKeyFrame = 0;
 
+	this->startFrame = this->m_keyFrames[this->currentKeyFrame];
+	this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
 	this->currentFrame = this->m_keyFrames[this->currentKeyFrame];
 	this->setToKeyFrame(this->currentFrame);
 }
 
-void Camera::AnimateStep(double timeDelta)
+void Camera::TogglePause()
 {
-	//check if done
-	if (currentKeyFrame >= this->m_keyFrames.size() - 1)
-	{
-		this->isAnimating = false;
-		return;
-	}
-	
-	animationTime += timeDelta;
-	float keyframeProgress = animationTime / timePerKeyframe;
+	this->pauseAnimation = !this->pauseAnimation;
+}
 
-	if (keyframeProgress > 1.0f) 
-		keyframeProgress = 1.0f;
+void Camera::AnimateStep(double timeDelta)
+{	
+	if (!this->pauseAnimation) {
+		this->animationTime += float(timeDelta);
+		float keyframeProgress = this->animationTime / this->timePerKeyframe;
 
-	this->currentFrame = new KeyFrame(this->position_, this->right_, this->up_, this->forward_, this->orientation_);
-	this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
+		if (keyframeProgress > 1.0f)
+			keyframeProgress = 1.0f;
 
-	//apply lerp via glm::mix
-	//TODO: Needs to include rotation
-	this->currentFrame->position = glm::mix(this->currentFrame->position, this->endFrame->position, keyframeProgress);
-	this->currentFrame->right = glm::mix(this->currentFrame->right, this->endFrame->right, keyframeProgress);
-	this->currentFrame->up = glm::mix(this->currentFrame->up, this->endFrame->up, keyframeProgress);
-	this->currentFrame->forward = glm::mix(this->currentFrame->forward, this->endFrame->forward, keyframeProgress);
+		this->currentFrame = new KeyFrame(this->position_, this->right_, this->up_, this->forward_, this->orientation_);
+		//apply lerp via glm::mix
+		this->currentFrame->position = glm::mix(this->startFrame->position, this->endFrame->position, keyframeProgress);
+		this->currentFrame->right = glm::mix(this->startFrame->right, this->endFrame->right, keyframeProgress);
+		this->currentFrame->up = glm::mix(this->startFrame->up, this->endFrame->up, keyframeProgress);
+		this->currentFrame->forward = glm::mix(this->startFrame->forward, this->endFrame->forward, keyframeProgress);
+		glm::quat currOrientation = glm::toQuat(this->startFrame->orientation);
+		glm::quat endOrientation = glm::toQuat(this->endFrame->orientation);
 
-	//this->currentFrame->orientation = glm::mix(this->currentFrame->orientation, this->endFrame->orientation, keyframeProgress);
-	glm::quat currOrientation = glm::toQuat(this->currentFrame->orientation);
-	glm::quat endOrientation = glm::toQuat(this->endFrame->orientation);
+		glm::quat Final = glm::mix(currOrientation, endOrientation, keyframeProgress);
+		this->currentFrame->orientation = glm::toMat4(Final);
 
-	glm::quat Final = glm::mix(currOrientation, endOrientation, keyframeProgress);
-	this->currentFrame->orientation = glm::toMat4(Final);
+		this->setToKeyFrame(this->currentFrame);
 
-	this->setToKeyFrame(this->currentFrame);
-	
-	if (keyframeProgress >= 1) 
-	{
-		currentKeyFrame++;
-		animationTime = 0.0f;
+		if (keyframeProgress >= 1 || animationTime >= this->timePerKeyframe)
+		{
+			currentKeyFrame++;
+			animationTime = 0.0f;
+			if (currentKeyFrame >= this->m_keyFrames.size() - 1)
+			{
+				this->isAnimating = false;
+				return;
+			}
+			else
+			{
+				this->startFrame = this->m_keyFrames[this->currentKeyFrame];
+				this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
+			}
+		}
 	}
 	
 }
 
-void Camera::setToKeyFrame(KeyFrame* frame)
+void Camera::setToKeyFrame(KeyFrame* frame) 
 {
 	this->position_ = frame->position;
 	this->up_ = frame->up;
@@ -504,7 +520,7 @@ void Camera::setToKeyFrame(KeyFrame* frame)
 	GameObject::setLocalPosition(frame->position.x, frame->position.y, frame->position.z);
 	UpdateVectors();
 
-	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	//EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void Camera::MoveForward(const float d)

@@ -11,6 +11,7 @@
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 
+#include <string>
 
 template <typename ButtonFn, typename FieldFn>
 static void DrawTransformRow(const char* label, float labelWidth, float buttonWidth, ButtonFn&& button, FieldFn&& field)
@@ -273,12 +274,28 @@ void InspectorScreen::drawCameraTab()
 	}
 	if (ImGui::CollapsingHeader("Animation")) 
 	{
-		static float duration = 3.0f;
-
+		static float duration = cam->getDuration();
+		int frameCount = 1;
 		//TODO: Add keyframe list
-		for (const auto& keyframe : cam->getKeyFrames())
-		{
-			ImGui::Text("Keyframe");
+		if (ImGui::TreeNode("Keyframes")) {
+			if (cam->getKeyFrames().empty())
+			{
+				ImGui::Text("No keyframes added.");
+			}
+			else
+			{
+				for (const auto& keyframe : cam->getKeyFrames())
+				{
+					std::string name = "Keyframe " + std::to_string(frameCount);
+					ImGui::Text(name.c_str());
+					/*if (ImGui::Button(name.c_str()))
+					{
+						cam->getKeyFrames().erase(cam->getKeyFrames().begin() + (frameCount - 1));
+					}*/
+					frameCount++;
+				}
+			}
+			ImGui::TreePop();
 		}
 		if (ImGui::Button("Add Keyframe"))
 		{
@@ -289,13 +306,30 @@ void InspectorScreen::drawCameraTab()
 			}
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Play"))
+		if (ImGui::Button("Remove Last Keyframe"))
+		{
+			auto activeCam = cam;
+			if (activeCam)
+			{
+				activeCam->removeLastKeyFrame();
+			}
+		}
+		if (ImGui::Button("Start"))
 		{
 			auto activeCam = cam;
 			if (activeCam)
 			{
 				activeCam->setDuration(duration);
 				activeCam->Animate();
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Pause"))
+		{
+			auto activeCam = cam;
+			if (activeCam)
+			{
+				activeCam->TogglePause();
 			}
 		}
 		ImGui::SameLine();
@@ -307,6 +341,16 @@ void InspectorScreen::drawCameraTab()
 				activeCam->StopAnimate();
 			}
 		}
+		if (ImGui::InputFloat("##Duration", &duration) )
+		{
+			auto activeCam = cam;
+			if (activeCam)
+			{
+				activeCam->setDuration(duration);
+			}
+		}
+
+
 	}
 }
 

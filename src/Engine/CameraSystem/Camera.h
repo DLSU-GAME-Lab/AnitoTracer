@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-
+#include <stack>
 #include "UserSettings.hpp"
 #include "From-GDGRAP2/GameObject.h"
 #include "Utilities/Glm.hpp"
@@ -55,12 +55,16 @@ public:
 
 	//KEYFRAMES & ANIMATION
 	void addKeyFrame();
+	void removeLastKeyFrame() { if (!this->m_keyFrames.empty()) this->m_keyFrames.pop_back(); }
+	void clearKeyFrames() { this->m_keyFrames.clear(); }
 	void Animate();
 	void StopAnimate();
+	void TogglePause();
 	void AnimateStep(double timeDelta);
 
 	void setToKeyFrame(KeyFrame* frame);
 	void setDuration(float duration) { this->duration = duration; }
+	float getDuration() { return this->duration; }
 	std::vector<KeyFrame*> getKeyFrames() { return m_keyFrames; }
 
 protected:
@@ -127,7 +131,8 @@ protected:
 
 	//ANIMATION
 	bool isAnimating = false;
-	float duration = 3.0f;
+	bool pauseAnimation = false;
+	float duration = 10.0f;
 	float timePerKeyframe = 0.0f;
 	float animationTime = 0.0f;
 	};
