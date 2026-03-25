@@ -111,6 +111,7 @@ void MenuScreen::drawUI()
 				if (ImGui::MenuItem("Load Bistro Exterior cbnm")) { this->OnLoadSceneByIndex(17);  ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Bistro Interior")) { this->OnLoadSceneByIndex(18);  ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Balay Anito")) { this->OnLoadSceneByIndex(19);  ShowLoadingPopUp(); }
+				if (ImGui::MenuItem("Load ArcherVerse")) { this->OnLoadSceneByIndex(20);  ShowLoadingPopUp(); }
 
 				ImGui::EndMenu();
 			}
@@ -298,6 +299,12 @@ void MenuScreen::drawUI()
 
 			ImGui::EndMenu();
 		}
+
+		if (RayTracer::getInstance()->IsCurrentlyRecording())
+		{
+			ImGui::TextColored(ImVec4(1, 0.3f, 0.3f, 1), "● REC");
+		}
+
 
 		if (isLoadObjOpen)			ShowLoadObjMenu();
 		if (isLoadSceneOpen)		ShowLoadObjMenu();

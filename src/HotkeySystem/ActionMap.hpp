@@ -51,6 +51,7 @@ namespace Hotkey
 		Undo,
 		Redo,
 
-		ScreenShot
+		ScreenShot,
+		ToggleScreenRecord
 	};
 }

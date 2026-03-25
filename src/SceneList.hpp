@@ -55,6 +55,7 @@ public:
 	static SceneAssets BistroEXT(CameraInitialState& camera);
 	static SceneAssets BistroINT(CameraInitialState& camera);
 	static SceneAssets BalayAnito(CameraInitialState& camera);
+	static SceneAssets HenrySy(CameraInitialState& camera);
 	static std::vector<Assets::Texture> AssembleTextureList();
 
 	static const std::vector<std::tuple<std::string, std::function<SceneAssets (CameraInitialState&)>>> AllScenes;

@@ -31,6 +31,8 @@ public:
 	void StartRecording(const std::string& fileName);
 	void StopRecording();
 
+	bool IsCurrentlyRecording();
+
 	UserSettings getUserSettings() const { return userSettings_; }
 
 protected:

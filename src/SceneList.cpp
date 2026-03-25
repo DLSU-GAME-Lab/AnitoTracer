@@ -122,9 +122,10 @@ const std::vector<std::tuple<std::string, std::function<SceneAssets(SceneList::C
 	{"Breakfast Room", BreakfastRoom}, // USED
 	{"Salle De Bain", SalleDeBain}, 
 	{"Gallery", Gallery}, // USED// USED
-	{"Bistro_EXT", BistroEXT}, // USED// USED
-	{"Bistro_INT", BistroINT}, // USED// USED
-	{"balay_anito", BalayAnito}, // USED// USED
+	{"Bistro_EXT", BistroEXT}, // USED
+	{"Bistro_INT", BistroINT}, // USED	
+	{"balay_anito", BalayAnito}, // USED
+	{"archerverse", HenrySy},
 	{"Empty", Empty}, // USED
 };
 
@@ -777,6 +778,20 @@ SceneAssets SceneList::Model_Showcase(CameraInitialState& camera)
 
 SceneAssets SceneList::Sponza(CameraInitialState& camera)
 {
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
+
 	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
 	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
 
@@ -1170,6 +1185,40 @@ SceneAssets SceneList::Gallery(CameraInitialState& camera)
 
 	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/gallery/gallery.obj", "Gallery");
 	gameObject->setLocalScale(10.0f, 10.0f, 10.0f);
+	ModelManager::getInstance()->addObject(std::move(gameObject));
+
+	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();
+	std::vector<Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
+	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
+
+	return std::forward_as_tuple(std::move(gameobjects), std::move(textures), std::move(lights));
+}
+
+SceneAssets SceneList::HenrySy(CameraInitialState& camera)
+{
+	glm::vec3 cameraPos(800, 400, -230);
+	glm::vec3 target(-350, 200, 65);
+	glm::vec3 up(0, 1, 0);
+
+	camera.ModelView = lookAt(cameraPos, target, up);
+	camera.FieldOfView = 40;
+	camera.Aperture = 0.0f;
+	camera.FocusDistance = 10.0f;
+	camera.ControlSpeed = 500.0f;
+	camera.GammaCorrection = true;
+	camera.HasSky = true;
+
+	UpdateCameraObject(cameraPos, target, up);
+
+	std::shared_ptr<Material> areaLight = Material::DiffuseLight(vec3(0.7, 0.7, 0.7) * 10.0f);
+	Model areaLightModel = Model::CreateBox(vec3(0, 0, 0), vec3(2000, 10, 2000), *areaLight);
+
+	auto areaLightObject = std::make_unique<GameObject>("AreaLight", GameObject::PrimitiveType::CUBE, std::make_shared<Model>(areaLightModel));
+	areaLightObject->setLocalPosition(0, 1500, -500);
+	areaLightObject->setLocalRotationEuler(0, 0, 0);
+	ModelManager::getInstance()->addObject(std::move(areaLightObject));
+
+	auto gameObject = GameObjectFactory::CreateFromModelFile(FileUtils::getAssetsFolderPath().generic_string() + "/models/archerverse/3d_models/Henry Sy Building.obj", "Henry_Sy_BLDG");
 	ModelManager::getInstance()->addObject(std::move(gameObject));
 
 	std::vector<GameObject*> gameobjects = ModelManager::getInstance()->getObjectList();

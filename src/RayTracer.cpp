@@ -490,6 +490,20 @@ void RayTracer::OnActionPressed(Hotkey::Action action)
 	{
 		TakeScreenshot("screenshot");
 	}
+
+	if (action == Hotkey::Action::ToggleScreenRecord)
+	{
+		auto state = screenRecorder_->IsRecording();
+
+		if (state)
+		{
+			StopRecording();
+		}
+		else if (!state)
+		{
+			StartRecording("recording");
+		}
+	}
 }
 
 void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters)
@@ -746,6 +760,11 @@ void RayTracer::StartRecording(const std::string& fileName)
 void RayTracer::StopRecording()
 {
 	screenRecorder_->Stop();
+}
+
+bool RayTracer::IsCurrentlyRecording()
+{
+	return screenRecorder_->IsRecording;
 }
 
 void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,

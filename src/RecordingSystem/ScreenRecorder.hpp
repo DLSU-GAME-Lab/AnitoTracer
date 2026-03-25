@@ -50,10 +50,10 @@ public:
 		int width = 0;
 		int height = 0;
 		double targetFps = 24.0;
-		int crf = 18;
-		std::string preset = "p1";
+		int cq = 19;
+		std::string preset = "p5";
 		int gopSize = 60;
-		int maxBFrames = 0;
+		int maxBFrames = 2;
 		bool fastStart = true;
 		bool flipY = false;
 	};

@@ -27,8 +27,7 @@ namespace Vulkan::RayTracing
 		const SwapChain& swapChain,
 		const TopLevelAccelerationStructure& accelerationStructure,
 		const Buffer& resultBuffer,
-		const std::vector<RayPickerUniformBuffer>& uniformBuffers,
-		const Assets::Scene& scene) :
+		const std::vector<RayPickerUniformBuffer>& uniformBuffers) :
 		swapChain_(swapChain)
 	{
 		const auto& device = swapChain.Device();
@@ -40,10 +39,6 @@ namespace Vulkan::RayTracing
 			{1, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR },
 			// Uniform Buffer Object
 			{2, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR},
-			// Scene buffers
-			{3, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR}, // Vertex buffer
-			{4, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR}, // Index buffer
-			{5, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR}	// Offset buffer
 		};
 
 		descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -69,27 +64,11 @@ namespace Vulkan::RayTracing
 			uniformBufferInfo.buffer = uniformBuffers[i].Buffer().Handle();
 			uniformBufferInfo.range = VK_WHOLE_SIZE;
 
-			// Scene buffers
-			VkDescriptorBufferInfo vertexBufferInfo = {};
-			vertexBufferInfo.buffer = scene.VertexBuffer().Handle();
-			vertexBufferInfo.range = VK_WHOLE_SIZE;
-
-			VkDescriptorBufferInfo indexBufferInfo = {};
-			indexBufferInfo.buffer = scene.IndexBuffer().Handle();
-			indexBufferInfo.range = VK_WHOLE_SIZE;
-
-			VkDescriptorBufferInfo offsetBufferInfo = {};
-			offsetBufferInfo.buffer = scene.OffsetsBuffer().Handle();
-			offsetBufferInfo.range = VK_WHOLE_SIZE;
-
 			std::vector<VkWriteDescriptorSet> descriptorWrites =
 			{
 				descriptorSets.Bind(i, 0, structureInfo),
 				descriptorSets.Bind(i, 1, resultOutputBuffer),
 				descriptorSets.Bind(i, 2, uniformBufferInfo),
-				descriptorSets.Bind(i, 3, vertexBufferInfo),
-				descriptorSets.Bind(i, 4, indexBufferInfo),
-				descriptorSets.Bind(i, 5, offsetBufferInfo),
 			};
 
 			descriptorSets.UpdateDescriptors(i, descriptorWrites);

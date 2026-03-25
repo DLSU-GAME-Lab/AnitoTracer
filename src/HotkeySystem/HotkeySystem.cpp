@@ -126,6 +126,8 @@ void HotkeySystem::setupDefaultBindings()
 	bindHotkey({ KeyCode::Y, Modifiers::Ctrl }, Action::Redo);
 
 	bindHotkey({ KeyCode::K, Modifiers::Ctrl }, Action::ScreenShot);
+
+    bindHotkey({ KeyCode::F8, Modifiers::None }, Action::ToggleScreenRecord);
 }
 
 

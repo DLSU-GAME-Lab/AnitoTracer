@@ -1,5 +1,6 @@
 #include "ScreenRecorder.hpp"
 #include "Utilities/FileExplorer/FileExplorerConstants.h"
+#include "Utilities/Screenshot.hpp" //has timestamp func
 #include <From-GDGRAP2/Debug.h>
 #include <libavutil/avutil.h>
 #include <libavutil/opt.h>
@@ -31,7 +32,19 @@ bool ScreenRecorder::Start(const std::string& fileName, const Config& config)
 	if (config.width <= 0 || config.height <= 0 || config.targetFps <= 0.0) return false;
 
 	m_config = config;
-	m_path = m_pathPrefix + fileName;
+	
+	std::string stem = fileName;
+	std::string ext = ".mp4";
+
+	auto dot = fileName.rfind('.');
+	if (dot != std::string::npos)
+	{
+		stem = fileName.substr(0, dot);
+		ext = fileName.substr(dot);
+	}
+
+	m_path = m_pathPrefix + stem + "_" + Export::MakeTimestamp() + ext;
+
 	m_interval = std::chrono::duration<double>(1.0 / m_config.targetFps);
 
 	m_hasNextAccept = false;
@@ -114,8 +127,6 @@ bool ScreenRecorder::InitPipeline()
 		return false;
 	}
 
-	Debug::Log("Video stream created (index= " +  std::to_string(m_videoStream->index) + ")");
-
 	// Create encoder context
 	m_videoEncoder.reset(avcodec_alloc_context3(codec));
 
@@ -130,7 +141,7 @@ bool ScreenRecorder::InitPipeline()
 
 	if (fpsInt <= 0)
 	{
-		Debug::Log("[Recorder] Invalid targetFps after rounding: " + std::to_string(fpsInt));
+		Debug::Log("Invalid targetFps after rounding: " + std::to_string(fpsInt));
 		return false;
 	}
 
@@ -154,8 +165,8 @@ bool ScreenRecorder::InitPipeline()
 	}
 
 	// Encoder options
-	av_opt_set(m_videoEncoder->priv_data, "preset", m_config.preset.c_str(), 0);
-	av_opt_set_int(m_videoEncoder->priv_data, "crf", m_config.crf, 0);
+	av_opt_set(m_videoEncoder->priv_data, "rc", "vbr", 0);
+	av_opt_set_int(m_videoEncoder->priv_data, "cq", m_config.cq, 0);
 
 	res = avcodec_open2(m_videoEncoder.get(), codec, nullptr);
 	if (res < 0)
@@ -250,7 +261,6 @@ bool ScreenRecorder::InitPipeline()
 		return false;
 	}
 
-	Debug::Log("InitLibav success");
 	return true;
 }
 
@@ -355,11 +365,7 @@ bool ScreenRecorder::EncodeAndMuxOne()
 	{
 		ret = avcodec_receive_packet(m_videoEncoder.get(), m_encodedPacket.get());
 
-		if (ret < 0)
-		{
-			Debug::Log("avcodec_receive_packet failed: " + AvErr(ret));
-			return false;
-		}
+		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break; // No packet available right now, or stream done — both are normal
 
 		if (!WritePacket(m_encodedPacket.get()))
 		{
@@ -392,6 +398,7 @@ bool ScreenRecorder::FlushEncoder()
 	if (!m_videoEncoder) return true;
 
 	int ret = avcodec_send_frame(m_videoEncoder.get(), nullptr);
+
 	if (ret < 0)
 	{
 		Debug::Log("avcodec_send_frame(nullptr) failed: " + AvErr(ret));
@@ -402,11 +409,7 @@ bool ScreenRecorder::FlushEncoder()
 	{
 		ret = avcodec_receive_packet(m_videoEncoder.get(), m_encodedPacket.get());
 
-		if (ret < 0)
-		{
-			Debug::Log("Flush: avcodec_receive_packet failed: " + AvErr(ret));
-			return false;
-		}
+		if (ret == AVERROR_EOF)	break;
 
 		if (!WritePacket(m_encodedPacket.get()))
 		{

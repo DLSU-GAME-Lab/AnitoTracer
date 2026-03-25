@@ -33,8 +33,7 @@ namespace Vulkan::RayTracing
 				const SwapChain& swapChain,
 				const TopLevelAccelerationStructure& accelerationStructure,
 				const Buffer& resultBuffer,
-				const std::vector<RayPickerUniformBuffer>& uniformBuffers,
-				const Assets::Scene& scene);
+				const std::vector<RayPickerUniformBuffer>& uniformBuffers);
 		~RayPickerPipeline();
 		
 		uint32_t RayGenShaderIndex() const { return rayGenIndex_; }
