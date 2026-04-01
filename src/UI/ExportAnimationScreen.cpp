@@ -19,11 +19,24 @@ void ExportAnimationScreen::SetAnimation(std::shared_ptr<Animation> animation)
 {
     m_animation = animation;
     m_currentFrameIndex = 0;
+    m_lastAppliedKeyFrame = nullptr;
 }
 
 void ExportAnimationScreen::SetCamera(Camera* camera)
 {
     m_camera = camera;
+}
+
+void ExportAnimationScreen::RefreshAnimationFrames()
+{
+    if (m_animation && m_camera)
+    {
+        m_animation->SetFPS(m_fpsInput);
+        m_animation->ClearFrames();
+        m_animation->GenerateFrames(m_camera);
+        m_currentFrameIndex = 0;
+        m_lastAppliedKeyFrame = nullptr;
+    }
 }
 
 void ExportAnimationScreen::drawUI()
@@ -53,6 +66,16 @@ void ExportAnimationScreen::drawUI()
     ImGui::Separator();
     ImGui::Spacing();
 
+    // Refresh button
+    if (ImGui::Button("Refresh Animation Frames", ImVec2(-1, 0)))
+    {
+        RefreshAnimationFrames();
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
     // Frame navigation controls
     if (m_animation && m_animation->GetFrameCount() > 0)
     {
@@ -69,9 +92,18 @@ void ExportAnimationScreen::drawUI()
             {
                 m_currentFrameIndex--;
                 auto frame = m_animation->GetFrame(m_currentFrameIndex);
+
+				int startFrameIndex = static_cast<int>(frame->GetStartFrameIndex());
+				int endFrameIndex = static_cast<int>(frame->GetEndFrameIndex());
+				float delta = frame->GetDelta();
+
+				auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
+
                 if (frame && m_camera)
                 {
-                    frame->ApplyKeyFrameToCamera(m_camera, "camera");
+                    auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
+                    //Breaks the ui currently
+                    //EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
                 }
             }
         }
@@ -85,9 +117,17 @@ void ExportAnimationScreen::drawUI()
             {
                 m_currentFrameIndex++;
                 auto frame = m_animation->GetFrame(m_currentFrameIndex);
+
+                int startFrameIndex = static_cast<int>(frame->GetStartFrameIndex());
+                int endFrameIndex = static_cast<int>(frame->GetEndFrameIndex());
+                float delta = frame->GetDelta();
+
+                auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
+
                 if (frame && m_camera)
                 {
-                    frame->ApplyKeyFrameToCamera(m_camera, "camera");
+                    auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
+                    //EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
                 }
             }
         }

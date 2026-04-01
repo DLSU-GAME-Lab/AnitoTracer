@@ -16,44 +16,61 @@ Animation::Animation(int fps, float duration)
 
 void Animation::GenerateFrames(Camera* camera)
 {
-    if (camera == nullptr)
-    {
-        return;
-    }
+	if (camera == nullptr)
+	{
+		return;
+	}
 
-    ClearFrames();
+	ClearFrames();
 
-    const std::vector<KeyFrame*>& cameraKeyFrames = camera->getKeyFrames();
-    size_t frameCount = CalculateFrameCount();
+	const std::vector<KeyFrame*>& cameraKeyFrames = camera->getKeyFrames();
+	size_t frameCount = CalculateFrameCount();
 
-    if (frameCount == 0 || cameraKeyFrames.empty())
-    {
-        return;
-    }
+	if (frameCount == 0 || cameraKeyFrames.empty())
+	{
+		return;
+	}
 
-    // Generate frames based on fps and duration
-    for (size_t i = 0; i < frameCount; ++i)
-    {
-        auto frame = std::make_shared<AnimationFrame>();
+	// Generate frames based on fps and duration
+	for (size_t i = 0; i < frameCount; ++i)
+	{
+		auto frame = std::make_shared<AnimationFrame>();
 
-        // Calculate which keyframe to use based on frame index
-        size_t keyFrameIndex = (i * cameraKeyFrames.size()) / frameCount;
-        if (keyFrameIndex >= cameraKeyFrames.size())
-        {
-            keyFrameIndex = cameraKeyFrames.size() - 1;
-        }
+		// Calculate normalized animation progress (0 to 1)
+		float animationProgress = frameCount > 1 ? static_cast<float>(i) / static_cast<float>(frameCount - 1) : 0.0f;
 
-        // Add the keyframe to the animation frame
-        const KeyFrame& keyFrame = *cameraKeyFrames[keyFrameIndex];
-        frame->AddKeyFrame("camera", keyFrame);
+		// Map animation progress to keyframe range
+		float keyframePosition = animationProgress * static_cast<float>(cameraKeyFrames.size() - 1);
 
-        m_frames.push_back(frame);
-    }
+		// Get the indices of the surrounding keyframes
+		size_t startFrameIndex = static_cast<size_t>(std::floor(keyframePosition));
+		size_t endFrameIndex = std::min(startFrameIndex + 1, cameraKeyFrames.size() - 1);
+
+		// Clamp startFrameIndex to valid range
+		if (startFrameIndex >= cameraKeyFrames.size())
+		{
+			startFrameIndex = cameraKeyFrames.size() - 1;
+		}
+
+		// Calculate delta: normalized position between start and end keyframes (0 to 1)
+		float frameDelta = keyframePosition - static_cast<float>(startFrameIndex);
+		frameDelta = glm::clamp(frameDelta, 0.0f, 1.0f);
+
+		// Add the keyframe to the animation frame
+		const KeyFrame& keyFrame = *cameraKeyFrames[startFrameIndex];
+		frame->AddKeyFrame("camera", keyFrame, frameDelta, startFrameIndex, endFrameIndex);
+
+		std::cout << "Frame " << i << ": KeyFrame Index = " << startFrameIndex << " -> " << endFrameIndex 
+				  << " Frame Delta: " << frameDelta << " (Progress: " << animationProgress << ")" << std::endl;
+
+		m_frames.push_back(frame);
+	}
 }
 
 void Animation::ClearFrames()
 {
     m_frames.clear();
+    m_frames.shrink_to_fit();
 }
 
 const std::vector<std::shared_ptr<AnimationFrame>>& Animation::GetFrames() const

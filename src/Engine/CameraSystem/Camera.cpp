@@ -477,6 +477,9 @@ void Camera::AnimateStep(double timeDelta)
 		if (keyframeProgress > 1.0f)
 			keyframeProgress = 1.0f;
 
+		InterpolateFrames(this->startFrame, this->endFrame, keyframeProgress);
+
+		/*
 		this->currentFrame = new KeyFrame(this->position_, this->right_, this->up_, this->forward_, this->orientation_);
 		//apply lerp via glm::mix
 		this->currentFrame->position = glm::mix(this->startFrame->position, this->endFrame->position, keyframeProgress);
@@ -490,6 +493,7 @@ void Camera::AnimateStep(double timeDelta)
 		this->currentFrame->orientation = glm::toMat4(Final);
 
 		this->setToKeyFrame(this->currentFrame);
+		*/
 
 		if (keyframeProgress >= 1 || animationTime >= this->timePerKeyframe)
 		{
@@ -507,10 +511,40 @@ void Camera::AnimateStep(double timeDelta)
 			}
 		}
 	}
-	
+
 }
 
-void Camera::setToKeyFrame(KeyFrame* frame) 
+KeyFrame* Camera::InterpolateFrames(int startFrameIndex, int endFrameIndex, float delta)
+{
+	return InterpolateFrames(this->m_keyFrames[startFrameIndex], this->m_keyFrames[endFrameIndex], delta);
+}
+
+KeyFrame* Camera::InterpolateFrames(KeyFrame* prevFrame, KeyFrame* nextFrame, float delta)
+{
+	// Clamp delta to [0, 1] range
+	delta = glm::clamp(delta, 0.0f, 1.0f);
+	 
+	// Create a new interpolated keyframe
+	this->currentFrame = new KeyFrame();
+
+	// Interpolate position, right, up, forward vectors using linear interpolation
+	this->currentFrame->position = glm::mix(prevFrame->position, nextFrame->position, delta);
+	this->currentFrame->right = glm::mix(prevFrame->right, nextFrame->right, delta);
+	this->currentFrame->up = glm::mix(prevFrame->up, nextFrame->up, delta);
+	this->currentFrame->forward = glm::mix(prevFrame->forward, nextFrame->forward, delta);
+
+	// Interpolate orientation using quaternion slerp for smooth rotation
+	glm::quat prevQuat = glm::toQuat(prevFrame->orientation);
+	glm::quat nextQuat = glm::toQuat(nextFrame->orientation);
+	glm::quat interpolatedQuat = glm::mix(prevQuat, nextQuat, delta);
+	this->currentFrame->orientation = glm::toMat4(interpolatedQuat);
+
+	this->setToKeyFrame(this->currentFrame);
+
+	return this->currentFrame;
+}
+
+void Camera::setToKeyFrame(KeyFrame* frame)
 {
 	this->position_ = frame->position;
 	this->up_ = frame->up;

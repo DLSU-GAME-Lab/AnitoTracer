@@ -61,6 +61,8 @@ public:
 	void StopAnimate();
 	void TogglePause();
 	void AnimateStep(double timeDelta);
+	KeyFrame* InterpolateFrames(int startFrameIndex, int endFrameIndex, float delta);
+	KeyFrame* InterpolateFrames(KeyFrame* prevFrame, KeyFrame* nextFrame, float delta);
 
 	void setToKeyFrame(KeyFrame* frame);
 	void setDuration(float duration) { this->duration = duration; }

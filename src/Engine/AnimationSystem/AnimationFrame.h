@@ -14,7 +14,7 @@ public:
     AnimationFrame();
     ~AnimationFrame() = default;
 
-    void AddKeyFrame(const std::string& id, const KeyFrame& keyFrame);
+    void AddKeyFrame(const std::string& id, const KeyFrame& keyFrame, const float delta, const size_t startFrame, const size_t endFrame);
     void RemoveKeyFrame(const std::string& id);
     void ClearKeyFrames();
 
@@ -34,8 +34,15 @@ public:
     void ApplyKeyFrameToCamera(Camera* camera, const std::string& keyFrameId);
     void ApplyAllKeyFramesToCamera(Camera* camera);
 
+	float GetDelta() const { return m_delta; }
+	float GetStartFrameIndex() const { return m_start_frame_index; }
+	float GetEndFrameIndex() const { return m_end_frame_index; }
+
 private:
     std::map<std::string, KeyFrame> m_keyFrames;
     std::vector<uint8_t> m_outputBuffer;
+	size_t m_start_frame_index = 0;
+	size_t m_end_frame_index = 0;
+    float m_delta = 0.f;
     RenderingState m_renderingState = IDLE;
 };

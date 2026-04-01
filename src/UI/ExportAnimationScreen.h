@@ -3,6 +3,7 @@
 #include "AUIScreen.h"
 #include "Engine/AnimationSystem/Animation.h"
 #include "Engine/CameraSystem/Camera.h"
+#include "From-GDGRAP2/EventBroadcaster.h"
 #include <memory>
 
 class ExportAnimationScreen : public AUIScreen
@@ -23,4 +24,5 @@ private:
     Camera* m_camera = nullptr;
     int m_currentFrameIndex = 0;
     int m_fpsInput = 30;
+    KeyFrame* m_lastAppliedKeyFrame = nullptr;
 };

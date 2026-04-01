@@ -4,6 +4,7 @@
 #include <memory>
 #include "AnimationFrame.h"
 #include "Engine/CameraSystem/Camera.h"
+#include <iostream>
 
 class Animation
 {

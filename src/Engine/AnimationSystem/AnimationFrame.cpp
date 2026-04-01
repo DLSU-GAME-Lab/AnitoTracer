@@ -5,9 +5,12 @@ AnimationFrame::AnimationFrame()
 {
 }
 
-void AnimationFrame::AddKeyFrame(const std::string& id, const KeyFrame& keyFrame)
+void AnimationFrame::AddKeyFrame(const std::string& id, const KeyFrame& keyFrame, const float delta, const size_t startFrame, const size_t endFrame)
 {
     m_keyFrames[id] = keyFrame;
+    m_delta = delta;
+	m_start_frame_index = startFrame;
+	m_end_frame_index = endFrame;
 }
 
 void AnimationFrame::RemoveKeyFrame(const std::string& id)
