@@ -4,6 +4,7 @@
 
 #include "AssetExplorerScreen.h"
 #include "ConsoleScreen.h"
+#include "ExportAnimationScreen.h"
 #include "From-GDGRAP2/RTConfig.h"
 #include "MenuScreen.h"
 #include "From-GDGRAP2/Debug.h"
@@ -282,6 +283,11 @@ void UIManager::initializeUI()
 	profilerScreen->setEnabled(this->uiConfig->isProfilerEnabled);
 	sharedInstance->profilerActive = this->uiConfig->isProfilerEnabled;
 
+	const std::shared_ptr<ExportAnimationScreen> exportAnimationScreen = std::make_shared<ExportAnimationScreen>();
+	this->uiTable[UINames::EXPORT_ANIMATION_SCREEN] = exportAnimationScreen;
+	this->uiList.push_back(exportAnimationScreen);
+	exportAnimationScreen->setEnabled(false);
+
 	//std::shared_ptr<gdeng03::PlaybackScreen> playbackScreen = std::make_shared<gdeng03::PlaybackScreen>();
 	//this->uiTable[uiNames.PLAYBACK_SCREEN] = playbackScreen;
 	//this->uiList.push_back(playbackScreen);
@@ -312,6 +318,22 @@ void UIManager::initializeUI()
 	// this->uiList.push_back(materialScreen);
 	// materialScreen->SetEnabled(false);
 
+	// Initialize Animation System
+	Camera* sceneCamera = CameraManager::getInstance()->getActiveCamera();
+	if (sceneCamera != nullptr)
+	{
+		sharedInstance->m_animation = std::make_shared<Animation>(30, sceneCamera->getDuration());
+
+		// Set animation for ExportAnimationScreen
+		auto exportAnimationScreen = std::dynamic_pointer_cast<ExportAnimationScreen>(
+			sharedInstance->uiTable[UINames::EXPORT_ANIMATION_SCREEN]);
+		if (exportAnimationScreen)
+		{
+			exportAnimationScreen->SetAnimation(sharedInstance->m_animation);
+			exportAnimationScreen->SetCamera(sceneCamera);
+		}
+	}
+
 	// save and load the current layout to avoid resetting randomly
 
 	for (const auto& i : this->uiList)
@@ -321,7 +343,7 @@ void UIManager::initializeUI()
 
 		if (i->name == UINames::SETTINGS_SCREEN)
 			i->setEnabled(settingsActive);
-		
+
 		if (i->name == UINames::PROFILER_SCREEN)
 			i->setEnabled(profilerActive);
 

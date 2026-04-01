@@ -46,6 +46,8 @@ TopLevelAccelerationStructure::TopLevelAccelerationStructure(TopLevelAcceleratio
 
 TopLevelAccelerationStructure::~TopLevelAccelerationStructure()
 {
+	buildGeometryInfo_.pGeometries = nullptr;
+	buildGeometryInfo_.geometryCount = 0;
 }
 
 void TopLevelAccelerationStructure::Generate(

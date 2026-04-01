@@ -31,6 +31,7 @@ namespace Export
 
         auto fullPath = std::string(FileExplorerConstants::ASSETS_DIR) + "/" + filename;
         const uint32_t stride = width * bytesPerPixel;
+		std::cout << "Saving screenshot to: " << fullPath << std::endl;
         stbi_write_png(fullPath.c_str(), width, height, bytesPerPixel, data, stride);
     }
 }

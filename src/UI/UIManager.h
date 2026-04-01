@@ -15,6 +15,7 @@
 #include <memory>
 
 #include "Engine/Profiler/Profiler.h"
+#include "Engine/AnimationSystem/Animation.h"
 #include "From-GDGRAP2/TransformHistory.h"
 #include "HotkeySystem/HotkeyListener.hpp"
 #include "UIConfig.hpp"
@@ -89,6 +90,9 @@ public:
 	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool;
 	void SetProfiler(GpuCpuProfiler* profiler) { this->profiler = profiler; }
 	void FreeDescriptor(VkDescriptorSet& descriptorset);
+
+	std::shared_ptr<Animation> GetAnimation() const { return m_animation; }
+	void SetAnimation(std::shared_ptr<Animation> animation) { m_animation = animation; }
 
 	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;
@@ -168,5 +172,7 @@ private:
 	glm::mat4 gizmoModelMatrix;
 
 	String currentLayoutPath;
+
+	std::shared_ptr<Animation> m_animation;
 };
 

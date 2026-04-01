@@ -56,6 +56,13 @@ set(src_files_camerasystem
 	Engine/CameraSystem/SceneCamera.h
 )
 
+set(src_files_animationsystem
+	Engine/AnimationSystem/Animation.cpp
+	Engine/AnimationSystem/Animation.h
+	Engine/AnimationSystem/AnimationFrame.cpp
+	Engine/AnimationSystem/AnimationFrame.h
+)
+
 set(src_files_lightsystem
 	Engine/LightSystem/Light.cpp
 	Engine/LightSystem/Light.h
@@ -195,6 +202,8 @@ set(src_files_ui
 	UI/AUIScreen.h
 	UI/ConsoleScreen.cpp
 	UI/ConsoleScreen.h
+	UI/ExportAnimationScreen.cpp
+	UI/ExportAnimationScreen.h
 	UI/HierarchyScreen.cpp
 	UI/HierarchyScreen.h
 	UI/InspectorScreen.cpp
@@ -328,6 +337,7 @@ set(src_files_imgui
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
+source_group("AnimationSystem" FILES ${src_files_animationsystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("HotkeySystem" FILES ${src_files_hotkeysytem})
 source_group("Profiler" FILES ${src_files_profiler})
@@ -347,7 +357,8 @@ add_executable(${exe_name}
 	${src_files_assets}
 	${src_files_obb}
 
-	${src_files_camerasystem} 
+	${src_files_camerasystem}
+	${src_files_animationsystem}
 	${src_files_lightsystem}
 	${stc_files_hotkeysystem}
 	${src_files_profiler}
