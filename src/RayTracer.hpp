@@ -46,6 +46,7 @@ protected:
 	void OnDeviceSet() override;
 	void CreateSwapChain() override;
 	void DeleteSwapChain() override;
+	void DeleteSwapChainWithoutUI();
 	void DrawFrame() override;
 	void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex) override;
 

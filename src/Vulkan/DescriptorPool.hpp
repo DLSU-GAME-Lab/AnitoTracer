@@ -21,6 +21,7 @@ namespace Vulkan
 	private:
 
 		const class Device& device_;
+		VkDevice deviceHandle_{};
 
 		VULKAN_HANDLE(VkDescriptorPool, descriptorPool_)
 	};

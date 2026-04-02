@@ -231,7 +231,8 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 			// IMGUI_IMPL_VULKAN NOW SUPPORTS DYNAMIC FONTS OUT OF BOX 
 		});
 
-	sharedInstance->initializeUI();
+	// Don't call initializeUI() here - it will be called after a proper ImGui frame is set up
+	// This prevents duplicate widget IDs from being registered in the same frame
 
 }
 
@@ -654,6 +655,102 @@ void UIManager::reset()
 	saveDynamicLayout();
 	//ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 	delete sharedInstance;
+}
+
+void UIManager::ReinitializeBackends(const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer)
+{
+	// This method shuts down and reinitializes the ImGui GLFW and Vulkan backends
+	// after a swap chain recreation, updating all stale resource references.
+	if (!sharedInstance || !swapChain || !depthBuffer)
+		return;
+
+	// Get the new device before updating the swapchain pointer
+	// Validate that the device is accessible and has a valid handle
+	try
+	{
+		const auto& device = swapChain->Device();
+		// Quick validation: try to access a method on device to ensure it's valid
+		if (device.Handle() == VK_NULL_HANDLE)
+		{
+			Debug::Log("WARNING: SwapChain device handle is null during ReinitializeBackends");
+			return;
+		}
+	}
+	catch (const std::exception& e)
+	{
+		Debug::Log("ERROR: Failed to access device from swapchain: " + std::string(e.what()));
+		return;
+	}
+
+	const auto& device = swapChain->Device();
+
+	// Shutdown ImGui Vulkan and GLFW backends FIRST, before destroying resources they depend on
+	ImGui_ImplVulkan_Shutdown();
+	ImGuiIO& io = ImGui::GetIO();
+	if (io.BackendPlatformUserData != nullptr)
+	{
+		ImGui_ImplGlfw_Shutdown();
+	}
+
+	// Destroy old resources while the old device is still valid (if any)
+	// This must happen before updating swapChain pointer to ensure destructors can access the old device
+	sharedInstance->renderPass.reset();
+	sharedInstance->descriptorPool.reset();
+
+	// Update the swapChain pointer to the new one
+	sharedInstance->swapChain = swapChain;
+
+	// Recreate the descriptor pool with the new device
+	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
+	{
+		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
+	};
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
+
+	// Recreate the render pass with the new swapchain and depth buffer
+	sharedInstance->renderPass.reset(
+		new Vulkan::RenderPass(
+			*sharedInstance->swapChain,
+			*depthBuffer,
+			VK_ATTACHMENT_LOAD_OP_LOAD,
+			VK_ATTACHMENT_LOAD_OP_LOAD));
+
+	// Reinitialize ImGui Vulkan backend with new resources
+	ImGui_ImplVulkan_InitInfo vulkanInit = {};
+
+	// Validate device handle before using it
+	VkDevice deviceHandle = device.Handle();
+	if (deviceHandle == VK_NULL_HANDLE)
+	{
+		Debug::Log("ERROR: Device handle is null, cannot reinitialize ImGui Vulkan backend");
+		return;
+	}
+
+	vulkanInit.Instance = device.Surface().Instance().Handle();
+	vulkanInit.PhysicalDevice = device.PhysicalDevice();
+	vulkanInit.Device = deviceHandle;
+	vulkanInit.QueueFamily = device.GraphicsFamilyIndex();
+	vulkanInit.Queue = device.GraphicsQueue();
+	vulkanInit.PipelineCache = nullptr;
+	vulkanInit.PipelineInfoMain.RenderPass = sharedInstance->renderPass->Handle();
+	vulkanInit.DescriptorPool = sharedInstance->descriptorPool->Handle();
+	vulkanInit.MinImageCount = sharedInstance->swapChain->MinImageCount();
+	vulkanInit.ImageCount = static_cast<uint32_t>(sharedInstance->swapChain->Images().size());
+	vulkanInit.Allocator = nullptr;
+	vulkanInit.CheckVkResultFn = CheckVulkanResultCallback;
+
+	if (!ImGui_ImplVulkan_Init(&vulkanInit))
+	{
+		Throw(std::runtime_error("failed to reinitialise ImGui vulkan adapter"));
+	}
+
+	// Reinitialize the GLFW backend
+	const auto& window = device.Surface().Instance().Window();
+
+	if (!ImGui_ImplGlfw_InitForVulkan(window.Handle(), true))
+	{
+		Throw(std::runtime_error("failed to reinitialise ImGui GLFW adapter"));
+	}
 }
 
 void UIManager::drawAllUI() const

@@ -37,6 +37,8 @@
 #include "HotkeySystem/HotkeySystem.hpp"
 #include "Utilities/Screenshot.hpp"
 
+#include "imgui_impl_glfw.h"
+
 namespace
 {
 	const bool EnableValidationLayers =
@@ -174,18 +176,32 @@ void RayTracer::CreateSwapChain()
 	Application::CreateSwapChain();
 
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
-	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
-	//UIManager::reset();
-	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
-	UIManager::getInstance()->SetProfiler(profiler_.get());
 
-	if (!initializedUI)
+	// If UIManager hasn't been initialized yet, do a full initialization
+	if (UIManager::getInstance() == nullptr)
 	{
-		UIManager::getInstance()->initializeUI();
-		// UIManager::getInstance()->device = &Device();
-		// UIManager::getInstance()->sampler = new Vulkan::Sampler(Device(), Vulkan::SamplerConfig());
-	
-		initializedUI = true;
+		UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
+		UIManager::getInstance()->SetProfiler(profiler_.get());
+
+		if (!initializedUI)
+		{
+			UIManager::getInstance()->initializeUI();
+			initializedUI = true;
+		}
+	}
+	else if (initializedUI)
+	{
+		// UIManager already exists and UI was initialized - reinitialize backends only after scene dirty reload
+		// Make sure we have valid device before attempting to reinitialize
+		try
+		{
+			UIManager::ReinitializeBackends(&SwapChain(), &DepthBuffer());
+		}
+		catch (const std::exception& e)
+		{
+			Debug::Log("WARNING: Failed to reinitialize UIManager backends: " + std::string(e.what()));
+			// Continue anyway - UI might not be critical
+		}
 	}
 
 	resetAccumulation_ = true;
@@ -198,6 +214,23 @@ void RayTracer::DeleteSwapChain()
 	//userInterface_.reset();
 	rayVisualizationPipeline_.reset();
 	UIManager::reset();
+
+	Application::DeleteSwapChain();
+}
+
+void RayTracer::DeleteSwapChainWithoutUI()
+{
+	//userInterface_.reset();
+	rayVisualizationPipeline_.reset();
+
+	// Shutdown ImGui GLFW backend without destroying UI state/layout
+	// Check if GLFW backend is initialized before shutting it down
+	// This is necessary because CreateSwapChain() will reinitialize it
+	ImGuiIO& io = ImGui::GetIO();
+	if (io.BackendPlatformUserData != nullptr)
+	{
+		ImGui_ImplGlfw_Shutdown();
+	}
 
 	Application::DeleteSwapChain();
 }
@@ -240,7 +273,7 @@ void RayTracer::DrawFrame()
 		Debug::Log("Scene dirty, reloading scene");
 		this->isSceneDirty = false;
 		Device().WaitIdle();
-		DeleteSwapChain();
+		DeleteSwapChainWithoutUI();
 		DeleteAccelerationStructures();
 		ReloadModifiedScene();
 		CreateAccelerationStructures();

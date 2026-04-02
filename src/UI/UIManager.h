@@ -61,6 +61,7 @@ public:
 	static UIManager* getInstance();
 	static void initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings, UIConfig* uiConfig);
 	static void reset();
+	static void ReinitializeBackends(const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer);
 
 	void initializeUI();
 	static void saveLayout();
