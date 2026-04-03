@@ -81,7 +81,7 @@ void ExportAnimationScreen::drawUI()
 
     // Frame capture delay input (convert to float for ImGui slider)
     float delayFloat = static_cast<float>(m_batchExportFrameDelay);
-    if (ImGui::SliderFloat("Capture Delay (seconds)##export_delay", &delayFloat, 0.0f, 2.0f, "%.3f"))
+    if (ImGui::SliderFloat("Capture Delay (seconds)##export_delay", &delayFloat, 0.0f, 60.0f, "%.3f"))
     {
         m_batchExportFrameDelay = delayFloat;
     }
