@@ -12,5 +12,7 @@ public:
 	inline static const String ON_RESET_ACCUMULATOR = "ON_RESET_ACCUMULATOR";
 	inline static const String ON_OBJECT_CREATED = "ON_OBJECT_CREATED";
 	inline static const String ON_OBJECT_DELETED = "ON_OBJECT_DELETED";
+	inline static const String RAYS_START_RENDER = "RAYS_START_RENDER";
+	inline static const String RAYS_END_RENDER = "RAYS_END_RENDER";
 };
 

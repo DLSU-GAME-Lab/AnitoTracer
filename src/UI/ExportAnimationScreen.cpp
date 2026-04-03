@@ -1,6 +1,12 @@
 #include "ExportAnimationScreen.h"
 #include "UIManager.h"
+#include "From-GDGRAP2/EventNames.h"
+#include "From-GDGRAP2/Debug.h"
+#include "RayTracer.hpp"
+#include "Utilities/FileUtils.h"
 #include <cmath>
+#include <filesystem>
+#include <chrono>
 
 ExportAnimationScreen::ExportAnimationScreen() 
     : AUIScreen(UINames::EXPORT_ANIMATION_SCREEN)
@@ -9,10 +15,16 @@ ExportAnimationScreen::ExportAnimationScreen()
     , m_currentFrameIndex(0)
     , m_fpsInput(30)
 {
+    // Subscribe to ray rendering events
+    EventBroadcaster::getInstance()->addObserver(EventNames::RAYS_START_RENDER, this);
+    EventBroadcaster::getInstance()->addObserver(EventNames::RAYS_END_RENDER, this);
 }
 
 ExportAnimationScreen::~ExportAnimationScreen()
 {
+    // Unsubscribe from ray rendering events
+    EventBroadcaster::getInstance()->removeObserver(EventNames::RAYS_START_RENDER);
+    EventBroadcaster::getInstance()->removeObserver(EventNames::RAYS_END_RENDER);
 }
 
 void ExportAnimationScreen::SetAnimation(std::shared_ptr<Animation> animation)
@@ -41,6 +53,9 @@ void ExportAnimationScreen::RefreshAnimationFrames()
 
 void ExportAnimationScreen::drawUI()
 {
+    // Process delayed frame capture if batch export is active
+    ProcessDelayedFrameCapture();
+
     ImGui::Begin("Export Animation", 0, UISettings::GlobalWindowFlags);
     ImGui::SetWindowSize(ImVec2(400, 300));
 
@@ -61,6 +76,19 @@ void ExportAnimationScreen::drawUI()
     // Calculate and display frame count
     size_t frameCount = static_cast<size_t>(std::ceil(m_fpsInput * duration));
     ImGui::Text("Frames to Generate: %zu", frameCount);
+
+    ImGui::Spacing();
+
+    // Frame capture delay input (convert to float for ImGui slider)
+    float delayFloat = static_cast<float>(m_batchExportFrameDelay);
+    if (ImGui::SliderFloat("Capture Delay (seconds)##export_delay", &delayFloat, 0.0f, 2.0f, "%.3f"))
+    {
+        m_batchExportFrameDelay = delayFloat;
+    }
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Delay before capturing frame after RAYS_END_RENDER\n(allows additional render time if needed)");
+    }
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -102,8 +130,7 @@ void ExportAnimationScreen::drawUI()
                 if (frame && m_camera)
                 {
                     auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
-                    //Breaks the ui currently
-                    //EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+                    EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
                 }
             }
         }
@@ -127,7 +154,7 @@ void ExportAnimationScreen::drawUI()
                 if (frame && m_camera)
                 {
                     auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
-                    //EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+                    EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
                 }
             }
         }
@@ -145,6 +172,24 @@ void ExportAnimationScreen::drawUI()
                 currentFrame->GetRenderingState() == AnimationFrame::IDLE ? "Idle" :
                 currentFrame->GetRenderingState() == AnimationFrame::RENDERING ? "Rendering" :
                 currentFrame->GetRenderingState() == AnimationFrame::COMPLETED ? "Completed" : "Failed");
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            // Export current frame button
+            if (ImGui::Button("Export Current Frame as PNG", ImVec2(-1, 0)))
+            {
+                ExportCurrentFrameAsPNG();
+            }
+
+            ImGui::Spacing();
+
+            // Export all frames button
+            if (ImGui::Button("Export All Frames as PNG", ImVec2(-1, 0)))
+            {
+                ExportAllFramesAsPNG();
+            }
         }
     }
     else
@@ -154,4 +199,215 @@ void ExportAnimationScreen::drawUI()
     }
 
     ImGui::End();
+}
+
+void ExportAnimationScreen::onTriggeredEvent(std::string eventName, std::shared_ptr<Parameters> parameters)
+{
+    if (eventName == EventNames::RAYS_START_RENDER)
+    {
+        Debug::Log("[ExportAnimationScreen] RAYS_START_RENDER event triggered");
+    }
+    else if (eventName == EventNames::RAYS_END_RENDER)
+    {
+        Debug::Log("[ExportAnimationScreen] RAYS_END_RENDER event triggered");
+
+        // Handle batch export frame capture
+        if (m_isBatchExporting && m_batchExportRayTracer)
+        {
+            // Record the time of RAYS_END_RENDER event
+            m_batchExportLastEventTime = std::chrono::duration<double>(
+                std::chrono::high_resolution_clock::now().time_since_epoch()
+            ).count();
+        }
+    }
+}
+
+
+void ExportAnimationScreen::ExportCurrentFrameAsPNG()
+{
+    if (!m_animation || m_currentFrameIndex >= m_animation->GetFrameCount())
+    {
+        Debug::Log("[ExportAnimationScreen] Cannot export frame: invalid animation or frame index");
+        return;
+    }
+
+    try
+    {
+        // Create filename with frame number (zero-padded to 6 digits)
+        char frameFilename[256];
+        std::snprintf(frameFilename, sizeof(frameFilename), "Frames/Frame_%06zu", m_currentFrameIndex);
+
+        // Get the RayTracer instance and take screenshot
+        auto rayTracer = RayTracer::getInstance();
+        if (!rayTracer)
+        {
+            Debug::Log("[ExportAnimationScreen] Failed to get RayTracer instance");
+            return;
+        }
+
+        rayTracer->TakeScreenshot(frameFilename);
+
+        Debug::Log("[ExportAnimationScreen] Frame " + std::to_string(m_currentFrameIndex) + " exported successfully");
+    }
+    catch (const std::exception& e)
+    {
+        Debug::Log("[ExportAnimationScreen] Error exporting frame: " + std::string(e.what()));
+    }
+}
+
+void ExportAnimationScreen::ProcessDelayedFrameCapture()
+{
+    // Only process if batch export is active and we have a valid time
+    if (!m_isBatchExporting || !m_batchExportRayTracer || m_batchExportLastEventTime == 0.0)
+    {
+        return;
+    }
+
+    // Get current time
+    double currentTime = std::chrono::duration<double>(
+        std::chrono::high_resolution_clock::now().time_since_epoch()
+    ).count();
+
+    // Check if enough time has elapsed
+    double elapsedTime = currentTime - m_batchExportLastEventTime;
+
+    if (elapsedTime < m_batchExportFrameDelay)
+    {
+        // Not enough time has passed yet, return and try again next frame
+        return;
+    }
+
+    // Delay has elapsed, proceed with frame capture
+    try
+    {
+        // Create filename with frame number (zero-padded to 6 digits)
+        char frameFilename[256];
+        std::snprintf(frameFilename, sizeof(frameFilename), "Frames/Frame_%06zu", m_batchExportCurrentFrame);
+
+        // Take screenshot
+        m_batchExportRayTracer->TakeScreenshot(frameFilename);
+
+        Debug::Log("[ExportAnimationScreen] Exported frame " + std::to_string(m_batchExportCurrentFrame + 1) + " / " + std::to_string(m_batchExportTotalFrames));
+
+        // Move to next frame
+        m_batchExportCurrentFrame++;
+
+        // Check if we've exported all frames
+        if (m_batchExportCurrentFrame >= m_batchExportTotalFrames)
+        {
+            // Batch export complete
+            m_isBatchExporting = false;
+            m_currentFrameIndex = m_batchExportOriginalFrameIndex;
+            m_batchExportRayTracer = nullptr;
+            m_batchExportLastEventTime = 0.0;
+            Debug::Log("[ExportAnimationScreen] Successfully exported all " + std::to_string(m_batchExportTotalFrames) + " frames");
+        }
+        else
+        {
+            // Prepare next frame for export
+            m_currentFrameIndex = m_batchExportCurrentFrame;
+            auto frame = m_animation->GetFrame(m_currentFrameIndex);
+
+            if (frame && m_camera)
+            {
+                int startFrameIndex = static_cast<int>(frame->GetStartFrameIndex());
+                int endFrameIndex = static_cast<int>(frame->GetEndFrameIndex());
+                float delta = frame->GetDelta();
+
+                auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
+
+                // Mark scene as dirty to trigger rendering for next frame
+                EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+
+                // Reset event time for next frame
+                m_batchExportLastEventTime = 0.0;
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        Debug::Log("[ExportAnimationScreen] Error exporting batch frame " + std::to_string(m_batchExportCurrentFrame) + ": " + std::string(e.what()));
+        m_isBatchExporting = false;
+        m_batchExportRayTracer = nullptr;
+        m_batchExportLastEventTime = 0.0;
+    }
+}
+
+void ExportAnimationScreen::PrepareFramesFolder()
+{
+    try
+    {
+        auto assetsPath = FileUtils::getAssetsFolderPath();
+        auto framesPath = assetsPath / "Frames";
+
+        // If the Frames folder exists, delete it
+        if (std::filesystem::exists(framesPath))
+        {
+            Debug::Log("[ExportAnimationScreen] Frames folder exists, deleting...");
+            std::filesystem::remove_all(framesPath);
+            Debug::Log("[ExportAnimationScreen] Frames folder deleted");
+        }
+
+        // Create a fresh Frames folder
+        std::filesystem::create_directories(framesPath);
+        Debug::Log("[ExportAnimationScreen] Frames folder created at: " + framesPath.generic_string());
+    }
+    catch (const std::exception& e)
+    {
+        Debug::Log("[ExportAnimationScreen] Error preparing Frames folder: " + std::string(e.what()));
+    }
+}
+
+void ExportAnimationScreen::ExportAllFramesAsPNG()
+{
+    if (!m_animation || m_animation->GetFrameCount() == 0)
+    {
+        Debug::Log("[ExportAnimationScreen] Cannot export frames: invalid animation or no frames available");
+        return;
+    }
+
+    auto rayTracer = RayTracer::getInstance();
+    if (!rayTracer)
+    {
+        Debug::Log("[ExportAnimationScreen] Failed to get RayTracer instance");
+        return;
+    }
+
+    try
+    {
+        // Prepare the Frames folder (delete and recreate)
+        PrepareFramesFolder();
+
+        // Initialize batch export state
+        m_batchExportTotalFrames = m_animation->GetFrameCount();
+        m_batchExportCurrentFrame = 0;
+        m_batchExportOriginalFrameIndex = m_currentFrameIndex;
+        m_batchExportRayTracer = rayTracer;
+        m_isBatchExporting = true;
+
+        Debug::Log("[ExportAnimationScreen] Starting event-driven export of " + std::to_string(m_batchExportTotalFrames) + " frames...");
+        Debug::Log("[ExportAnimationScreen] Frames will be captured on RAYS_END_RENDER events");
+
+        // Set to first frame
+        m_currentFrameIndex = 0;
+        auto frame = m_animation->GetFrame(m_currentFrameIndex);
+
+        if (frame && m_camera)
+        {
+            int startFrameIndex = static_cast<int>(frame->GetStartFrameIndex());
+            int endFrameIndex = static_cast<int>(frame->GetEndFrameIndex());
+            float delta = frame->GetDelta();
+
+            auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
+
+            // Mark scene as dirty to trigger rendering for first frame
+            EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        Debug::Log("[ExportAnimationScreen] Error initiating batch export: " + std::string(e.what()));
+        m_isBatchExporting = false;
+        m_batchExportRayTracer = nullptr;
+    }
 }

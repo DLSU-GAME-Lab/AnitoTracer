@@ -301,6 +301,7 @@ void RayTracer::DrawFrame()
 	
 	ExecuteScheduledPick();
 	Application::DrawFrame();
+	
 }
 
 void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
