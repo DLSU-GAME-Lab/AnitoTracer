@@ -323,14 +323,14 @@ void UIManager::initializeUI()
 	Camera* sceneCamera = CameraManager::getInstance()->getActiveCamera();
 	if (sceneCamera != nullptr)
 	{
-		sharedInstance->m_animation = std::make_shared<Animation>(30, sceneCamera->getDuration());
+		// Initialize the animation singleton with the scene camera's duration
+		Animation::getInstance()->Initialize(30, sceneCamera->getDuration());
 
-		// Set animation for ExportAnimationScreen
+		// Set camera for ExportAnimationScreen
 		auto exportAnimationScreen = std::dynamic_pointer_cast<ExportAnimationScreen>(
 			sharedInstance->uiTable[UINames::EXPORT_ANIMATION_SCREEN]);
 		if (exportAnimationScreen)
 		{
-			exportAnimationScreen->SetAnimation(sharedInstance->m_animation);
 			exportAnimationScreen->SetCamera(sceneCamera);
 		}
 	}

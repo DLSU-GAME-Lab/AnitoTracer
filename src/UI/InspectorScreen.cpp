@@ -347,6 +347,7 @@ void InspectorScreen::drawCameraTab()
 			if (activeCam)
 			{
 				activeCam->setDuration(duration);
+				Animation::getInstance()->SetDuration(duration);
 			}
 		}
 

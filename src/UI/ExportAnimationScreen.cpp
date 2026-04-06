@@ -4,13 +4,13 @@
 #include "From-GDGRAP2/Debug.h"
 #include "RayTracer.hpp"
 #include "Utilities/FileUtils.h"
+#include "../Utilities/FileExplorer/FileExplorerConstants.h"
 #include <cmath>
 #include <filesystem>
 #include <chrono>
 
 ExportAnimationScreen::ExportAnimationScreen() 
     : AUIScreen(UINames::EXPORT_ANIMATION_SCREEN)
-    , m_animation(nullptr)
     , m_camera(nullptr)
     , m_currentFrameIndex(0)
     , m_fpsInput(30)
@@ -27,13 +27,6 @@ ExportAnimationScreen::~ExportAnimationScreen()
     EventBroadcaster::getInstance()->removeObserver(EventNames::RAYS_END_RENDER);
 }
 
-void ExportAnimationScreen::SetAnimation(std::shared_ptr<Animation> animation)
-{
-    m_animation = animation;
-    m_currentFrameIndex = 0;
-    m_lastAppliedKeyFrame = nullptr;
-}
-
 void ExportAnimationScreen::SetCamera(Camera* camera)
 {
     m_camera = camera;
@@ -41,11 +34,12 @@ void ExportAnimationScreen::SetCamera(Camera* camera)
 
 void ExportAnimationScreen::RefreshAnimationFrames()
 {
-    if (m_animation && m_camera)
+    if (m_camera)
     {
-        m_animation->SetFPS(m_fpsInput);
-        m_animation->ClearFrames();
-        m_animation->GenerateFrames(m_camera);
+        auto animation = Animation::getInstance();
+        animation->SetFPS(m_fpsInput);
+        animation->ClearFrames();
+        animation->GenerateFrames(m_camera);
         m_currentFrameIndex = 0;
         m_lastAppliedKeyFrame = nullptr;
     }
@@ -105,21 +99,22 @@ void ExportAnimationScreen::drawUI()
     ImGui::Spacing();
 
     // Frame navigation controls
-    if (m_animation && m_animation->GetFrameCount() > 0)
+    auto animation = Animation::getInstance();
+    if (animation && animation->GetFrameCount() > 0)
     {
-        ImGui::Text("Current Frame: %zu / %zu", m_currentFrameIndex + 1, m_animation->GetFrameCount());
+        ImGui::Text("Current Frame: %zu / %zu", m_currentFrameIndex + 1, animation->GetFrameCount());
 
         ImGui::Spacing();
 
-        bool hasFrames = m_animation->GetFrameCount() > 0;
+        bool hasFrames = animation->GetFrameCount() > 0;
 
-        // Previous button
-        if (ImGui::Button("Previous Frame", ImVec2(150, 0)))
-        {
-            if (m_currentFrameIndex > 0)
-            {
-                m_currentFrameIndex--;
-                auto frame = m_animation->GetFrame(m_currentFrameIndex);
+		// Previous button
+		if (ImGui::Button("Previous Frame", ImVec2(150, 0)))
+		{
+			if (m_currentFrameIndex > 0)
+			{
+				m_currentFrameIndex--;
+				auto frame = animation->GetFrame(m_currentFrameIndex);
 
 				int startFrameIndex = static_cast<int>(frame->GetStartFrameIndex());
 				int endFrameIndex = static_cast<int>(frame->GetEndFrameIndex());
@@ -127,42 +122,42 @@ void ExportAnimationScreen::drawUI()
 
 				auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
 
-                if (frame && m_camera)
-                {
-                    auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
-                    EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-                }
-            }
-        }
+				if (frame && m_camera)
+				{
+					auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
+					EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+				}
+			}
+		}
 
-        ImGui::SameLine();
+		ImGui::SameLine();
 
-        // Next button
-        if (ImGui::Button("Next Frame", ImVec2(150, 0)))
-        {
-            if (m_currentFrameIndex < m_animation->GetFrameCount() - 1)
-            {
-                m_currentFrameIndex++;
-                auto frame = m_animation->GetFrame(m_currentFrameIndex);
+		// Next button
+		if (ImGui::Button("Next Frame", ImVec2(150, 0)))
+		{
+			if (m_currentFrameIndex < animation->GetFrameCount() - 1)
+			{
+				m_currentFrameIndex++;
+				auto frame = animation->GetFrame(m_currentFrameIndex);
 
-                int startFrameIndex = static_cast<int>(frame->GetStartFrameIndex());
-                int endFrameIndex = static_cast<int>(frame->GetEndFrameIndex());
-                float delta = frame->GetDelta();
+				int startFrameIndex = static_cast<int>(frame->GetStartFrameIndex());
+				int endFrameIndex = static_cast<int>(frame->GetEndFrameIndex());
+				float delta = frame->GetDelta();
 
-                auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
+				auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
 
-                if (frame && m_camera)
-                {
-                    auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
-                    EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-                }
-            }
-        }
+				if (frame && m_camera)
+				{
+					auto interpolatedFrame = m_camera->InterpolateFrames(startFrameIndex, endFrameIndex, delta);
+					EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+				}
+			}
+		}
 
-        ImGui::Spacing();
+		ImGui::Spacing();
 
-        // Display current frame info
-        auto currentFrame = m_animation->GetFrame(m_currentFrameIndex);
+		// Display current frame info
+		auto currentFrame = animation->GetFrame(m_currentFrameIndex);
         if (currentFrame)
         {
             const auto& keyFrame = currentFrame->GetKeyFrame("camera");
@@ -225,7 +220,8 @@ void ExportAnimationScreen::onTriggeredEvent(std::string eventName, std::shared_
 
 void ExportAnimationScreen::ExportCurrentFrameAsPNG()
 {
-    if (!m_animation || m_currentFrameIndex >= m_animation->GetFrameCount())
+    auto animation = Animation::getInstance();
+    if (!animation || m_currentFrameIndex >= animation->GetFrameCount())
     {
         Debug::Log("[ExportAnimationScreen] Cannot export frame: invalid animation or frame index");
         return;
@@ -306,7 +302,8 @@ void ExportAnimationScreen::ProcessDelayedFrameCapture()
         {
             // Prepare next frame for export
             m_currentFrameIndex = m_batchExportCurrentFrame;
-            auto frame = m_animation->GetFrame(m_currentFrameIndex);
+            auto animation_ptr = Animation::getInstance();
+            auto frame = animation_ptr->GetFrame(m_currentFrameIndex);
 
             if (frame && m_camera)
             {
@@ -337,8 +334,11 @@ void ExportAnimationScreen::PrepareFramesFolder()
 {
     try
     {
-        auto assetsPath = FileUtils::getAssetsFolderPath();
-        auto framesPath = assetsPath / "Frames";
+        //auto fullPath = std::string(FileExplorerConstants::ASSETS_DIR) + "/" + filename;
+        //auto assetsPath = FileUtils::getExecutablePath() / std::string(FileExplorerConstants::ASSETS_DIR);
+        auto framesPath = std::string(FileExplorerConstants::ASSETS_DIR) + "/Frames";
+
+		Debug::Log("[ExportAnimationScreen] Preparing Frames folder at: " + framesPath);
 
         // If the Frames folder exists, delete it
         if (std::filesystem::exists(framesPath))
@@ -350,7 +350,7 @@ void ExportAnimationScreen::PrepareFramesFolder()
 
         // Create a fresh Frames folder
         std::filesystem::create_directories(framesPath);
-        Debug::Log("[ExportAnimationScreen] Frames folder created at: " + framesPath.generic_string());
+        Debug::Log("[ExportAnimationScreen] Frames folder created at: " + framesPath);
     }
     catch (const std::exception& e)
     {
@@ -360,7 +360,8 @@ void ExportAnimationScreen::PrepareFramesFolder()
 
 void ExportAnimationScreen::ExportAllFramesAsPNG()
 {
-    if (!m_animation || m_animation->GetFrameCount() == 0)
+    auto animation = Animation::getInstance();
+    if (!animation || animation->GetFrameCount() == 0)
     {
         Debug::Log("[ExportAnimationScreen] Cannot export frames: invalid animation or no frames available");
         return;
@@ -379,7 +380,7 @@ void ExportAnimationScreen::ExportAllFramesAsPNG()
         PrepareFramesFolder();
 
         // Initialize batch export state
-        m_batchExportTotalFrames = m_animation->GetFrameCount();
+        m_batchExportTotalFrames = animation->GetFrameCount();
         m_batchExportCurrentFrame = 0;
         m_batchExportOriginalFrameIndex = m_currentFrameIndex;
         m_batchExportRayTracer = rayTracer;
@@ -390,7 +391,7 @@ void ExportAnimationScreen::ExportAllFramesAsPNG()
 
         // Set to first frame
         m_currentFrameIndex = 0;
-        auto frame = m_animation->GetFrame(m_currentFrameIndex);
+        auto frame = animation->GetFrame(m_currentFrameIndex);
 
         if (frame && m_camera)
         {

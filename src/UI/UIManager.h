@@ -92,8 +92,8 @@ public:
 	void SetProfiler(GpuCpuProfiler* profiler) { this->profiler = profiler; }
 	void FreeDescriptor(VkDescriptorSet& descriptorset);
 
-	std::shared_ptr<Animation> GetAnimation() const { return m_animation; }
-	void SetAnimation(std::shared_ptr<Animation> animation) { m_animation = animation; }
+	std::shared_ptr<Animation> GetAnimation() const { return std::shared_ptr<Animation>(); }
+	void SetAnimation(std::shared_ptr<Animation> animation) { }
 
 	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;
@@ -173,7 +173,5 @@ private:
 	glm::mat4 gizmoModelMatrix;
 
 	String currentLayoutPath;
-
-	std::shared_ptr<Animation> m_animation;
 };
 

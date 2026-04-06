@@ -9,8 +9,9 @@
 class Animation
 {
 public:
-    Animation(int fps, float duration);
-    ~Animation() = default;
+    // Singleton access
+    static Animation* getInstance();
+    static void destroyInstance();
 
     // Frame generation and management
     void GenerateFrames(Camera* camera);
@@ -34,10 +35,23 @@ public:
     // Frame iteration
     std::shared_ptr<AnimationFrame> GetFrameAtTime(float time);
 
+    // Initialize the singleton with default values
+    void Initialize(int fps = 30, float duration = 1.0f);
+
 private:
+    // Private constructor/destructor for singleton pattern
+    Animation(int fps, float duration);
+    ~Animation() = default;
+
+    // Prevent copying
+    Animation(const Animation&) = delete;
+    Animation& operator=(const Animation&) = delete;
+
     int m_fps;
     float m_duration;
     std::vector<std::shared_ptr<AnimationFrame>> m_frames;
 
     float CalculateFrameInterval() const;
+
+    static Animation* s_instance;
 };

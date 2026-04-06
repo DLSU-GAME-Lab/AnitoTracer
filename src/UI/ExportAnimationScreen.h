@@ -15,7 +15,6 @@ public:
     ExportAnimationScreen();
     ~ExportAnimationScreen();
 
-    void SetAnimation(std::shared_ptr<Animation> animation);
     void SetCamera(Camera* camera);
     void RefreshAnimationFrames();
 
@@ -28,7 +27,6 @@ private:
     void ProcessDelayedFrameCapture();
     friend class UIManager;
 
-    std::shared_ptr<Animation> m_animation;
     Camera* m_camera = nullptr;
     int m_currentFrameIndex = 0;
     int m_fpsInput = 30;

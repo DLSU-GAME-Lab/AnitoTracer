@@ -2,6 +2,7 @@
 #include "AUIScreen.h"
 #include "Engine/LightSystem/Light.h"
 #include "From-GDGRAP2/GameObject.h"
+#include "Engine/AnimationSystem/Animation.h"
 
 enum EditorAction
 {
@@ -18,7 +19,7 @@ public:
 	~InspectorScreen();
 
 	bool IsUniformScalingEnabled() const;
-	
+
 private:
 
 	virtual void drawUI() override;
@@ -57,7 +58,7 @@ private:
 	String materialPath = DEFAULT_MATERIAL;
 	String materialName = DEFAULT_MATERIAL;
 	Texture* materialDisplay;
-	
+
 	float lightIntensityMultiplier = 500000.0f;
-	
+
 };

@@ -1,6 +1,40 @@
 #include "Animation.h"
 #include <cmath>
 
+// Initialize static instance pointer
+Animation* Animation::s_instance = nullptr;
+
+Animation* Animation::getInstance()
+{
+    if (s_instance == nullptr)
+    {
+        s_instance = new Animation(30, 1.0f);
+    }
+    return s_instance;
+}
+
+void Animation::destroyInstance()
+{
+    if (s_instance != nullptr)
+    {
+        delete s_instance;
+        s_instance = nullptr;
+    }
+}
+
+void Animation::Initialize(int fps, float duration)
+{
+    if (s_instance == nullptr)
+    {
+        s_instance = new Animation(fps, duration);
+    }
+    else
+    {
+        s_instance->SetFPS(fps);
+        s_instance->SetDuration(duration);
+    }
+}
+
 Animation::Animation(int fps, float duration)
     : m_fps(fps), m_duration(duration), m_frames()
 {
