@@ -54,6 +54,8 @@ SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "build/vcpkg.windows/installed/x64-
 SET(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "build/vcpkg.windows/installed/x64-windows-static/share")
 # Stb is weird idk why!!!
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/build/vcpkg.windows/installed/x64-windows-static/share/stb")
+# Needs to set manually for FFMPEG -..-
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/vcpkg.windows/installed/x64-windows-static/share/ffmpeg")
 
 add_compile_definitions(GLM_ENABLE_EXPERIMENTAL)
 
@@ -65,6 +67,8 @@ find_package(assimp CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 find_package(Assimp REQUIRED)
 find_package(Vulkan REQUIRED)
+find_package(FFMPEG REQUIRED)
+find_package(ZLIB REQUIRED)
 
 # add_definitions(-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 
