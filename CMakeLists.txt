@@ -19,6 +19,9 @@ set (CMAKE_CXX_STANDARD 20)
 if (WIN32)
 	add_definitions(-DUNICODE -D_UNICODE)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
+	# For FFMPEG
+    set(FFMPEG_DEPENDENCY_ncrypt_RELEASE "ncrypt.lib" CACHE FILEPATH "")
+    set(FFMPEG_DEPENDENCY_ncrypt_DEBUG "ncrypt.lib" CACHE FILEPATH "")
 endif ()
 
 if (MSVC)
