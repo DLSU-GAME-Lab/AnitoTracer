@@ -23,6 +23,7 @@ private:
     virtual void onTriggeredEvent(std::string eventName, std::shared_ptr<Parameters> parameters = nullptr) override;
     void ExportCurrentFrameAsPNG();
     void ExportAllFramesAsPNG();
+    void ExportVideoFromFrames();
     void PrepareFramesFolder();
     void ProcessDelayedFrameCapture();
     friend class UIManager;
