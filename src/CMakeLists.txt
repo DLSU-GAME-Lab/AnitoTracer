@@ -393,10 +393,11 @@ target_include_directories(
 	${glm_INCLUDE_DIRS} 
 	${STB_INCLUDE_DIRS} 
 	${Vulkan_INCLUDE_DIRS}
+	${FFMPEG_INCLUDE_DIRS}
 	Dependencies/include
 )
 target_link_directories(${exe_name} PRIVATE Assimp/lib ${Vulkan_LIBRARY})
-target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm ${Vulkan_LIBRARIES} ${extra_libs})
+target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm ${Vulkan_LIBRARIES} ${FFMPEG_LIBRARIES} ${extra_libs})
 
 #if(${WIN32})
 #add_custom_command(TARGET ${exe_name} POST_BUILD
