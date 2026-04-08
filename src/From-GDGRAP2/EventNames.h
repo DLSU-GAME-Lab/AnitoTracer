@@ -14,5 +14,6 @@ public:
 	inline static const String ON_OBJECT_DELETED = "ON_OBJECT_DELETED";
 	inline static const String RAYS_START_RENDER = "RAYS_START_RENDER";
 	inline static const String RAYS_END_RENDER = "RAYS_END_RENDER";
+	inline static const String ON_SAMPLE_PROGRESS = "ON_SAMPLE_PROGRESS"; // Broadcasts every 10% of sample completion with progress data
 };
 

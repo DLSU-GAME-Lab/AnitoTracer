@@ -19,6 +19,7 @@ ExportAnimationScreen::ExportAnimationScreen()
     // Subscribe to ray rendering events
     EventBroadcaster::getInstance()->addObserver(EventNames::RAYS_START_RENDER, this);
     EventBroadcaster::getInstance()->addObserver(EventNames::RAYS_END_RENDER, this);
+    EventBroadcaster::getInstance()->addObserver(EventNames::ON_SAMPLE_PROGRESS, this);
 }
 
 ExportAnimationScreen::~ExportAnimationScreen()
@@ -26,6 +27,7 @@ ExportAnimationScreen::~ExportAnimationScreen()
     // Unsubscribe from ray rendering events
     EventBroadcaster::getInstance()->removeObserver(EventNames::RAYS_START_RENDER);
     EventBroadcaster::getInstance()->removeObserver(EventNames::RAYS_END_RENDER);
+    EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SAMPLE_PROGRESS);
 }
 
 void ExportAnimationScreen::SetCamera(Camera* camera)
@@ -203,6 +205,97 @@ void ExportAnimationScreen::drawUI()
     }
 
     ImGui::End();
+
+    // Export progress overlay modal
+    if (m_isBatchExporting)
+    {
+        ImGui::OpenPopup("Exporting Frames");
+    }
+
+    // Center the modal on screen
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(400, 200), ImGuiCond_Appearing);
+
+    if (ImGui::BeginPopupModal("Exporting Frames", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
+    {
+        ImGui::Spacing();
+        ImGui::Spacing();
+
+        // Title
+        ImGui::TextWrapped("Exporting animation frames as PNG images...");
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Frame progress information
+        float frameProgress = (float)m_batchExportCurrentFrame / (float)m_batchExportTotalFrames;
+        char frameProgressText[256];
+        std::snprintf(frameProgressText, sizeof(frameProgressText), "Frame %zu / %zu", m_batchExportCurrentFrame, m_batchExportTotalFrames);
+
+        ImGui::Text("%s", frameProgressText);
+        ImGui::ProgressBar(frameProgress, ImVec2(-1, 0));
+
+        ImGui::Spacing();
+
+        // Sample rendering progress (current frame)
+        float sampleProgress = (float)m_currentSamplePercentage / 100.0f;
+        char sampleProgressText[256];
+        std::snprintf(sampleProgressText, sizeof(sampleProgressText), "Rendering: %d%% (%d / %d samples)", 
+            m_currentSamplePercentage, m_currentSampleCount, m_maxSampleCount);
+
+        ImGui::Text("Current Frame Progress:");
+        ImGui::ProgressBar(sampleProgress, ImVec2(-1, 0), sampleProgressText);
+
+        ImGui::Spacing();
+        ImGui::Spacing();
+
+        // Status text
+        if (m_batchExportLastEventTime > 0.0)
+        {
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Waiting for capture delay...");
+        }
+        else if (m_currentSamplePercentage < 100)
+        {
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Rendering frame...");
+        }
+        else
+        {
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "Frame complete, moving to next...");
+        }
+
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Cancel button
+        if (ImGui::Button("Cancel Export", ImVec2(-1, 0)))
+        {
+            m_isBatchExporting = false;
+            m_currentFrameIndex = m_batchExportOriginalFrameIndex;
+            m_batchExportRayTracer = nullptr;
+            m_batchExportLastEventTime = 0.0;
+            m_currentSamplePercentage = 0;
+            m_currentSampleCount = 0;
+            m_maxSampleCount = 0;
+            Debug::Log("[ExportAnimationScreen] Export cancelled by user");
+            ImGui::CloseCurrentPopup();
+        }
+
+        // Auto-close when export is complete
+        if (!m_isBatchExporting)
+        {
+            // Reset sample progress when export completes
+            m_currentSamplePercentage = 0;
+            m_currentSampleCount = 0;
+            m_maxSampleCount = 0;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
 }
 
 void ExportAnimationScreen::onTriggeredEvent(std::string eventName, std::shared_ptr<Parameters> parameters)
@@ -222,6 +315,36 @@ void ExportAnimationScreen::onTriggeredEvent(std::string eventName, std::shared_
             m_batchExportLastEventTime = std::chrono::duration<double>(
                 std::chrono::high_resolution_clock::now().time_since_epoch()
             ).count();
+        }
+    }
+    else if (eventName == EventNames::ON_SAMPLE_PROGRESS)
+    {
+        // Extract sample progress data
+        int percentage = parameters->getIntData("percentage", 0);
+        int currentSamples = parameters->getIntData("currentSamples", 0);
+        int maxSamples = parameters->getIntData("maxSamples", 1);
+        bool isComplete = parameters->getBoolData("isComplete", false);
+
+        // Store progress data for UI display
+        m_currentSamplePercentage = percentage;
+        m_currentSampleCount = currentSamples;
+        m_maxSampleCount = maxSamples;
+
+        // Print progress
+        Debug::Log("[ExportAnimationScreen] Sample Progress: " + std::to_string(percentage) + "% (" 
+            + std::to_string(currentSamples) + "/" + std::to_string(maxSamples) + ")");
+
+        // If batch exporting, also show which frame we're rendering
+        if (m_isBatchExporting)
+        {
+            Debug::Log("[ExportAnimationScreen] Frame " + std::to_string(m_batchExportCurrentFrame + 1) 
+                + "/" + std::to_string(m_batchExportTotalFrames) + " - Rendering: " + std::to_string(percentage) + "%");
+        }
+
+        // Log when rendering is complete
+        if (isComplete)
+        {
+            Debug::Log("[ExportAnimationScreen] Frame rendering complete at 100%");
         }
     }
 }

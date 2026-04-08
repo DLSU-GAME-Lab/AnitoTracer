@@ -107,20 +107,23 @@ namespace Assets {
 
 	uint32_t RayScene::GetRayCounter(Vulkan::CommandPool& commandPool)
 	{
+		// Wait for device to complete all pending operations before reading counter
+		vkDeviceWaitIdle(commandPool.Device().Handle());
+
 		const auto contentSize = sizeof(uint32_t);
-	
+
 		auto stagingBuffer = std::make_unique<Vulkan::Buffer>(commandPool.Device(), contentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		auto stagingBufferMemory = stagingBuffer->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	
+
 		stagingBuffer->CopyFrom(commandPool, *rayCounterBuffer_, contentSize);
-	
+
 		uint32_t numRays;
 		const auto data = stagingBufferMemory.Map(0, contentSize);
 		std::memcpy(&numRays, data, contentSize);
 		stagingBufferMemory.Unmap();
-	
+
 		stagingBuffer.reset();
-	
+
 		return numRays;
 	}
 }

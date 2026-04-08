@@ -288,6 +288,7 @@ void RayTracer::DrawFrame()
 		!userSettings_.AccumulateRays)
 	{
 		totalNumberOfSamples_ = 0;
+		lastReportedPercentage_ = 0;
 		resetAccumulation_ = false;
 	}
 
@@ -297,11 +298,14 @@ void RayTracer::DrawFrame()
 	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
 	totalNumberOfSamples_ += numberOfSamples_;
 
+	// Broadcast sample progress every 10%
+	BroadcastSampleProgress();
+
 	rayScene_->Update(CommandPool());
-	
+
 	ExecuteScheduledPick();
 	Application::DrawFrame();
-	
+
 }
 
 void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
@@ -724,6 +728,17 @@ void RayTracer::ExecuteScheduledPick()
 
 void RayTracer::TakeScreenshot(std::string name)
 {
+	// Wait for all GPU operations to complete
+	Device().WaitIdle();
+
+	// Check if accumulation is complete
+	if (totalNumberOfSamples_ < userSettings_.MaxNumberOfSamples)
+	{
+		Debug::Log("WARNING: Screenshot taken with incomplete samples (" 
+			+ std::to_string(totalNumberOfSamples_) + "/" 
+			+ std::to_string(userSettings_.MaxNumberOfSamples) + ")");
+	}
+
 	auto extent = SwapChain().Extent();
 
 	const uint32_t width = extent.width;
@@ -737,6 +752,44 @@ void RayTracer::TakeScreenshot(std::string name)
 	Export::SavePNG(name, width, height, bytesPerPixel, mapped);
 
 	hostCaptureBufferMemory_->Unmap();
+
+	Debug::Log("Screenshot saved: " + name + " (Samples: " + std::to_string(totalNumberOfSamples_) + ")");
+}
+
+void RayTracer::BroadcastSampleProgress()
+{
+	if (userSettings_.MaxNumberOfSamples == 0)
+		return;
+
+	// Calculate current percentage (0-100)
+	uint32_t currentPercentage = (totalNumberOfSamples_ * 100) / userSettings_.MaxNumberOfSamples;
+
+	Debug::Log("Current sample progress: " + std::to_string(currentPercentage) + "% (" 
+		+ std::to_string(totalNumberOfSamples_) + "/" 
+		+ std::to_string(userSettings_.MaxNumberOfSamples) + ")");
+
+	// Round down to nearest 10%
+	uint32_t currentMilestone = (currentPercentage / 10) * 10;
+
+	// Check if we've crossed a new 10% threshold
+	if (currentMilestone > lastReportedPercentage_ && currentMilestone <= 100)
+	{
+		lastReportedPercentage_ = currentMilestone;
+
+		// Create parameters with progress data
+		auto params = std::make_shared<Parameters>(EventNames::ON_SAMPLE_PROGRESS);
+		params->encodeInt("percentage", currentMilestone);
+		params->encodeInt("currentSamples", totalNumberOfSamples_);
+		params->encodeInt("maxSamples", userSettings_.MaxNumberOfSamples);
+		params->encodeBool("isComplete", totalNumberOfSamples_ >= userSettings_.MaxNumberOfSamples);
+
+		// Broadcast the event
+		EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SAMPLE_PROGRESS, params);
+
+		Debug::Log("Sample Progress: " + std::to_string(currentMilestone) + "% (" 
+			+ std::to_string(totalNumberOfSamples_) + "/" 
+			+ std::to_string(userSettings_.MaxNumberOfSamples) + ")");
+	}
 }
 
 void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,

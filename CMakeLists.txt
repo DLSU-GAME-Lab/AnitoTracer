@@ -63,6 +63,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/vcpkg.windows/installed
 add_compile_definitions(GLM_ENABLE_EXPERIMENTAL)
 
 find_package(Boost REQUIRED COMPONENTS exception program_options) 
+find_package(ZLIB REQUIRED)
+find_package(BZip2 REQUIRED)
+find_package(PNG REQUIRED)
 find_package(freetype CONFIG REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm CONFIG REQUIRED)
@@ -71,7 +74,7 @@ find_package(Stb REQUIRED)
 find_package(Assimp REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(FFMPEG REQUIRED)
-find_package(ZLIB REQUIRED)
+
 
 # add_definitions(-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 

@@ -27,6 +27,10 @@ public:
 	static RayTracer* getInstance();
 	void TakeScreenshot(std::string path);
 
+	bool IsAccumulationComplete() const { return totalNumberOfSamples_ >= userSettings_.MaxNumberOfSamples; }
+	uint32_t GetTotalSamples() const { return totalNumberOfSamples_; }
+	uint32_t GetMaxSamples() const { return userSettings_.MaxNumberOfSamples; }
+
 	UserSettings getUserSettings() const { return userSettings_; }
 
 protected:
@@ -66,6 +70,7 @@ private:
 	void ResetPicker();
 	void SchedulePick(const glm::vec2& mousePos);
 	void ExecuteScheduledPick();
+	void BroadcastSampleProgress();
 
 
 	void ScreenToWorldRay(const glm::vec2& mousePos, glm::vec3& outOrigin, glm::vec3& outDirection);
@@ -86,6 +91,9 @@ private:
 	uint32_t totalNumberOfSamples_{};
 	uint32_t numberOfSamples_{};
 	bool resetAccumulation_{};
+
+	// Sample progress tracking
+	uint32_t lastReportedPercentage_{};
 
 	// Benchmark stats
 	double sceneInitialTime_{};

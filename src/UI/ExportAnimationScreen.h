@@ -41,4 +41,9 @@ private:
     RayTracer* m_batchExportRayTracer = nullptr;
     double m_batchExportFrameDelay = 0.1;  // Delay in seconds before capturing frame (default 0.1s)
     double m_batchExportLastEventTime = 0.0;  // Timestamp of last RAYS_END_RENDER event
+
+    // Sample progress tracking
+    int m_currentSamplePercentage = 0;
+    int m_currentSampleCount = 0;
+    int m_maxSampleCount = 0;
 };
