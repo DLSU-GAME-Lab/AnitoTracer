@@ -228,6 +228,9 @@ set(src_files_ui
 	UI/EditorTheme.cpp
 	UI/IconsMaterialDesign.h
 	UI/UIConfig.hpp
+	UI/Timeline/AnimationClip.h
+	UI/Timeline/Timeline.cpp
+	UI/Timeline/Timeline.h
 )
 
 set(src_files_from_gdgrap2
@@ -333,6 +336,10 @@ set(src_files_imgui
 	Dependencies/include/imstb_truetype.h
 	Dependencies/include/ImGuizmo.cpp
 	Dependencies/include/ImGuizmo.h
+	Dependencies/include/GuiElement.cpp
+	Dependencies/include/GuiElement.h
+	Dependencies/include/GuiWindow.cpp
+	Dependencies/include/GuiWindow.h	
 )
 
 
