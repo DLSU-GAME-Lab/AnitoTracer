@@ -257,7 +257,7 @@ void RayTracer::DrawFrame()
 	{
 		Debug::Log("Scene changed, loading scene " + std::to_string(userSettings_.SceneIndex));
 		Device().WaitIdle();
-		DeleteSwapChain();
+		DeleteSwapChainWithoutUI();
 		DeleteAccelerationStructures();
 		LoadScene(userSettings_.SceneIndex);
 		CreateAccelerationStructures();
