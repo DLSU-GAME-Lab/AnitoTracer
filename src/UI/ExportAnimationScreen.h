@@ -39,8 +39,8 @@ private:
     size_t m_batchExportTotalFrames = 0;
     int m_batchExportOriginalFrameIndex = 0;
     RayTracer* m_batchExportRayTracer = nullptr;
-    double m_batchExportFrameDelay = 0.1;  // Delay in seconds before capturing frame (default 0.1s)
-    double m_batchExportLastEventTime = 0.0;  // Timestamp of last RAYS_END_RENDER event
+    uint32_t m_batchExportTargetPercentage = 100;  // Target sample percentage to wait for before capturing frame
+    bool m_batchExportReadyForCapture = false;  // Flag set when RAYS_END_RENDER is triggered
 
     // Sample progress tracking
     int m_currentSamplePercentage = 0;

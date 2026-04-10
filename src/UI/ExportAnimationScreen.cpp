@@ -8,7 +8,6 @@
 #include "../Utilities/FileExplorer/FileExplorerConstants.h"
 #include <cmath>
 #include <filesystem>
-#include <chrono>
 
 ExportAnimationScreen::ExportAnimationScreen() 
     : AUIScreen(UINames::EXPORT_ANIMATION_SCREEN)
@@ -76,15 +75,15 @@ void ExportAnimationScreen::drawUI()
 
     ImGui::Spacing();
 
-    // Frame capture delay input (convert to float for ImGui slider)
-    float delayFloat = static_cast<float>(m_batchExportFrameDelay);
-    if (ImGui::SliderFloat("Capture Delay (seconds)##export_delay", &delayFloat, 0.0f, 60.0f, "%.3f"))
+    // Target sample percentage input (convert to int for ImGui slider)
+    int targetPercentage = static_cast<int>(m_batchExportTargetPercentage);
+    if (ImGui::SliderInt("Target Sample Percentage##export_percentage", &targetPercentage, 1, 100, "%d%%"))
     {
-        m_batchExportFrameDelay = delayFloat;
+        m_batchExportTargetPercentage = static_cast<uint32_t>(targetPercentage);
     }
     if (ImGui::IsItemHovered())
     {
-        ImGui::SetTooltip("Delay before capturing frame after RAYS_END_RENDER\n(allows additional render time if needed)");
+        ImGui::SetTooltip("Wait for sample percentage to reach this value\nbefore capturing frame (1-100%%)");
     }
 
     ImGui::Spacing();
@@ -252,13 +251,13 @@ void ExportAnimationScreen::drawUI()
         ImGui::Spacing();
 
         // Status text
-        if (m_batchExportLastEventTime > 0.0)
+        if (!m_batchExportReadyForCapture)
         {
-            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Waiting for capture delay...");
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Waiting for render event...");
         }
-        else if (m_currentSamplePercentage < 100)
+        else if (m_currentSamplePercentage < m_batchExportTargetPercentage)
         {
-            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Rendering frame...");
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Waiting for %d%% samples...", m_batchExportTargetPercentage);
         }
         else
         {
@@ -276,7 +275,7 @@ void ExportAnimationScreen::drawUI()
             m_isBatchExporting = false;
             m_currentFrameIndex = m_batchExportOriginalFrameIndex;
             m_batchExportRayTracer = nullptr;
-            m_batchExportLastEventTime = 0.0;
+            m_batchExportReadyForCapture = false;
             m_currentSamplePercentage = 0;
             m_currentSampleCount = 0;
             m_maxSampleCount = 0;
@@ -303,6 +302,9 @@ void ExportAnimationScreen::onTriggeredEvent(std::string eventName, std::shared_
     if (eventName == EventNames::RAYS_START_RENDER)
     {
         Debug::Log("[ExportAnimationScreen] RAYS_START_RENDER event triggered");
+		//Reset sample progress tracking for new frame render
+        m_currentSampleCount = 0;
+        m_currentSamplePercentage = 0;
     }
     else if (eventName == EventNames::RAYS_END_RENDER)
     {
@@ -311,10 +313,8 @@ void ExportAnimationScreen::onTriggeredEvent(std::string eventName, std::shared_
         // Handle batch export frame capture
         if (m_isBatchExporting && m_batchExportRayTracer)
         {
-            // Record the time of RAYS_END_RENDER event
-            m_batchExportLastEventTime = std::chrono::duration<double>(
-                std::chrono::high_resolution_clock::now().time_since_epoch()
-            ).count();
+            // Mark that we're ready to check for target percentage
+            m_batchExportReadyForCapture = true;
         }
     }
     else if (eventName == EventNames::ON_SAMPLE_PROGRESS)
@@ -330,9 +330,11 @@ void ExportAnimationScreen::onTriggeredEvent(std::string eventName, std::shared_
         m_currentSampleCount = currentSamples;
         m_maxSampleCount = maxSamples;
 
+        /*
         // Print progress
         Debug::Log("[ExportAnimationScreen] Sample Progress: " + std::to_string(percentage) + "% (" 
             + std::to_string(currentSamples) + "/" + std::to_string(maxSamples) + ")");
+        */
 
         // If batch exporting, also show which frame we're rendering
         if (m_isBatchExporting)
@@ -385,27 +387,20 @@ void ExportAnimationScreen::ExportCurrentFrameAsPNG()
 
 void ExportAnimationScreen::ProcessDelayedFrameCapture()
 {
-    // Only process if batch export is active and we have a valid time
-    if (!m_isBatchExporting || !m_batchExportRayTracer || m_batchExportLastEventTime == 0.0)
+    // Only process if batch export is active and we have a valid raytracer
+    if (!m_isBatchExporting || !m_batchExportRayTracer)
     {
         return;
     }
 
-    // Get current time
-    double currentTime = std::chrono::duration<double>(
-        std::chrono::high_resolution_clock::now().time_since_epoch()
-    ).count();
-
-    // Check if enough time has elapsed
-    double elapsedTime = currentTime - m_batchExportLastEventTime;
-
-    if (elapsedTime < m_batchExportFrameDelay)
+    // Check if we're ready for capture and have reached target percentage
+    if (!m_batchExportReadyForCapture || m_currentSamplePercentage < m_batchExportTargetPercentage)
     {
-        // Not enough time has passed yet, return and try again next frame
+        // Not ready or haven't reached target percentage yet
         return;
     }
 
-    // Delay has elapsed, proceed with frame capture
+    // We've reached the target percentage, proceed with frame capture
     try
     {
         // Create filename with frame number (zero-padded to 6 digits)
@@ -427,7 +422,7 @@ void ExportAnimationScreen::ProcessDelayedFrameCapture()
             m_isBatchExporting = false;
             m_currentFrameIndex = m_batchExportOriginalFrameIndex;
             m_batchExportRayTracer = nullptr;
-            m_batchExportLastEventTime = 0.0;
+            m_batchExportReadyForCapture = false;
             Debug::Log("[ExportAnimationScreen] Successfully exported all " + std::to_string(m_batchExportTotalFrames) + " frames");
         }
         else
@@ -448,8 +443,8 @@ void ExportAnimationScreen::ProcessDelayedFrameCapture()
                 // Mark scene as dirty to trigger rendering for next frame
                 EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 
-                // Reset event time for next frame
-                m_batchExportLastEventTime = 0.0;
+                // Reset ready flag for next frame
+                m_batchExportReadyForCapture = false;
             }
         }
     }
@@ -458,7 +453,7 @@ void ExportAnimationScreen::ProcessDelayedFrameCapture()
         Debug::Log("[ExportAnimationScreen] Error exporting batch frame " + std::to_string(m_batchExportCurrentFrame) + ": " + std::string(e.what()));
         m_isBatchExporting = false;
         m_batchExportRayTracer = nullptr;
-        m_batchExportLastEventTime = 0.0;
+        m_batchExportReadyForCapture = false;
     }
 }
 
@@ -516,6 +511,7 @@ void ExportAnimationScreen::ExportAllFramesAsPNG()
         m_batchExportCurrentFrame = 0;
         m_batchExportOriginalFrameIndex = m_currentFrameIndex;
         m_batchExportRayTracer = rayTracer;
+        m_batchExportReadyForCapture = false;
         m_isBatchExporting = true;
 
         Debug::Log("[ExportAnimationScreen] Starting event-driven export of " + std::to_string(m_batchExportTotalFrames) + " frames...");

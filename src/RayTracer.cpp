@@ -764,14 +764,16 @@ void RayTracer::BroadcastSampleProgress()
 	// Calculate current percentage (0-100)
 	uint32_t currentPercentage = (totalNumberOfSamples_ * 100) / userSettings_.MaxNumberOfSamples;
 
+	/*
 	Debug::Log("Current sample progress: " + std::to_string(currentPercentage) + "% (" 
 		+ std::to_string(totalNumberOfSamples_) + "/" 
 		+ std::to_string(userSettings_.MaxNumberOfSamples) + ")");
+	*/
 
-	// Round down to nearest 10%
-	uint32_t currentMilestone = (currentPercentage / 10) * 10;
+	// Round down to nearest interval threshold
+	uint32_t currentMilestone = (currentPercentage / sampleProgressInterval_) * sampleProgressInterval_;
 
-	// Check if we've crossed a new 10% threshold
+	// Check if we've crossed a new interval threshold
 	if (currentMilestone > lastReportedPercentage_ && currentMilestone <= 100)
 	{
 		lastReportedPercentage_ = currentMilestone;

@@ -94,6 +94,7 @@ private:
 
 	// Sample progress tracking
 	uint32_t lastReportedPercentage_{};
+	uint32_t sampleProgressInterval_{1};
 
 	// Benchmark stats
 	double sceneInitialTime_{};
