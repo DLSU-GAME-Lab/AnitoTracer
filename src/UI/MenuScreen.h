@@ -53,6 +53,9 @@ private:
 
 	void OnLoadSceneByIndex(int sceneIndex);
 
+	void OnSetRendererModeLegacy();
+	void OnSetRendererModeComputeShader();
+
 	friend class UIManager;
 
 	bool isLoadObjOpen = false;

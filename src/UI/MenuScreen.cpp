@@ -245,6 +245,19 @@ void MenuScreen::drawUI()
 			ImGui::EndMenu();
 		}
 
+		if (ImGui::BeginMenu("Renderer"))
+		{
+			if (ImGui::MenuItem("Legacy"))
+			{
+				OnSetRendererModeLegacy();
+			}
+			if (ImGui::MenuItem("Compute Shader"))
+			{
+				OnSetRendererModeComputeShader();
+			}
+			ImGui::EndMenu();
+		}
+
 		ImGui::SetCursorPos(ImVec2(ImGui::GetWindowSize().x - 100 - 10, 0));
 
 		if (ImGui::BeginMenu("Layout"))
@@ -812,4 +825,16 @@ void MenuScreen::ShowColorPickerWindow()
 void MenuScreen::OnLoadSceneByIndex(int sceneIndex)
 {
 	CommandManager::getInstance()->executeCommand(new LoadSceneCommand(sceneIndex));
+}
+
+void MenuScreen::OnSetRendererModeLegacy()
+{
+	Debug::Log("Switching to Legacy renderer mode");
+	// TODO: Implement Legacy renderer mode switching logic
+}
+
+void MenuScreen::OnSetRendererModeComputeShader()
+{
+	Debug::Log("Switching to Compute Shader renderer mode");
+	// TODO: Implement Compute Shader renderer mode switching logic
 }
