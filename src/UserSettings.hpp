@@ -2,17 +2,25 @@
 
 struct UserSettings final
 {
+	// Renderer Mode Enumeration
+	enum class RendererMode
+	{
+		Legacy,
+		ComputeShader
+	};
+
 	// Application
 	bool Benchmark;
 
 	// Benchmark
 	bool BenchmarkNextScenes{};
 	uint32_t BenchmarkMaxTime{};
-	
+
 	// Scene
 	int SceneIndex;
 
 	// Renderer
+	RendererMode CurrentRendererMode = RendererMode::Legacy;
 	bool IsRayTraced;
 	bool AccumulateRays;
 	bool MultiSampling;

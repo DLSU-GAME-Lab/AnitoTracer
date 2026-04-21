@@ -830,11 +830,15 @@ void MenuScreen::OnLoadSceneByIndex(int sceneIndex)
 void MenuScreen::OnSetRendererModeLegacy()
 {
 	Debug::Log("Switching to Legacy renderer mode");
-	// TODO: Implement Legacy renderer mode switching logic
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SWAP_RENDERER);
+	parameters->encodeInt("RENDERER_MODE", static_cast<int>(UserSettings::RendererMode::Legacy));
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SWAP_RENDERER, parameters);
 }
 
 void MenuScreen::OnSetRendererModeComputeShader()
 {
 	Debug::Log("Switching to Compute Shader renderer mode");
-	// TODO: Implement Compute Shader renderer mode switching logic
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SWAP_RENDERER);
+	parameters->encodeInt("RENDERER_MODE", static_cast<int>(UserSettings::RendererMode::ComputeShader));
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SWAP_RENDERER, parameters);
 }
