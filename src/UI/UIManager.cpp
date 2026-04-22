@@ -683,10 +683,20 @@ void UIManager::ReinitializeBackends(const Vulkan::SwapChain* swapChain, const V
 	}
 
 	const auto& device = swapChain->Device();
+	const auto& window = device.Surface().Instance().Window();
 
-	// Shutdown ImGui Vulkan and GLFW backends FIRST, before destroying resources they depend on
-	ImGui_ImplVulkan_Shutdown();
+	// Shutdown ImGui Vulkan backend - this is the critical step
+	// The cb_state nullptr error happens if the Vulkan backend was never properly initialized
+	// or if we're trying to shutdown twice
 	ImGuiIO& io = ImGui::GetIO();
+
+	// Only shutdown the Vulkan backend if it has actually been initialized
+	if (io.BackendRendererUserData != nullptr)
+	{
+		ImGui_ImplVulkan_Shutdown();
+	}
+
+	// Only shutdown GLFW backend if it's been initialized
 	if (io.BackendPlatformUserData != nullptr)
 	{
 		ImGui_ImplGlfw_Shutdown();
@@ -745,8 +755,6 @@ void UIManager::ReinitializeBackends(const Vulkan::SwapChain* swapChain, const V
 	}
 
 	// Reinitialize the GLFW backend
-	const auto& window = device.Surface().Instance().Window();
-
 	if (!ImGui_ImplGlfw_InitForVulkan(window.Handle(), true))
 	{
 		Throw(std::runtime_error("failed to reinitialise ImGui GLFW adapter"));

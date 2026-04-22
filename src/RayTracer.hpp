@@ -13,6 +13,10 @@ namespace Vulkan {
 	class RayVisualizationPipeline;
 	class SwapChain;
 }
+
+namespace Vulkan::Compute {
+	class ComputeShaderRayTracer;
+}
 class RayTracer final : public Vulkan::RayTracing::Application, public Observer, public HotkeyListener
 {
 
@@ -113,6 +117,9 @@ private:
 	bool mousePressed = false;
 
 	bool isPickScheduled = false;
+
+	// Compute shader renderer
+	std::unique_ptr<Vulkan::Compute::ComputeShaderRayTracer> computeShaderRenderer_;
 
 	static RayTracer* sharedInstance;
 

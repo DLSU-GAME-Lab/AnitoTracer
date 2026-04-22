@@ -18,6 +18,8 @@
 #include "From-GDGRAP2/GlobalConfig.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "From-GDGRAP2/TransformHistory.h"
+#include "From-GDGRAP2/EventBroadcaster.h"
+#include "From-GDGRAP2/EventNames.h"
 #include "UI/UIManager.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
@@ -30,6 +32,8 @@
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
+#include "Vulkan/ImageMemoryBarrier.hpp"
+#include "Vulkan/Vk_Compute/ComputeShaderRayTracer.hpp"
 
 #include "StateManagement/CommandManager.hpp"
 #include "Assets/ModelLibrary.hpp"
@@ -58,6 +62,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SCENE_LOADED, this);
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MARK_SCENE_DIRTY, this);
+	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SWAP_RENDERER, this);
 
 	HotkeySystem::getInstance()->addListener(this);
 
@@ -75,9 +80,11 @@ RayTracer::~RayTracer()
 
 	scene_.reset();
 	rayScene_.reset();
+	computeShaderRenderer_.reset();
 	HotkeySystem::getInstance()->removeListener(this);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SWAP_RENDERER);
 }
 
 void RayTracer::initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig,
@@ -177,6 +184,22 @@ void RayTracer::CreateSwapChain()
 
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
 
+	// Initialize compute shader renderer if in Compute Shader mode
+	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::ComputeShader)
+	{
+		computeShaderRenderer_.reset(new Vulkan::Compute::ComputeShaderRayTracer(
+			SwapChain(), 
+			topAs_[0], 
+			*accumulationImageView_, 
+			*outputImageView_, 
+			*outputImageViewS_, 
+			UniformBuffers(), 
+			GetScene(), 
+			GetRayScene()
+		));
+		Debug::Log("Compute Shader Renderer initialized");
+	}
+
 	// If UIManager hasn't been initialized yet, do a full initialization
 	if (UIManager::getInstance() == nullptr)
 	{
@@ -212,6 +235,7 @@ void RayTracer::CreateSwapChain()
 void RayTracer::DeleteSwapChain()
 {
 	//userInterface_.reset();
+	computeShaderRenderer_.reset();
 	rayVisualizationPipeline_.reset();
 	UIManager::reset();
 
@@ -252,6 +276,21 @@ void RayTracer::DrawFrame()
 		//	userSettings_.NumberOfSamples = 24;
 		//}
 	}
+
+	// Check if renderer mode was switched
+	if (isRenderChanged)
+	{
+		Debug::Log("Processing deferred renderer switch");
+		isRenderChanged = false;
+		Device().WaitIdle();
+		DeleteSwapChainWithoutUI();
+		CreateSwapChain();
+		resetAccumulation_ = true;
+		totalNumberOfSamples_ = 0;
+		lastReportedPercentage_ = 0;
+		return;
+	}
+
 	// Check if the scene has been changed by the user via select new scene
 	if (sceneIndex_ != static_cast<uint32_t>(userSettings_.SceneIndex))
 	{
@@ -323,10 +362,109 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	// Check the current state of the benchmark, update it for the new frame.
 	CheckAndUpdateBenchmarkState(prevTime);
 
-	// Render the scene
-	userSettings_.IsRayTraced
-		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
-		: Vulkan::Application::Render(commandBuffer, imageIndex);
+	if (userSettings_.IsRayTraced)
+	{
+		if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::ComputeShader && computeShaderRenderer_)
+		{
+			// Use compute shader renderer
+			const auto extent = SwapChain().Extent();
+
+			VkImageSubresourceRange subresourceRange = {};
+			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			subresourceRange.baseMipLevel = 0;
+			subresourceRange.levelCount = 1;
+			subresourceRange.baseArrayLayer = 0;
+			subresourceRange.layerCount = 1;
+
+			// Acquire destination images for rendering.
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, accumulationImage_->Handle(), subresourceRange, 0,
+				VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 0,
+				VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange, VK_ACCESS_SHADER_READ_BIT,
+				VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+			// Dispatch compute shader
+			computeShaderRenderer_->Dispatch(commandBuffer, imageIndex, extent);
+
+			// Acquire output image and swap-chain image for copying.
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 
+				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, 0,
+				VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange,
+				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+			// Copy output image into swap-chain image.
+			VkImageCopy copyRegion;
+			copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+			copyRegion.srcOffset = { 0, 0, 0 };
+			copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+			copyRegion.dstOffset = { 0, 0, 0 };
+			copyRegion.extent = { extent.width, extent.height, 1 };
+
+			vkCmdCopyImage(commandBuffer,
+				outputImage_->Handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				1, &copyRegion);
+
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, VK_ACCESS_TRANSFER_WRITE_BIT,
+				0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+			VkBufferImageCopy region{};
+			region.bufferOffset = 0;
+			region.bufferRowLength = 0;
+			region.bufferImageHeight = 0;
+			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			region.imageSubresource.mipLevel = 0;
+			region.imageSubresource.baseArrayLayer = 0;
+			region.imageSubresource.layerCount = 1;
+			region.imageOffset = { 0, 0, 0 };
+			region.imageExtent = { extent.width, extent.height, 1 };
+
+			vkCmdCopyImageToBuffer(
+				commandBuffer,
+				outputImageS_->Handle(),
+				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				hostCaptureBuffer_->Handle(),
+				1,
+				&region
+			);
+
+			VkBufferMemoryBarrier readbackBarrier{};
+			readbackBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+			readbackBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			readbackBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+			readbackBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			readbackBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			readbackBarrier.buffer = hostCaptureBuffer_->Handle();
+			readbackBarrier.offset = 0;
+			readbackBarrier.size = VK_WHOLE_SIZE;
+
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_HOST_BIT,
+				0,
+				0, nullptr,
+				1, &readbackBarrier,
+				0, nullptr
+			);
+		}
+		else
+		{
+			// Use legacy ray tracing pipeline
+			Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex);
+		}
+	}
+	else
+	{
+		Vulkan::Application::Render(commandBuffer, imageIndex);
+	}
 
 	// Render ray visualization
 	if (isVisualizeRays_)
@@ -359,7 +497,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 				vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
 				vkCmdSetLineWidth(commandBuffer, 5);
-                
+
 				vkCmdDraw(commandBuffer, rays->NumberOfVertices(), 1, 0, 0);
 			}
 		}
@@ -529,6 +667,14 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 		this->isSceneDirty = true;
 		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, true);
 		//Debug::Log("Scene marked as dirty! \n");
+	}
+	else if (eventName == EventNames::ON_SWAP_RENDERER)
+	{
+		int rendererMode = parameters->getIntData("RENDERER_MODE", static_cast<int>(UserSettings::RendererMode::Legacy));
+		// Defer the renderer switch to the next frame to avoid issues with command buffer recording
+		userSettings_.CurrentRendererMode = static_cast<UserSettings::RendererMode>(rendererMode);
+		isRenderChanged = true;
+		Debug::Log("Renderer switch scheduled for next frame");
 	}
 }
 

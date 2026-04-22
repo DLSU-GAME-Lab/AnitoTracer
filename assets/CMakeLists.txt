@@ -14,6 +14,7 @@ file(GLOB shader_files
     shaders/*.rahit 
     shaders/*.rint 
     shaders/*.rmiss
+    shaders/*.comp
 )
 
 file(GLOB texture_files 

@@ -1,0 +1,19 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_scalar_block_layout : enable
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(binding = 1, rgba32f) uniform image2D accumulationImage;
+layout(binding = 2, rgba32f) uniform image2D outputImage;
+
+void main()
+{
+	ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
+
+	// Output black screen for now
+	vec4 blackColor = vec4(0.0, 0.0, 0.0, 1.0);
+
+	imageStore(accumulationImage, pixelCoord, blackColor);
+	imageStore(outputImage, pixelCoord, blackColor);
+}
