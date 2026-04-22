@@ -120,6 +120,11 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.ShowHeatmap = userSettings_.ShowHeatmap;
 	ubo.HeatmapScale = userSettings_.HeatmapScale;
 
+	// Adaptive Sampling Settings
+	ubo.EnableAdaptiveSampling = userSettings_.EnableAdaptiveSampling;
+	ubo.VarianceThreshold = userSettings_.VarianceThreshold;
+	ubo.MinSamples = userSettings_.MinSamples;
+
 	return ubo;
 }
 

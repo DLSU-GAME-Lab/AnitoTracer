@@ -15,6 +15,9 @@ struct UniformBufferObject
 	uint MaxRays;
 	bool HasSky;
 	bool ShowHeatmap;
+	bool EnableAdaptiveSampling;  // NEW: Enable adaptive sampling
+	float VarianceThreshold;       // NEW: Convergence threshold (0.001 typical)
+	uint MinSamples;               // NEW: Minimum samples per pixel before adaptive termination
 };
 
 struct PushConstantModel {

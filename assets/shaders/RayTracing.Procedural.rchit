@@ -37,11 +37,8 @@ vec2 GetSphereTexCoord(const vec3 point)
 	);
 }
 
-vec3 calculatePointLight(LightProperties pl, vec3 worldPos, vec3 normal) 
+vec3 calculatePointLight(LightProperties pl, vec3 worldPos, const vec3 worldNrm) 
 {
-	// Computing the coordinates of the hit position
-	const vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
-
 	// Compute the diffuse light.
 	vec3 lightDir = pl.LightPos.xyz - worldPos;
 	float attenuation = 1.0 / dot(lightDir, lightDir);
@@ -50,19 +47,16 @@ vec3 calculatePointLight(LightProperties pl, vec3 worldPos, vec3 normal)
 	vec3 lightCol = pl.LightColor.xyz * pl.LightColor.w * attenuation;
 	vec3 ambientLight = pl.AmbientColor.xyz * pl.AmbientColor.w;
 	vec3 diffuseLight = lightCol * max(dot(worldNrm, normalize(lightDir)), 0);
-	
+
 	vec3 lighting = diffuseLight + ambientLight;
 
 	return lighting;
 }
 
-vec3 calculateDirectionalLight(LightProperties dl, vec3 worldPos, vec3 normal) 
+vec3 calculateDirectionalLight(LightProperties dl, const vec3 worldNrm) 
 {
-	// Computing the coordinates of the hit position
-	const vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
-
 	// Compute the diffuse light.
-	vec3 lightDir = dl.LightPos.xyz - worldPos;
+	vec3 lightDir = dl.LightPos.xyz;
 	vec3 lighting = dl.LightColor.rgb * max(dot(worldNrm, normalize(lightDir)), 0);
 
 	return lighting;
@@ -88,13 +82,15 @@ void main()
 	// For lighting computations.
 	const vec3 pos = center;
 	const vec3 worldPos = vec3(gl_ObjectToWorldEXT * vec4(pos, 1.0));  // Transforming the position to world space
-	
+
+	// PRE-COMPUTE WORLD NORMAL ONCE - Optimization: avoid redundant matrix operations in light calculation
+	const vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
+
 	LightProperties pl = InitializeTestPLProperties(); // Adding point light.
-	LightProperties dl = InitializeTestDLProperties(); // Adding point light.
+	LightProperties dl = InitializeTestDLProperties(); // Adding directional light.
 	vec3 lighting = vec3(0);
-	lighting += calculatePointLight(pl, worldPos, normal);
-	lighting += calculateDirectionalLight(dl, worldPos, normal);
-	
+	lighting += calculatePointLight(pl, worldPos, worldNrm);
+	lighting += calculateDirectionalLight(dl, worldNrm);
 
 	Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, lighting, 0);
 }

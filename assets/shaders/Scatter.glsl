@@ -12,12 +12,11 @@
 	}
 
 	// Lambertian
-	RayPayload ScatterLambertian(const Material m, const vec3 direction, const vec3 normal, const vec2 texCoord, const float t, inout uint seed, vec3 light, int anyHitFlag)
+	RayPayload ScatterLambertian(const Material m, const vec3 direction, const vec3 normal, const vec2 texCoord, const float t, inout uint seed, vec3 light, int anyHitFlag, const vec4 texColor)
 	{
 		const bool isScattered = dot(direction, normal) < 0;
-		const vec4 texColor = m.DiffuseTextureId >= 0 ? texture(TextureSamplers[nonuniformEXT(m.DiffuseTextureId)], texCoord) : vec4(1);
-	
-		vec3 litColor =m.Diffuse.rgb *  texColor.rgb * light;
+
+		vec3 litColor = m.Diffuse.rgb * texColor.rgb * light;
 		const vec4 colorAndDistance = vec4(m.Diffuse.rgb * texColor.rgb + litColor, t);
 		const vec4 scatter = vec4(normal + RandomInUnitSphere(seed), isScattered ? 1 : 0);
 
@@ -25,12 +24,11 @@
 	}
 
 	// Metallic
-	RayPayload ScatterMetallic(const Material m, const vec3 direction, const vec3 normal, const vec2 texCoord, const float t, inout uint seed, vec3 light, int anyHitFlag)
+	RayPayload ScatterMetallic(const Material m, const vec3 direction, const vec3 normal, const vec2 texCoord, const float t, inout uint seed, vec3 light, int anyHitFlag, const vec4 texColor)
 	{
 		const vec3 reflected = reflect(direction, normal);
 		const bool isScattered = dot(reflected, normal) > 0;
 
-		const vec4 texColor = m.DiffuseTextureId >= 0 ? texture(TextureSamplers[nonuniformEXT(m.DiffuseTextureId)], texCoord) : vec4(1);
 		vec3 litColor = m.Diffuse.rgb * texColor.rgb * light;
 		const vec4 colorAndDistance = vec4(m.Diffuse.rgb * texColor.rgb + litColor, t);
 		const vec4 scatter = vec4(reflected + m.Fuzziness*RandomInUnitSphere(seed), isScattered ? 1 : 0);
@@ -39,7 +37,7 @@
 	}
 
 	// Dielectric
-	RayPayload ScatterDieletric(const Material m, const vec3 direction, const vec3 normal, const vec2 texCoord, const float t, inout uint seed, vec3 light, int anyHitFlag)
+	RayPayload ScatterDieletric(const Material m, const vec3 direction, const vec3 normal, const vec2 texCoord, const float t, inout uint seed, vec3 light, int anyHitFlag, const vec4 texColor)
 	{
 		const float dot = dot(direction, normal);
 		const vec3 outwardNormal = dot > 0 ? -normal : normal;
@@ -49,8 +47,6 @@
 		const vec3 refracted = refract(direction, outwardNormal, niOverNt);
 		const float reflectProb = refracted != vec3(0) ? Schlick(cosine, m.RefractionIndex) : 1;
 
-		const vec4 texColor = m.DiffuseTextureId >= 0 ? texture(TextureSamplers[nonuniformEXT(m.DiffuseTextureId)], texCoord) : vec4(1);
-	
 		vec3 litColor = texColor.rgb * light;
 		return RandomFloat(seed) < reflectProb
 			? RayPayload(vec4(texColor.rgb + litColor, t), vec4(reflect(direction, normal), 1), seed, anyHitFlag)
@@ -70,14 +66,17 @@
 	{
 		const vec3 normDirection = normalize(direction);
 
+		// OPTIMIZATION: Cache texture sample ONCE instead of sampling per material type
+		const vec4 texColor = m.DiffuseTextureId >= 0 ? texture(TextureSamplers[nonuniformEXT(m.DiffuseTextureId)], texCoord) : vec4(1);
+
 		switch (m.MaterialModel)
 		{
 		case MaterialLambertian:
-			return ScatterLambertian(m, normDirection, normal, texCoord, t, seed, light, anyHitFlag);
+			return ScatterLambertian(m, normDirection, normal, texCoord, t, seed, light, anyHitFlag, texColor);
 		case MaterialMetallic:
-			return ScatterMetallic(m, normDirection, normal, texCoord, t, seed, light, anyHitFlag);
+			return ScatterMetallic(m, normDirection, normal, texCoord, t, seed, light, anyHitFlag, texColor);
 		case MaterialDielectric:
-			return ScatterDieletric(m, normDirection, normal, texCoord, t, seed, light, anyHitFlag);
+			return ScatterDieletric(m, normDirection, normal, texCoord, t, seed, light, anyHitFlag, texColor);
 		case MaterialDiffuseLight:
 			return ScatterDiffuseLight(m, t, seed, light, anyHitFlag);
 		}

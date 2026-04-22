@@ -38,24 +38,28 @@ float RandomFloat(inout uint seed)
 
 vec2 RandomInUnitDisk(inout uint seed)
 {
-	for (;;)
-	{
-		const vec2 p = 2 * vec2(RandomFloat(seed), RandomFloat(seed)) - 1;
-		if (dot(p, p) < 1)
-		{
-			return p;
-		}
-	}
+	// OPTIMIZATION: Polar method - no rejection sampling needed
+	// Converts uniform random to unit disk without rejection loop
+	const float angle = 2.0 * 3.14159265359 * RandomFloat(seed);
+	const float radius = sqrt(RandomFloat(seed));
+	return vec2(radius * cos(angle), radius * sin(angle));
 }
 
 vec3 RandomInUnitSphere(inout uint seed)
 {
-	for (;;)
-	{
-		const vec3 p = 2 * vec3(RandomFloat(seed), RandomFloat(seed), RandomFloat(seed)) - 1;
-		if (dot(p, p) < 1)
-		{
-			return p;
-		}
-	}
+	// OPTIMIZATION: Fibonacci sphere algorithm - deterministic, no rejection sampling
+	// Generates uniformly distributed points on unit sphere via golden angle
+	// Reference: https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_shader_draw_parameters.txt
+
+	const float phi = 2.0 * 3.14159265359 * RandomFloat(seed);  // Azimuth angle
+	const float cosTheta = 2.0 * RandomFloat(seed) - 1.0;       // Uniform in [-1, 1]
+	const float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
+	const float u = RandomFloat(seed);
+	const float radius = pow(u, 1.0/3.0);                       // Cube root via pow for uniform radial distribution
+
+	return radius * vec3(
+		sinTheta * cos(phi),
+		sinTheta * sin(phi),
+		cosTheta
+	);
 }

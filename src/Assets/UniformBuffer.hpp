@@ -30,6 +30,9 @@ namespace Assets
 		uint32_t MaxRays;
 		uint32_t HasSky; // bool
 		uint32_t ShowHeatmap; // bool
+		uint32_t EnableAdaptiveSampling; // bool
+		float VarianceThreshold;
+		uint32_t MinSamples;
 	};
 
 	// might move to a push constant class

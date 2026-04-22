@@ -38,6 +38,11 @@ struct UserSettings final
 	bool ShowHeatmap;
 	float HeatmapScale;
 
+	// Adaptive Sampling
+	bool EnableAdaptiveSampling = true;
+	float VarianceThreshold = 0.1f;
+	uint32_t MinSamples = 8;
+
 	// UI
 	bool ShowSettings;
 	bool ShowOverlay;
@@ -56,6 +61,9 @@ struct UserSettings final
 			NumberOfBounces != prev.NumberOfBounces ||
 			FieldOfView != prev.FieldOfView ||
 			Aperture != prev.Aperture ||
-			FocusDistance != prev.FocusDistance;
+			FocusDistance != prev.FocusDistance ||
+			EnableAdaptiveSampling != prev.EnableAdaptiveSampling ||
+			VarianceThreshold != prev.VarianceThreshold ||
+			MinSamples != prev.MinSamples;
 	}
 };
