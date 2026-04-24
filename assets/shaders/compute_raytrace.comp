@@ -1,19 +1,460 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive : require
+#extension GL_ARB_gpu_shader_int64 : require
+#extension GL_ARB_shader_clock : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_control_flow_attributes : require
+
+// Include type definitions first
+#include "Material.glsl"
+#include "UniformBufferObject.glsl"
+#include "RayPayload.glsl"
+#include "RayVertex.glsl"
+#include "ProceduralHit.glsl"
+#include "Random.glsl"
+#include "Heatmap.glsl"
+#include "AdaptiveSampling.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-layout(binding = 1, rgba32f) uniform image2D accumulationImage;
-layout(binding = 2, rgba32f) uniform image2D outputImage;
+layout(binding = 1, rgba32f) uniform image2D AccumulationImage;
+layout(binding = 2, rgba8) uniform image2D OutputImage;
+layout(binding = 15, rgba8) uniform image2D CaptureImage;
+
+layout(binding = 3, std140) uniform UniformBufferObjectStruct { UniformBufferObject Camera; };
+
+layout(binding = 4) readonly buffer VertexArray { float Vertices[]; };
+layout(binding = 5) readonly buffer IndexArray { uint Indices[]; };
+layout(binding = 6) readonly buffer MaterialArray { Material[] Materials; };
+layout(binding = 7) readonly buffer LightsArray { LightProperties[] Lights; };
+layout(binding = 8) readonly buffer OffsetArray { uvec2 Offsets[]; };
+layout(binding = 9) uniform sampler2D[] TextureSamplers;
+
+layout(binding = 10) readonly buffer ProceduralBuffer { ProceduralGeometry[] ProceduralGeometries; };
+layout(binding = 11) uniform samplerCube Skybox;
+
+layout(binding = 12) buffer RayCounter { uint rayCounter; };
+layout(binding = 13) buffer RayVertexBuffer { RayVertex RayVertices[]; };
+layout(binding = 14) buffer RayInfoBuffer { RayInfo info[]; };
+
+// Now include Scatter after TextureSamplers is declared
+#include "Scatter.glsl"
+#include "Vertex.glsl"
+
+// ========== Hit Data Structure ==========
+struct HitInfo {
+	vec3 position;
+	vec3 normal;
+	vec2 texCoord;
+	int materialIndex;
+	float distance;
+	bool hit;
+};
+
+// ========== Ray Intersection Functions ==========
+
+// Möller-Trumbore algorithm for ray-triangle intersection
+bool rayTriangleIntersect(
+	vec3 rayOrigin,
+	vec3 rayDir,
+	vec3 v0,
+	vec3 v1,
+	vec3 v2,
+	float tMin,
+	float tMax,
+	out float t,
+	out vec3 barycentrics)
+{
+	const float EPSILON = 1e-6;
+
+	vec3 edge1 = v1 - v0;
+	vec3 edge2 = v2 - v0;
+	vec3 rayDirCross = cross(rayDir, edge2);
+
+	float det = dot(edge1, rayDirCross);
+
+	// Ray is parallel to triangle
+	if (abs(det) < EPSILON)
+		return false;
+
+	float invDet = 1.0 / det;
+	vec3 originOffset = rayOrigin - v0;
+
+	// Calculate u (barycentric coordinate)
+	float u = dot(originOffset, rayDirCross) * invDet;
+	if (u < 0.0 || u > 1.0)
+		return false;
+
+	// Calculate v (barycentric coordinate)
+	vec3 originCross = cross(originOffset, edge1);
+	float v = dot(rayDir, originCross) * invDet;
+	if (v < 0.0 || u + v > 1.0)
+		return false;
+
+	// Calculate t
+	t = dot(edge2, originCross) * invDet;
+
+	if (t < tMin || t > tMax)
+		return false;
+
+	// Calculate barycentric coordinates for interpolation
+	barycentrics = vec3(1.0 - u - v, u, v);
+
+	return true;
+}
+
+// ========== Hit Data Resolution ==========
+HitInfo resolveTriangleHit(
+	vec3 rayOrigin,
+	vec3 rayDir,
+	float t,
+	vec3 barycentrics,
+	uint v0Idx,
+	uint v1Idx,
+	uint v2Idx)
+{
+	HitInfo hit;
+	hit.position = rayOrigin + rayDir * t;
+	hit.distance = t;
+	hit.hit = true;
+
+	const uint vertexSize = 9;
+
+	// Load vertex 0
+	uint offset0 = v0Idx * vertexSize;
+	vec3 pos0 = vec3(Vertices[offset0 + 0], Vertices[offset0 + 1], Vertices[offset0 + 2]);
+	vec3 norm0 = vec3(Vertices[offset0 + 3], Vertices[offset0 + 4], Vertices[offset0 + 5]);
+	vec2 tex0 = vec2(Vertices[offset0 + 6], Vertices[offset0 + 7]);
+	int matIdx0 = floatBitsToInt(Vertices[offset0 + 8]);
+
+	// Load vertex 1
+	uint offset1 = v1Idx * vertexSize;
+	vec3 pos1 = vec3(Vertices[offset1 + 0], Vertices[offset1 + 1], Vertices[offset1 + 2]);
+	vec3 norm1 = vec3(Vertices[offset1 + 3], Vertices[offset1 + 4], Vertices[offset1 + 5]);
+	vec2 tex1 = vec2(Vertices[offset1 + 6], Vertices[offset1 + 7]);
+	int matIdx1 = floatBitsToInt(Vertices[offset1 + 8]);
+
+	// Load vertex 2
+	uint offset2 = v2Idx * vertexSize;
+	vec3 pos2 = vec3(Vertices[offset2 + 0], Vertices[offset2 + 1], Vertices[offset2 + 2]);
+	vec3 norm2 = vec3(Vertices[offset2 + 3], Vertices[offset2 + 4], Vertices[offset2 + 5]);
+	vec2 tex2 = vec2(Vertices[offset2 + 6], Vertices[offset2 + 7]);
+	int matIdx2 = floatBitsToInt(Vertices[offset2 + 8]);
+
+	// Interpolate normal
+	hit.normal = normalize(
+		norm0 * barycentrics.x +
+		norm1 * barycentrics.y +
+		norm2 * barycentrics.z
+	);
+
+	// Interpolate texture coordinates
+	hit.texCoord = 
+		tex0 * barycentrics.x +
+		tex1 * barycentrics.y +
+		tex2 * barycentrics.z;
+
+	// Use material from first vertex
+	hit.materialIndex = matIdx0;
+
+	return hit;
+}
+
+// ========== Scene Traversal ==========
+HitInfo traceRay(vec3 rayOrigin, vec3 rayDir, float tMin, float tMax)
+{
+	HitInfo closest;
+	closest.hit = false;
+	closest.distance = tMax;
+
+	// Iterate through all geometries (simple linear search for now)
+	// In production, this would traverse the BLAS properly
+	uint indexCount = Indices.length();
+
+	for (uint i = 0; i < indexCount; i += 3)
+	{
+		// Fetch triangle indices
+		uint i0 = Indices[i];
+		uint i1 = Indices[i + 1];
+		uint i2 = Indices[i + 2];
+
+		// Load vertices
+		const uint vertexSize = 9;
+		vec3 v0 = vec3(Vertices[i0 * vertexSize + 0], Vertices[i0 * vertexSize + 1], Vertices[i0 * vertexSize + 2]);
+		vec3 v1 = vec3(Vertices[i1 * vertexSize + 0], Vertices[i1 * vertexSize + 1], Vertices[i1 * vertexSize + 2]);
+		vec3 v2 = vec3(Vertices[i2 * vertexSize + 0], Vertices[i2 * vertexSize + 1], Vertices[i2 * vertexSize + 2]);
+
+		// Test intersection
+		float t;
+		vec3 barycentrics;
+		if (rayTriangleIntersect(rayOrigin, rayDir, v0, v1, v2, tMin, closest.distance, t, barycentrics))
+		{
+			closest = resolveTriangleHit(rayOrigin, rayDir, t, barycentrics, i0, i1, i2);
+			closest.distance = t;
+		}
+	}
+
+	return closest;
+}
+
+// ========== Lighting Functions ==========
+
+vec3 calculatePointLight(LightProperties pl, vec3 worldPos, const vec3 worldNrm) 
+{
+	vec3 lightDir = pl.LightPos.xyz - worldPos;
+	float attenuation = 1.0 / dot(lightDir, lightDir);
+
+	vec3 lightCol = pl.LightColor.xyz * pl.LightColor.w * attenuation;
+	vec3 ambientLight = pl.AmbientColor.xyz * pl.AmbientColor.w;
+	vec3 diffuseLight = lightCol * max(dot(worldNrm, normalize(lightDir)), 0);
+
+	vec3 lighting = diffuseLight + ambientLight;
+
+	return lighting; 
+}
+
+vec3 calculateDirectionalLight(LightProperties dl, const vec3 worldNrm) 
+{
+	vec3 ambientColor = dl.AmbientColor.rgb * dl.AmbientColor.w;
+
+	float diffuseFactor = max(dot(worldNrm, dl.LightDir), 0.f);
+	vec3 diffuseColor = dl.LightColor.rgb * dl.LightColor.w * diffuseFactor;
+
+	vec3 lighting = ambientColor + diffuseColor;
+	return lighting;
+}
+
+vec3 calculateSpotLight(LightProperties sl, vec3 worldPos, const vec3 worldNrm)  
+{
+	vec3 fragToLight = worldPos - sl.LightPos;
+	float distance = length(fragToLight);
+	vec3 lightDir = normalize(-fragToLight);
+
+	vec3 spotDir = normalize(sl.LightDir);
+
+	float cutoffAngle = 45.0;
+	float outerCutoffAngle = 60.0;
+
+	float theta = acos(dot(lightDir, spotDir));
+	float epsilon = radians(cutoffAngle - outerCutoffAngle);
+	float intensity = clamp((theta - radians(outerCutoffAngle)) / epsilon, 0.0, 1.0);
+
+	vec3 ambientColor = sl.AmbientColor.rgb * sl.AmbientColor.w;
+	float diffuseFactor = max(dot(worldNrm, lightDir), 0.0);
+	vec3 diffuseLight = sl.LightColor.rgb * sl.LightColor.w * diffuseFactor * intensity;
+
+	float attenuation = 1.0 / (distance * distance);
+	return (ambientColor + diffuseLight) * attenuation;
+}
+
+vec3 CalculateLighting(LightProperties light, vec3 worldPos, const vec3 worldNrm)
+{
+	switch(light.LightType)
+	{
+		case PointLight:
+			return calculatePointLight(light, worldPos, worldNrm);
+		case DirectionalLight:
+			return calculateDirectionalLight(light, worldNrm);
+		case SpotLight:
+			return calculateSpotLight(light, worldPos, worldNrm);
+		default:
+			return vec3(0.0);
+	}
+}
+
+// ========== Skybox & Miss Handling ==========
+
+vec3 SampleSkybox(vec3 rayDir)
+{
+	// For cubemap, we can directly use the ray direction
+	// Normalize and sample the cubemap
+	return texture(Skybox, normalize(rayDir)).rgb;
+}
 
 void main()
 {
 	ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
 
-	// Output black screen for now
-	vec4 blackColor = vec4(0.0, 0.0, 0.0, 1.0);
+	// Early exit if out of bounds
+	if (pixelCoord.x >= imageSize(OutputImage).x || pixelCoord.y >= imageSize(OutputImage).y)
+	{
+		return;
+	}
 
-	imageStore(accumulationImage, pixelCoord, blackColor);
-	imageStore(outputImage, pixelCoord, blackColor);
+	const uint64_t clock = Camera.ShowHeatmap ? clockARB() : 0;
+
+	// Initialize separate random seeds for the pixel and the rays
+	uint pixelRandomSeed = Camera.RandomSeed;
+	uint rayRandomSeed = InitRandomSeed(InitRandomSeed(pixelCoord.x, pixelCoord.y), Camera.TotalNumberOfSamples);
+
+	vec3 pixelColor = vec3(0);
+	vec3 previousMean = vec3(0);
+	uint rayIndex = -1;
+	uint i = 0;
+	uint rayOffset = Camera.NumberOfBounces + 1;
+
+	uint samplesThisFrame = Camera.NumberOfSamples;
+	bool hasConverged = false;
+	uint sampleCount = 0;
+
+	const vec3 previousAccumulated = imageLoad(AccumulationImage, pixelCoord).rgb;
+
+	// Main sampling loop
+	for (uint s = 0; s < samplesThisFrame && !hasConverged; ++s)
+	{
+		const vec2 pixel = vec2(
+			pixelCoord.x + RandomFloat(pixelRandomSeed),
+			pixelCoord.y + RandomFloat(pixelRandomSeed)
+		);
+		const vec2 uv = (pixel / imageSize(OutputImage).xy) * 2.0 - 1.0;
+
+		vec2 apertureSample = Camera.Aperture / 2.0 * RandomInUnitDisk(rayRandomSeed);
+		vec4 rayOrigin = Camera.ModelViewInverse * vec4(apertureSample, 0, 1);
+		vec4 rayTarget = Camera.ProjectionInverse * vec4(uv.x, uv.y, 1, 1);
+		vec4 rayDir = Camera.ModelViewInverse * vec4(
+			normalize(rayTarget.xyz * Camera.FocusDistance - vec3(apertureSample, 0)), 0
+		);
+		vec3 rayColor = vec3(1);
+
+		// Bounce loop
+		for (uint b = 0; b <= Camera.NumberOfBounces; ++b)
+		{
+			const float tMin = 0.001;
+			const float tMax = 10000.0;
+
+			// Early termination without hitting a light source
+			if (b == Camera.NumberOfBounces) 
+			{
+				rayColor = vec3(0, 0, 0);
+				break;
+			}
+
+			// Trace ray against scene
+			HitInfo hit = traceRay(rayOrigin.xyz, rayDir.xyz, tMin, tMax);
+
+			if (!hit.hit)
+			{
+				// Miss - sample skybox
+				if (Camera.HasSky)
+				{
+					rayColor *= SampleSkybox(rayDir.xyz);
+				}
+				else
+				{
+					rayColor = vec3(0);
+				}
+				break;
+			}
+
+			// Sample material at hit point
+			Material mat = Materials[hit.materialIndex];
+			vec3 lightContrib = CalculateLighting(Lights[0], hit.position, hit.normal);
+
+			// Scatter ray using existing Scatter function
+			// Don't multiply rayColor by lightContrib here - Scatter function handles it
+			RayPayload scattered = Scatter(mat, rayDir.xyz, hit.normal, hit.texCoord, hit.distance, rayRandomSeed, lightContrib, 0);
+
+			// Multiply by scatter color (includes both material and lighting)
+			rayColor *= scattered.ColorAndDistance.rgb;
+
+			// Check if scattered
+			if (scattered.ScatterDirection.w <= 0)
+			{
+				break;
+			}
+
+			// Store ray visualization data (first bounce only)
+			if (rayIndex == -1 && s == 0 && b == 0)
+			{
+				// Atomic increment for ray counter
+				uint oldCounter, assumedCounter;
+				do
+				{
+					assumedCounter = rayCounter;
+
+					if (assumedCounter >= Camera.MaxRays)
+						break;
+
+					oldCounter = atomicCompSwap(rayCounter, assumedCounter, assumedCounter + 1);
+
+					if (oldCounter == assumedCounter)
+					{
+						rayIndex = assumedCounter;
+					}
+				} while (oldCounter != assumedCounter);
+
+				if (rayIndex != -1) 
+				{
+					RayVertex vertex;
+					vertex.Position = hit.position;
+					vertex.Color = vec4(1.0);
+
+					RayVertices[rayIndex * rayOffset] = vertex;
+					i++;
+
+					info[rayIndex].offset = rayOffset;
+					info[rayIndex].count = i;
+				}
+			}
+
+			// Update ray state for next iteration
+			rayOrigin = vec4(hit.position, 1);
+			rayDir = vec4(scattered.ScatterDirection.xyz, 0);
+
+			// Store ray vertex for visualization
+			if (rayIndex != -1 && s == 0)
+			{
+				RayVertex vertex;
+				vertex.Position = hit.position;
+				vertex.Color = vec4(rayColor, 1.0);
+				RayVertices[rayIndex * rayOffset + i] = vertex;
+				i++;
+
+				info[rayIndex].offset = rayOffset;
+				info[rayIndex].count = i;
+			}
+		}
+
+		pixelColor += rayColor;
+		sampleCount++;
+
+		// Adaptive sampling convergence check
+		if (Camera.EnableAdaptiveSampling && sampleCount >= Camera.MinSamples && (sampleCount & 3) == 0)
+		{
+			vec3 currentMean = pixelColor / float(sampleCount);
+			vec3 colorDiff = currentMean - previousMean;
+			float variance = dot(colorDiff, colorDiff);
+
+			if (variance < Camera.VarianceThreshold * Camera.VarianceThreshold)
+			{
+				hasConverged = true;
+			}
+
+			previousMean = currentMean;
+		}
+	}
+
+	const bool accumulate = Camera.NumberOfSamples != Camera.TotalNumberOfSamples;
+	const vec3 accumulatedColor = (accumulate ? previousAccumulated : vec3(0)) + pixelColor;
+
+	vec3 pixelColorFinal = accumulatedColor / (Camera.TotalNumberOfSamples + (hasConverged ? float(Camera.NumberOfSamples - sampleCount) : 0.0));
+
+	// Apply gamma correction
+	pixelColorFinal = sqrt(pixelColorFinal);
+
+	if (Camera.ShowHeatmap)
+	{
+		const uint64_t deltaTime = clockARB() - clock;
+		const float heatmapScale = 1000000.0f * Camera.HeatmapScale * Camera.HeatmapScale;
+		const float deltaTimeScaled = clamp(float(deltaTime) / heatmapScale, 0.0f, 1.0f);
+
+		pixelColorFinal = heatmap(deltaTimeScaled);
+	}
+
+	// Store results
+	imageStore(AccumulationImage, pixelCoord, vec4(accumulatedColor, 0));
+	imageStore(CaptureImage, pixelCoord, vec4(pixelColorFinal, 1.0));
+	imageStore(OutputImage, pixelCoord, vec4(pixelColorFinal.b, pixelColorFinal.g, pixelColorFinal.r, 1.0));
 }

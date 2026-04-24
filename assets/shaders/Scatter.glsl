@@ -1,8 +1,5 @@
 	#extension GL_EXT_nonuniform_qualifier : require
 
-	#include "Random.glsl"
-	#include "RayPayload.glsl"
-
 	// Polynomial approximation by Christophe Schlick
 	float Schlick(const float cosine, const float refractionIndex)
 	{
@@ -16,8 +13,9 @@
 	{
 		const bool isScattered = dot(direction, normal) < 0;
 
-		vec3 litColor = m.Diffuse.rgb * texColor.rgb * light;
-		const vec4 colorAndDistance = vec4(m.Diffuse.rgb * texColor.rgb + litColor, t);
+		// Material color modulated by texture and lighting
+		vec3 finalColor = m.Diffuse.rgb * texColor.rgb * light;
+		const vec4 colorAndDistance = vec4(finalColor, t);
 		const vec4 scatter = vec4(normal + RandomInUnitSphere(seed), isScattered ? 1 : 0);
 
 		return RayPayload(colorAndDistance, scatter, seed, anyHitFlag);
@@ -29,8 +27,9 @@
 		const vec3 reflected = reflect(direction, normal);
 		const bool isScattered = dot(reflected, normal) > 0;
 
-		vec3 litColor = m.Diffuse.rgb * texColor.rgb * light;
-		const vec4 colorAndDistance = vec4(m.Diffuse.rgb * texColor.rgb + litColor, t);
+		// Material color modulated by texture and lighting
+		vec3 finalColor = m.Diffuse.rgb * texColor.rgb * light;
+		const vec4 colorAndDistance = vec4(finalColor, t);
 		const vec4 scatter = vec4(reflected + m.Fuzziness*RandomInUnitSphere(seed), isScattered ? 1 : 0);
 
 		return RayPayload(colorAndDistance, scatter, seed, anyHitFlag);
@@ -47,10 +46,10 @@
 		const vec3 refracted = refract(direction, outwardNormal, niOverNt);
 		const float reflectProb = refracted != vec3(0) ? Schlick(cosine, m.RefractionIndex) : 1;
 
-		vec3 litColor = texColor.rgb * light;
+		vec3 finalColor = texColor.rgb * light;
 		return RandomFloat(seed) < reflectProb
-			? RayPayload(vec4(texColor.rgb + litColor, t), vec4(reflect(direction, normal), 1), seed, anyHitFlag)
-			: RayPayload(vec4(texColor.rgb + litColor, t), vec4(refracted, 1), seed, anyHitFlag);
+			? RayPayload(vec4(finalColor, t), vec4(reflect(direction, normal), 1), seed, anyHitFlag)
+			: RayPayload(vec4(finalColor, t), vec4(refracted, 1), seed, anyHitFlag);
 	}
 
 	// Diffuse Light
