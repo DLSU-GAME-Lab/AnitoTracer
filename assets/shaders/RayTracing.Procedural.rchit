@@ -90,11 +90,7 @@ void main()
 	// PRE-COMPUTE WORLD NORMAL ONCE - Optimization: avoid redundant matrix operations in light calculation
 	const vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
 
-	LightProperties pl = InitializeTestPLProperties(); // Adding point light.
-	LightProperties dl = InitializeTestDLProperties(); // Adding directional light.
-	vec3 lighting = vec3(0);
-	lighting += calculatePointLight(pl, worldPos, worldNrm);
-	lighting += calculateDirectionalLight(dl, worldNrm);
-
-	Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, lighting, 0);
+	// In path tracing, scatter uses pure material albedo (vec3(1.0)).
+	// Light accumulates naturally through bounces into the sky / emissive surfaces.
+	Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, vec3(1.0), 0);
 }

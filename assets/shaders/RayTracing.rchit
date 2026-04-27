@@ -149,5 +149,7 @@ void main()
     if (material.DiffuseTextureId >= 0)
         texColor = texture(TextureSamplers[material.DiffuseTextureId], texCoord);
 
-    Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, lighting, Ray.anyHitTriggered);
+    // In path tracing, scatter uses pure material albedo (vec3(1.0)).
+    // Light accumulates naturally through bounces into the sky / emissive surfaces.
+    Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, vec3(1.0), Ray.anyHitTriggered);
 }

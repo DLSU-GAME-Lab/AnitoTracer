@@ -340,11 +340,10 @@ void main()
 
 			// Sample material at hit point
 			Material mat = Materials[hit.materialIndex];
-			vec3 lightContrib = CalculateLighting(Lights[0], hit.position, hit.normal);
 
-			// Scatter ray using existing Scatter function
-			// Don't multiply rayColor by lightContrib here - Scatter function handles it
-			RayPayload scattered = Scatter(mat, rayDir.xyz, hit.normal, hit.texCoord, hit.distance, rayRandomSeed, lightContrib, 0);
+			// In path tracing, we use pure material albedo (vec3(1.0)) — no direct lighting.
+			// Light accumulates naturally through bounces into the sky / emissive surfaces.
+			RayPayload scattered = Scatter(mat, rayDir.xyz, hit.normal, hit.texCoord, hit.distance, rayRandomSeed, vec3(1.0), 0);
 
 			// Multiply by scatter color (includes both material and lighting)
 			rayColor *= scattered.ColorAndDistance.rgb;
