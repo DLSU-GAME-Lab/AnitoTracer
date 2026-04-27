@@ -1,6 +1,4 @@
-#extension GL_EXT_control_flow_attributes : require
-
-// Generates a seed for a random number generator from 2 inputs plus a backoff
+// Generates a seed
 // https://github.com/nvpro-samples/optix_prime_baking/blob/332a886f1ac46c0b3eea9e89a59593470c755a0e/random.h
 // https://github.com/nvpro-samples/vk_raytracing_tutorial_KHR/tree/master/ray_tracing_jitter_cam
 // https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm

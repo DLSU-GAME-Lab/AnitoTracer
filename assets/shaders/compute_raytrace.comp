@@ -1,13 +1,11 @@
 #version 460
-#extension GL_EXT_ray_tracing : require
 #extension GL_EXT_scalar_block_layout : enable
-#extension GL_GOOGLE_include_directive : require
-#extension GL_ARB_gpu_shader_int64 : require
-#extension GL_ARB_shader_clock : require
-#extension GL_EXT_nonuniform_qualifier : require
-#extension GL_EXT_control_flow_attributes : require
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_ARB_gpu_shader_int64 : enable
+#extension GL_ARB_shader_clock : enable
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_control_flow_attributes : enable
 
-// Include type definitions first
 #include "Material.glsl"
 #include "UniformBufferObject.glsl"
 #include "RayPayload.glsl"
@@ -17,31 +15,23 @@
 #include "Heatmap.glsl"
 #include "AdaptiveSampling.glsl"
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+// ========== Shader Bindings ==========
+layout(binding = 0) uniform CameraBlock { UniformBufferObject Camera; };
+layout(binding = 1) buffer MaterialBuffer { Material Materials[]; };
+layout(binding = 2) buffer LightBuffer { LightProperties Lights[]; };
+layout(binding = 3) buffer VertexBuffer { float Vertices[]; };
+layout(binding = 4) buffer IndexBuffer { uint Indices[]; };
+layout(binding = 5) uniform sampler2D TextureSamplers[];
 
-layout(binding = 1, rgba32f) uniform image2D AccumulationImage;
-layout(binding = 2, rgba8) uniform image2D OutputImage;
-layout(binding = 15, rgba8) uniform image2D CaptureImage;
-
-layout(binding = 3, std140) uniform UniformBufferObjectStruct { UniformBufferObject Camera; };
-
-layout(binding = 4) readonly buffer VertexArray { float Vertices[]; };
-layout(binding = 5) readonly buffer IndexArray { uint Indices[]; };
-layout(binding = 6) readonly buffer MaterialArray { Material[] Materials; };
-layout(binding = 7) readonly buffer LightsArray { LightProperties[] Lights; };
-layout(binding = 8) readonly buffer OffsetArray { uvec2 Offsets[]; };
-layout(binding = 9) uniform sampler2D[] TextureSamplers;
-
-layout(binding = 10) readonly buffer ProceduralBuffer { ProceduralGeometry[] ProceduralGeometries; };
-layout(binding = 11) uniform samplerCube Skybox;
-
-layout(binding = 12) buffer RayCounter { uint rayCounter; };
-layout(binding = 13) buffer RayVertexBuffer { RayVertex RayVertices[]; };
-layout(binding = 14) buffer RayInfoBuffer { RayInfo info[]; };
-
-// Now include Scatter after TextureSamplers is declared
-#include "Scatter.glsl"
 #include "Vertex.glsl"
+#include "Scatter.glsl"
+layout(binding = 6) uniform samplerCube Skybox;
+layout(binding = 7, rgba32f) uniform image2D OutputImage;
+layout(binding = 8, rgba32f) uniform image2D AccumulationImage;
+layout(binding = 9, rgba32f) uniform image2D CaptureImage;
+layout(binding = 10) coherent buffer RayVertexBuffer { RayVertex RayVertices[]; };
+layout(binding = 11) coherent buffer RayInfoBuffer { RayInfo info[]; };
+layout(binding = 12) coherent buffer RayCounterBuffer { uint rayCounter; };
 
 // ========== Hit Data Structure ==========
 struct HitInfo {

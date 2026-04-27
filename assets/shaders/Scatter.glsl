@@ -79,3 +79,4 @@ RayPayload Scatter(const Material m, const vec3 direction, const vec3 normal, co
 	}
 }
 
+

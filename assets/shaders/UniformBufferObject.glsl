@@ -1,4 +1,3 @@
-
 struct UniformBufferObject
 {
 	mat4 ModelView;
