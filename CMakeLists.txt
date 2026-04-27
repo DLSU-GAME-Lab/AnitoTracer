@@ -63,7 +63,18 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/vcpkg.windows/installed
 add_compile_definitions(GLM_ENABLE_EXPERIMENTAL)
 
 find_package(Boost REQUIRED COMPONENTS exception program_options) 
-find_package(ZLIB REQUIRED)
+find_package(ZLIB CONFIG REQUIRED)
+# Alias ZLIB::ZLIBSTATIC to ZLIB::ZLIB so downstream packages (e.g. PNG) resolve correctly
+if(TARGET ZLIB::ZLIBSTATIC AND NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB ALIAS ZLIB::ZLIBSTATIC)
+endif()
+# Ensure legacy FindZLIB variables are set for packages that rely on them
+set(_VCPKG_STATIC "${CMAKE_SOURCE_DIR}/build/vcpkg.windows/installed/x64-windows-static")
+set(ZLIB_INCLUDE_DIR "${_VCPKG_STATIC}/include" CACHE PATH "" FORCE)
+set(ZLIB_LIBRARY_RELEASE "${_VCPKG_STATIC}/lib/zs.lib" CACHE FILEPATH "" FORCE)
+set(ZLIB_LIBRARY_DEBUG "${_VCPKG_STATIC}/debug/lib/zsd.lib" CACHE FILEPATH "" FORCE)
+set(ZLIB_LIBRARY "${ZLIB_LIBRARY_RELEASE}" CACHE FILEPATH "" FORCE)
+
 find_package(BZip2 REQUIRED)
 find_package(PNG REQUIRED)
 find_package(freetype CONFIG REQUIRED)
