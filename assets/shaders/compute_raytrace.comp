@@ -37,11 +37,13 @@ layout(binding = 11) coherent buffer RayInfoBuffer { RayInfo info[]; };
 layout(binding = 12) coherent buffer RayCounterBuffer { uint rayCounter; };
 // Offsets buffer: per-object {indexOffset, vertexOffset} — mirrors what the legacy rchit uses via gl_InstanceCustomIndexEXT
 layout(binding = 13) readonly buffer OffsetBuffer { uvec2 Offsets[]; };
+// World matrix buffer: per-object mat4 object-to-world transform (matches Scene::worldMatrixBuffer_)
+layout(binding = 14) readonly buffer WorldMatrixBuffer { mat4 WorldMatrices[]; };
 
 // ========== Hit Data Structure ==========
 struct HitInfo {
-	vec3 position;
-	vec3 normal;
+	vec3 position;    // world space
+	vec3 normal;      // world space
 	vec2 texCoord;
 	int materialIndex;
 	float distance;
@@ -108,10 +110,10 @@ HitInfo resolveTriangleHit(
 	vec3 barycentrics,
 	uint v0Idx,
 	uint v1Idx,
-	uint v2Idx)
+	uint v2Idx,
+	mat4 objectToWorld)
 {
 	HitInfo hit;
-	hit.position = rayOrigin + rayDir * t;
 	hit.distance = t;
 	hit.hit = true;
 
@@ -138,15 +140,25 @@ HitInfo resolveTriangleHit(
 	vec2 tex2 = vec2(Vertices[offset2 + 6], Vertices[offset2 + 7]);
 	int matIdx2 = floatBitsToInt(Vertices[offset2 + 8]);
 
-	// Interpolate normal
-	hit.normal = normalize(
+	// Interpolate local-space normal and transform to world space
+	// Use the transpose of the inverse (normal matrix) to correctly handle non-uniform scale
+	mat3 normalMatrix = transpose(inverse(mat3(objectToWorld)));
+	vec3 localNormal = normalize(
 		norm0 * barycentrics.x +
 		norm1 * barycentrics.y +
 		norm2 * barycentrics.z
 	);
+	hit.normal = normalize(normalMatrix * localNormal);
+
+	// Interpolate local-space position and transform to world space
+	vec3 localPos =
+		pos0 * barycentrics.x +
+		pos1 * barycentrics.y +
+		pos2 * barycentrics.z;
+	hit.position = vec3(objectToWorld * vec4(localPos, 1.0));
 
 	// Interpolate texture coordinates
-	hit.texCoord = 
+	hit.texCoord =
 		tex0 * barycentrics.x +
 		tex1 * barycentrics.y +
 		tex2 * barycentrics.z;
@@ -171,6 +183,12 @@ HitInfo traceRay(vec3 rayOrigin, vec3 rayDir, float tMin, float tMax)
 		uint indexOffset  = Offsets[obj].x;
 		uint vertexOffset = Offsets[obj].y;
 
+		mat4 objectToWorld = WorldMatrices[obj];
+		// Transform ray into object (local) space for intersection testing
+		mat4 worldToObject = inverse(objectToWorld);
+		vec3 localRayOrigin = vec3(worldToObject * vec4(rayOrigin, 1.0));
+		vec3 localRayDir    = vec3(worldToObject * vec4(rayDir, 0.0));
+
 		// Determine index count for this object by peeking at next object's offset (or end of buffer)
 		uint nextIndexOffset = (obj + 1 < numObjects) ? Offsets[obj + 1].x : uint(Indices.length());
 		uint objIndexCount = nextIndexOffset - indexOffset;
@@ -188,9 +206,14 @@ HitInfo traceRay(vec3 rayOrigin, vec3 rayDir, float tMin, float tMax)
 
 			float t;
 			vec3 barycentrics;
-			if (rayTriangleIntersect(rayOrigin, rayDir, v0, v1, v2, tMin, closest.distance, t, barycentrics))
+			// Intersect in local space; t is in local-ray parametric space which equals world-ray t
+			// only if objectToWorld has no scale. For scaled objects we should use world-space t.
+			// We intersect in local space but accept t directly — this is correct as long as tMax
+			// is also interpreted in that same parameterisation. We convert the hit back to world
+			// space via resolveTriangleHit so the position will be exact.
+			if (rayTriangleIntersect(localRayOrigin, localRayDir, v0, v1, v2, tMin, closest.distance, t, barycentrics))
 			{
-				closest = resolveTriangleHit(rayOrigin, rayDir, t, barycentrics, i0, i1, i2);
+				closest = resolveTriangleHit(rayOrigin, rayDir, t, barycentrics, i0, i1, i2, objectToWorld);
 				closest.distance = t;
 			}
 		}
@@ -285,6 +308,9 @@ void main()
 		return;
 	}
 
+	// No Y-flip needed: pixelCoord.y=0 → uv.y=-1 → ray fires up → stored at row 0 → top of screen.
+	// This matches the legacy rgen's gl_LaunchIDEXT convention exactly.
+
 	const uint64_t clock = Camera.ShowHeatmap ? clockARB() : 0;
 
 	// Initialize separate random seeds for the pixel and the rays
@@ -355,9 +381,14 @@ void main()
 			// Sample material at hit point
 			Material mat = Materials[hit.materialIndex];
 
+			// Unlike hardware ray tracing, our Möller-Trumbore test hits both front
+			// and back faces. Flip the geometric normal so it always faces the ray,
+			// matching the behaviour the hardware BVH gives the rchit shader.
+			vec3 faceNormal = dot(rayDir.xyz, hit.normal) < 0.0 ? hit.normal : -hit.normal;
+
 			// In path tracing, we use pure material albedo (vec3(1.0)) — no direct lighting.
 			// Light accumulates naturally through bounces into the sky / emissive surfaces.
-			RayPayload scattered = Scatter(mat, rayDir.xyz, hit.normal, hit.texCoord, hit.distance, rayRandomSeed, vec3(1.0), 0);
+			RayPayload scattered = Scatter(mat, rayDir.xyz, faceNormal, hit.texCoord, hit.distance, rayRandomSeed, vec3(1.0), 0);
 
 			// Multiply by scatter color (includes both material and lighting)
 			rayColor *= scattered.ColorAndDistance.rgb;
@@ -458,6 +489,9 @@ void main()
 
 	// Store results
 	imageStore(AccumulationImage, pixelCoord, vec4(accumulatedColor, 0));
-	imageStore(CaptureImage, pixelCoord, vec4(pixelColorFinal, 1.0));
-	imageStore(OutputImage, pixelCoord, vec4(pixelColorFinal, 1.0));
+	imageStore(CaptureImage,      pixelCoord, vec4(pixelColorFinal, 1.0));
+
+	// Output image is copied directly to the swapchain (B8G8R8A8_UNORM), so swizzle BGR
+	// to match what the legacy rgen does: imageStore(..., vec4(final.b, final.g, final.r, 1.0))
+	imageStore(OutputImage, pixelCoord, vec4(pixelColorFinal.b, pixelColorFinal.g, pixelColorFinal.r, 1.0));
 }

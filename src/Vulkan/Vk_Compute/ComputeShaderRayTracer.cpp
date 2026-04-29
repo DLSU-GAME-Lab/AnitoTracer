@@ -74,6 +74,9 @@ ComputeShaderRayTracer::ComputeShaderRayTracer(
 
 		// Binding 13: Offsets buffer (per-object {indexOffset, vertexOffset})
 		{13, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+
+		// Binding 14: World matrix buffer (per-object mat4)
+		{14, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
 	};
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -162,6 +165,11 @@ ComputeShaderRayTracer::ComputeShaderRayTracer(
 		VkDescriptorBufferInfo offsetsBufferInfo = {};
 		offsetsBufferInfo.buffer = scene.OffsetsBuffer().Handle();
 		offsetsBufferInfo.range = VK_WHOLE_SIZE;
+
+		// Binding 14: World matrix buffer
+		VkDescriptorBufferInfo worldMatrixBufferInfo = {};
+		worldMatrixBufferInfo.buffer = scene.WorldMatrixBuffer().Handle();
+		worldMatrixBufferInfo.range = VK_WHOLE_SIZE;
 
 		// Create write descriptor set array in the correct order
 		std::vector<VkWriteDescriptorSet> descriptorWrites;
@@ -319,6 +327,17 @@ ComputeShaderRayTracer::ComputeShaderRayTracer(
 		offsetsBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		offsetsBufferWrite.pBufferInfo = &offsetsBufferInfo;
 		descriptorWrites.push_back(offsetsBufferWrite);
+
+		// Binding 14: World matrix buffer
+		VkWriteDescriptorSet worldMatrixBufferWrite = {};
+		worldMatrixBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		worldMatrixBufferWrite.dstSet = descriptorSets.Handle(i);
+		worldMatrixBufferWrite.dstBinding = 14;
+		worldMatrixBufferWrite.dstArrayElement = 0;
+		worldMatrixBufferWrite.descriptorCount = 1;
+		worldMatrixBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		worldMatrixBufferWrite.pBufferInfo = &worldMatrixBufferInfo;
+		descriptorWrites.push_back(worldMatrixBufferWrite);
 
 		// Update all descriptors at once
 		vkUpdateDescriptorSets(device.Handle(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);

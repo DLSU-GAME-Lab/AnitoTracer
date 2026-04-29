@@ -12,6 +12,7 @@
 #include "Vulkan/Sampler.hpp"
 #include "Utilities/Exception.hpp"
 #include "Vulkan/SingleTimeCommands.hpp"
+#include "Utilities/Glm.hpp"
 
 
 namespace Assets {
@@ -78,6 +79,18 @@ namespace Assets {
 		Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Indices", VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | flags, indices, indexBuffer_, indexBufferMemory_);
 		Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Materials", flags, materials, materialBuffer_, materialBufferMemory_);
 		Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Lights", flags, lightProps, lightsBuffer_, lightsBufferMemory_);
+
+		// Per-object world matrices (row-major mat4, 16 floats each) for compute shader world-space transforms
+		std::vector<glm::mat4> worldMatrices;
+		for (const auto& obj : gameObjects_)
+		{
+			if (!obj->getModel()) continue;
+			worldMatrices.push_back(obj->getWorldMatrix());
+		}
+		// Guard against empty scene
+		if (worldMatrices.empty())
+			worldMatrices.push_back(glm::mat4(1.0f));
+		Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "WorldMatrices", flags, worldMatrices, worldMatrixBuffer_, worldMatrixBufferMemory_);
 		Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "Offsets", flags, offsets, offsetBuffer_, offsetBufferMemory_);
 
 		Vulkan::BufferUtil::CreateDeviceBuffer(commandPool, "AABBs", VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | flags, aabbs, aabbBuffer_, aabbBufferMemory_);
@@ -113,6 +126,8 @@ namespace Assets {
 		aabbBufferMemory_.reset(); // release memory after bound buffer has been destroyed
 		offsetBuffer_.reset();
 		offsetBufferMemory_.reset(); // release memory after bound buffer has been destroyed
+		worldMatrixBuffer_.reset();
+		worldMatrixBufferMemory_.reset();
 		materialBuffer_.reset();
 		materialBufferMemory_.reset(); // release memory after bound buffer has been destroyed
 		indexBuffer_.reset();
