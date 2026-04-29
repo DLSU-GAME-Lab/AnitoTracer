@@ -185,7 +185,12 @@ void RayTracer::OnDeviceSet()
 
 void RayTracer::CreateSwapChain()
 {
-	Application::CreateSwapChain();
+	// Call the parent RayTracing::Application::CreateSwapChain() which will:
+	// 1. Call Vulkan::Application::CreateSwapChain() to create swap chain and command buffers
+	// 2. Call CreateOutputImage() to create accumulation/output images for ray tracing
+	// 3. Create the ray tracing pipeline
+	// CRITICAL: Must use explicit scope to call RayTracing::Application, not just Vulkan::Application
+	Vulkan::RayTracing::Application::CreateSwapChain();
 
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
 
@@ -244,12 +249,21 @@ void RayTracer::DeleteSwapChain()
 	rayVisualizationPipeline_.reset();
 	UIManager::reset();
 
-	Application::DeleteSwapChain();
+	// CRITICAL: Wait for all in-flight frames to complete before destroying resources
+	Device().WaitIdle();
+
+	// Call the parent RayTracing::Application::DeleteSwapChain() which will:
+	// 1. Destroy ray tracing pipeline and shader binding table
+	// 2. Destroy output/accumulation images and their memory
+	// 3. Call Vulkan::Application::DeleteSwapChain() to destroy swap chain, command buffers, etc.
+	// CRITICAL: Must use explicit scope to ensure proper parent-class cleanup
+	Vulkan::RayTracing::Application::DeleteSwapChain();
 }
 
 void RayTracer::DeleteSwapChainWithoutUI()
 {
 	//userInterface_.reset();
+	computeShaderRenderer_.reset();
 	rayVisualizationPipeline_.reset();
 
 	// Shutdown ImGui GLFW backend without destroying UI state/layout
@@ -261,7 +275,24 @@ void RayTracer::DeleteSwapChainWithoutUI()
 		ImGui_ImplGlfw_Shutdown();
 	}
 
-	Application::DeleteSwapChain();
+	// CRITICAL: Wait for all in-flight frames to complete before destroying resources
+	// This prevents the "command buffer in use" validation error
+	Device().WaitIdle();
+
+	// Call RayTracing::Application::DeleteSwapChain() which properly cleans up
+	// ray tracing resources (rayTracingPipeline, output images, etc.) before
+	// calling Vulkan::Application::DeleteSwapChain()
+	// NOTE: This variant does NOT reset UIManager so the UI state is preserved
+	// CRITICAL: Must use explicit scope to ensure proper parent-class cleanup
+	try
+	{
+		Vulkan::RayTracing::Application::DeleteSwapChain();
+	}
+	catch (const std::exception& e)
+	{
+		Debug::Log("ERROR in DeleteSwapChainWithoutUI: " + std::string(e.what()));
+		throw;
+	}
 }
 
 void RayTracer::DrawFrame()
@@ -285,14 +316,39 @@ void RayTracer::DrawFrame()
 	// Check if renderer mode was switched
 	if (isRenderChanged)
 	{
-		Debug::Log("Processing deferred renderer switch");
+		Debug::Log("=== Starting renderer switch ===");
+		Debug::Log("Current renderer mode: " + std::to_string(static_cast<int>(userSettings_.CurrentRendererMode)));
 		isRenderChanged = false;
-		Device().WaitIdle();
-		DeleteSwapChainWithoutUI();
-		CreateSwapChain();
-		resetAccumulation_ = true;
-		totalNumberOfSamples_ = 0;
-		lastReportedPercentage_ = 0;
+		isSwappingRenderer_ = true;
+
+		try
+		{
+			Debug::Log("Waiting for device idle before swap...");
+			Device().WaitIdle();
+			Debug::Log("Device idle complete");
+
+			Debug::Log("Deleting swap chain without UI...");
+			DeleteSwapChainWithoutUI();
+			Debug::Log("Swap chain deletion complete");
+
+			Debug::Log("Creating new swap chain...");
+			CreateSwapChain();
+			Debug::Log("New swap chain created successfully");
+
+			resetAccumulation_ = true;
+			totalNumberOfSamples_ = 0;
+			lastReportedPercentage_ = 0;
+
+			Debug::Log("=== Renderer switch complete ===");
+		}
+		catch (const std::exception& e)
+		{
+			Debug::Log("CRITICAL ERROR during renderer switch at: " + std::string(e.what()));
+			isSwappingRenderer_ = false;
+			throw;
+		}
+
+		isSwappingRenderer_ = false;
 		return;
 	}
 
@@ -381,30 +437,35 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 			subresourceRange.baseArrayLayer = 0;
 			subresourceRange.layerCount = 1;
 
-			// Acquire destination images for rendering.
+			// Transition images to GENERAL layout for compute shader access
+			// (Could also transition from their current layout, but GENERAL works for compute)
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, accumulationImage_->Handle(), subresourceRange, 0,
-				VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+				VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 0,
 				VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange, VK_ACCESS_SHADER_READ_BIT,
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange, 0,
 				VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 			// Dispatch compute shader
 			computeShaderRenderer_->Dispatch(commandBuffer, imageIndex, extent);
 
-			// Acquire output image and swap-chain image for copying.
+			// Memory barrier to ensure compute shader writes are complete
+			VkMemoryBarrier memBarrier = {};
+			memBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			memBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+			memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+
+			// Transition images for transfer operations
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 
 				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, 0,
 				VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange,
-				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-
-			// Copy output image into swap-chain image.
+			// Copy output image into swap-chain image
 			VkImageCopy copyRegion;
 			copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 			copyRegion.srcOffset = { 0, 0, 0 };
@@ -417,8 +478,13 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 				SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				1, &copyRegion);
 
+			// Transition swap chain image to present layout
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, VK_ACCESS_TRANSFER_WRITE_BIT,
 				0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+			// Copy output image to host capture buffer for screenshots
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange,
+				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
 			VkBufferImageCopy region{};
 			region.bufferOffset = 0;

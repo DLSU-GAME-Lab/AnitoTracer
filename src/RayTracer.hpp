@@ -110,6 +110,7 @@ private:
 	bool initializedUI = false;
 
 	bool isRenderChanged = false;
+	bool isSwappingRenderer_ = false;
 
 	bool renderUI_ = true;
 	bool isVisualizeRays_ = false;

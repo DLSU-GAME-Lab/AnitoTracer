@@ -6,6 +6,9 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_control_flow_attributes : enable
 
+// Compute shader local workgroup size: 8x8 threads per group
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
 #include "Material.glsl"
 #include "UniformBufferObject.glsl"
 #include "RayPayload.glsl"
@@ -267,11 +270,16 @@ void main()
 {
 	ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
 
+	ivec2 imageSize2D = imageSize(OutputImage);
+
 	// Early exit if out of bounds
-	if (pixelCoord.x >= imageSize(OutputImage).x || pixelCoord.y >= imageSize(OutputImage).y)
+	if (pixelCoord.x >= imageSize2D.x || pixelCoord.y >= imageSize2D.y)
 	{
 		return;
 	}
+
+	// Note: Vulkan coordinate system has origin at top-left, similar to screen coordinates
+	// No Y-inversion needed for compute shader dispatches
 
 	const uint64_t clock = Camera.ShowHeatmap ? clockARB() : 0;
 
