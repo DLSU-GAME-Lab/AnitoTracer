@@ -208,6 +208,7 @@ void RayTracer::CreateSwapChain()
 			GetRayScene()
 		));
 		Debug::Log("Compute Shader Renderer initialized");
+		computeImagesInitialized_ = false; // Reset layout initialization flag for new renderer
 	}
 
 	// If UIManager hasn't been initialized yet, do a full initialization
@@ -437,16 +438,25 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 			subresourceRange.baseArrayLayer = 0;
 			subresourceRange.layerCount = 1;
 
-			// Transition images to GENERAL layout for compute shader access
-			// (Could also transition from their current layout, but GENERAL works for compute)
+			// On first frame after compute renderer creation, transition from UNDEFINED to GENERAL
+			// Otherwise, keep images in GENERAL layout (they're already there from previous frame)
+			VkImageLayout accumulationCurrentLayout = computeImagesInitialized_ ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED;
+			VkImageLayout outputCurrentLayout = computeImagesInitialized_ ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED;
+
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, accumulationImage_->Handle(), subresourceRange, 0,
-				VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+				VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, accumulationCurrentLayout, VK_IMAGE_LAYOUT_GENERAL);
 
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 0,
-				VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+				VK_ACCESS_SHADER_WRITE_BIT, outputCurrentLayout, VK_IMAGE_LAYOUT_GENERAL);
 
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange, 0,
-				VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+				VK_ACCESS_SHADER_WRITE_BIT, outputCurrentLayout, VK_IMAGE_LAYOUT_GENERAL);
+
+			// Mark compute images as initialized after first layout transition
+			if (!computeImagesInitialized_)
+			{
+				computeImagesInitialized_ = true;
+			}
 
 			// Dispatch compute shader
 			computeShaderRenderer_->Dispatch(commandBuffer, imageIndex, extent);
@@ -458,7 +468,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 			memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
 
-			// Transition images for transfer operations
+			// Transition output image for transfer
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 
 				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
@@ -481,6 +491,10 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 			// Transition swap chain image to present layout
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, VK_ACCESS_TRANSFER_WRITE_BIT,
 				0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+			// Transition output image back to GENERAL for next frame
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange,
+				VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 
 			// Copy output image to host capture buffer for screenshots
 			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange,
@@ -525,6 +539,10 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 				1, &readbackBarrier,
 				0, nullptr
 			);
+
+			// Transition capture image back to GENERAL for next frame
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange,
+				VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 		}
 		else
 		{

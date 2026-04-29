@@ -95,6 +95,7 @@ private:
 	uint32_t totalNumberOfSamples_{};
 	uint32_t numberOfSamples_{};
 	bool resetAccumulation_{};
+	bool computeImagesInitialized_{}; // Track whether compute images have been transitioned to GENERAL layout
 
 	// Sample progress tracking
 	uint32_t lastReportedPercentage_{};

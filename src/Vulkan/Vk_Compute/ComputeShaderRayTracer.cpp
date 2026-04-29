@@ -71,6 +71,9 @@ ComputeShaderRayTracer::ComputeShaderRayTracer(
 
 		// Binding 12: Ray counter buffer
 		{12, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
+
+		// Binding 13: Offsets buffer (per-object {indexOffset, vertexOffset})
+		{13, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT},
 	};
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, descriptorBindings, uniformBuffers.size()));
@@ -154,6 +157,11 @@ ComputeShaderRayTracer::ComputeShaderRayTracer(
 		VkDescriptorBufferInfo rayCounterBufferInfo = {};
 		rayCounterBufferInfo.buffer = rayScene.RayCounterBuffer().Handle();
 		rayCounterBufferInfo.range = VK_WHOLE_SIZE;
+
+		// Binding 13: Offsets buffer
+		VkDescriptorBufferInfo offsetsBufferInfo = {};
+		offsetsBufferInfo.buffer = scene.OffsetsBuffer().Handle();
+		offsetsBufferInfo.range = VK_WHOLE_SIZE;
 
 		// Create write descriptor set array in the correct order
 		std::vector<VkWriteDescriptorSet> descriptorWrites;
@@ -300,6 +308,17 @@ ComputeShaderRayTracer::ComputeShaderRayTracer(
 		rayCounterBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		rayCounterBufferWrite.pBufferInfo = &rayCounterBufferInfo;
 		descriptorWrites.push_back(rayCounterBufferWrite);
+
+		// Binding 13: Offsets buffer
+		VkWriteDescriptorSet offsetsBufferWrite = {};
+		offsetsBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		offsetsBufferWrite.dstSet = descriptorSets.Handle(i);
+		offsetsBufferWrite.dstBinding = 13;
+		offsetsBufferWrite.dstArrayElement = 0;
+		offsetsBufferWrite.descriptorCount = 1;
+		offsetsBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		offsetsBufferWrite.pBufferInfo = &offsetsBufferInfo;
+		descriptorWrites.push_back(offsetsBufferWrite);
 
 		// Update all descriptors at once
 		vkUpdateDescriptorSets(device.Handle(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);

@@ -407,10 +407,13 @@ void Application::CreateOutputImage()
 	const auto format = SwapChain().Format();
 	const auto tiling = VK_IMAGE_TILING_OPTIMAL;
 
+	// Accumulation image uses high precision float format
 	accumulationImage_.reset(new Image(Device(), extent, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT));
 	accumulationImageMemory_.reset(new DeviceMemory(accumulationImage_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
 	accumulationImageView_.reset(new ImageView(Device(), accumulationImage_->Handle(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT));
 
+	// Output and capture images use rgba8 for compatibility with both legacy ray tracer and compute shader
+	// The compute shader will handle the float->uint8 conversion with proper normalization
 	outputImage_.reset(new Image(Device(), extent, VK_FORMAT_R8G8B8A8_UNORM, tiling, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
 	outputImageMemory_.reset(new DeviceMemory(outputImage_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
 	outputImageView_.reset(new ImageView(Device(), outputImage_->Handle(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT));

@@ -29,12 +29,14 @@ layout(binding = 5) uniform sampler2D TextureSamplers[];
 #include "Vertex.glsl"
 #include "Scatter.glsl"
 layout(binding = 6) uniform samplerCube Skybox;
-layout(binding = 7, rgba32f) uniform image2D OutputImage;
+layout(binding = 7, rgba8) uniform image2D OutputImage;
 layout(binding = 8, rgba32f) uniform image2D AccumulationImage;
-layout(binding = 9, rgba32f) uniform image2D CaptureImage;
+layout(binding = 9, rgba8) uniform image2D CaptureImage;
 layout(binding = 10) coherent buffer RayVertexBuffer { RayVertex RayVertices[]; };
 layout(binding = 11) coherent buffer RayInfoBuffer { RayInfo info[]; };
 layout(binding = 12) coherent buffer RayCounterBuffer { uint rayCounter; };
+// Offsets buffer: per-object {indexOffset, vertexOffset} — mirrors what the legacy rchit uses via gl_InstanceCustomIndexEXT
+layout(binding = 13) readonly buffer OffsetBuffer { uvec2 Offsets[]; };
 
 // ========== Hit Data Structure ==========
 struct HitInfo {
@@ -162,30 +164,35 @@ HitInfo traceRay(vec3 rayOrigin, vec3 rayDir, float tMin, float tMax)
 	closest.hit = false;
 	closest.distance = tMax;
 
-	// Iterate through all geometries (simple linear search for now)
-	// In production, this would traverse the BLAS properly
-	uint indexCount = Indices.length();
+	uint numObjects = uint(Offsets.length());
 
-	for (uint i = 0; i < indexCount; i += 3)
+	for (uint obj = 0; obj < numObjects; ++obj)
 	{
-		// Fetch triangle indices
-		uint i0 = Indices[i];
-		uint i1 = Indices[i + 1];
-		uint i2 = Indices[i + 2];
+		uint indexOffset  = Offsets[obj].x;
+		uint vertexOffset = Offsets[obj].y;
 
-		// Load vertices
-		const uint vertexSize = 9;
-		vec3 v0 = vec3(Vertices[i0 * vertexSize + 0], Vertices[i0 * vertexSize + 1], Vertices[i0 * vertexSize + 2]);
-		vec3 v1 = vec3(Vertices[i1 * vertexSize + 0], Vertices[i1 * vertexSize + 1], Vertices[i1 * vertexSize + 2]);
-		vec3 v2 = vec3(Vertices[i2 * vertexSize + 0], Vertices[i2 * vertexSize + 1], Vertices[i2 * vertexSize + 2]);
+		// Determine index count for this object by peeking at next object's offset (or end of buffer)
+		uint nextIndexOffset = (obj + 1 < numObjects) ? Offsets[obj + 1].x : uint(Indices.length());
+		uint objIndexCount = nextIndexOffset - indexOffset;
 
-		// Test intersection
-		float t;
-		vec3 barycentrics;
-		if (rayTriangleIntersect(rayOrigin, rayDir, v0, v1, v2, tMin, closest.distance, t, barycentrics))
+		for (uint i = 0; i < objIndexCount; i += 3)
 		{
-			closest = resolveTriangleHit(rayOrigin, rayDir, t, barycentrics, i0, i1, i2);
-			closest.distance = t;
+			uint i0 = vertexOffset + Indices[indexOffset + i + 0];
+			uint i1 = vertexOffset + Indices[indexOffset + i + 1];
+			uint i2 = vertexOffset + Indices[indexOffset + i + 2];
+
+			const uint vertexSize = 9;
+			vec3 v0 = vec3(Vertices[i0 * vertexSize + 0], Vertices[i0 * vertexSize + 1], Vertices[i0 * vertexSize + 2]);
+			vec3 v1 = vec3(Vertices[i1 * vertexSize + 0], Vertices[i1 * vertexSize + 1], Vertices[i1 * vertexSize + 2]);
+			vec3 v2 = vec3(Vertices[i2 * vertexSize + 0], Vertices[i2 * vertexSize + 1], Vertices[i2 * vertexSize + 2]);
+
+			float t;
+			vec3 barycentrics;
+			if (rayTriangleIntersect(rayOrigin, rayDir, v0, v1, v2, tMin, closest.distance, t, barycentrics))
+			{
+				closest = resolveTriangleHit(rayOrigin, rayDir, t, barycentrics, i0, i1, i2);
+				closest.distance = t;
+			}
 		}
 	}
 
@@ -278,9 +285,6 @@ void main()
 		return;
 	}
 
-	// Note: Vulkan coordinate system has origin at top-left, similar to screen coordinates
-	// No Y-inversion needed for compute shader dispatches
-
 	const uint64_t clock = Camera.ShowHeatmap ? clockARB() : 0;
 
 	// Initialize separate random seeds for the pixel and the rays
@@ -306,6 +310,8 @@ void main()
 			pixelCoord.x + RandomFloat(pixelRandomSeed),
 			pixelCoord.y + RandomFloat(pixelRandomSeed)
 		);
+		// In Vulkan, screen Y already points downward (top-left origin)
+		// The projection matrix also expects this convention, so no inversion needed
 		const vec2 uv = (pixel / imageSize(OutputImage).xy) * 2.0 - 1.0;
 
 		vec2 apertureSample = Camera.Aperture / 2.0 * RandomInUnitDisk(rayRandomSeed);
@@ -453,5 +459,5 @@ void main()
 	// Store results
 	imageStore(AccumulationImage, pixelCoord, vec4(accumulatedColor, 0));
 	imageStore(CaptureImage, pixelCoord, vec4(pixelColorFinal, 1.0));
-	imageStore(OutputImage, pixelCoord, vec4(pixelColorFinal.b, pixelColorFinal.g, pixelColorFinal.r, 1.0));
+	imageStore(OutputImage, pixelCoord, vec4(pixelColorFinal, 1.0));
 }
