@@ -25,6 +25,7 @@ namespace Assets
 		float HeatmapScale;
 		uint32_t TotalNumberOfSamples;
 		uint32_t NumberOfSamples;
+		uint32_t SamplesPerInvocation; // samples computed inside a single shader dispatch
 		uint32_t NumberOfBounces;
 		uint32_t RandomSeed;
 		uint32_t MaxRays;

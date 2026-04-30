@@ -113,6 +113,7 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.FocusDistance = userSettings_.FocusDistance;
 	ubo.TotalNumberOfSamples = totalNumberOfSamples_;
 	ubo.NumberOfSamples = numberOfSamples_;
+	ubo.SamplesPerInvocation = userSettings_.SamplesPerInvocation;  // Always set, used by compute shader only
 	ubo.NumberOfBounces = userSettings_.NumberOfBounces;
 	ubo.RandomSeed = 1;
 	ubo.MaxRays = userSettings_.MaxRays;
@@ -396,7 +397,12 @@ void RayTracer::DrawFrame()
 	previousSettings_ = userSettings_;
 
 	// Keep track of our sample count.
-	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
+	// In compute shader mode, each dispatch runs SamplesPerInvocation samples internally,
+	// so we use that as the batch size for accumulation tracking.
+	const uint32_t batchSize = (userSettings_.CurrentRendererMode == UserSettings::RendererMode::ComputeShader)
+		? userSettings_.SamplesPerInvocation
+		: userSettings_.NumberOfSamples;
+	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, batchSize);
 	totalNumberOfSamples_ += numberOfSamples_;
 
 	// Broadcast sample progress every 10%

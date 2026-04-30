@@ -323,7 +323,9 @@ void main()
 	uint i = 0;
 	uint rayOffset = Camera.NumberOfBounces + 1;
 
-	uint samplesThisFrame = Camera.NumberOfSamples;
+	// SamplesPerInvocation controls how many samples this single dispatch computes internally.
+	// This is decoupled from the cross-frame NumberOfSamples used for accumulation tracking.
+	uint samplesThisFrame = Camera.SamplesPerInvocation;
 	bool hasConverged = false;
 	uint sampleCount = 0;
 
@@ -470,7 +472,9 @@ void main()
 		}
 	}
 
-	const bool accumulate = Camera.NumberOfSamples != Camera.TotalNumberOfSamples;
+	// Accumulate across frames only when this isn't the very first dispatch
+	// (TotalNumberOfSamples equals SamplesPerInvocation only on frame 1)
+	const bool accumulate = Camera.TotalNumberOfSamples > Camera.SamplesPerInvocation;
 	const vec3 accumulatedColor = (accumulate ? previousAccumulated : vec3(0)) + pixelColor;
 
 	vec3 pixelColorFinal = accumulatedColor / (Camera.TotalNumberOfSamples + (hasConverged ? float(Camera.NumberOfSamples - sampleCount) : 0.0));

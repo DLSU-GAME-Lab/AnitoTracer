@@ -96,6 +96,9 @@ void SettingsScreen::drawUI()
 		}
 		min = 1, max = 24;
 		ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);
+		uint32_t spiMin = 1, spiMax = 512;
+		ImGui::SliderScalar("Samples Per Dispatch", ImGuiDataType_U32, &settings->SamplesPerInvocation, &spiMin, &spiMax, "%u", ImGuiSliderFlags_Logarithmic);
+		ImGui::TextDisabled("(Higher = faster convergence per frame, heavier GPU dispatch)");
 		min = 2; max = 6;
 		ImGui::SliderScalar("Bounces", ImGuiDataType_U32, &settings->NumberOfBounces, &min, &max);
 		ImGui::NewLine();

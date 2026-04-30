@@ -9,6 +9,7 @@ struct UniformBufferObject
 	float HeatmapScale;
 	uint TotalNumberOfSamples;
 	uint NumberOfSamples;
+	uint SamplesPerInvocation;    // NEW: Samples computed inside a single shader dispatch (decoupled from cross-frame accumulation)
 	uint NumberOfBounces;
 	uint RandomSeed;
 	uint MaxRays;

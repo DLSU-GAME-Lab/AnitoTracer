@@ -29,6 +29,10 @@ struct UserSettings final
 	uint32_t NumberOfBounces;
 	uint32_t MaxNumberOfSamples;
 
+	// Compute shader: samples computed per-invocation inside a single dispatch.
+	// Higher values converge faster per-frame but cost more GPU time per dispatch.
+	uint32_t SamplesPerInvocation = 32;
+
 	// Camera
 	float FieldOfView;
 	float Aperture;
@@ -63,7 +67,8 @@ struct UserSettings final
 			Aperture != prev.Aperture ||
 			FocusDistance != prev.FocusDistance ||
 			EnableAdaptiveSampling != prev.EnableAdaptiveSampling ||
-			VarianceThreshold != prev.VarianceThreshold ||
-			MinSamples != prev.MinSamples;
+				VarianceThreshold != prev.VarianceThreshold ||
+				MinSamples != prev.MinSamples ||
+				SamplesPerInvocation != prev.SamplesPerInvocation;
 	}
 };
