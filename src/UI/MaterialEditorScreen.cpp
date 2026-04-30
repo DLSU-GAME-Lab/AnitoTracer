@@ -63,11 +63,21 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 
 	Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
 
-	if (currTexId != 0) {
-		ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)currTexId);
+	// Guard: only remove a valid, non-null descriptor set while the ImGui Vulkan
+	// backend is alive. A 0 or UINT64_MAX-style sentinel means the set was never
+	// properly created (e.g. backend was not yet initialised when AddTexture ran).
+	const VkDescriptorSet oldSet = (VkDescriptorSet)currTexId;
+	const bool backendReady = (ImGui::GetIO().BackendRendererUserData != nullptr);
+	if (backendReady && oldSet != VK_NULL_HANDLE && oldSet != (VkDescriptorSet)(~0ULL))
+	{
+		ImGui_ImplVulkan_RemoveTexture(oldSet);
 	}
 	currTexId = 0;
-	currTexId = (ImTextureID)(newButtonimg.textureDset);
+	// Only store the new descriptor if the backend is alive and AddTexture succeeded.
+	if (newButtonimg.textureDset != VK_NULL_HANDLE)
+	{
+		currTexId = (ImTextureID)(newButtonimg.textureDset);
+	}
 
 	if (mat->MaterialModel == Material::Enum::Lambertian) {
 		this->fuzziness = 0;

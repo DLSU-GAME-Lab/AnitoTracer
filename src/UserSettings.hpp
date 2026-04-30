@@ -31,7 +31,8 @@ struct UserSettings final
 
 	// Compute shader: samples computed per-invocation inside a single dispatch.
 	// Higher values converge faster per-frame but cost more GPU time per dispatch.
-	uint32_t SamplesPerInvocation = 32;
+	// NOTE: Keep low (4-8) when using software BVH — no hardware acceleration structure.
+	uint32_t SamplesPerInvocation = 4;
 
 	// Camera
 	float FieldOfView;

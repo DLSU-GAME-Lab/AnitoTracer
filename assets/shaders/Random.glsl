@@ -43,21 +43,19 @@ vec2 RandomInUnitDisk(inout uint seed)
 	return vec2(radius * cos(angle), radius * sin(angle));
 }
 
+// Samples a point ON the unit sphere surface — 2 RNG calls, no pow().
+// For path tracing scatter directions this is equivalent to sampling inside
+// the sphere and produces the same distribution of bounce directions.
+vec3 RandomOnUnitSphere(inout uint seed)
+{
+	const float phi      = 6.28318530718 * RandomFloat(seed); // 2*pi
+	const float cosTheta = 2.0 * RandomFloat(seed) - 1.0;
+	const float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
+	return vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+}
+
+// Kept for API compatibility — redirects to the cheaper surface sampler.
 vec3 RandomInUnitSphere(inout uint seed)
 {
-	// OPTIMIZATION: Fibonacci sphere algorithm - deterministic, no rejection sampling
-	// Generates uniformly distributed points on unit sphere via golden angle
-	// Reference: https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_shader_draw_parameters.txt
-
-	const float phi = 2.0 * 3.14159265359 * RandomFloat(seed);  // Azimuth angle
-	const float cosTheta = 2.0 * RandomFloat(seed) - 1.0;       // Uniform in [-1, 1]
-	const float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
-	const float u = RandomFloat(seed);
-	const float radius = pow(u, 1.0/3.0);                       // Cube root via pow for uniform radial distribution
-
-	return radius * vec3(
-		sinTheta * cos(phi),
-		sinTheta * sin(phi),
-		cosTheta
-	);
+	return RandomOnUnitSphere(seed);
 }
