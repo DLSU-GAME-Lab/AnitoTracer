@@ -111,6 +111,18 @@ void SettingsScreen::drawUI()
 		ImGui::SliderFloat("Focus", &settings->FocusDistance, 0.1f, 20.0f, "%.1f");
 		ImGui::NewLine();
 
+		ImGui::Text("Adaptive Sampling");
+		ImGui::Separator();
+		ImGui::Checkbox("Enable Adaptive Sampling", &settings->EnableAdaptiveSampling);
+		if (settings->EnableAdaptiveSampling)
+		{
+			ImGui::SliderFloat("Variance Threshold", &settings->VarianceThreshold, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
+			uint32_t minSamplesMin = 1, minSamplesMax = 256;
+			ImGui::SliderScalar("Min Samples", ImGuiDataType_U32, &settings->MinSamples, &minSamplesMin, &minSamplesMax);
+		}
+		ImGui::Text("Total Samples Accumulated: %u", settings->MaxNumberOfSamples);
+		ImGui::NewLine();
+
 		ImGui::Text("Profiler");
 		ImGui::Separator();
 		ImGui::Checkbox("Show heatmap", &settings->ShowHeatmap);
