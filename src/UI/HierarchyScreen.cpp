@@ -1,11 +1,15 @@
-#include "HierarchyScreen.h"
+ #include "HierarchyScreen.h"
 
 #include <imgui_internal.h>
 #include "imgui.h"
 #include "From-GDGRAP2/ModelManager.h"
-#include "UIManager.h"
 #include "Engine/CameraSystem/CameraManager.h"
 #include "From-GDGRAP2/RTConfig.h"
+#include "Utilities/DragAndDrop/DragAndDropUtils.h"
+#include "IconsMaterialDesign.h"
+#include "EditorTheme.hpp"
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
 
 HierarchyScreen::HierarchyScreen() : AUIScreen(UINames::HIERARCHY_SCREEN)
 {
@@ -19,39 +23,227 @@ void HierarchyScreen::drawUI()
 {
     //setWindowAlignment(ScreenAlign::TOP_RIGHT);
 
-	ImGui::Begin("Scene Outline", nullptr, UISettings::GlobalWindowFlags);
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, DarkTheme.TAB_ACTIVE);
+
+	ImGui::Begin("Hierarchy", nullptr, UISettings::GlobalWindowFlags | ImGuiWindowFlags_MenuBar);
+
+    DragAndDropUtils::createFullPanelDummy();
+    DragAndDropUtils::attachModelInstantiateTarget();
 
 	// Search Bar
 	static char searchBuffer[128] = "";
-	ImGui::InputTextWithHint("##Search", "Search objects...", searchBuffer, IM_ARRAYSIZE(searchBuffer));
 
-	this->updateObjectList(searchBuffer);
+    if (ImGui::BeginMenuBar())
+    {
+        ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[3]);
+        if (ImGui::MenuItem(ICON_MD_ADD ICON_MD_ARROW_DROP_DOWN))
+        {
+            ImGui::OpenPopup("CreateGameObjectsPopup");
+        }
+        ImGui::PopFont();
+
+        CreateObjectPopup();
+
+        ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[4]);
+        ImGui::TextUnformatted(ICON_MD_SEARCH);
+		ImGui::PopFont();
+        ImGui::SameLine();
+
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+		ImGui::AlignTextToFramePadding();
+        ImGui::InputTextWithHint("##Search", "Search objects...", searchBuffer, IM_ARRAYSIZE(searchBuffer));
+
+
+        ImGui::EndMenuBar();
+    }
+
+    if (ImGui::CollapsingHeader("Scene Objects", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        this->updateObjectList(searchBuffer);
+
+        if (ImGui::BeginPopupContextWindow())
+        {
+            HierarchyMenuPopup();
+            ImGui::EndPopup();
+        }
+    }
 
 	ImGui::End();
+    ImGui::PopStyleColor();
+}
+
+void HierarchyScreen::HierarchyMenuPopup()
+{
+    bool isThereSelected = !ModelManager::getInstance()->getSelectedObject();
+
+    if (isThereSelected) //grey out and unselectable if no selected object
+    {
+        ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+    }
+
+    if (ImGui::Selectable("Cut"))       ModelManager::getInstance()->CutSelectedObject();
+    if (ImGui::Selectable("Copy"))      ModelManager::getInstance()->CopySelectedObject();
+    if (ImGui::Selectable("Paste"))     ModelManager::getInstance()->PasteObject();
+    if (ImGui::Selectable("Duplicate")) ModelManager::getInstance()->DuplicateSelectedObject();
+    if (ImGui::Selectable("Delete"))    ModelManager::getInstance()->DeleteSelectedObject();
+
+    if (isThereSelected)
+    {
+        ImGui::PopItemFlag();
+        ImGui::PopStyleVar();
+    }
+
+    ImGui::Separator();
+
+    if (ImGui::BeginMenu("3D Objects"))
+    {
+        if (ImGui::MenuItem("Cube"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::CUBE, "Cube");
+        }
+
+        if (ImGui::MenuItem("Sphere"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::SPHERE, "Sphere");
+        }
+
+        if (ImGui::MenuItem("Plane"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::PLANE, "Plane");
+        }
+
+        if (ImGui::MenuItem("Cylinder"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::CYLINDER, "Cylinder");
+        }
+
+        if (ImGui::MenuItem("Capsule"))
+        {
+            CreatePrimitive(GameObject::PrimitiveType::CAPSULE, "Capsule");
+        }
+
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Lights"))
+    {
+        if (ImGui::MenuItem("Point Light"))
+        {
+            CreateLight(Light::PointLight, "Point_Light");
+        }
+
+		if (ImGui::MenuItem("Directional Light"))
+        {
+            CreateLight(Light::DirectionalLight, "Directional_Light");
+        }
+
+        if (ImGui::MenuItem("Spot Light"))
+        {
+            CreateLight(Light::SpotLight, "Spot_Light");
+		}
+
+        ImGui::EndMenu();
+    }
+}
+
+/* Helper */
+void HierarchyScreen::CreatePrimitive(GameObject::PrimitiveType type, String name)
+{
+    CommandManager::getInstance()->executeCommand(
+        new CreatePrimitiveCommand(type, name)
+    );
+}
+
+void HierarchyScreen::CreateLight(Light::LightType type, String name)
+{
+    CommandManager::getInstance()->executeCommand(
+        new CreateLightCommand(type, name)
+	);
+}
+
+void HierarchyScreen::CreateObjectPopup()
+{
+    if (ImGui::BeginPopup("CreateGameObjectsPopup"))
+    {
+        if (ImGui::BeginMenu("3D Objects"))
+        {
+            if (ImGui::MenuItem("Cube"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::CUBE, "Cube");
+            }
+
+            if (ImGui::MenuItem("Sphere"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::SPHERE, "Sphere");
+            }
+
+            if (ImGui::MenuItem("Plane"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::PLANE, "Plane");
+            }
+
+            if (ImGui::MenuItem("Cylinder"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::CYLINDER, "Cylinder");
+            }
+
+            if (ImGui::MenuItem("Capsule"))
+            {
+                CreatePrimitive(GameObject::PrimitiveType::CAPSULE, "Capsule");
+            }
+
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Lights"))
+        {
+            if (ImGui::MenuItem("Point Light"))
+            {
+                CreateLight(Light::PointLight, "Point_Light");
+            }
+
+            if (ImGui::MenuItem("Directional Light"))
+            {
+                CreateLight(Light::DirectionalLight, "Directional_Light");
+            }
+
+            if (ImGui::MenuItem("Spot Light"))
+            {
+                CreateLight(Light::SpotLight, "Spot_Light");
+            }
+
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndPopup();
+    }
 }
 
 void HierarchyScreen::updateObjectList(const char* filter)
 {
-    const ModelManager::List objectList = ModelManager::getInstance()->getAllObjects();
-    std::string activeCamName = CameraManager::getInstance()->getActiveCamera()->getName();
+    auto objectList = ModelManager::getInstance()->getSceneGraph();
+    auto camera = CameraManager::getInstance()->getActiveCamera();
+    std::string activeCamName = camera->getName();
     ImGui::Text("Active Camera: %s", activeCamName.c_str());
 
     std::string filterStr(filter);
     std::transform(filterStr.begin(), filterStr.end(), filterStr.begin(), ::tolower);
 
+    objectList.insert(objectList.begin(), static_cast<GameObject*>(camera));
+
     for (const auto& obj : objectList)
     {
-        if (!obj->getParent())
-        {
-            std::string objName = obj->getName();
-            std::transform(objName.begin(), objName.end(), objName.begin(), ::tolower);
+		std::string objName = obj->getName();
+		std::transform(objName.begin(), objName.end(), objName.begin(), ::tolower);
 
-            if (filterStr.empty() || objName.find(filterStr) != std::string::npos)
-            {
-                drawObjectNode(obj.get());
-            }
-        }
+		if (filterStr.empty() || objName.find(filterStr) != std::string::npos)
+		{
+			drawObjectNode(obj);
+		}
     }
+
+	tempId = 0; // Reset tempId for next frame
 }
 
 void HierarchyScreen::drawObjectNode(GameObject* obj)
@@ -59,14 +251,23 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     if (!obj) return;
 
     String objectName = obj->getName();
+	String objectId = objectName + std::to_string(tempId); // Unique ID for ImGui
     bool hasChildren = !obj->getChildren().empty();
+	tempId++;
 
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
 
-    GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+    GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
+
+    if (obj->IsHierarchyNodeOpen())
+    {
+        flags |= ImGuiTreeNodeFlags_DefaultOpen;
+    }
+
     if (selectedObject == obj)
     {
+		ImGui::PushStyleColor(ImGuiCol_Header, DarkTheme.SCROLLBAR_GRAB_ACTIVE); //blue
         flags |= ImGuiTreeNodeFlags_Selected;
     }
 
@@ -74,7 +275,14 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     bool isNodeOpen = openNodes.count(objectName) > 0;
     if (isNodeOpen) flags |= ImGuiTreeNodeFlags_DefaultOpen;
 
+    ImGui::PushID(objectId.c_str());
     bool open = ImGui::TreeNodeEx(objectName.c_str(), flags);
+    obj->SetHierarchyNodeOpen(open);
+
+    if (selectedObject == obj)
+    {
+        ImGui::PopStyleColor();
+    }
 
     static bool hasValidDropTarget = false;
     static bool isDragging = false;
@@ -82,12 +290,12 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     // Selection Logic
     if (ImGui::IsItemClicked())
     {
-        ModelManager::getInstance()->setSelectedObject(objectName);
+        ModelManager::getInstance()->setSelectedObject(obj);
 
         // If Camera is selected, set main camera. If not, deactivate main camera.
         if (ModelManager::getInstance()->getSelectedObject()->getType() == GameObject::CAMERA)
         {
-            const std::shared_ptr<Camera> cam = CameraManager::getInstance()->findCameraByName(objectName);
+            Camera* cam = CameraManager::getInstance()->findCameraByName(objectName);
             CameraManager::getInstance()->setMainCamera(cam);
         }
         else
@@ -119,14 +327,18 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
             {
                 hasValidDropTarget = true;
 
-                // If dragged object had a parent, remove it from old parent
-                if (draggedObj->getParent())
-                {
-                    draggedObj->getParent()->removeChild(draggedObj);
-                }
+                auto oldParent = draggedObj->getParent();
 
                 // Assign new parent
-                obj->addChild(draggedObj);
+				CommandManager::getInstance()->executeCommand(
+                    new ReparentCommand(
+                        draggedObj, 
+                        oldParent,
+						oldParent ? oldParent->getChildIndex(draggedObj) : ModelManager::getInstance()->getObjectIndex(draggedObj),
+                        obj,
+                        obj->getChildren().size()
+                    )
+				);
 
                 // Force the node open when an object is dropped here
                 openNodes.insert(objectName);
@@ -147,11 +359,26 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     // Handle Unparenting (Dragged to Empty Space)
     if (isDragging && ImGui::IsMouseReleased(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
     {
-        GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+        GameObject* selectedObject = ModelManager::getInstance()->getSelectedObject();
+
         if (selectedObject)
         {
-            selectedObject->setParent(nullptr);
+            auto oldParent = selectedObject->getParent();
+
+            if (oldParent) // if old parent == null (in root); do nothing
+            {
+                CommandManager::getInstance()->executeCommand(            // Assign to root
+                    new ReparentCommand(
+                        selectedObject,
+                        oldParent,
+                        oldParent->getChildIndex(selectedObject),
+                        nullptr,
+                        ModelManager::getInstance()->getSceneGraphRootSize()
+                    )
+                );
+            }
         }
+
         isDragging = false; // Reset dragging state after unparenting
     }
 
@@ -172,5 +399,7 @@ void HierarchyScreen::drawObjectNode(GameObject* obj)
     {
         openNodes.erase(objectName);
     }
+
+    ImGui::PopID();
 }
 

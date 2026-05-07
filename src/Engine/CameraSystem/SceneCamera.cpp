@@ -8,6 +8,11 @@ SceneCamera::~SceneCamera()
 {
 }
 
+GameObject::GameObjectPtr SceneCamera::Clone() const
+{
+	return std::make_unique<SceneCamera>(*this);
+}
+
 void SceneCamera::MoveForward(const float d)
 {
 	Camera::MoveForward(d);

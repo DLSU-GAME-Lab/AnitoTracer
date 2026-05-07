@@ -26,11 +26,11 @@ namespace Vulkan
 		VkDeviceAddress GetDeviceAddress() const;
 
 		void CopyFrom(CommandPool& commandPool, const Buffer& src, VkDeviceSize size);
-
+		size_t Size() const { return size_; }
 	private:
 
 		const class Device& device_;
-
+		size_t size_;
 		VULKAN_HANDLE(VkBuffer, buffer_)
 	};
 }

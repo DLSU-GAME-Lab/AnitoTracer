@@ -4,7 +4,7 @@
 namespace Vulkan {
 
 Buffer::Buffer(const class Device& device, const size_t size, const VkBufferUsageFlags usage) :
-	device_(device)
+	device_(device), size_(size)
 {
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

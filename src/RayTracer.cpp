@@ -21,7 +21,6 @@
 #include "UI/UIManager.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
-#include "imgui_impl_vulkan.h"
 #include "Assets/Ray.hpp"
 
 #include "Engine/CameraSystem/CameraManager.h"
@@ -31,6 +30,12 @@
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
+
+#include "StateManagement/CommandManager.hpp"
+#include "Assets/ModelLibrary.hpp"
+#include "RayPicker/RayPickerUBO.hpp"
+#include "HotkeySystem/HotkeySystem.hpp"
+#include "Utilities/Screenshot.hpp"
 
 namespace
 {
@@ -52,15 +57,23 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SCENE_LOADED, this);
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MARK_SCENE_DIRTY, this);
 
+	HotkeySystem::getInstance()->addListener(this);
+
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
+	Assets::ModelLibrary::initialize();
+	CommandManager::initialize();
 }
 
 RayTracer::~RayTracer()
 {
+	Assets::ModelLibrary::destroy();
+	CommandManager::destroy();
+
 	scene_.reset();
 	rayScene_.reset();
+	HotkeySystem::getInstance()->removeListener(this);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
 }
@@ -101,10 +114,22 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	return ubo;
 }
 
-Assets::PushConstantModel RayTracer::GetPushConstantModel(const Assets::Model& model) const
+Assets::PushConstantModel RayTracer::GetPushConstantModel(const GameObject& gameObject) const
 {
 	Assets::PushConstantModel ubo = {};
-	ubo.WorldMatrix = model.GetWorldMatrix();
+	ubo.WorldMatrix = gameObject.getWorldMatrix();
+
+	return ubo;
+}
+
+RayPickerUBO RayTracer::GetRayPickerUBO(const VkExtent2D extent) const
+{
+	RayPickerUBO ubo = {};
+	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->ModelView();
+	ubo.Projection = CameraManager::getInstance()->getActiveCamera()->GetProjection(userSettings_, extent);
+	ubo.Projection[1][1] *= -1; // Inverting Y for Vulkan, https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
+	ubo.ModelViewInverse = glm::inverse(ubo.ModelView);
+	ubo.ProjectionInverse = glm::inverse(ubo.Projection);
 
 	return ubo;
 }
@@ -151,7 +176,7 @@ void RayTracer::CreateSwapChain()
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
 	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
 	//UIManager::reset();
-	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_);
+	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
 	UIManager::getInstance()->SetProfiler(profiler_.get());
 
 	if (!initializedUI)
@@ -204,6 +229,7 @@ void RayTracer::DrawFrame()
 		LoadScene(userSettings_.SceneIndex);
 		CreateAccelerationStructures();
 		CreateSwapChain();
+		ResetPicker();
 		this->isSceneDirty = false;
 		return;
 	}
@@ -219,6 +245,7 @@ void RayTracer::DrawFrame()
 		ReloadModifiedScene();
 		CreateAccelerationStructures();
 		CreateSwapChain();
+		ResetPicker();
 		return;
 	}
 
@@ -239,6 +266,7 @@ void RayTracer::DrawFrame()
 
 	rayScene_->Update(CommandPool());
 	
+	ExecuteScheduledPick();
 	Application::DrawFrame();
 }
 
@@ -341,23 +369,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 			// case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 			//case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 
-
 		default: break;
-		}
-	}
-
-	if (action == GLFW_PRESS)
-	{
-		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL))
-		{
-			TransformHistory::getInstance().undo();
-			return;
-		}
-
-		if (key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL))
-		{
-			TransformHistory::getInstance().redo();
-			return;
 		}
 	}
 
@@ -395,6 +407,20 @@ void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 
 void RayTracer::OnMouseButton(const int button, const int action, const int mods)
 {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+	{
+		UIManager::getInstance()->onLMBPressed();
+	}
+	
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+	{
+		UIManager::getInstance()->onLMBReleased();
+
+		double xpos, ypos;
+		glfwGetCursorPos(Window().Handle(), &xpos, &ypos);
+		SchedulePick({ static_cast<float>(xpos), static_cast<float>(ypos) });
+	}
+
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 	{
 		isMoving = true;
@@ -437,6 +463,14 @@ void RayTracer::OnScroll(const double xoffset, const double yoffset)
 	resetAccumulation_ = prevFov != userSettings_.FieldOfView;
 }
 
+void RayTracer::OnActionPressed(Hotkey::Action action)
+{
+	if (action == Hotkey::Action::ScreenShot)
+	{
+		TakeScreenshot("screenshot");
+	}
+}
+
 void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters)
 {
 	// {"Cube And Spheres", CubeAndSpheres},
@@ -464,7 +498,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 {
 	auto& commandPool = CommandPool();
 
-	auto [models, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
+	auto [objects, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
 
 	Assets::CubeMapTexture skyboxCubeMap;
 
@@ -490,7 +524,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 		lights.push_back(Assets::LightProperties(glm::vec3(2600, 20, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 0.4, 0.5, 1000000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
-	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_.reset(new Assets::Scene(CommandPool(), std::move(objects), std::move(textures), std::move(lights)));
 	scene_->SetSkybox(
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
@@ -517,14 +551,9 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
  */
 void RayTracer::ReloadModifiedScene()
 {
-	std::vector<Assets::Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> objects = ModelManager::getInstance()->getObjectList();
 	std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
-
-	for (auto& model : models)
-	{
-		model.ResetVertices();
-	}
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())
@@ -537,7 +566,7 @@ void RayTracer::ReloadModifiedScene()
 		lights.push_back(Assets::LightProperties(glm::vec3(1000, 500, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 1.0, 1.0, 1000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
-	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_.reset(new Assets::Scene(CommandPool(), std::move(objects), std::move(textures), std::move(lights)));
 	scene_->SetSkybox(
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
@@ -620,4 +649,85 @@ void RayTracer::CheckFramebufferSize() const
 
 		Throw(std::runtime_error(out.str()));
 	}
+}
+
+void RayTracer::ResetPicker()
+{
+	rayPicker_.reset(new class RayPicker(*deviceProcedures_, SwapChain(), CommandPool(), topAs_[0], RayPickerUniformBuffers(), GetScene(), *rayTracingProperties_));
+}
+
+void RayTracer::SchedulePick(const glm::vec2& mousePos)
+{
+	this->isPickScheduled = true;
+	this->scheduledMousePos = mousePos;
+}
+
+void RayTracer::ExecuteScheduledPick()
+{
+	if (UIManager::getInstance()->IsGizmoUsed() || //give prio to Gizmo
+		UIManager::getInstance()->wantsToCaptureMouse()) // mouse over GUI
+	{
+		this->isPickScheduled = false;
+		return;
+	}
+
+	if (this->isPickScheduled && rayPicker_)
+	{
+		this->isPickScheduled = false;
+
+		glm::vec3 rayOrigin, rayDirection;
+		ScreenToWorldRay(scheduledMousePos, rayOrigin, rayDirection);
+
+		auto result = rayPicker_->pick(*deviceProcedures_, Device(), rayOrigin, rayDirection, currentFrame_);
+
+		int pickedId = result.objectID;
+		auto gameObject = ModelManager::getInstance()->findObjectByID(pickedId);
+
+		if (gameObject)	ModelManager::getInstance()->setSelectedObject(gameObject);
+		else ModelManager::getInstance()->setSelectedObject(nullptr);
+	}
+}
+
+void RayTracer::TakeScreenshot(std::string name)
+{
+	auto extent = SwapChain().Extent();
+
+	const uint32_t width = extent.width;
+	const uint32_t height = extent.height;
+	const uint32_t bytesPerPixel = 4; // RGBA8
+
+	const VkDeviceSize byteSize = VkDeviceSize(width) * height * bytesPerPixel;
+
+	void* mapped = hostCaptureBufferMemory_->Map(0, byteSize);
+
+	Export::SavePNG(name, width, height, bytesPerPixel, mapped);
+
+	hostCaptureBufferMemory_->Unmap();
+}
+
+void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,
+	glm::vec3& outOrigin,
+	glm::vec3& outDirection)
+{
+	VkExtent2D windowSize = Window().WindowSize();
+	float viewportWidth = static_cast<float>(windowSize.width);
+	float viewportHeight = static_cast<float>(windowSize.height);
+
+	float x = (2.0f * mousePos.x) / viewportWidth - 1.0f;
+	float y = 1.0f - (2.0f * mousePos.y) / viewportHeight;
+
+	glm::vec4 rayClip = glm::vec4(x, y, -1.0f, 1.0f);
+
+	auto camera = CameraManager::getInstance()->getActiveCamera();
+
+	glm::mat4 invProjection = glm::inverse(camera->GetProjection());
+	glm::mat4 invView = glm::inverse(camera->GetView());
+
+	glm::vec4 rayEye = invProjection * rayClip;
+	rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0f, 0.0f);
+
+	glm::vec4 rayWorld = invView * rayEye;
+	outDirection = glm::normalize(glm::vec3(rayWorld));
+
+	outOrigin = camera->getLocalPosition();
 }

@@ -26,7 +26,7 @@ void SettingsScreen::drawUI()
 
 		UserSettings* settings = UIManager::getInstance()->settings();
 
-		ImGui::Text("AnitoTracer Shortcuts");
+		ImGui::Text("AnitoTracer Controls");
 		ImGui::Separator();
 		ImGui::Bullet();
 		ImGui::TextWrapped("F1: Toggle Settings");
@@ -34,11 +34,18 @@ void SettingsScreen::drawUI()
 		ImGui::TextWrapped("F2: Toggle Statistics");
 		ImGui::Bullet();
 		ImGui::TextWrapped("F3: Toggle All UI");
+		ImGui::Bullet();
+		ImGui::TextWrapped("F4: Enable/Disable ray tracing");
+		ImGui::Bullet();
+		ImGui::TextWrapped("F5: Refresh Scene to see your changes");
+		ImGui::Bullet();
+		ImGui::TextWrapped("F6: Enable/Disable ray visualization");
 		ImGui::Separator();
+
 		ImGui::Bullet();
-		ImGui::TextWrapped("Left Click Scene and Hold RMB + WASD/Q/E: Move Camera");
+		ImGui::TextWrapped("Left Click Object To Select");
 		ImGui::Bullet();
-		ImGui::TextWrapped("Left Click Scene and Hold RMB + drag: Look Around");
+		ImGui::TextWrapped("Left Click Scene and Hold RMB: FPS Mode");
 		ImGui::Bullet();
 		ImGui::TextWrapped("Select an Object + W: Move Object Gizmo");
 		ImGui::Bullet();
@@ -46,17 +53,27 @@ void SettingsScreen::drawUI()
 		ImGui::Bullet();
 		ImGui::TextWrapped("Select an Object + R: Scale Object Gizmo");
 		ImGui::Bullet();
-		ImGui::TextWrapped("F: Focus on selected object");
-		ImGui::Bullet();
-		ImGui::TextWrapped("F5: Refresh Scene to see your changes");
+		ImGui::TextWrapped("Select an Object + T: All Operations Gizmo");
 		ImGui::Separator();
-		ImGui::Bullet();
-		ImGui::TextWrapped("F4: Enable/Disable ray tracing");
-		ImGui::Bullet();
-		ImGui::TextWrapped("F6: Enable/Disable ray visualization");
-		ImGui::NewLine();
+
 		ImGui::TextWrapped("Tip: Click in the scene to use shortcuts in the scene");
-		ImGui::NewLine();
+		ImGui::Bullet();
+		ImGui::TextWrapped("Cut: CTRL + X");
+		ImGui::Bullet();
+		ImGui::TextWrapped("Copy: CTRL + C");
+		ImGui::Bullet();
+		ImGui::TextWrapped("Paste: CTRL + V");
+		ImGui::Bullet();
+		ImGui::TextWrapped("Delete: DEL");
+		ImGui::Bullet();
+		ImGui::TextWrapped("Undo: CTRL + Z");
+		ImGui::Bullet();
+		ImGui::TextWrapped("Redo: CTRL + Y");
+		ImGui::Bullet();
+		ImGui::Separator();
+
+		ImGui::Bullet();
+		ImGui::TextWrapped("Drag and Drop OBJ files unto the screen to add more files");
 
 		//ImGui::Text("Scene");
 		//ImGui::Separator();
@@ -65,8 +82,8 @@ void SettingsScreen::drawUI()
 		//ImGui::PopItemWidth();
 		//ImGui::NewLine();
 
-		ImGui::Text("Ray Tracing");
 		ImGui::Separator();
+		ImGui::Text("Ray Tracing");
 		/*ImGui::Checkbox("Enable ray tracing", &settings->IsRayTraced);*/
 		//ImGui::Text("Press T to enable/disable ray tracing");
 		ImGui::TextWrapped("Tip: To visualize rays, you must be in ray visualization mode.");

@@ -13,6 +13,7 @@
 layout(binding = 0, set = 0) uniform accelerationStructureEXT Scene;
 layout(binding = 1, rgba32f) uniform image2D AccumulationImage;
 layout(binding = 2, rgba8) uniform image2D OutputImage;
+layout(binding = 15,rgba8) uniform image2D CaptureImage;
 layout(binding = 3) readonly uniform UniformBufferObjectStruct { UniformBufferObject Camera; };
 
 layout(binding = 12) buffer RayCounter { uint rayCounter; };
@@ -158,5 +159,6 @@ void main()
 	}
 
 	imageStore(AccumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(accumulatedColor, 0));
-    imageStore(OutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(pixelColor, 0));
+    imageStore(CaptureImage, ivec2(gl_LaunchIDEXT.xy), vec4(pixelColor, 1.0));
+	imageStore(OutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(pixelColor.b, pixelColor.g, pixelColor.r, 1.0));
 }

@@ -59,6 +59,13 @@ public:
 		updateSceneView();
 	}
 
+	~Light() = default;
+
+	virtual GameObject::GameObjectPtr Clone() const override 
+	{
+		return std::make_unique<Light>(*this);
+	}
+
 	const Assets::LightProperties Properties() const { return this->props_; }
 
 	glm::vec4 getAmbientColor()
@@ -92,15 +99,15 @@ public:
 		updateSceneView();
 	}
 
-	void setLocalRotation(vec3 newRot) override
+	void setLocalRotationEuler(vec3 newRot) override
 	{
-		GameObject::setLocalRotation(newRot);
+		GameObject::setLocalRotationEuler(newRot);
 		props_.LightDir = calculateDirection();
 	}
 	
-	void setLocalRotation(float x, float y, float z) override
+	void setLocalRotationEuler(float x, float y, float z) override
 	{
-		GameObject::setLocalRotation(x, y, z);
+		GameObject::setLocalRotationEuler(x, y, z);
 		props_.LightDir = calculateDirection();
 	}
 
@@ -171,7 +178,7 @@ private:
 	glm::vec3 calculateDirection()
 	{
 		glm::vec3 localForward = glm::vec3(0.0f, -1.0f, 0.0f); // pointing down by default
-		glm::mat4 modelMatrix = this->mat_;
+		glm::mat4 modelMatrix = this->localMatrix;
 
 		glm::vec3 worldDirection = glm::normalize(glm::mat3(modelMatrix) * localForward);
 		return worldDirection;

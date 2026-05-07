@@ -13,6 +13,10 @@
 
 #include "ButtonTexture.hpp"
 #include "UIManager.h"
+#include "IconsMaterialDesign.h"
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/MaterialCommands.hpp"
+#include "Assets/Texture.hpp"
 
 using namespace gdeng03;
 
@@ -24,6 +28,7 @@ MaterialEditorScreen::MaterialEditorScreen() : AUIScreen(UINames::MATERIAL_EDITO
 	//currTexId = (ImTextureID)(buttonImg.textureDset);
 
 	//loadDefaultTextures();
+	textureimg = nullptr;
 }
 
 bool MaterialEditorScreen::canSelectMaterial() const
@@ -46,6 +51,9 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 		this->refractionIndex = mat->RefractionIndex;
 	}
 
+	if (textureimg != nullptr) {
+		delete textureimg;
+	}
 	textureimg = nullptr;
 
 	if (mat->DiffuseTextureId == -1)
@@ -54,6 +62,10 @@ void MaterialEditorScreen::setSelectedMaterial(Material* mat)
 		textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(mat->DiffuseTextureId));
 
 	Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
+
+	if (currTexId != 0) {
+		ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)currTexId);
+	}
 	currTexId = 0;
 	currTexId = (ImTextureID)(newButtonimg.textureDset);
 
@@ -115,7 +127,7 @@ void MaterialEditorScreen::unselectMaterial()
 
 void MaterialEditorScreen::drawUI()
 {
-	selectedObject = ModelManager::getInstance()->getSelectedObject().get();
+	selectedObject = ModelManager::getInstance()->getSelectedObject();
 	//setWindowAlignment(ScreenAlign::CENTER_RIGHT);
 
 	ImGui::Begin("Material Editor", &enabled, UISettings::GlobalWindowFlags);
@@ -123,8 +135,8 @@ void MaterialEditorScreen::drawUI()
 	if (selectedObject != nullptr)
 	{
 		showMaterialEditorWindow();
-		updateSelectedMaterial();
 	}
+
 	else
 		ImGui::TextWrapped("Select an object to edit its material.");
 
@@ -135,11 +147,15 @@ void MaterialEditorScreen::drawUI()
 
 	if (isColorPickerOpen)
 		showColorPickerWindow();
+
+	wasColorPickerOpen = isColorPickerOpen;
 }
 
 void MaterialEditorScreen::showColorPickerWindow()
 {
-	ImGui::SetNextWindowPos(ImGui::FindWindowByName("Material Editor")->Pos);
+	if(!wasColorPickerOpen)
+		ImGui::SetNextWindowPos(ImGui::FindWindowByName("Material Editor")->Pos);
+
 	ImGui::SetNextWindowSize(ImVec2(350, 350));
 	if (ImGui::Begin("Color Picker", &isColorPickerOpen) && selectedMaterial)
 	{
@@ -150,13 +166,16 @@ void MaterialEditorScreen::showColorPickerWindow()
 		{
 			isColorPickerOpen = false;
 
-			// if (selectedMaterial->Diffuse != glm::vec4(this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w))
-			// {
-			selectedMaterial->Diffuse = { this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w };
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-			//}
+			CommandManager::getInstance()->executeCommand(
+				new ModifyMaterialPropertyCommand(
+					this->selectedMaterial,
+					[](Assets::Material* m, const ModifyMaterialPropertyCommand::Variant& v) { m->SetAlbedoColor(std::get<glm::vec4>(v)); },
+					this->selectedMaterial->Diffuse,
+					glm::vec4(this->diffuse.x, this->diffuse.y, this->diffuse.z, this->diffuse.w)
+				));
 		}
 	}
+
 	ImGui::End();
 }
 
@@ -181,37 +200,6 @@ void MaterialEditorScreen::updateSelectedMaterial()
 
 void MaterialEditorScreen::showMaterialEditorWindow()
 {
-	// ImGui::Text("Select Material");
-	// std::vector<const char*> materialNames;
-	// materialNames.reserve(5);
-	//
-	// auto vecMaterials = selectedObject->getModel()->Materials();
-	//
-	// for (int i = 0; i < vecMaterials.size(); i++)
-	// {
-	// 	materialNames.push_back(std::string("Material " + std::to_string(i + 1)).data());
-	// }
-	// static int materialIndex = 0;
-	//
-	// if (ImGui::BeginCombo("Material", materialNames[materialIndex]))
-	// {
-	// 	for (int n = 0; n < materialNames.size(); n++)
-	// 	{
-	// 		Debug::Log("Materials: ");
-	// 		Debug::Log(materialNames[n]);
-	// 		const bool is_selected = (materialIndex == n);
-	// 		if (ImGui::Selectable(materialNames[n], is_selected))
-	// 			materialIndex = n;
-	//
-	// 		// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-	// 		if (is_selected)
-	// 			ImGui::SetItemDefaultFocus();
-	// 	}
-	// 	ImGui::EndCombo();
-	// }
-	//
-	// selectedMaterial = &vecMaterials[materialIndex];
-
 	const auto model = selectedObject->getModel();
 
 	if (!model)
@@ -228,103 +216,192 @@ void MaterialEditorScreen::showMaterialEditorWindow()
 		return;
 	}
 
-
-	ImGui::NewLine();
-	//TEXTURE
-	//ImGui::Image((ImTextureID)(intptr_t)&TextureLibrary::getInstance()->getTextureLibraryList()[selectedMaterial->DiffuseTextureId], ImVec2(100, 50));
-
-	if (ImGui::ImageButton("Texture", currTexId, ImVec2(40,40)))
+	if(ImGui::CollapsingHeader("Material Inputs", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		//int newTextureId;
-		this->textureChanged = TextureLibrary::getInstance()->loadTextureFromFile(this->textureId);
-		selectedMaterial->DiffuseTextureId = this->textureId;
-
-		if (this->textureChanged) 
+		if (ImGui::BeginTable("SurfaceInputsTable", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody))
 		{
-	/*		textureimg = nullptr;
+			float labelWidth = ImGui::CalcTextSize("Refraction Index").x;
 
-			if (selectedMaterial->DiffuseTextureId == -1)
-				textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(0));
-			else
-				textureimg = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTextureById(selectedMaterial->DiffuseTextureId));
+			ImGui::TableSetupColumn("Drag_Preview", ImGuiTableColumnFlags_WidthFixed, 24.0f);
+			ImGui::TableSetupColumn("Texture_Select", ImGuiTableColumnFlags_WidthFixed, 12.0f);
+			ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
+			ImGui::TableSetupColumn("InputFields", ImGuiTableColumnFlags_WidthStretch);
 
-			Assets::ButtonTexture newButtonimg = Assets::ButtonTexture(textureimg);
-			currTexId = 0;
-			currTexId = (ImTextureID)(newButtonimg.textureDset);*/
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+			ImGui::TableNextRow(); // Albedo and Color
+			ImGui::TableSetColumnIndex(0);
 
-		}
-	}
-	
-	ImGui::SameLine();
-	ImGui::Text("Texture");
-
-	ImGui::NewLine();
-	//COLOR
-	if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(50, 50)))
-	{
-		isColorPickerOpen = !isColorPickerOpen;
-	}
-	ImGui::SameLine();
-	ImGui::Text("Color");
-
-	ImGui::NewLine();
-
-	//slider size
-	ImGui::PushItemWidth(100);
-	//METALLIC
-	if (ImGui::SliderFloat("Metallic", &this->fuzziness, 0, 1, " %.05f"))
-	{
-		//EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
-
-	ImGui::NewLine();
-
-	if (ImGui::Checkbox("Dielectric", &this->dielectric)) 
-	{
-
-	}
-	if (ImGui::SliderFloat("Refraction Index", &this->refractionIndex, 0, 15, "%1.0f"))
-	{
-
-	}
-
-
-
-	//ImGui::SameLine();
-	//if (ImGui::SliderFloat("Refraction Index", &selectedMaterial->RefractionIndex, 0, 255))
-	//	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-
-	//ImGui::NewLine();
-
-
-	ImGui::PopItemWidth();
-	ImGui::NewLine();
-
-	if (ImGui::Button("Apply")) 
-	{
-		if (this->dielectric) {
-			selectedMaterial->MaterialModel = Material::Enum::Dielectric;
-			selectedMaterial->RefractionIndex = this->refractionIndex;
-		}
-		else {
-			selectedMaterial->MaterialModel = Material::Enum::Lambertian;
-		}
-
-		selectedMaterial->Fuzziness = 1 - this->fuzziness;
-
-		if (selectedMaterial->MaterialModel == Material::Enum::Metallic || selectedMaterial->MaterialModel == Material::Enum::Lambertian) {
-			if (selectedMaterial->Fuzziness < 1)
+			if (ImGui::ImageButton("Texture", currTexId, ImVec2(20.0f, ImGui::CalcTextSize("Refraction Index").y)))
 			{
-				selectedMaterial->MaterialModel = Material::Enum::Metallic;
+				if (TextureLibrary::getInstance()->loadTextureFromFile(this->textureId))
+				{
+					CommandManager::getInstance()->executeCommand(
+						new ModifyMaterialPropertyCommand(
+							this->selectedMaterial,
+							[](Assets::Material* m, const ModifyMaterialPropertyCommand::Variant& v) { m->SetAlbedoTexture(std::get<int>(v)); },
+							this->selectedMaterial->DiffuseTextureId,
+							this->textureId
+						));
+				}
 			}
-			if (selectedMaterial->Fuzziness == 1)
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(0, 0)); //Unity has drag target + button for opening file view
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(2);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Texture");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(3);
+
 			{
-				selectedMaterial->MaterialModel = Material::Enum::Lambertian;
+				float previewButtonSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.9f;
+				float buttonSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x - ImGui::GetStyle().FrameBorderSize) * 0.1f;
+
+				if (ImGui::ColorButton("Color", diffuse, 0, ImVec2(previewButtonSize, 20.0f)))
+				{
+					isColorPickerOpen = !isColorPickerOpen;
+				}
+
+				ImGui::SameLine();
+
+				ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[5]);
+				if (ImGui::Button(ICON_MD_COLORIZE, ImVec2(buttonSize, 20.0f)))
+				{
+					isColorPickerOpen = !isColorPickerOpen;
+				}
+				ImGui::PopFont();
 			}
+
+			/* Metallic */
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Dummy(ImVec2(0, 0));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(0, 0));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(2);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Metallic");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(3);
+
+
+			{
+				float sliderSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.8f;
+				float inputSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x - ImGui::GetStyle().FrameBorderSize) * 0.2f;
+
+				ImGui::SetNextItemWidth(sliderSize);
+				ImGui::SliderFloat("##Metal_Slider", &this->fuzziness, 0, 1, " %.02f", ImGuiSliderFlags_NoInput);
+
+				ImGui::SameLine();
+
+				ImGui::SetNextItemWidth(inputSize);
+				ImGui::InputFloat("##Metal_Input", &this->fuzziness, 0.0f, 0.0f, " %.02f");
+			}
+
+			/* Dielectric */
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::Dummy(ImVec2(0, 0));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Dummy(ImVec2(0, 0));
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(2);
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Dielectric");
+
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(3);
+			ImGui::Checkbox("##DielectricButton", &this->dielectric);
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TableNextColumn();
+			ImGui::TableSetColumnIndex(2);
+
+			if (this->dielectric)
+			{
+				/* Refraction Index */
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+				ImGui::Dummy(ImVec2(0, 0));
+
+				ImGui::TableNextColumn();
+				ImGui::TableSetColumnIndex(1);
+				ImGui::Dummy(ImVec2(0, 0));
+
+				ImGui::TableNextColumn();
+				ImGui::TableSetColumnIndex(2);
+				ImGui::AlignTextToFramePadding();
+				ImGui::Text("Refraction Index");
+
+				ImGui::TableNextColumn();
+				ImGui::TableSetColumnIndex(3);
+
+				{
+					float sliderSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.8f;
+					float inputSize = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x - ImGui::GetStyle().FrameBorderSize) * 0.2f;
+
+					ImGui::PushItemWidth(sliderSize);
+					ImGui::SliderFloat("##Refration_Slider", &this->refractionIndex, 0, 15, " %1.0f", ImGuiSliderFlags_NoInput);
+
+					ImGui::SameLine();
+
+					ImGui::PushItemWidth(inputSize);
+					ImGui::InputFloat("##Refraction_Input", &this->refractionIndex, 0.0f, 0.0f, " %1.0f");
+				}
+			}
+
+			ImGui::EndTable();
+
+			if (ImGui::Button("Apply"))
+			{
+				if (this->dielectric) 
+				{
+					selectedMaterial->MaterialModel = Material::Enum::Dielectric;
+
+					CommandManager::getInstance()->executeCommand(
+						new ModifyMaterialPropertyCommand(
+							this->selectedMaterial,
+							[](Assets::Material* m, const ModifyMaterialPropertyCommand::Variant& v) { m->SetRefractionIndex(std::get<float>(v)); },
+							this->selectedMaterial->RefractionIndex,
+							this->refractionIndex
+						));
+				}
+				else 
+				{
+					CommandManager::getInstance()->executeCommand(
+						new ModifyMaterialPropertyCommand(
+							this->selectedMaterial,
+							[](Assets::Material* m, const ModifyMaterialPropertyCommand::Variant& v) { m->SetFuzziness(std::get<float>(v)); },
+							this->selectedMaterial->Fuzziness,
+							1 - this->fuzziness
+						));
+					
+					if (selectedMaterial->Fuzziness < 1)
+					{
+						selectedMaterial->MaterialModel = Material::Enum::Metallic;
+					}
+					if (selectedMaterial->Fuzziness == 1)
+					{
+						selectedMaterial->MaterialModel = Material::Enum::Lambertian;
+					}
+				}
+
+				EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+			}
+
+
 		}
-
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
-	}
-
+	} // End Collapsing
 }

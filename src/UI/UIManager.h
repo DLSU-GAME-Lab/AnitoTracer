@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include "imgui.h"
+#include "ImGuizmo.h"
 #include "AUIScreen.h"
 #include "UserSettings.hpp"
 #include "Vulkan/Image.hpp"
@@ -14,8 +15,9 @@
 #include <memory>
 
 #include "Engine/Profiler/Profiler.h"
-
 #include "From-GDGRAP2/TransformHistory.h"
+#include "HotkeySystem/HotkeyListener.hpp"
+#include "UIConfig.hpp"
 
 typedef std::string String;
 
@@ -42,12 +44,13 @@ struct Statistics final
 };
 
 class Viewport;
-class UIManager
+class UIManager : HotkeyListener
 {
 public:
 	typedef std::string String;
 	typedef std::vector<std::shared_ptr<AUIScreen>> UIList;
 	typedef std::unordered_map<String, std::shared_ptr<AUIScreen>> UITable;
+	typedef std::vector<String> SavedLayouts;
 
 	VULKAN_NON_COPIABLE(UIManager)
 
@@ -55,15 +58,18 @@ public:
 	~UIManager();
 
 	static UIManager* getInstance();
-	static void initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings);
+	static void initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings, UIConfig* uiConfig);
 	static void reset();
 
 	void initializeUI();
 	static void saveLayout();
+	static void saveLayout(String name);
 	static void saveDefaultLayout();
 	static void saveDynamicLayout();
 	void loadDynamicLayout();
 	void loadLayout();
+	void loadLayoutFromFile();
+	void loadPresetLayout(int index);
 	void resetLayout();
 
 	bool getEnabled(const std::string& name);
@@ -72,6 +78,7 @@ public:
 	std::shared_ptr<AUIScreen> findUIByName(const String& uiName);
 
 	UserSettings* settings() const { return userSettings; }
+	UIConfig* config() const { return uiConfig; }
 
 	void toggleAllUI();
 	void hideAllUI() const;
@@ -97,6 +104,17 @@ public:
 	static bool wantsToCaptureKeyboard();
 	static bool wantsToCaptureMouse();
 
+	void detectAndRecordLayoutChanges();
+	void onLMBPressed();
+	void onLMBReleased();
+
+	ImFont* GetIconFont();
+	void OnActionPressed(Hotkey::Action action) override;
+	
+	bool IsGizmoUsed() const { return wasUsingGizmoLastFrame || gizmoWasManipulated; }
+
+	bool settingsActive = false;
+	bool profilerActive = false;
 private:
 	// UserInterface(
 	// 	Vulkan::CommandPool& commandPool,
@@ -109,13 +127,15 @@ private:
 
 	void drawAllUI() const;
 	void drawOverlay(const Statistics& statistics) const;
-
+	std::string GetIniDump() const;
+	std::string stripIni(std::string iniString);
+	bool compareStrippedIni(std::string currentIniState);
 
 	std::unique_ptr<Vulkan::RenderPass> renderPass;
 
-
 	float translation[3] = {}, rotation[3] = {}, scale[3] = {};
-	bool isUsingImguizmo = false;
+	bool gizmoWasManipulated = false;
+	bool wasUsingGizmoLastFrame = false;
 
 	static UIManager* sharedInstance;
 
@@ -125,14 +145,28 @@ private:
 	bool isLoadingDynamicLayout = false;
 	bool isResettingLayout = false;
 	UserSettings* userSettings = nullptr;
+	UIConfig* uiConfig = nullptr;
 	const Vulkan::SwapChain* swapChain = nullptr;
 
-	static bool wasUsingGizmoLastFrame;
+
 	static TransformState gizmoBeforeState;
 
-	static bool gizmoWasManipulated;
+	std::string m_lastLayoutSnapshot;
+	std::string m_currentLayoutSnapshot;
+
+	bool m_scheduleRecording = false;
+	bool m_scheduleNextFrame = false;
+	bool m_windowWasToggled = false;
+
+	ImFont* iconFont = nullptr;
+	bool isCTRLHeld = false;
+	ImGuizmo::OPERATION m_currentGizmoOperation = ImGuizmo::TRANSLATE;
 
 	UIList uiList;
 	UITable uiTable;
+
+	glm::mat4 gizmoModelMatrix;
+
+	String currentLayoutPath;
 };
 

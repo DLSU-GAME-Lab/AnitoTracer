@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 
 namespace Vulkan
@@ -27,6 +28,12 @@ namespace Vulkan
 			const std::vector<T>& content,
 			std::unique_ptr<Buffer>& buffer,
 			std::unique_ptr<DeviceMemory>& memory);
+
+		template <class T>
+		static void UpdateDeviceBuffer(
+			CommandPool& commandPool,
+			const std::vector<T>& content,
+			std::unique_ptr<Buffer>& buffer);
 	};
 
 	template <class T>
@@ -34,7 +41,7 @@ namespace Vulkan
 	{
 		const auto& device = commandPool.Device();
 		const auto contentSize = sizeof(content[0]) * content.size();
-		
+
 		// Create a temporary host-visible staging buffer.
 		auto stagingBuffer = std::make_unique<Buffer>(device, contentSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 		auto stagingBufferMemory = stagingBuffer->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -46,7 +53,7 @@ namespace Vulkan
 
 		// Copy the staging buffer to the device buffer.
 		dstBuffer.CopyFrom(commandPool, *stagingBuffer, contentSize);
-		
+
 		// Delete the buffer before the memory
 		stagingBuffer.reset();
 	}
@@ -55,14 +62,14 @@ namespace Vulkan
 	void BufferUtil::CreateDeviceBuffer(
 		CommandPool& commandPool,
 		const char* const name,
-		const VkBufferUsageFlags usage, 
+		const VkBufferUsageFlags usage,
 		const std::vector<T>& content,
 		std::unique_ptr<Buffer>& buffer,
 		std::unique_ptr<DeviceMemory>& memory)
 	{
 		const auto& device = commandPool.Device();
 		const auto& debugUtils = device.DebugUtils();
-		const auto contentSize = sizeof(content[0]) * content.size(); 
+		const auto contentSize = sizeof(content[0]) * content.size();
 		const VkMemoryAllocateFlags allocateFlags = usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
 			? VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
 			: 0;
@@ -72,6 +79,23 @@ namespace Vulkan
 
 		debugUtils.SetObjectName(buffer->Handle(), (name + std::string(" Buffer")).c_str());
 		debugUtils.SetObjectName(memory->Handle(), (name + std::string(" Memory")).c_str());
+
+		CopyFromStagingBuffer(commandPool, *buffer, content);
+	}
+
+	template <class T>
+	void BufferUtil::UpdateDeviceBuffer(
+		CommandPool& commandPool,
+		const std::vector<T>& content,
+		std::unique_ptr<Buffer>& buffer)
+	{
+		const auto contentSize = sizeof(content[0]) * content.size();
+
+		// Verify the buffer is large enough
+		if (contentSize > buffer->Size())
+		{
+			throw std::runtime_error("Content size exceeds buffer size");
+		}
 
 		CopyFromStagingBuffer(commandPool, *buffer, content);
 	}

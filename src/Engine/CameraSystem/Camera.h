@@ -5,14 +5,18 @@
 #include "UserSettings.hpp"
 #include "From-GDGRAP2/GameObject.h"
 #include "Utilities/Glm.hpp"
+#include "HotkeySystem/HotkeyListener.hpp"
 
-class Camera : public GameObject
+class Camera : public GameObject, public HotkeyListener
 {
 public:
 	enum ProjectionMode { orthographic = 0, perspective };
+	enum CameraMoveMode { NONE = -1, FPS = 0, PAN, FASTPAN, SLOWPAN, ZOOM, ORBIT };
 
 	Camera(std::string name, ProjectionMode proj = perspective);
 	~Camera();
+
+	virtual GameObject::GameObjectPtr Clone() const override;
 
 	void Reset(const glm::mat4& modelView);
 
@@ -23,6 +27,9 @@ public:
 	bool OnMouseButton(int button, int action, int mods);
 	bool UpdateCamera(double speed, double timeDelta);
 
+	void OnActionPressed(Hotkey::Action action) override;
+	void OnActionReleased(Hotkey::Action action) override;
+
 	glm::mat4 GetProjection(UserSettings settings, const VkExtent2D extent);
 	glm::mat4 GetProjection();
 	void SetProjectionType(ProjectionMode type);
@@ -31,6 +38,11 @@ public:
 
 	void setLocalPosition(float x, float y, float z) override;
 	void setLocalPosition(glm::vec3 pos) override;
+
+	glm::vec3 getForward() { return this->forward_; }
+	CameraMoveMode getCurrentMoveMode() const;
+
+	void lookAt(const glm::vec3& target);
 
 protected:
 
@@ -77,6 +89,12 @@ protected:
 
 	float camSpeed_ = 1.0f;
 	bool camSlowed = false;
+	bool camSpedUp = false;
 	float camNormalSpeed = 1.0f;
 	float camSlowSpeed = 0.2f;
+	float camFastSpeed = 1.5f;
+
+	float m_defaultPivotDistance = 1000.0f;
+
+	CameraMoveMode m_currentMode = NONE;
 };
