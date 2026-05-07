@@ -110,10 +110,21 @@ void GpuCpuProfiler::DrawImGui() {
         ImGui::ProgressBar(sampleRatio, ImVec2(0.0f, 20.0f), sampleOverlay);
     }
 
-    // Button to mark scene as dirty
+    // Button to mark scene as dirty and start timer
     ImGui::Separator();
-    if (ImGui::Button("Mark Scene Dirty", ImVec2(200.0f, 30.0f))) {
+    if (ImGui::Button("Mark Scene Dirty & Start Timer", ImVec2(250.0f, 30.0f))) {
+        m_renderStartTime = std::chrono::high_resolution_clock::now();
+        m_isRenderTimerActive = true;
+        m_lastRenderTimeMs = 0.0;
+        printf("⏱️  Render timer started!\n");
         EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+    }
+
+    // Display render time results if available
+    if (m_lastRenderTimeMs > 0.0) {
+        ImGui::Separator();
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "✨ Render Complete!");
+        ImGui::Text("Total Render Time: %.2f ms", m_lastRenderTimeMs);
     }
 
     for (int i = 0; i < currentSection; ++i) {
@@ -169,19 +180,30 @@ void GpuCpuProfiler::DrawImGui() {
 
 void GpuCpuProfiler::onTriggeredEvent(std::string eventName, std::shared_ptr<Parameters> parameters)
 {
-    if (eventName == EventNames::ON_SAMPLE_PROGRESS && parameters)
-    {
-        m_samplePercentage = parameters->getIntData("percentage", 0);
-        m_currentSamples   = parameters->getIntData("currentSamples", 0);
-        m_maxSamples       = parameters->getIntData("maxSamples", 1);
-    }
-    else if (eventName == EventNames::ON_SWAP_RENDERER || eventName == EventNames::ON_MARK_SCENE_DIRTY)
-    {
+	if (eventName == EventNames::ON_SAMPLE_PROGRESS && parameters)
+	{
+		m_samplePercentage = parameters->getIntData("percentage", 0);
+		m_currentSamples   = parameters->getIntData("currentSamples", 0);
+		m_maxSamples       = parameters->getIntData("maxSamples", 1);
+
+		// Check if we've reached 100% completion
+		if (m_isRenderTimerActive && m_samplePercentage >= 100)
+		{
+			auto now = std::chrono::high_resolution_clock::now();
+			m_lastRenderTimeMs = std::chrono::duration<double, std::milli>(now - m_renderStartTime).count();
+			m_isRenderTimerActive = false;
+
+			printf("✨ Render Complete! Total time: %.2f ms\n", m_lastRenderTimeMs);
+		}
+	}
+	else if (eventName == EventNames::ON_SWAP_RENDERER || eventName == EventNames::ON_MARK_SCENE_DIRTY)
+	{
 		// Reset sample progress when renderer switches and set scene dirty to ensure proper re-rendering
-        m_samplePercentage = 0;
-        m_currentSamples   = 0;
-        m_maxSamples       = 0;
-    }
+		m_samplePercentage = 0;
+		m_currentSamples   = 0;
+		m_maxSamples       = 0;
+		m_isRenderTimerActive = false;
+	}
 }
 
 void GpuCpuProfiler::UpdateMemoryStats() {

@@ -55,4 +55,9 @@ private:
     int m_samplePercentage = 0;
     int m_currentSamples = 0;
     int m_maxSamples = 0;
+
+    // Timer for full render completion tracking
+    std::chrono::high_resolution_clock::time_point m_renderStartTime;
+    bool m_isRenderTimerActive = false;
+    double m_lastRenderTimeMs = 0.0;
 };
