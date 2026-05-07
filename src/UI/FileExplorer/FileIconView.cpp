@@ -43,20 +43,24 @@ void FileIconView::initButtonTexture() {
     TextureLibrary::getInstance()->addTexture("modelIcon", FileUtils::getAssetsFolderPath().generic_string() + "/textures/UI/Icons/model.png");
     TextureLibrary::getInstance()->addTexture("textIcon", FileUtils::getAssetsFolderPath().generic_string() + "/textures/UI/Icons/note.png");
 
+    // Icon textures are in SHADER_READ_ONLY_OPTIMAL; registering with GENERAL causes
+    // VUID-vkCmdDraw-None-09600 layout mismatch on every ImGui frame.
+    const VkImageLayout iconLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
     Assets::TextureImage* folderTex = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("folderIcon"));
-    VkDescriptorSet folderVds = ImGui_ImplVulkan_AddTexture(folderTex->Sampler().Handle(), folderTex->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+    VkDescriptorSet folderVds = ImGui_ImplVulkan_AddTexture(folderTex->Sampler().Handle(), folderTex->ImageView().Handle(), iconLayout);
     iconMap.insert_or_assign("folderIcon", std::make_shared<ImTextureID>((ImTextureID)folderVds));
 
     Assets::TextureImage* imageTex = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("imageIcon"));
-    VkDescriptorSet imageVds = ImGui_ImplVulkan_AddTexture(imageTex->Sampler().Handle(), imageTex->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+    VkDescriptorSet imageVds = ImGui_ImplVulkan_AddTexture(imageTex->Sampler().Handle(), imageTex->ImageView().Handle(), iconLayout);
     iconMap.insert_or_assign("imageIcon", std::make_shared<ImTextureID>((ImTextureID)imageVds));
 
     Assets::TextureImage* modelTex = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("modelIcon"));
-    VkDescriptorSet modelVds = ImGui_ImplVulkan_AddTexture(modelTex->Sampler().Handle(), modelTex->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+    VkDescriptorSet modelVds = ImGui_ImplVulkan_AddTexture(modelTex->Sampler().Handle(), modelTex->ImageView().Handle(), iconLayout);
     iconMap.insert_or_assign("modelIcon", std::make_shared<ImTextureID>((ImTextureID)modelVds));
 
     Assets::TextureImage* textTex = new Assets::TextureImage(*UIManager::getInstance()->commandPool, TextureLibrary::getInstance()->getTexture("textIcon"));
-    VkDescriptorSet textVds = ImGui_ImplVulkan_AddTexture(textTex->Sampler().Handle(), textTex->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+    VkDescriptorSet textVds = ImGui_ImplVulkan_AddTexture(textTex->Sampler().Handle(), textTex->ImageView().Handle(), iconLayout);
     iconMap.insert_or_assign("textIcon", std::make_shared<ImTextureID>((ImTextureID)textVds));
 
     currTexId = *iconMap["modelIcon"];

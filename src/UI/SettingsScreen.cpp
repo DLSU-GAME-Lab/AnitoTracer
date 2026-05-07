@@ -96,6 +96,9 @@ void SettingsScreen::drawUI()
 		}
 		min = 1, max = 24;
 		ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);
+		uint32_t spiMin = 1, spiMax = 512;
+		ImGui::SliderScalar("Samples Per Dispatch", ImGuiDataType_U32, &settings->SamplesPerInvocation, &spiMin, &spiMax, "%u", ImGuiSliderFlags_Logarithmic);
+		ImGui::TextDisabled("(Higher = faster convergence per frame, heavier GPU dispatch)");
 		min = 2; max = 6;
 		ImGui::SliderScalar("Bounces", ImGuiDataType_U32, &settings->NumberOfBounces, &min, &max);
 		ImGui::NewLine();
@@ -109,6 +112,18 @@ void SettingsScreen::drawUI()
 		ImGui::SliderFloat("FoV", &settings->FieldOfView, UserSettings::FieldOfViewMinValue, UserSettings::FieldOfViewMaxValue, "%.0f");
 		ImGui::SliderFloat("Aperture", &settings->Aperture, 0.0f, 1.0f, "%.2f");
 		ImGui::SliderFloat("Focus", &settings->FocusDistance, 0.1f, 20.0f, "%.1f");
+		ImGui::NewLine();
+
+		ImGui::Text("Adaptive Sampling");
+		ImGui::Separator();
+		ImGui::Checkbox("Enable Adaptive Sampling", &settings->EnableAdaptiveSampling);
+		if (settings->EnableAdaptiveSampling)
+		{
+			ImGui::SliderFloat("Variance Threshold", &settings->VarianceThreshold, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
+			uint32_t minSamplesMin = 1, minSamplesMax = 256;
+			ImGui::SliderScalar("Min Samples", ImGuiDataType_U32, &settings->MinSamples, &minSamplesMin, &minSamplesMax);
+		}
+		ImGui::Text("Total Samples Accumulated: %u", settings->MaxNumberOfSamples);
 		ImGui::NewLine();
 
 		ImGui::Text("Profiler");

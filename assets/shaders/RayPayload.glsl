@@ -1,4 +1,3 @@
-
 struct RayPayload
 {
 	vec4 ColorAndDistance; // rgb + t

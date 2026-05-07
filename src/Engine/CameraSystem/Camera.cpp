@@ -1,8 +1,15 @@
 #include "Camera.h"
 
 #include <iostream>
+#include <chrono>
 #include <glm/fwd.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/compatibility.hpp>
 
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/ModelManager.h"
@@ -121,39 +128,48 @@ bool Camera::OnMouseButton(const int button, const int action, const int mods)
 
 bool Camera::UpdateCamera(const double speed, const double timeDelta)
 {
-	if (camSlowed) camSpeed_ = camSlowSpeed;
-	else if (camSpedUp) camSpeed_ = camFastSpeed;
-	else camSpeed_ = camNormalSpeed;
+	if (!isAnimating)
+	{
+		if (camSlowed) camSpeed_ = camSlowSpeed;
+		else if (camSpedUp) camSpeed_ = camFastSpeed;
+		else camSpeed_ = camNormalSpeed;
 
-	const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;
+		const auto d = static_cast<float>(speed * timeDelta) * this->camSpeed_;
 
-	if (cameraMovingLeft_) MoveRight(-d);
-	if (cameraMovingRight_) MoveRight(d);
-	if (cameraMovingBackward_) MoveForward(-d);
-	if (cameraMovingForward_) MoveForward(d);
-	if (cameraMovingDown_) MoveUp(-d);
-	if (cameraMovingUp_) MoveUp(d);
 
-	const float rotationDiv = 300;
-	Rotate(cameraRotX_ / rotationDiv, cameraRotY_ / rotationDiv);
+		if (cameraMovingLeft_) MoveRight(-d);
+		if (cameraMovingRight_) MoveRight(d);
+		if (cameraMovingBackward_) MoveForward(-d);
+		if (cameraMovingForward_) MoveForward(d);
+		if (cameraMovingDown_) MoveUp(-d);
+		if (cameraMovingUp_) MoveUp(d);
 
-	const bool updated =
-		cameraMovingLeft_ ||
-		cameraMovingRight_ ||
-		cameraMovingBackward_ ||
-		cameraMovingForward_ ||
-		cameraMovingDown_ ||
-		cameraMovingUp_ ||
-		cameraRotY_ != 0 ||
-		cameraRotX_ != 0;
 
-	cameraRotY_ = 0;
-	cameraRotX_ = 0;
+		const float rotationDiv = 300;
+		Rotate(cameraRotX_ / rotationDiv, cameraRotY_ / rotationDiv);
+	}
+		if (isAnimating) this->AnimateStep(timeDelta);
 
-	if (updated)
-		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
+		const bool updated =
+			cameraMovingLeft_ ||
+			cameraMovingRight_ ||
+			cameraMovingBackward_ ||
+			cameraMovingForward_ ||
+			cameraMovingDown_ ||
+			cameraMovingUp_ ||
+			cameraRotY_ != 0 ||
+			isAnimating ||
+			cameraRotX_ != 0;
 
-	return updated;
+		cameraRotY_ = 0;
+		cameraRotX_ = 0;
+
+		if (updated)
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_RESET_ACCUMULATOR);
+		return updated;
+
+
+		
 }
 
 void Camera::OnActionPressed(Hotkey::Action action)
@@ -410,6 +426,135 @@ void Camera::lookAt(const glm::vec3& target)
 		glm::rotate(glm::mat4(1), -pitch, glm::vec3(1, 0, 0)) *
 		glm::rotate(glm::mat4(1), yaw, glm::vec3(0, 1, 0));
 	UpdateVectors();
+}
+
+void Camera::addKeyFrame()
+{
+	this->m_keyFrames.push_back(new KeyFrame(this->position_, this->right_, this->up_, this->forward_, this->orientation_));
+}
+
+void Camera::Animate()
+{
+	if (this->m_keyFrames.size() < 2) {
+		std::cerr << "Need at least 2 keyframes to animate!" << std::endl;
+		return;
+	}
+
+	this->isAnimating = true;
+	this->timePerKeyframe = 0;
+	this->currentKeyFrame = 0;
+	this->animationTime = 0;
+	this->timePerKeyframe = this->duration / (this->m_keyFrames.size() - 1);
+
+	this->currentFrame = this->m_keyFrames[this->currentKeyFrame];
+	this->startFrame = this->m_keyFrames[this->currentKeyFrame];
+	this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
+	this->setToKeyFrame(this->currentFrame);
+}
+
+void Camera::StopAnimate()
+{
+	this->isAnimating = false;
+	this->currentKeyFrame = 0;
+
+	this->startFrame = this->m_keyFrames[this->currentKeyFrame];
+	this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
+	this->currentFrame = this->m_keyFrames[this->currentKeyFrame];
+	this->setToKeyFrame(this->currentFrame);
+}
+
+void Camera::TogglePause()
+{
+	this->pauseAnimation = !this->pauseAnimation;
+}
+
+void Camera::AnimateStep(double timeDelta)
+{	
+	if (!this->pauseAnimation) {
+		this->animationTime += float(timeDelta);
+		float keyframeProgress = this->animationTime / this->timePerKeyframe;
+
+		if (keyframeProgress > 1.0f)
+			keyframeProgress = 1.0f;
+
+		InterpolateFrames(this->startFrame, this->endFrame, keyframeProgress);
+
+		/*
+		this->currentFrame = new KeyFrame(this->position_, this->right_, this->up_, this->forward_, this->orientation_);
+		//apply lerp via glm::mix
+		this->currentFrame->position = glm::mix(this->startFrame->position, this->endFrame->position, keyframeProgress);
+		this->currentFrame->right = glm::mix(this->startFrame->right, this->endFrame->right, keyframeProgress);
+		this->currentFrame->up = glm::mix(this->startFrame->up, this->endFrame->up, keyframeProgress);
+		this->currentFrame->forward = glm::mix(this->startFrame->forward, this->endFrame->forward, keyframeProgress);
+		glm::quat currOrientation = glm::toQuat(this->startFrame->orientation);
+		glm::quat endOrientation = glm::toQuat(this->endFrame->orientation);
+
+		glm::quat Final = glm::mix(currOrientation, endOrientation, keyframeProgress);
+		this->currentFrame->orientation = glm::toMat4(Final);
+
+		this->setToKeyFrame(this->currentFrame);
+		*/
+
+		if (keyframeProgress >= 1 || animationTime >= this->timePerKeyframe)
+		{
+			currentKeyFrame++;
+			animationTime = 0.0f;
+			if (currentKeyFrame >= this->m_keyFrames.size() - 1)
+			{
+				this->isAnimating = false;
+				return;
+			}
+			else
+			{
+				this->startFrame = this->m_keyFrames[this->currentKeyFrame];
+				this->endFrame = this->m_keyFrames[this->currentKeyFrame + 1];
+			}
+		}
+	}
+
+}
+
+KeyFrame* Camera::InterpolateFrames(int startFrameIndex, int endFrameIndex, float delta)
+{
+	return InterpolateFrames(this->m_keyFrames[startFrameIndex], this->m_keyFrames[endFrameIndex], delta);
+}
+
+KeyFrame* Camera::InterpolateFrames(KeyFrame* prevFrame, KeyFrame* nextFrame, float delta)
+{
+	// Clamp delta to [0, 1] range
+	delta = glm::clamp(delta, 0.0f, 1.0f);
+	 
+	// Create a new interpolated keyframe
+	this->currentFrame = new KeyFrame();
+
+	// Interpolate position, right, up, forward vectors using linear interpolation
+	this->currentFrame->position = glm::mix(prevFrame->position, nextFrame->position, delta);
+	this->currentFrame->right = glm::mix(prevFrame->right, nextFrame->right, delta);
+	this->currentFrame->up = glm::mix(prevFrame->up, nextFrame->up, delta);
+	this->currentFrame->forward = glm::mix(prevFrame->forward, nextFrame->forward, delta);
+
+	// Interpolate orientation using quaternion slerp for smooth rotation
+	glm::quat prevQuat = glm::toQuat(prevFrame->orientation);
+	glm::quat nextQuat = glm::toQuat(nextFrame->orientation);
+	glm::quat interpolatedQuat = glm::mix(prevQuat, nextQuat, delta);
+	this->currentFrame->orientation = glm::toMat4(interpolatedQuat);
+
+	this->setToKeyFrame(this->currentFrame);
+
+	return this->currentFrame;
+}
+
+void Camera::setToKeyFrame(KeyFrame* frame)
+{
+	this->position_ = frame->position;
+	this->up_ = frame->up;
+	this->right_ = frame->right;
+	this->forward_ = frame->forward;
+	this->orientation_ = frame->orientation;
+	GameObject::setLocalPosition(frame->position.x, frame->position.y, frame->position.z);
+	UpdateVectors();
+
+	//EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void Camera::MoveForward(const float d)

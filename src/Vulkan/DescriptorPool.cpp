@@ -4,7 +4,8 @@
 namespace Vulkan {
 
 DescriptorPool::DescriptorPool(const Vulkan::Device& device, const std::vector<DescriptorBinding>& descriptorBindings, const size_t maxSets) :
-	device_(device)
+	device_(device),
+	deviceHandle_(device.Handle())
 {
 	std::vector<VkDescriptorPoolSize> poolSizes;
 
@@ -20,15 +21,15 @@ DescriptorPool::DescriptorPool(const Vulkan::Device& device, const std::vector<D
 	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = static_cast<uint32_t>(maxSets);
 
-	Check(vkCreateDescriptorPool(device.Handle(), &poolInfo, nullptr, &descriptorPool_),
+	Check(vkCreateDescriptorPool(deviceHandle_, &poolInfo, nullptr, &descriptorPool_),
 		"create descriptor pool");
 }
 
 DescriptorPool::~DescriptorPool()
 {
-	if (descriptorPool_ != nullptr)
+	if (descriptorPool_ != nullptr && deviceHandle_ != VK_NULL_HANDLE)
 	{
-		vkDestroyDescriptorPool(device_.Handle(), descriptorPool_, nullptr);
+		vkDestroyDescriptorPool(deviceHandle_, descriptorPool_, nullptr);
 		descriptorPool_ = nullptr;
 	}
 }

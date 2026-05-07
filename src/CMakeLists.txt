@@ -56,6 +56,13 @@ set(src_files_camerasystem
 	Engine/CameraSystem/SceneCamera.h
 )
 
+set(src_files_animationsystem
+	Engine/AnimationSystem/Animation.cpp
+	Engine/AnimationSystem/Animation.h
+	Engine/AnimationSystem/AnimationFrame.cpp
+	Engine/AnimationSystem/AnimationFrame.h
+)
+
 set(src_files_lightsystem
 	Engine/LightSystem/Light.cpp
 	Engine/LightSystem/Light.h
@@ -99,6 +106,10 @@ set(src_files_utilities
 	Utilities/FileUtils.cpp
 	Utilities/FileUtils.h
 	Utilities/Screenshot.hpp
+	Utilities/Video/VideoExporter.cpp
+	Utilities/Video/VideoExporter.h
+	Utilities/HardwareCheck.hpp
+	Utilities/HardwareCheck.cpp
 )
 
 set(src_files_vulkan
@@ -190,11 +201,18 @@ set(src_files_vulkan_raytracing
 	Vulkan/RayTracing/TopLevelAccelerationStructure.hpp
 )
 
+set(src_files_vulkan_compute
+	Vulkan/Vk_Compute/ComputeShaderRayTracer.cpp
+	Vulkan/Vk_Compute/ComputeShaderRayTracer.hpp
+)
+
 set(src_files_ui
 	UI/AUIScreen.cpp
 	UI/AUIScreen.h
 	UI/ConsoleScreen.cpp
 	UI/ConsoleScreen.h
+	UI/ExportAnimationScreen.cpp
+	UI/ExportAnimationScreen.h
 	UI/HierarchyScreen.cpp
 	UI/HierarchyScreen.h
 	UI/InspectorScreen.cpp
@@ -328,6 +346,7 @@ set(src_files_imgui
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
 source_group("CameraSystem" FILES ${src_files_camerasystem})
+source_group("AnimationSystem" FILES ${src_files_animationsystem})
 source_group("LightSystem" FILES ${src_files_lightsystem})
 source_group("HotkeySystem" FILES ${src_files_hotkeysytem})
 source_group("Profiler" FILES ${src_files_profiler})
@@ -336,6 +355,7 @@ source_group("RayVisualization" FILES ${src_files_ray_visualization})
 source_group("StateManagement" FILES ${src_files_statemanagement})
 source_group("Utilities" FILES ${src_files_utilities})
 source_group("UI" FILES ${src_files_ui})
+source_group("Vulkan/Compute" FILES ${src_files_vulkan_compute})
 source_group("From-GDGRAP2" FILES ${src_files_from_gdgrap2})
 source_group("Vulkan" FILES ${src_files_vulkan})
 source_group("Vulkan.RayTracing" FILES ${src_files_vulkan_raytracing})
@@ -346,24 +366,43 @@ source_group("ImGui" FILES ${src_files_imgui})
 add_executable(${exe_name} 
 	${src_files_assets}
 	${src_files_obb}
-
-	${src_files_camerasystem} 
+	${src_files_camerasystem}
+	${src_files_animationsystem}
 	${src_files_lightsystem}
-	${stc_files_hotkeysystem}
+	${src_files_hotkeysytem}
 	${src_files_profiler}
 	${src_files_sceneio}
-	${src_files_hotkeysytem}
 	${src_files_ray_visualization} 
 	${src_files_statemanagement}
 	${src_files_utilities}
 	${src_files_ui}
 	${src_files_from_gdgrap2}
-	${src_files_vulkan} 
-	${src_files_vulkan_raytracing} 
+	${src_files_vulkan}
+	${src_files_vulkan_raytracing}
+	${src_files_vulkan_compute}
 	${src_files_raypicker}
 	${src_files}
 	${src_files_imgui}
- "Engine/Scene/SceneIO.cpp" "UI/ButtonTexture.cpp" "Utilities/FileExplorer/FileTreeNode.h" "Utilities/FileExplorer/FileTree.h" "Utilities/FileExplorer/FileIcon.h" "Utilities/FileExplorer/FileTree.cpp" "Utilities/FileExplorer/FileTreeNode.cpp" "UI/ProjectScreen.h" "UI/ProjectScreen.cpp" "Utilities/FileExplorer/FileIcon.cpp" "Utilities/FileExplorer/FileExplorerConstants.h" "UI/FileExplorer/FileListView.h" "UI/FileExplorer/FileIconView.h" "UI/FileExplorer/FileListView.cpp" "Utilities/FileExplorer/FileExplorerUtils.h" "Utilities/FileExplorer/FileExplorerUtils.cpp" "UI/FileExplorer/FileIconView.cpp"  "Utilities/DragAndDrop/DragAndDropUtils.h" "Utilities/DragAndDrop/DragAndDropUtils.cpp" "Utilities/DragAndDrop/DragAndDropConstants.h")
+	"Engine/Scene/SceneIO.cpp" 
+	"UI/ButtonTexture.cpp" 
+	"UI/ProjectScreen.cpp"
+	"UI/ProjectScreen.h"
+	"Utilities/FileExplorer/FileTreeNode.h" 
+	"Utilities/FileExplorer/FileTree.h" 
+	"Utilities/FileExplorer/FileIcon.h" 
+	"Utilities/FileExplorer/FileTree.cpp" 
+	"Utilities/FileExplorer/FileTreeNode.cpp" 
+	"Utilities/FileExplorer/FileIcon.cpp" 
+	"Utilities/FileExplorer/FileExplorerConstants.h" 
+	"UI/FileExplorer/FileListView.h" 
+	"UI/FileExplorer/FileIconView.h" 
+	"UI/FileExplorer/FileListView.cpp" 
+	"Utilities/FileExplorer/FileExplorerUtils.h" 
+	"Utilities/FileExplorer/FileExplorerUtils.cpp" 
+	"UI/FileExplorer/FileIconView.cpp"  
+	"Utilities/DragAndDrop/DragAndDropUtils.h" 
+	"Utilities/DragAndDrop/DragAndDropUtils.cpp" 
+	"Utilities/DragAndDrop/DragAndDropConstants.h")
 
 if (UNIX)
 	# GCC8 needs an extra lib for <filesystem>.
@@ -382,10 +421,26 @@ target_include_directories(
 	${glm_INCLUDE_DIRS} 
 	${STB_INCLUDE_DIRS} 
 	${Vulkan_INCLUDE_DIRS}
+	${FFMPEG_INCLUDE_DIRS}
 	Dependencies/include
 )
+
+
 target_link_directories(${exe_name} PRIVATE Assimp/lib ${Vulkan_LIBRARY})
-target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm ${Vulkan_LIBRARIES} ${extra_libs})
+target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm ${Vulkan_LIBRARIES} 
+	##FFMPEG_LIBRARIES has a lot of dependencies that CMake doesn't automatically link, so we have to add them manually -..-
+	${FFMPEG_LIBRARIES}
+    ncrypt.lib 
+    crypt32.lib 
+    setupapi.lib 
+    winmm.lib 
+    imm32.lib 
+    version.lib 
+    mfplat.lib 
+    strmiids.lib 
+    mfuuid.lib 
+    Bcrypt.lib 
+${extra_libs})
 
 #if(${WIN32})
 #add_custom_command(TARGET ${exe_name} POST_BUILD

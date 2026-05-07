@@ -15,6 +15,7 @@
 #include <memory>
 
 #include "Engine/Profiler/Profiler.h"
+#include "Engine/AnimationSystem/Animation.h"
 #include "From-GDGRAP2/TransformHistory.h"
 #include "HotkeySystem/HotkeyListener.hpp"
 #include "UIConfig.hpp"
@@ -60,6 +61,7 @@ public:
 	static UIManager* getInstance();
 	static void initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings, UIConfig* uiConfig);
 	static void reset();
+	static void ReinitializeBackends(const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer);
 
 	void initializeUI();
 	static void saveLayout();
@@ -89,6 +91,9 @@ public:
 	std::unique_ptr<Vulkan::DescriptorPool> descriptorPool;
 	void SetProfiler(GpuCpuProfiler* profiler) { this->profiler = profiler; }
 	void FreeDescriptor(VkDescriptorSet& descriptorset);
+
+	std::shared_ptr<Animation> GetAnimation() const { return std::shared_ptr<Animation>(); }
+	void SetAnimation(std::shared_ptr<Animation> animation) { }
 
 	// fucky test code below vvv
 	//std::vector<VkImage>* images = nullptr;

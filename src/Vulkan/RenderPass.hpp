@@ -23,6 +23,7 @@ namespace Vulkan
 
 		const class SwapChain& swapChain_;
 		const class DepthBuffer& depthBuffer_;
+		VkDevice device_{};
 
 		VULKAN_HANDLE(VkRenderPass, renderPass_)
 	};

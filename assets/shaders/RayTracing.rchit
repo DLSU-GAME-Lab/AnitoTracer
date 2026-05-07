@@ -2,7 +2,11 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_ray_tracing : require
+#extension GL_EXT_control_flow_attributes : require
+
 #include "Material.glsl"
+#include "RayPayload.glsl"
+#include "Random.glsl"
 
 layout(binding = 4) readonly buffer VertexArray { float Vertices[]; };
 layout(binding = 5) readonly buffer IndexArray { uint Indices[]; };
@@ -11,8 +15,8 @@ layout(binding = 7) readonly buffer LightsArray { LightProperties[] Lights; };
 layout(binding = 8) readonly buffer OffsetArray { uvec2[] Offsets; };
 layout(binding = 9) uniform sampler2D[] TextureSamplers;
 
-#include "Scatter.glsl"
 #include "Vertex.glsl"
+#include "Scatter.glsl"
 
 hitAttributeEXT vec2 HitAttributes;
 rayPayloadInEXT RayPayload Ray;
@@ -27,11 +31,8 @@ vec3 Mix(vec3 a, vec3 b, vec3 c, vec3 barycentrics)
     return a * barycentrics.x + b * barycentrics.y + c * barycentrics.z;
 }
 
-vec3 calculatePointLight(LightProperties pl, vec3 worldPos, vec3 normal) 
+vec3 calculatePointLight(LightProperties pl, vec3 worldPos, const vec3 worldNrm) 
 {
-	// Computing the coordinates of the hit position
-	const vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
-
 	// Compute the diffuse light.
 	vec3 lightDir = pl.LightPos.xyz - worldPos;
 	float attenuation = 1.0 / dot(lightDir, lightDir);
@@ -40,25 +41,22 @@ vec3 calculatePointLight(LightProperties pl, vec3 worldPos, vec3 normal)
 	vec3 lightCol = pl.LightColor.xyz * pl.LightColor.w * attenuation;
 	vec3 ambientLight = pl.AmbientColor.xyz * pl.AmbientColor.w;
 	vec3 diffuseLight = lightCol * max(dot(worldNrm, normalize(lightDir)), 0);
-	
+
 	vec3 lighting = diffuseLight + ambientLight;
-	 
+
 	return lighting; 
 }
  
-vec3 calculateDirectionalLight(LightProperties dl, vec3 worldPos, vec3 normal) 
+vec3 calculateDirectionalLight(LightProperties dl, const vec3 worldNrm) 
 {
-	vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
-	// vec3 lightDir = -normalize(dl.LightPos.xyz);
-
 	vec3 ambientColor = dl.AmbientColor.rgb * dl.AmbientColor.w;
 
-    float diffuseFactor = max(dot(worldNrm, dl.LightDir), 0.f);
-    vec3 diffuseColor = dl.LightColor.rgb * dl.LightColor.w * diffuseFactor;
-	 
+	float diffuseFactor = max(dot(worldNrm, dl.LightDir), 0.f);
+	vec3 diffuseColor = dl.LightColor.rgb * dl.LightColor.w * diffuseFactor;
+
 	vec3 lighting = (ambientColor + diffuseColor) * 0.0001;
 	return lighting;
-} 
+}
 
 vec3 calculateSpotLight2(LightProperties sl, vec3 worldPos, vec3 normal) 
 {         
@@ -75,11 +73,8 @@ vec3 calculateSpotLight2(LightProperties sl, vec3 worldPos, vec3 normal)
 	return vec3(0.0); // Return no light if outside the spot light cone
 }
 
-vec3 calculateSpotLight(LightProperties sl, vec3 worldPos, vec3 normal)  
+vec3 calculateSpotLight(LightProperties sl, vec3 worldPos, const vec3 worldNrm)  
 {
-    // Transform normal to world space
-    vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
-
     // Vector from light to fragment
     vec3 fragToLight = worldPos - sl.LightPos;
     float distance = length(fragToLight);
@@ -131,6 +126,9 @@ void main()
     const vec3 pos = Mix(v0.Position, v1.Position, v2.Position, barycentrics);
     const vec3 worldPos = vec3(gl_ObjectToWorldEXT * vec4(pos, 1.0));  // Transforming the position to world space
 
+    // PRE-COMPUTE WORLD NORMAL ONCE - Optimization: avoid redundant matrix operations in light loop
+    const vec3 worldNrm = normalize(transpose(inverse(mat3(gl_ObjectToWorldEXT))) * normal);
+
     vec3 lighting = vec3(0);
 
     if (Lights.length() == 0) {
@@ -138,11 +136,11 @@ void main()
     } else {
         for (int i = 0; i < Lights.length(); i++) {
             if (Lights[i].LightType == PointLight) {
-                lighting += calculatePointLight(Lights[i], worldPos, normal);
+                lighting += calculatePointLight(Lights[i], worldPos, worldNrm);
             } else if (Lights[i].LightType == DirectionalLight) {
-                lighting += calculateDirectionalLight(Lights[i], worldPos, normal);
+                lighting += calculateDirectionalLight(Lights[i], worldNrm);
             } else if (Lights[i].LightType == SpotLight) {
-                //lighting += calculateSpotLight(Lights[i], worldPos, normal);
+                lighting += calculateSpotLight(Lights[i], worldPos, worldNrm);
             }
         }
     }
@@ -151,5 +149,7 @@ void main()
     if (material.DiffuseTextureId >= 0)
         texColor = texture(TextureSamplers[material.DiffuseTextureId], texCoord);
 
-    Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, lighting, Ray.anyHitTriggered);
+    // In path tracing, scatter uses pure material albedo (vec3(1.0)).
+    // Light accumulates naturally through bounces into the sky / emissive surfaces.
+    Ray = Scatter(material, gl_WorldRayDirectionEXT, normal, texCoord, gl_HitTEXT, Ray.RandomSeed, vec3(1.0), Ray.anyHitTriggered);
 }

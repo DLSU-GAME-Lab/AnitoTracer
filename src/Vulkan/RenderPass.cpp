@@ -12,7 +12,8 @@ RenderPass::RenderPass(
 	const VkAttachmentLoadOp colorBufferLoadOp,
 	const VkAttachmentLoadOp depthBufferLoadOp) :
 	swapChain_(swapChain),
-	depthBuffer_(depthBuffer)
+	depthBuffer_(depthBuffer),
+	device_(swapChain.Device().Handle())
 {
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = swapChain.Format();
@@ -71,15 +72,15 @@ RenderPass::RenderPass(
 	renderPassInfo.dependencyCount = 1;
 	renderPassInfo.pDependencies = &dependency;
 
-	Check(vkCreateRenderPass(swapChain_.Device().Handle(), &renderPassInfo, nullptr, &renderPass_),
+	Check(vkCreateRenderPass(device_, &renderPassInfo, nullptr, &renderPass_),
 		"create render pass");
 }
 
 RenderPass::~RenderPass()
 {
-	if (renderPass_ != nullptr)
+	if (renderPass_ != nullptr && device_ != VK_NULL_HANDLE)
 	{
-		vkDestroyRenderPass(swapChain_.Device().Handle(), renderPass_, nullptr);
+		vkDestroyRenderPass(device_, renderPass_, nullptr);
 		renderPass_ = nullptr;
 	}
 }

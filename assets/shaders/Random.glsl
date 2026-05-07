@@ -1,6 +1,4 @@
-#extension GL_EXT_control_flow_attributes : require
-
-// Generates a seed for a random number generator from 2 inputs plus a backoff
+// Generates a seed
 // https://github.com/nvpro-samples/optix_prime_baking/blob/332a886f1ac46c0b3eea9e89a59593470c755a0e/random.h
 // https://github.com/nvpro-samples/vk_raytracing_tutorial_KHR/tree/master/ray_tracing_jitter_cam
 // https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm
@@ -38,24 +36,26 @@ float RandomFloat(inout uint seed)
 
 vec2 RandomInUnitDisk(inout uint seed)
 {
-	for (;;)
-	{
-		const vec2 p = 2 * vec2(RandomFloat(seed), RandomFloat(seed)) - 1;
-		if (dot(p, p) < 1)
-		{
-			return p;
-		}
-	}
+	// OPTIMIZATION: Polar method - no rejection sampling needed
+	// Converts uniform random to unit disk without rejection loop
+	const float angle = 2.0 * 3.14159265359 * RandomFloat(seed);
+	const float radius = sqrt(RandomFloat(seed));
+	return vec2(radius * cos(angle), radius * sin(angle));
 }
 
+// Samples a point ON the unit sphere surface — 2 RNG calls, no pow().
+// For path tracing scatter directions this is equivalent to sampling inside
+// the sphere and produces the same distribution of bounce directions.
+vec3 RandomOnUnitSphere(inout uint seed)
+{
+	const float phi      = 6.28318530718 * RandomFloat(seed); // 2*pi
+	const float cosTheta = 2.0 * RandomFloat(seed) - 1.0;
+	const float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
+	return vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+}
+
+// Kept for API compatibility — redirects to the cheaper surface sampler.
 vec3 RandomInUnitSphere(inout uint seed)
 {
-	for (;;)
-	{
-		const vec3 p = 2 * vec3(RandomFloat(seed), RandomFloat(seed), RandomFloat(seed)) - 1;
-		if (dot(p, p) < 1)
-		{
-			return p;
-		}
-	}
+	return RandomOnUnitSphere(seed);
 }

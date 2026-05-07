@@ -245,6 +245,19 @@ void MenuScreen::drawUI()
 			ImGui::EndMenu();
 		}
 
+		if (ImGui::BeginMenu("Renderer"))
+		{
+			if (ImGui::MenuItem("Legacy"))
+			{
+				OnSetRendererModeLegacy();
+			}
+			if (ImGui::MenuItem("Compute Shader"))
+			{
+				OnSetRendererModeComputeShader();
+			}
+			ImGui::EndMenu();
+		}
+
 		ImGui::SetCursorPos(ImVec2(ImGui::GetWindowSize().x - 100 - 10, 0));
 
 		if (ImGui::BeginMenu("Layout"))
@@ -812,4 +825,20 @@ void MenuScreen::ShowColorPickerWindow()
 void MenuScreen::OnLoadSceneByIndex(int sceneIndex)
 {
 	CommandManager::getInstance()->executeCommand(new LoadSceneCommand(sceneIndex));
+}
+
+void MenuScreen::OnSetRendererModeLegacy()
+{
+	Debug::Log("Switching to Legacy renderer mode");
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SWAP_RENDERER);
+	parameters->encodeInt("RENDERER_MODE", static_cast<int>(UserSettings::RendererMode::Legacy));
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SWAP_RENDERER, parameters);
+}
+
+void MenuScreen::OnSetRendererModeComputeShader()
+{
+	Debug::Log("Switching to Compute Shader renderer mode");
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SWAP_RENDERER);
+	parameters->encodeInt("RENDERER_MODE", static_cast<int>(UserSettings::RendererMode::ComputeShader));
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SWAP_RENDERER, parameters);
 }

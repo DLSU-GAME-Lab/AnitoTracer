@@ -4,6 +4,7 @@
 
 #include "AssetExplorerScreen.h"
 #include "ConsoleScreen.h"
+#include "ExportAnimationScreen.h"
 #include "From-GDGRAP2/RTConfig.h"
 #include "MenuScreen.h"
 #include "From-GDGRAP2/Debug.h"
@@ -230,7 +231,8 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 			// IMGUI_IMPL_VULKAN NOW SUPPORTS DYNAMIC FONTS OUT OF BOX 
 		});
 
-	sharedInstance->initializeUI();
+	// Don't call initializeUI() here - it will be called after a proper ImGui frame is set up
+	// This prevents duplicate widget IDs from being registered in the same frame
 
 }
 
@@ -282,6 +284,11 @@ void UIManager::initializeUI()
 	profilerScreen->setEnabled(this->uiConfig->isProfilerEnabled);
 	sharedInstance->profilerActive = this->uiConfig->isProfilerEnabled;
 
+	const std::shared_ptr<ExportAnimationScreen> exportAnimationScreen = std::make_shared<ExportAnimationScreen>();
+	this->uiTable[UINames::EXPORT_ANIMATION_SCREEN] = exportAnimationScreen;
+	this->uiList.push_back(exportAnimationScreen);
+	exportAnimationScreen->setEnabled(false);
+
 	//std::shared_ptr<gdeng03::PlaybackScreen> playbackScreen = std::make_shared<gdeng03::PlaybackScreen>();
 	//this->uiTable[uiNames.PLAYBACK_SCREEN] = playbackScreen;
 	//this->uiList.push_back(playbackScreen);
@@ -312,6 +319,22 @@ void UIManager::initializeUI()
 	// this->uiList.push_back(materialScreen);
 	// materialScreen->SetEnabled(false);
 
+	// Initialize Animation System
+	Camera* sceneCamera = CameraManager::getInstance()->getActiveCamera();
+	if (sceneCamera != nullptr)
+	{
+		// Initialize the animation singleton with the scene camera's duration
+		Animation::getInstance()->Initialize(30, sceneCamera->getDuration());
+
+		// Set camera for ExportAnimationScreen
+		auto exportAnimationScreen = std::dynamic_pointer_cast<ExportAnimationScreen>(
+			sharedInstance->uiTable[UINames::EXPORT_ANIMATION_SCREEN]);
+		if (exportAnimationScreen)
+		{
+			exportAnimationScreen->SetCamera(sceneCamera);
+		}
+	}
+
 	// save and load the current layout to avoid resetting randomly
 
 	for (const auto& i : this->uiList)
@@ -321,7 +344,7 @@ void UIManager::initializeUI()
 
 		if (i->name == UINames::SETTINGS_SCREEN)
 			i->setEnabled(settingsActive);
-		
+
 		if (i->name == UINames::PROFILER_SCREEN)
 			i->setEnabled(profilerActive);
 
@@ -632,6 +655,110 @@ void UIManager::reset()
 	saveDynamicLayout();
 	//ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 	delete sharedInstance;
+}
+
+void UIManager::ReinitializeBackends(const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer)
+{
+	// This method shuts down and reinitializes the ImGui GLFW and Vulkan backends
+	// after a swap chain recreation, updating all stale resource references.
+	if (!sharedInstance || !swapChain || !depthBuffer)
+		return;
+
+	// Get the new device before updating the swapchain pointer
+	// Validate that the device is accessible and has a valid handle
+	try
+	{
+		const auto& device = swapChain->Device();
+		// Quick validation: try to access a method on device to ensure it's valid
+		if (device.Handle() == VK_NULL_HANDLE)
+		{
+			Debug::Log("WARNING: SwapChain device handle is null during ReinitializeBackends");
+			return;
+		}
+	}
+	catch (const std::exception& e)
+	{
+		Debug::Log("ERROR: Failed to access device from swapchain: " + std::string(e.what()));
+		return;
+	}
+
+	const auto& device = swapChain->Device();
+	const auto& window = device.Surface().Instance().Window();
+
+	// Shutdown ImGui Vulkan backend - this is the critical step
+	// The cb_state nullptr error happens if the Vulkan backend was never properly initialized
+	// or if we're trying to shutdown twice
+	ImGuiIO& io = ImGui::GetIO();
+
+	// Only shutdown the Vulkan backend if it has actually been initialized
+	if (io.BackendRendererUserData != nullptr)
+	{
+		ImGui_ImplVulkan_Shutdown();
+	}
+
+	// Only shutdown GLFW backend if it's been initialized
+	if (io.BackendPlatformUserData != nullptr)
+	{
+		ImGui_ImplGlfw_Shutdown();
+	}
+
+	// Destroy old resources while the old device is still valid (if any)
+	// This must happen before updating swapChain pointer to ensure destructors can access the old device
+	sharedInstance->renderPass.reset();
+	sharedInstance->descriptorPool.reset();
+
+	// Update the swapChain pointer to the new one
+	sharedInstance->swapChain = swapChain;
+
+	// Recreate the descriptor pool with the new device
+	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
+	{
+		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
+	};
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
+
+	// Recreate the render pass with the new swapchain and depth buffer
+	sharedInstance->renderPass.reset(
+		new Vulkan::RenderPass(
+			*sharedInstance->swapChain,
+			*depthBuffer,
+			VK_ATTACHMENT_LOAD_OP_LOAD,
+			VK_ATTACHMENT_LOAD_OP_LOAD));
+
+	// Reinitialize ImGui Vulkan backend with new resources
+	ImGui_ImplVulkan_InitInfo vulkanInit = {};
+
+	// Validate device handle before using it
+	VkDevice deviceHandle = device.Handle();
+	if (deviceHandle == VK_NULL_HANDLE)
+	{
+		Debug::Log("ERROR: Device handle is null, cannot reinitialize ImGui Vulkan backend");
+		return;
+	}
+
+	vulkanInit.Instance = device.Surface().Instance().Handle();
+	vulkanInit.PhysicalDevice = device.PhysicalDevice();
+	vulkanInit.Device = deviceHandle;
+	vulkanInit.QueueFamily = device.GraphicsFamilyIndex();
+	vulkanInit.Queue = device.GraphicsQueue();
+	vulkanInit.PipelineCache = nullptr;
+	vulkanInit.PipelineInfoMain.RenderPass = sharedInstance->renderPass->Handle();
+	vulkanInit.DescriptorPool = sharedInstance->descriptorPool->Handle();
+	vulkanInit.MinImageCount = sharedInstance->swapChain->MinImageCount();
+	vulkanInit.ImageCount = static_cast<uint32_t>(sharedInstance->swapChain->Images().size());
+	vulkanInit.Allocator = nullptr;
+	vulkanInit.CheckVkResultFn = CheckVulkanResultCallback;
+
+	if (!ImGui_ImplVulkan_Init(&vulkanInit))
+	{
+		Throw(std::runtime_error("failed to reinitialise ImGui vulkan adapter"));
+	}
+
+	// Reinitialize the GLFW backend
+	if (!ImGui_ImplGlfw_InitForVulkan(window.Handle(), true))
+	{
+		Throw(std::runtime_error("failed to reinitialise ImGui GLFW adapter"));
+	}
 }
 
 void UIManager::drawAllUI() const

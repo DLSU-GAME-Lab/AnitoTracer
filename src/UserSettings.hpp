@@ -2,17 +2,25 @@
 
 struct UserSettings final
 {
+	// Renderer Mode Enumeration
+	enum class RendererMode
+	{
+		Legacy,
+		ComputeShader
+	};
+
 	// Application
 	bool Benchmark;
 
 	// Benchmark
 	bool BenchmarkNextScenes{};
 	uint32_t BenchmarkMaxTime{};
-	
+
 	// Scene
 	int SceneIndex;
 
 	// Renderer
+	RendererMode CurrentRendererMode = RendererMode::Legacy;
 	bool IsRayTraced;
 	bool AccumulateRays;
 	bool MultiSampling;
@@ -20,6 +28,11 @@ struct UserSettings final
 	uint32_t NumberOfSamples;
 	uint32_t NumberOfBounces;
 	uint32_t MaxNumberOfSamples;
+
+	// Compute shader: samples computed per-invocation inside a single dispatch.
+	// Higher values converge faster per-frame but cost more GPU time per dispatch.
+	// NOTE: Keep low (4-8) when using software BVH — no hardware acceleration structure.
+	uint32_t SamplesPerInvocation = 4;
 
 	// Camera
 	float FieldOfView;
@@ -29,6 +42,11 @@ struct UserSettings final
 	// Profiler
 	bool ShowHeatmap;
 	float HeatmapScale;
+
+	// Adaptive Sampling
+	bool EnableAdaptiveSampling = true;
+	float VarianceThreshold = 0.1f;
+	uint32_t MinSamples = 8;
 
 	// UI
 	bool ShowSettings;
@@ -48,6 +66,10 @@ struct UserSettings final
 			NumberOfBounces != prev.NumberOfBounces ||
 			FieldOfView != prev.FieldOfView ||
 			Aperture != prev.Aperture ||
-			FocusDistance != prev.FocusDistance;
+			FocusDistance != prev.FocusDistance ||
+			EnableAdaptiveSampling != prev.EnableAdaptiveSampling ||
+				VarianceThreshold != prev.VarianceThreshold ||
+				MinSamples != prev.MinSamples ||
+				SamplesPerInvocation != prev.SamplesPerInvocation;
 	}
 };

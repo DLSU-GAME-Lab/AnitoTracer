@@ -21,6 +21,7 @@ public:
 	static constexpr char ASSET_EXPLORER_SCREEN[] = "ASSET_EXPLORER_SCREEN";
 	static constexpr char SETTINGS_SCREEN[] = "SETTINGS_SCREEN";
 	static constexpr char PROJECT_SCREEN[] = "PROJECT_SCREEN";
+	static constexpr char EXPORT_ANIMATION_SCREEN[] = "EXPORT_ANIMATION_SCREEN";
 };
 
 class UISettings

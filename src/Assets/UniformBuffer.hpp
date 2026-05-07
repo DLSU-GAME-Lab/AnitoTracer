@@ -25,11 +25,15 @@ namespace Assets
 		float HeatmapScale;
 		uint32_t TotalNumberOfSamples;
 		uint32_t NumberOfSamples;
+		uint32_t SamplesPerInvocation; // samples computed inside a single shader dispatch
 		uint32_t NumberOfBounces;
 		uint32_t RandomSeed;
 		uint32_t MaxRays;
 		uint32_t HasSky; // bool
 		uint32_t ShowHeatmap; // bool
+		uint32_t EnableAdaptiveSampling; // bool
+		float VarianceThreshold;
+		uint32_t MinSamples;
 	};
 
 	// might move to a push constant class

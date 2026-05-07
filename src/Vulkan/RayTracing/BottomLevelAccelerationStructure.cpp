@@ -40,6 +40,8 @@ BottomLevelAccelerationStructure::BottomLevelAccelerationStructure(BottomLevelAc
 
 BottomLevelAccelerationStructure::~BottomLevelAccelerationStructure()
 {
+	buildGeometryInfo_.pGeometries = nullptr;
+	buildGeometryInfo_.geometryCount = 0;
 }
 
 void BottomLevelAccelerationStructure::Generate(

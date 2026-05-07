@@ -2,6 +2,7 @@
 #include <vulkan/vulkan.h>
 #include <chrono>
 #include <vector>
+#include "From-GDGRAP2/EventBroadcaster.h"
 
 constexpr int MAX_HISTORY = 100; // Number of frames to store per section
 
@@ -17,7 +18,7 @@ struct MemoryUsageStats {
     uint64_t totalUsage = 0;
 };
 
-class GpuCpuProfiler {
+class GpuCpuProfiler : public Observer {
 public:
     GpuCpuProfiler(VkDevice device, VkPhysicalDevice physicalDevice, float timestampPeriod, int maxSections);
     ~GpuCpuProfiler();
@@ -47,4 +48,16 @@ private:
 public:
     void UpdateMemoryStats();
     const MemoryUsageStats& GetMemoryStats() const { return vramStats; }
+
+private:
+    void onTriggeredEvent(std::string eventName, std::shared_ptr<Parameters> parameters = nullptr) override;
+
+    int m_samplePercentage = 0;
+    int m_currentSamples = 0;
+    int m_maxSamples = 0;
+
+    // Timer for full render completion tracking
+    std::chrono::high_resolution_clock::time_point m_renderStartTime;
+    bool m_isRenderTimerActive = false;
+    double m_lastRenderTimeMs = 0.0;
 };

@@ -5,6 +5,7 @@ cd vcpkg.windows || goto :error
 call bootstrap-vcpkg.bat || goto :error
 
 vcpkg.exe install ^
+	zlib:x64-windows-static ^
 	boost-exception:x64-windows-static ^
 	boost-program-options:x64-windows-static ^
 	boost-stacktrace:x64-windows-static ^
@@ -16,6 +17,7 @@ vcpkg.exe install ^
 	stb:x64-windows-static ^
 	assimp:x64-windows-static ^
 	nlohmann-json:x64-windows-static ^
+	ffmpeg[core,avcodec,avformat,swscale,zlib,x264]:x64-windows-static ^
 	|| goto :error
 
 cd ..

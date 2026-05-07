@@ -15,7 +15,16 @@
 Assets::ButtonTexture::ButtonTexture(TextureImage* textureImage)
 {
 	this->textureImage = textureImage;
-	this->textureDset = ImGui_ImplVulkan_AddTexture(textureImage->Sampler().Handle(), textureImage->ImageView().Handle(), VK_IMAGE_LAYOUT_GENERAL);
+	// Textures loaded from files are in SHADER_READ_ONLY_OPTIMAL, not GENERAL.
+	// Registering with the wrong layout triggers VUID-vkCmdDraw-None-09600.
+	this->textureDset = VK_NULL_HANDLE;
+	if (ImGui::GetIO().BackendRendererUserData != nullptr)
+	{
+		this->textureDset = ImGui_ImplVulkan_AddTexture(
+			textureImage->Sampler().Handle(),
+			textureImage->ImageView().Handle(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
 }
 
 Assets::ButtonTexture::~ButtonTexture()

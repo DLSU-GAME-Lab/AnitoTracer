@@ -1,11 +1,20 @@
 #pragma once
 
 #include <string>
-
+#include <stack>
 #include "UserSettings.hpp"
 #include "From-GDGRAP2/GameObject.h"
 #include "Utilities/Glm.hpp"
 #include "HotkeySystem/HotkeyListener.hpp"
+
+struct KeyFrame 
+{
+	glm::vec4 position;
+	glm::vec4 right;
+	glm::vec4 up;
+	glm::vec4 forward;
+	glm::mat4 orientation;
+};
 
 class Camera : public GameObject, public HotkeyListener
 {
@@ -43,6 +52,22 @@ public:
 	CameraMoveMode getCurrentMoveMode() const;
 
 	void lookAt(const glm::vec3& target);
+
+	//KEYFRAMES & ANIMATION
+	void addKeyFrame();
+	void removeLastKeyFrame() { if (!this->m_keyFrames.empty()) this->m_keyFrames.pop_back(); }
+	void clearKeyFrames() { this->m_keyFrames.clear(); }
+	void Animate();
+	void StopAnimate();
+	void TogglePause();
+	void AnimateStep(double timeDelta);
+	KeyFrame* InterpolateFrames(int startFrameIndex, int endFrameIndex, float delta);
+	KeyFrame* InterpolateFrames(KeyFrame* prevFrame, KeyFrame* nextFrame, float delta);
+
+	void setToKeyFrame(KeyFrame* frame);
+	void setDuration(float duration) { this->duration = duration; }
+	float getDuration() { return this->duration; }
+	std::vector<KeyFrame*> getKeyFrames() { return m_keyFrames; }
 
 protected:
 
@@ -97,4 +122,19 @@ protected:
 	float m_defaultPivotDistance = 1000.0f;
 
 	CameraMoveMode m_currentMode = NONE;
-};
+
+	//KEYFRAMES
+	std::vector<KeyFrame*> m_keyFrames;
+	bool hasKeyFrames = false;
+	int currentKeyFrame = 0;
+	KeyFrame* startFrame;
+	KeyFrame* currentFrame;
+	KeyFrame* endFrame;
+
+	//ANIMATION
+	bool isAnimating = false;
+	bool pauseAnimation = false;
+	float duration = 10.0f;
+	float timePerKeyframe = 0.0f;
+	float animationTime = 0.0f;
+	};

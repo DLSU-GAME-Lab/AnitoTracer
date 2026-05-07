@@ -13,6 +13,10 @@ namespace Vulkan {
 	class RayVisualizationPipeline;
 	class SwapChain;
 }
+
+namespace Vulkan::Compute {
+	class ComputeShaderRayTracer;
+}
 class RayTracer final : public Vulkan::RayTracing::Application, public Observer, public HotkeyListener
 {
 
@@ -27,7 +31,12 @@ public:
 	static RayTracer* getInstance();
 	void TakeScreenshot(std::string path);
 
-	UserSettings getUserSettings() const { return userSettings_; }
+	bool IsAccumulationComplete() const { return totalNumberOfSamples_ >= userSettings_.MaxNumberOfSamples; }
+	uint32_t GetTotalSamples() const { return totalNumberOfSamples_; }
+	uint32_t GetMaxSamples() const { return userSettings_.MaxNumberOfSamples; }
+
+	UserSettings& getUserSettings() { return userSettings_; }
+	const UserSettings& getUserSettings() const { return userSettings_; }
 
 protected:
 
@@ -46,6 +55,7 @@ protected:
 	void OnDeviceSet() override;
 	void CreateSwapChain() override;
 	void DeleteSwapChain() override;
+	void DeleteSwapChainWithoutUI();
 	void DrawFrame() override;
 	void Render(VkCommandBuffer commandBuffer, uint32_t imageIndex) override;
 
@@ -65,6 +75,7 @@ private:
 	void ResetPicker();
 	void SchedulePick(const glm::vec2& mousePos);
 	void ExecuteScheduledPick();
+	void BroadcastSampleProgress();
 
 
 	void ScreenToWorldRay(const glm::vec2& mousePos, glm::vec3& outOrigin, glm::vec3& outDirection);
@@ -85,6 +96,11 @@ private:
 	uint32_t totalNumberOfSamples_{};
 	uint32_t numberOfSamples_{};
 	bool resetAccumulation_{};
+	bool computeImagesInitialized_{}; // Track whether compute images have been transitioned to GENERAL layout
+
+	// Sample progress tracking
+	uint32_t lastReportedPercentage_{};
+	uint32_t sampleProgressInterval_{1};
 
 	// Benchmark stats
 	double sceneInitialTime_{};
@@ -96,6 +112,7 @@ private:
 	bool initializedUI = false;
 
 	bool isRenderChanged = false;
+	bool isSwappingRenderer_ = false;
 
 	bool renderUI_ = true;
 	bool isVisualizeRays_ = false;
@@ -103,6 +120,9 @@ private:
 	bool mousePressed = false;
 
 	bool isPickScheduled = false;
+
+	// Compute shader renderer
+	std::unique_ptr<Vulkan::Compute::ComputeShaderRayTracer> computeShaderRenderer_;
 
 	static RayTracer* sharedInstance;
 
