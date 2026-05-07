@@ -35,7 +35,8 @@ public:
 	uint32_t GetTotalSamples() const { return totalNumberOfSamples_; }
 	uint32_t GetMaxSamples() const { return userSettings_.MaxNumberOfSamples; }
 
-	UserSettings getUserSettings() const { return userSettings_; }
+	UserSettings& getUserSettings() { return userSettings_; }
+	const UserSettings& getUserSettings() const { return userSettings_; }
 
 protected:
 

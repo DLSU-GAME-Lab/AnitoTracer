@@ -5,6 +5,7 @@
 #include "Vulkan/Version.hpp"
 #include "Utilities/Console.hpp"
 #include "Utilities/Exception.hpp"
+#include "Utilities/HardwareCheck.hpp"
 #include "Options.hpp"
 #include "RayTracer.hpp"
 
@@ -20,7 +21,7 @@ namespace
 	void PrintVulkanLayersInformation(const Vulkan::Application& application, bool benchmark);
 	void PrintVulkanDevices(const Vulkan::Application& application, const std::vector<uint32_t>& visible_devices);
 	void PrintVulkanSwapChainInformation(const Vulkan::Application& application, bool benchmark);
-	void SetVulkanDevice(Vulkan::Application& application, const std::vector<uint32_t>& visible_devices);
+	void SetVulkanDevice(Vulkan::Application& application, const std::vector<uint32_t>& visible_devices, Options& options);
 }
 
 extern "C"
@@ -33,8 +34,7 @@ int main(int argc, const char* argv[]) noexcept
 {
 	try
 	{
-		const Options options(argc, argv);
-		const UserSettings userSettings = CreateUserSettings(options);
+		Options options(argc, argv);
 		const Vulkan::WindowConfig windowConfig
 		{
 			"DLSU-IET Engine - Interactive Ray Tracer",
@@ -45,16 +45,21 @@ int main(int argc, const char* argv[]) noexcept
 			!options.Fullscreen
 		};
 
+		// Create initial settings with default sample count
+		UserSettings userSettings = CreateUserSettings(options);
 		RayTracer::initialize(userSettings, windowConfig, static_cast<VkPresentModeKHR>(options.PresentMode));
 		RayTracer* application = RayTracer::getInstance();
-		//RayTracer application(userSettings, windowConfig, static_cast<VkPresentModeKHR>(options.PresentMode));
 
 		PrintVulkanSdkInformation();
 		PrintVulkanInstanceInformation(*application, options.Benchmark);
 		PrintVulkanLayersInformation(*application, options.Benchmark);
 		PrintVulkanDevices(*application, options.VisibleDevices);
 
-		SetVulkanDevice(*application, options.VisibleDevices);
+		// Detect device and recalibrate options
+		SetVulkanDevice(*application, options.VisibleDevices, options);
+
+		// Update NumberOfSamples based on hardware (now that we have the device info)
+		application->getUserSettings().NumberOfSamples = options.Samples;
 
 		PrintVulkanSwapChainInformation(*application, options.Benchmark);
 
@@ -218,7 +223,7 @@ namespace
 		std::cout << std::endl;
 	}
 
-	void SetVulkanDevice(Vulkan::Application& application, const std::vector<uint32_t>& visible_devices)
+	void SetVulkanDevice(Vulkan::Application& application, const std::vector<uint32_t>& visible_devices, Options& options)
 	{
 		const auto& physicalDevices = application.PhysicalDevices();
 		const auto result = std::find_if(physicalDevices.begin(), physicalDevices.end(), [&](const VkPhysicalDevice& device)
@@ -274,6 +279,13 @@ namespace
 		vkGetPhysicalDeviceProperties2(*result, &deviceProp);
 
 		std::cout << "Setting Device [" << deviceProp.properties.deviceID << "]:" << std::endl;
+		std::cout << "- GPU Name: " << HardwareCheck::GetGPUName(*result) << std::endl;
+		std::cout << "- GPU Memory: " << HardwareCheck::GetGPUMemoryGB(*result) << " GB" << std::endl;
+		std::cout << "- High-End GPU: " << (HardwareCheck::IsHighEndGPU(*result) ? "Yes" : "No") << std::endl;
+
+		// Recalibrate samples based on the identified device
+		options.RecalibrateSamplesForDevice(*result);
+		std::cout << "- Recommended Samples: " << options.Samples << std::endl;
 
 		application.SetPhysicalDevice(*result);
 

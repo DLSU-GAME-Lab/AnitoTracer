@@ -108,6 +108,8 @@ set(src_files_utilities
 	Utilities/Screenshot.hpp
 	Utilities/Video/VideoExporter.cpp
 	Utilities/Video/VideoExporter.h
+	Utilities/HardwareCheck.hpp
+	Utilities/HardwareCheck.cpp
 )
 
 set(src_files_vulkan

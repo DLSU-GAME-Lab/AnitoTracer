@@ -110,6 +110,12 @@ void GpuCpuProfiler::DrawImGui() {
         ImGui::ProgressBar(sampleRatio, ImVec2(0.0f, 20.0f), sampleOverlay);
     }
 
+    // Button to mark scene as dirty
+    ImGui::Separator();
+    if (ImGui::Button("Mark Scene Dirty", ImVec2(200.0f, 30.0f))) {
+        EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+    }
+
     for (int i = 0; i < currentSection; ++i) {
         const char* label = sections[i].name;
 
@@ -169,9 +175,9 @@ void GpuCpuProfiler::onTriggeredEvent(std::string eventName, std::shared_ptr<Par
         m_currentSamples   = parameters->getIntData("currentSamples", 0);
         m_maxSamples       = parameters->getIntData("maxSamples", 1);
     }
-    else if (eventName == EventNames::ON_SWAP_RENDERER)
+    else if (eventName == EventNames::ON_SWAP_RENDERER || eventName == EventNames::ON_MARK_SCENE_DIRTY)
     {
-        // Reset sample progress when renderer switches
+		// Reset sample progress when renderer switches and set scene dirty to ensure proper re-rendering
         m_samplePercentage = 0;
         m_currentSamples   = 0;
         m_maxSamples       = 0;
