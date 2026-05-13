@@ -5,8 +5,9 @@ struct UserSettings final
 	// Renderer Mode Enumeration
 	enum class RendererMode
 	{
-		Legacy,
-		ComputeShader
+		Legacy,        // Hardware ray tracing (VK_KHR_ray_tracing_pipeline)
+		ComputeShader, // Compute shader ray tracer (software BVH)
+		Game           // Real-time rasterization renderer
 	};
 
 	// Application
@@ -57,6 +58,34 @@ struct UserSettings final
 
 	// Ray Visualization
 	uint32_t MaxRays = 16;
+
+	// Game Renderer settings (only used when CurrentRendererMode == Game)
+	struct GameSettings
+	{
+		//All are off by default desu~
+		
+		// Tone mapping
+		float Exposure = 1.0f;
+
+		// Bloom
+		bool  EnableBloom     = false;
+		float BloomThreshold  = 1.0f;
+		float BloomIntensity  = 0.5f;
+
+		// SSAO
+		bool  EnableSSAO  = false;
+		float SSAORadius  = 0.5f;
+		float SSAOBias    = 0.025f;
+
+		// Temporal Anti-Aliasing
+		bool EnableTAA = false;
+
+		// Screen-Space Reflections
+		bool EnableSSR = false;
+
+		// Image-Based Lighting
+		bool EnableIBL = false;
+	} Game;
 
 	bool RequiresAccumulationReset(const UserSettings& prev) const
 	{

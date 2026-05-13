@@ -255,6 +255,10 @@ void MenuScreen::drawUI()
 			{
 				OnSetRendererModeComputeShader();
 			}
+			if (ImGui::MenuItem("Game"))
+			{
+				OnSetRendererModeGame();
+			}
 			ImGui::EndMenu();
 		}
 
@@ -840,5 +844,13 @@ void MenuScreen::OnSetRendererModeComputeShader()
 	Debug::Log("Switching to Compute Shader renderer mode");
 	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SWAP_RENDERER);
 	parameters->encodeInt("RENDERER_MODE", static_cast<int>(UserSettings::RendererMode::ComputeShader));
+	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SWAP_RENDERER, parameters);
+}
+
+void MenuScreen::OnSetRendererModeGame()
+{
+	Debug::Log("Switching to Game renderer mode");
+	std::shared_ptr<Parameters> parameters = std::make_shared<Parameters>(EventNames::ON_SWAP_RENDERER);
+	parameters->encodeInt("RENDERER_MODE", static_cast<int>(UserSettings::RendererMode::Game));
 	EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SWAP_RENDERER, parameters);
 }

@@ -206,6 +206,11 @@ set(src_files_vulkan_compute
 	Vulkan/Vk_Compute/ComputeShaderRayTracer.hpp
 )
 
+set(src_files_vulkan_game
+	Vulkan/Vk_Game/GameRenderer.cpp
+	Vulkan/Vk_Game/GameRenderer.hpp
+)
+
 set(src_files_ui
 	UI/AUIScreen.cpp
 	UI/AUIScreen.h
@@ -356,6 +361,7 @@ source_group("StateManagement" FILES ${src_files_statemanagement})
 source_group("Utilities" FILES ${src_files_utilities})
 source_group("UI" FILES ${src_files_ui})
 source_group("Vulkan/Compute" FILES ${src_files_vulkan_compute})
+source_group("Vulkan/Game" FILES ${src_files_vulkan_game})
 source_group("From-GDGRAP2" FILES ${src_files_from_gdgrap2})
 source_group("Vulkan" FILES ${src_files_vulkan})
 source_group("Vulkan.RayTracing" FILES ${src_files_vulkan_raytracing})
@@ -380,6 +386,7 @@ add_executable(${exe_name}
 	${src_files_vulkan}
 	${src_files_vulkan_raytracing}
 	${src_files_vulkan_compute}
+	${src_files_vulkan_game}
 	${src_files_raypicker}
 	${src_files}
 	${src_files_imgui}

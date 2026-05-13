@@ -17,6 +17,10 @@ namespace Vulkan {
 namespace Vulkan::Compute {
 	class ComputeShaderRayTracer;
 }
+
+namespace Vulkan::Game {
+	class GameRenderer;
+}
 class RayTracer final : public Vulkan::RayTracing::Application, public Observer, public HotkeyListener
 {
 
@@ -123,6 +127,9 @@ private:
 
 	// Compute shader renderer
 	std::unique_ptr<Vulkan::Compute::ComputeShaderRayTracer> computeShaderRenderer_;
+
+	// Game rasterization renderer
+	std::unique_ptr<Vulkan::Game::GameRenderer> gameRenderer_;
 
 	static RayTracer* sharedInstance;
 

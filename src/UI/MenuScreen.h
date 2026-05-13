@@ -55,6 +55,7 @@ private:
 
 	void OnSetRendererModeLegacy();
 	void OnSetRendererModeComputeShader();
+	void OnSetRendererModeGame();
 
 	friend class UIManager;
 

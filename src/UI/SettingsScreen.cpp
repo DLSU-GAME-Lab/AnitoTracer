@@ -83,30 +83,37 @@ void SettingsScreen::drawUI()
 		//ImGui::NewLine();
 
 		ImGui::Separator();
-		ImGui::Text("Ray Tracing");
-		/*ImGui::Checkbox("Enable ray tracing", &settings->IsRayTraced);*/
-		//ImGui::Text("Press T to enable/disable ray tracing");
-		ImGui::TextWrapped("Tip: To visualize rays, you must be in ray visualization mode.");
-		ImGui::Checkbox("Accumulate rays between frames", &settings->AccumulateRays);
-		ImGui::Checkbox("Multisample Anti-Aliasing", &settings->MultiSampling);
-		uint32_t min = 2, max = 8;
-		std::string label = (std::to_string(settings->aaValue) + "x");
-		if (ImGui::SliderScalarN("MSAA Value", ImGuiDataType_U32, &settings->aaValue, 1, &min, &max, label.c_str())) { // if value has changed
-			settings->aaValue = (settings->aaValue / 2) * 2; // round to even number
+		const bool isGameMode = (settings->CurrentRendererMode == UserSettings::RendererMode::Game);
+
+		// ── Ray Tracing settings (hidden in Game mode) ─────────────────────────
+		if (!isGameMode)
+		{
+			ImGui::Text("Ray Tracing");
+			/*ImGui::Checkbox("Enable ray tracing", &settings->IsRayTraced);*/
+			//ImGui::Text("Press T to enable/disable ray tracing");
+			ImGui::TextWrapped("Tip: To visualize rays, you must be in ray visualization mode.");
+			ImGui::Checkbox("Accumulate rays between frames", &settings->AccumulateRays);
+			ImGui::Checkbox("Multisample Anti-Aliasing", &settings->MultiSampling);
+			uint32_t min = 2, max = 8;
+			std::string label = (std::to_string(settings->aaValue) + "x");
+			if (ImGui::SliderScalarN("MSAA Value", ImGuiDataType_U32, &settings->aaValue, 1, &min, &max, label.c_str())) { // if value has changed
+				settings->aaValue = (settings->aaValue / 2) * 2; // round to even number
+			}
+			min = 1, max = 24;
+			ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);
+			uint32_t spiMin = 1, spiMax = 512;
+			ImGui::SliderScalar("Samples Per Dispatch", ImGuiDataType_U32, &settings->SamplesPerInvocation, &spiMin, &spiMax, "%u", ImGuiSliderFlags_Logarithmic);
+			ImGui::TextDisabled("(Higher = faster convergence per frame, heavier GPU dispatch)");
+			min = 2; max = 6;
+			ImGui::SliderScalar("Bounces", ImGuiDataType_U32, &settings->NumberOfBounces, &min, &max);
+			ImGui::NewLine();
+
+			ImGui::Text("Ray Visualization");
+			min = 1; max = 128;
+			ImGui::SliderScalarN("Max Rays", ImGuiDataType_U32, &settings->MaxRays, 1, &min, &max);
 		}
-		min = 1, max = 24;
-		ImGui::SliderScalarN("Samples", ImGuiDataType_U32, &settings->NumberOfSamples, 1, &min, &max);
-		uint32_t spiMin = 1, spiMax = 512;
-		ImGui::SliderScalar("Samples Per Dispatch", ImGuiDataType_U32, &settings->SamplesPerInvocation, &spiMin, &spiMax, "%u", ImGuiSliderFlags_Logarithmic);
-		ImGui::TextDisabled("(Higher = faster convergence per frame, heavier GPU dispatch)");
-		min = 2; max = 6;
-		ImGui::SliderScalar("Bounces", ImGuiDataType_U32, &settings->NumberOfBounces, &min, &max);
-		ImGui::NewLine();
 
-		ImGui::Text("Ray Visualization");
-		min = 1; max = 128;
-		ImGui::SliderScalarN("Max Rays", ImGuiDataType_U32, &settings->MaxRays, 1, &min, &max);
-
+		// ── Camera (shown for all modes) ───────────────────────────────────────
 		ImGui::Text("Camera");
 		ImGui::Separator();
 		ImGui::SliderFloat("FoV", &settings->FieldOfView, UserSettings::FieldOfViewMinValue, UserSettings::FieldOfViewMaxValue, "%.0f");
@@ -114,18 +121,44 @@ void SettingsScreen::drawUI()
 		ImGui::SliderFloat("Focus", &settings->FocusDistance, 0.1f, 20.0f, "%.1f");
 		ImGui::NewLine();
 
-		ImGui::Text("Adaptive Sampling");
-		ImGui::Separator();
-		ImGui::Checkbox("Enable Adaptive Sampling", &settings->EnableAdaptiveSampling);
-		if (settings->EnableAdaptiveSampling)
+		// ── Adaptive Sampling (ray tracing only) ──────────────────────────────
+		if (!isGameMode)
 		{
-			ImGui::SliderFloat("Variance Threshold", &settings->VarianceThreshold, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
-			uint32_t minSamplesMin = 1, minSamplesMax = 256;
-			ImGui::SliderScalar("Min Samples", ImGuiDataType_U32, &settings->MinSamples, &minSamplesMin, &minSamplesMax);
+			ImGui::Text("Adaptive Sampling");
+			ImGui::Separator();
+			ImGui::Checkbox("Enable Adaptive Sampling", &settings->EnableAdaptiveSampling);
+			if (settings->EnableAdaptiveSampling)
+			{
+				ImGui::SliderFloat("Variance Threshold", &settings->VarianceThreshold, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
+				uint32_t minSamplesMin = 1, minSamplesMax = 256;
+				ImGui::SliderScalar("Min Samples", ImGuiDataType_U32, &settings->MinSamples, &minSamplesMin, &minSamplesMax);
+			}
+			ImGui::Text("Total Samples Accumulated: %u", settings->MaxNumberOfSamples);
+			ImGui::NewLine();
 		}
-		ImGui::Text("Total Samples Accumulated: %u", settings->MaxNumberOfSamples);
-		ImGui::NewLine();
 
+		// ── Game Mode controls ─────────────────────────────────────────────────
+		if (isGameMode)
+		{
+			ImGui::Text("Game Renderer");
+			ImGui::Separator();
+			ImGui::Text("FPS: %.1f  (%.2f ms/frame)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+			ImGui::NewLine();
+			ImGui::SeparatorText("Photorealism");
+			ImGui::SliderFloat("Exposure",        &settings->Game.Exposure,        0.1f, 5.0f,  "%.2f");
+			ImGui::SliderFloat("Bloom Threshold", &settings->Game.BloomThreshold,  0.5f, 3.0f,  "%.2f");
+			ImGui::SliderFloat("Bloom Intensity", &settings->Game.BloomIntensity,  0.0f, 2.0f,  "%.2f");
+			ImGui::SliderFloat("SSAO Radius",     &settings->Game.SSAORadius,      0.1f, 2.0f,  "%.2f");
+			ImGui::SliderFloat("SSAO Bias",       &settings->Game.SSAOBias,        0.001f, 0.1f,"%.3f");
+			ImGui::Checkbox("Enable TAA",         &settings->Game.EnableTAA);
+			ImGui::Checkbox("Enable SSR",         &settings->Game.EnableSSR);
+			ImGui::Checkbox("Enable SSAO",        &settings->Game.EnableSSAO);
+			ImGui::Checkbox("Enable Bloom",       &settings->Game.EnableBloom);
+			ImGui::Checkbox("Enable IBL",         &settings->Game.EnableIBL);
+			ImGui::NewLine();
+		}
+
+		// ── Profiler (shown for all modes) ─────────────────────────────────────
 		ImGui::Text("Profiler");
 		ImGui::Separator();
 		ImGui::Checkbox("Show heatmap", &settings->ShowHeatmap);

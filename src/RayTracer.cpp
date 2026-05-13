@@ -34,6 +34,7 @@
 #include "Vulkan/PipelineLayout.hpp"
 #include "Vulkan/ImageMemoryBarrier.hpp"
 #include "Vulkan/Vk_Compute/ComputeShaderRayTracer.hpp"
+#include "Vulkan/Vk_Game/GameRenderer.hpp"
 
 #include "StateManagement/CommandManager.hpp"
 #include "Assets/ModelLibrary.hpp"
@@ -212,7 +213,18 @@ void RayTracer::CreateSwapChain()
 		computeImagesInitialized_ = false; // Reset layout initialization flag for new renderer
 	}
 
-	// If UIManager hasn't been initialized yet, do a full initialization
+	// Initialize game rasterization renderer if in Game mode
+	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game)
+	{
+		gameRenderer_.reset(new Vulkan::Game::GameRenderer(
+			SwapChain(),
+			DepthBuffer(),
+			UniformBuffers(),
+			GetScene()));
+		Debug::Log("Game Renderer initialized");
+	}
+
+	// If UIManager hasn't been initialized yet
 	if (UIManager::getInstance() == nullptr)
 	{
 		UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
@@ -248,6 +260,7 @@ void RayTracer::DeleteSwapChain()
 {
 	//userInterface_.reset();
 	computeShaderRenderer_.reset();
+	gameRenderer_.reset();
 	rayVisualizationPipeline_.reset();
 	UIManager::reset();
 
@@ -266,6 +279,7 @@ void RayTracer::DeleteSwapChainWithoutUI()
 {
 	//userInterface_.reset();
 	computeShaderRenderer_.reset();
+	gameRenderer_.reset();
 	rayVisualizationPipeline_.reset();
 
 	// Shutdown ImGui GLFW backend without destroying UI state/layout
@@ -396,17 +410,19 @@ void RayTracer::DrawFrame()
 
 	previousSettings_ = userSettings_;
 
-	// Keep track of our sample count.
-	// In compute shader mode, each dispatch runs SamplesPerInvocation samples internally,
-	// so we use that as the batch size for accumulation tracking.
-	const uint32_t batchSize = (userSettings_.CurrentRendererMode == UserSettings::RendererMode::ComputeShader)
-		? userSettings_.SamplesPerInvocation
-		: userSettings_.NumberOfSamples;
-	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, batchSize);
-	totalNumberOfSamples_ += numberOfSamples_;
+	// Keep track of our sample count (ray tracing modes only).
+	// In Game mode there is no accumulation — skip this entirely.
+	if (userSettings_.CurrentRendererMode != UserSettings::RendererMode::Game)
+	{
+		const uint32_t batchSize = (userSettings_.CurrentRendererMode == UserSettings::RendererMode::ComputeShader)
+			? userSettings_.SamplesPerInvocation
+			: userSettings_.NumberOfSamples;
+		numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, batchSize);
+		totalNumberOfSamples_ += numberOfSamples_;
 
-	// Broadcast sample progress every 10%
-	BroadcastSampleProgress();
+		// Broadcast sample progress every 10%
+		BroadcastSampleProgress();
+	}
 
 	rayScene_->Update(CommandPool());
 
@@ -430,7 +446,12 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	// Check the current state of the benchmark, update it for the new frame.
 	CheckAndUpdateBenchmarkState(prevTime);
 
-	if (userSettings_.IsRayTraced)
+	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game && gameRenderer_)
+	{
+		// Game rasterization renderer — draws directly to the swapchain framebuffer.
+		gameRenderer_->Render(commandBuffer, imageIndex);
+	}
+	else if (userSettings_.IsRayTraced)
 	{
 		if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::ComputeShader && computeShaderRenderer_)
 		{
