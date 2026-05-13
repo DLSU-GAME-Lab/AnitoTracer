@@ -18,6 +18,7 @@ struct UniformBufferObject
 	bool EnableAdaptiveSampling;  // NEW: Enable adaptive sampling
 	float VarianceThreshold;       // NEW: Convergence threshold (0.001 typical)
 	uint MinSamples;               // NEW: Minimum samples per pixel before adaptive termination
+	vec3 FallbackAmbientColor;     // RGB fallback ambient when IBL is disabled
 };
 
 struct PushConstantModel {

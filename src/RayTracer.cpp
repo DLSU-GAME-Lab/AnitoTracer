@@ -127,6 +127,9 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.VarianceThreshold = userSettings_.VarianceThreshold;
 	ubo.MinSamples = userSettings_.MinSamples;
 
+	// Game Renderer Settings
+	ubo.FallbackAmbientColor = userSettings_.Game.FallbackAmbientColor;
+
 	return ubo;
 }
 

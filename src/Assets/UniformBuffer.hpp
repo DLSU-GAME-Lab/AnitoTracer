@@ -34,6 +34,9 @@ namespace Assets
 		uint32_t EnableAdaptiveSampling; // bool
 		float VarianceThreshold;
 		uint32_t MinSamples;
+		uint32_t _padFAC0;               // std140 padding: align vec3 FallbackAmbientColor to 16-byte boundary
+		uint32_t _padFAC1;               // std140 padding
+		glm::vec3 FallbackAmbientColor;  // RGB fallback ambient when IBL is disabled
 	};
 
 	// might move to a push constant class

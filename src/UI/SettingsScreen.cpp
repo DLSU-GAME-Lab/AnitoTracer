@@ -155,6 +155,7 @@ void SettingsScreen::drawUI()
 			ImGui::Checkbox("Enable SSAO",        &settings->Game.EnableSSAO);
 			ImGui::Checkbox("Enable Bloom",       &settings->Game.EnableBloom);
 			ImGui::Checkbox("Enable IBL",         &settings->Game.EnableIBL);
+			ImGui::ColorEdit3("Fallback Ambient Color", glm::value_ptr(settings->Game.FallbackAmbientColor));
 			ImGui::NewLine();
 		}
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 struct UserSettings final
 {
 	// Renderer Mode Enumeration
@@ -63,7 +65,7 @@ struct UserSettings final
 	struct GameSettings
 	{
 		//All are off by default desu~
-		
+
 		// Tone mapping
 		float Exposure = 1.0f;
 
@@ -85,6 +87,10 @@ struct UserSettings final
 
 		// Image-Based Lighting
 		bool EnableIBL = false;
+
+		// Fallback Ambient Color (used when IBL is disabled)
+		glm::vec3 FallbackAmbientColor = glm::vec3(0.0f); // Black by default
+
 	} Game;
 
 	bool RequiresAccumulationReset(const UserSettings& prev) const

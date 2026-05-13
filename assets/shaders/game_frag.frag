@@ -23,6 +23,7 @@ layout(binding = 0) uniform UniformBufferObject
 	uint  EnableAdaptiveSampling;
 	float VarianceThreshold;
 	uint  MinSamples;
+	vec3  FallbackAmbientColor; // RGB fallback ambient when IBL is disabled
 } ubo;
 
 // ── Material buffer (matches Assets::Material alignas(16)) ───────────────────
@@ -175,6 +176,9 @@ void main()
 	vec3 finalColor = vec3(0.0);
 	uint lightCount = uint(lights.length());
 
+	// Base ambient contribution from the configured FallbackAmbientColor (always applied)
+	finalColor += ubo.FallbackAmbientColor * albedo;
+
 	for (uint i = 0; i < lightCount; ++i)
 	{
 		LightProperties light = lights[i];
@@ -206,14 +210,6 @@ void main()
 
 		finalColor += CookTorranceBRDF(N, V, L, albedo, metallic, roughness)
 					  * lightColor * attenuation;
-	}
-
-	// Ambient contribution from skybox (simple IBL approximation)
-	// Only use skybox fallback when truly no lights exist AND finalColor is still zero
-	if (lightCount == 0u)
-	{
-		// Fallback: flat ambient using albedo so geometry is at least visible
-		finalColor = albedo * 0.15;
 	}
 
 	// Tone mapping (Reinhard) + gamma correction
