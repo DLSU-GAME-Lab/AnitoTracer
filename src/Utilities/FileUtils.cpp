@@ -89,7 +89,7 @@ bool FileUtils::getModelFilePath(std::string& filePath, std::string& fileName)
 		L"Valve Model (.smd, .vta)\0*.smd;*.vta\0"
 		L"Wavefront Object (.obj)\0*.obj\0"
 		L"XGL - 3D - Format (.xgl)\0*.xgl\0"
-		L"All Files\0*.*\0";
+		"All Files\0*.*\0";
 
 	OPENFILENAME openFile = OPENFILENAME();
 	openFile.lStructSize = sizeof(OPENFILENAME);
@@ -116,7 +116,8 @@ bool FileUtils::getTextureFilePath(std::string& filePath, std::string& fileName)
 	wchar_t path[MAX_PATH] = L"";
 
 	constexpr LPCWSTR fileFormats =
-		L"PNG (.png, .PNG)\0*.png\0"
+		L"All Supported Image Types (.png, .jpg)\0*.png;*.jpg\0"
+		"PNG (.png, .PNG)\0*.png\0"
 		"JPG (.jpg)\0*.jpg\0"
 		"All Files\0*.*\0";
 
