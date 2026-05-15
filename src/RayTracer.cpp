@@ -129,6 +129,7 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 
 	// Game Renderer Settings
 	ubo.FallbackAmbientColor = userSettings_.Game.FallbackAmbientColor;
+	ubo.Exposure             = userSettings_.Game.Exposure;
 
 	return ubo;
 }

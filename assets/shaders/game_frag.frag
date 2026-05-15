@@ -24,6 +24,7 @@ layout(binding = 0) uniform UniformBufferObject
 	float VarianceThreshold;
 	uint  MinSamples;
 	vec3  FallbackAmbientColor; // RGB fallback ambient when IBL is disabled
+	float Exposure;             // Scene exposure scalar applied to direct lighting before tonemapping
 } ubo;
 
 // ── Material buffer (matches Assets::Material alignas(16)) ───────────────────
@@ -95,22 +96,47 @@ vec3 F_Schlick(float cosTheta, vec3 F0)
 vec3 CookTorranceBRDF(vec3 N, vec3 V, vec3 L,
 					  vec3 albedo, float metallic, float roughness)
 {
+	// Light is behind the surface — no contribution, and V+L would be
+	// a near-zero vector causing normalize() to produce garbage NdotH values.
+	float NdotL = dot(N, L);
+	if (NdotL <= 0.0) return vec3(0.0);
+
 	vec3  H     = normalize(V + L);
 	float NdotV = max(dot(N, V), 0.0001);
-	float NdotL = max(dot(N, L), 0.0001);
+	// Use safe value for BRDF denominator/geometry term only; raw NdotL
+	// is used in the final multiply to get the correct cosine falloff.
+	float NdotL_safe = max(NdotL, 0.0001);
 	float NdotH = max(dot(N, H), 0.0);
 	float HdotV = max(dot(H, V), 0.0);
 
 	vec3  F0  = mix(vec3(0.04), albedo, metallic);
 	float D   = D_GGX(NdotH, roughness);
-	float G   = G_SmithSchlick(NdotV, NdotL, roughness);
+	float G   = G_SmithSchlick(NdotV, NdotL_safe, roughness);
 	vec3  F   = F_Schlick(HdotV, F0);
 
 	vec3 kD       = (1.0 - F) * (1.0 - metallic);
 	vec3 diffuse  = kD * albedo / PI;
-	vec3 specular = (D * G * F) / max(4.0 * NdotV * NdotL, 0.0001);
+	vec3 specular = (D * G * F) / max(4.0 * NdotV * NdotL_safe, 0.0001);
 
+	// Multiply by raw NdotL — gives the correct smooth Lambert cosine falloff
+	// (bright at the pole, smoothly darkening toward the terminator, zero past it)
 	return (diffuse + specular) * NdotL;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tone mapping
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ACES filmic tone mapping — preserves hue and colour at extreme HDR values
+// much better than Reinhard. Tuned for input in roughly [0, 8].
+vec3 ACESToneMapping(vec3 color)
+{
+	const float a = 2.51;
+	const float b = 0.03;
+	const float c = 2.43;
+	const float d = 0.59;
+	const float e = 0.14;
+	return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -172,12 +198,11 @@ void main()
 	vec3 camWorldPos = vec3(ubo.ModelViewInverse[3]);
 	V = normalize(camWorldPos - inWorldPos);
 
-	// Accumulate contributions from all lights in the buffer
-	vec3 finalColor = vec3(0.0);
-	uint lightCount = uint(lights.length());
-
-	// Base ambient contribution from the configured FallbackAmbientColor (always applied)
-	finalColor += ubo.FallbackAmbientColor * albedo;
+	// Accumulate direct lighting in physical / HDR space.
+	// Ambient is handled separately because FallbackAmbientColor is a
+	// display-space [0,1] value and must not be exposure-scaled.
+	vec3 directLight = vec3(0.0);
+	uint lightCount  = uint(lights.length());
 
 	for (uint i = 0; i < lightCount; ++i)
 	{
@@ -208,12 +233,23 @@ void main()
 		float intensity   = light.LightColor.a;
 		vec3  lightColor  = light.LightColor.rgb * intensity;
 
-		finalColor += CookTorranceBRDF(N, V, L, albedo, metallic, roughness)
+		directLight += CookTorranceBRDF(N, V, L, albedo, metallic, roughness)
 					  * lightColor * attenuation;
 	}
 
-	// Tone mapping (Reinhard) + gamma correction
-	finalColor = finalColor / (finalColor + vec3(1.0));
+	// Apply exposure and ACES tone mapping to the HDR direct light.
+	// Exposure brings physical units (e.g. 500 000 lx) into the [0, ~8] range
+	// where ACES operates cleanly, then maps to [0, 1].
+	directLight *= ubo.Exposure;
+	directLight  = ACESToneMapping(directLight);
+
+	// Add ambient in display space AFTER tone mapping so it acts as a visible
+	// luminance floor on the dark side without being crushed by exposure.
+	vec3 ambientTerm = ubo.FallbackAmbientColor * albedo;
+
+	vec3 finalColor = clamp(ambientTerm + directLight, 0.0, 1.0);
+
+	// sRGB gamma correction
 	finalColor = pow(finalColor, vec3(1.0 / 2.2));
 
 	outColor = vec4(finalColor, 1.0);

@@ -37,6 +37,7 @@ namespace Assets
 		uint32_t _padFAC0;               // std140 padding: align vec3 FallbackAmbientColor to 16-byte boundary
 		uint32_t _padFAC1;               // std140 padding
 		glm::vec3 FallbackAmbientColor;  // RGB fallback ambient when IBL is disabled
+		float     Exposure;              // Scene exposure scalar applied to direct lighting before tonemapping
 	};
 
 	// might move to a push constant class

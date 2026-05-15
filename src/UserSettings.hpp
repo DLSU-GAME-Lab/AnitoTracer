@@ -67,7 +67,7 @@ struct UserSettings final
 		//All are off by default desu~
 
 		// Tone mapping
-		float Exposure = 1.0f;
+		float Exposure = 0.00001f;  // Scene exposure for direct lighting (physical units: 1/100000 tuned for 500k-intensity lights)
 
 		// Bloom
 		bool  EnableBloom     = false;
@@ -89,7 +89,7 @@ struct UserSettings final
 		bool EnableIBL = false;
 
 		// Fallback Ambient Color (used when IBL is disabled)
-		glm::vec3 FallbackAmbientColor = glm::vec3(0.0f); // Black by default
+		glm::vec3 FallbackAmbientColor = glm::vec3(0.03f); // Dim ambient — prevents pure-black dark side without IBL
 
 	} Game;
 

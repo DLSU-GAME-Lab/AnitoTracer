@@ -156,9 +156,14 @@ void GameRenderer::CreateDescriptorSets(
 	// binding 0 : UBO              (UNIFORM_BUFFER,         vert + frag)
 	// binding 1 : Material buffer  (STORAGE_BUFFER,         frag)
 	// binding 2 : Light buffer     (STORAGE_BUFFER,         frag)
-	// binding 3 : Texture array    (COMBINED_IMAGE_SAMPLER, frag)
+	// binding 3 : Texture array    (COMBINED_IMAGE_SAMPLER, frag) — omitted when scene has no textures
 	// binding 4 : Skybox sampler   (COMBINED_IMAGE_SAMPLER, frag)
-	const std::vector<DescriptorBinding> bindings =
+	const uint32_t texCount = static_cast<uint32_t>(scene.TextureSamplers().size());
+
+	// Build binding list conditionally: binding 3 is only added when the scene actually
+	// has textures. A descriptorCount of 0 violates the Vulkan spec
+	// (VUID-VkDescriptorPoolSize-descriptorCount-00302) and corrupts pool tracking.
+	std::vector<DescriptorBinding> bindings =
 	{
 		{0, 1,
 		 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -171,15 +176,18 @@ void GameRenderer::CreateDescriptorSets(
 		{2, 1,
 		 VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		 VK_SHADER_STAGE_FRAGMENT_BIT},
-
-		{3, static_cast<uint32_t>(scene.TextureSamplers().size()),
-		 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		 VK_SHADER_STAGE_FRAGMENT_BIT},
-
-		{4, 1,
-		 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		 VK_SHADER_STAGE_FRAGMENT_BIT},
 	};
+
+	if (texCount > 0)
+	{
+		bindings.push_back({3, texCount,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			VK_SHADER_STAGE_FRAGMENT_BIT});
+	}
+
+	bindings.push_back({4, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, bindings, uniformBuffers.size()));
 	auto& descriptorSets = descriptorSetManager_->DescriptorSets();
@@ -214,15 +222,23 @@ void GameRenderer::CreateDescriptorSets(
 		skyboxInfo.imageView   = scene.SkyboxImageView();
 		skyboxInfo.sampler     = scene.SkyboxSampler();
 
-		const std::vector<VkWriteDescriptorSet> writes =
+		std::vector<VkWriteDescriptorSet> writes =
 		{
 			descriptorSets.Bind(i, 0, uboInfo),
 			descriptorSets.Bind(i, 1, materialInfo),
 			descriptorSets.Bind(i, 2, lightsInfo),
-			descriptorSets.Bind(i, 3, *textureInfos.data(),
-								static_cast<uint32_t>(textureInfos.size())),
-			descriptorSets.Bind(i, 4, skyboxInfo),
 		};
+
+		// Binding 3 is only written when the scene has textures.
+		// Dereferencing textureInfos.data() on an empty vector is UB.
+		if (!textureInfos.empty())
+		{
+			writes.push_back(descriptorSets.Bind(i, 3,
+				*textureInfos.data(),
+				static_cast<uint32_t>(textureInfos.size())));
+		}
+
+		writes.push_back(descriptorSets.Bind(i, 4, skyboxInfo));
 
 		descriptorSets.UpdateDescriptors(i, writes);
 	}

@@ -19,6 +19,7 @@ struct UniformBufferObject
 	float VarianceThreshold;       // NEW: Convergence threshold (0.001 typical)
 	uint MinSamples;               // NEW: Minimum samples per pixel before adaptive termination
 	vec3 FallbackAmbientColor;     // RGB fallback ambient when IBL is disabled
+	float Exposure;                // Scene exposure scalar applied to direct lighting before tonemapping
 };
 
 struct PushConstantModel {

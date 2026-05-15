@@ -11,7 +11,14 @@ DescriptorPool::DescriptorPool(const Vulkan::Device& device, const std::vector<D
 
 	for (const auto& binding : descriptorBindings)
 	{
-		poolSizes.push_back(VkDescriptorPoolSize{ binding.Type, static_cast<uint32_t>(binding.DescriptorCount*maxSets )});
+		// Vulkan spec (VUID-VkDescriptorPoolSize-descriptorCount-00302):
+		// descriptorCount must be > 0. Skip bindings with 0 descriptors
+		// (e.g. texture array when the scene has no textures).
+		const uint32_t count = static_cast<uint32_t>(binding.DescriptorCount * maxSets);
+		if (count > 0)
+		{
+			poolSizes.push_back(VkDescriptorPoolSize{ binding.Type, count });
+		}
 	}
 
 	VkDescriptorPoolCreateInfo poolInfo = {};
