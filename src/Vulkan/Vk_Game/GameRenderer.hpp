@@ -20,17 +20,24 @@ namespace Vulkan
 
 namespace Vulkan::Game
 {
+	class ShadowMapPass;
+}
+
+namespace Vulkan::Game
+{
 	/// @brief Real-time rasterization renderer for the Game renderer mode.
 	/// Renders the scene directly to the swapchain every frame using a
 	/// standard forward-shading graphics pipeline.
 	/// No ray tracing, no multi-frame accumulation.
 	///
-	/// Descriptor bindings (must match game_vert.spv / game_frag.spv):
-	///   0 : Uniform buffer       (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-	///   1 : Material buffer      (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-	///   2 : Light buffer         (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-	///   3 : Texture samplers[]   (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-	///   4 : Skybox sampler       (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+		/// Descriptor bindings (must match game_vert.spv / game_frag.spv):
+	///   0 : Uniform buffer        (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+	///   1 : Material buffer       (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+	///   2 : Light buffer          (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+	///   3 : Texture samplers[]    (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+	///   4 : Skybox sampler        (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+	///   5 : Shadow map            (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER — compare)
+	///   6 : ShadowUBO             (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER — vert only)
 	class GameRenderer final
 	{
 	public:
@@ -77,6 +84,7 @@ namespace Vulkan::Game
 		void CreateFramebuffers();
 
 		// ── Owned Vulkan resources ──────────────────────────────────────────────
+		std::unique_ptr<ShadowMapPass>                shadowMapPass_;
 		std::unique_ptr<Vulkan::RenderPass>           renderPass_;
 		std::unique_ptr<Vulkan::DescriptorSetManager> descriptorSetManager_;
 

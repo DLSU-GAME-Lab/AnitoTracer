@@ -54,6 +54,9 @@ namespace Assets
 		VkImageView SkyboxImageView() const { return skyboxImageView_; }
 		VkSampler SkyboxSampler() const { return skyboxSampler_; }
 
+		/// @brief CPU-side light array — used by ShadowMapPass to compute light VP matrices.
+		const std::vector<LightProperties>& Lights() const { return lights_; }
+
 	private:
 
 		const std::vector<GameObject*> gameObjects_;

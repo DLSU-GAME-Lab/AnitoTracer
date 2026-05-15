@@ -209,6 +209,8 @@ set(src_files_vulkan_compute
 set(src_files_vulkan_game
 	Vulkan/Vk_Game/GameRenderer.cpp
 	Vulkan/Vk_Game/GameRenderer.hpp
+	Vulkan/Vk_Game/ShadowMapPass.cpp
+	Vulkan/Vk_Game/ShadowMapPass.hpp
 )
 
 set(src_files_ui

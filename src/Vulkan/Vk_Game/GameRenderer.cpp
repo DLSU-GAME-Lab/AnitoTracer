@@ -1,4 +1,7 @@
 #include "GameRenderer.hpp"
+#include "ShadowMapPass.hpp"
+
+#include <algorithm>
 
 #include "Assets/Scene.hpp"
 #include "Assets/UniformBuffer.hpp"
@@ -36,6 +39,9 @@ GameRenderer::GameRenderer(
 	scene_(scene)
 {
 	CreateRenderPass();
+	shadowMapPass_ = std::make_unique<ShadowMapPass>(
+		swapChain.Device(),
+		static_cast<uint32_t>(uniformBuffers.size()));
 	CreateDescriptorSets(uniformBuffers, scene);
 	CreatePipeline();
 	CreateFramebuffers();
@@ -65,6 +71,7 @@ GameRenderer::~GameRenderer()
 
 	descriptorSetManager_.reset();
 	renderPass_.reset();
+	shadowMapPass_.reset();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,6 +85,10 @@ VkDescriptorSet GameRenderer::DescriptorSet(const uint32_t index) const
 
 void GameRenderer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 {
+	// ── Shadow pass (depth-only, runs before the main forward pass) ─────────────
+	shadowMapPass_->UpdateLightVP(imageIndex, scene_);
+	shadowMapPass_->Render(commandBuffer, imageIndex, scene_);
+
 	// ── Begin render pass ─────────────────────────────────────────────────────
 	std::array<VkClearValue, 2> clearValues{};
 	clearValues[0].color        = { { 0.05f, 0.05f, 0.05f, 1.0f } };
@@ -113,6 +124,17 @@ void GameRenderer::Render(VkCommandBuffer commandBuffer, const uint32_t imageInd
 		for (GameObject* go : ModelManager::getInstance()->getObjectList())
 		{
 			if (!go || !go->getModel()) continue;
+
+			// Skip purely emissive meshes (ray-tracer area lights — DiffuseLight material).
+			// They are not PBR light sources; rendering them in the Game Renderer would
+			// just show a bright flat box that confuses the scene.
+			{
+				const auto& mats = go->getModel()->Materials();
+				const bool allEmissive = !mats.empty() && std::all_of(
+					mats.begin(), mats.end(),
+					[](const Assets::Material& m){ return m.MaterialModel == Assets::Material::Enum::DiffuseLight; });
+				if (allEmissive) { indexOffset += static_cast<uint32_t>(go->getModel()->NumberOfIndices()); vertexOffset += static_cast<uint32_t>(go->getModel()->NumberOfVertices()); continue; }
+			}
 
 			glm::mat4 worldMatrix = go->getWorldMatrix();
 				vkCmdPushConstants(commandBuffer, pipelineLayoutRaw_,
@@ -189,6 +211,16 @@ void GameRenderer::CreateDescriptorSets(
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		VK_SHADER_STAGE_FRAGMENT_BIT});
 
+	// binding 5 : shadow map  (COMBINED_IMAGE_SAMPLER with compare, frag)
+	bindings.push_back({5, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 6 : ShadowUBO   (UNIFORM_BUFFER, vert — light view-projection)
+	bindings.push_back({6, 1,
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		VK_SHADER_STAGE_VERTEX_BIT});
+
 	descriptorSetManager_.reset(new DescriptorSetManager(device, bindings, uniformBuffers.size()));
 	auto& descriptorSets = descriptorSetManager_->DescriptorSets();
 
@@ -239,6 +271,20 @@ void GameRenderer::CreateDescriptorSets(
 		}
 
 		writes.push_back(descriptorSets.Bind(i, 4, skyboxInfo));
+
+		// Binding 5: shadow depth map (sampler2DShadow)
+		VkDescriptorImageInfo shadowMapInfo{};
+		shadowMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		shadowMapInfo.imageView   = shadowMapPass_->ShadowImageView();
+		shadowMapInfo.sampler     = shadowMapPass_->ShadowSampler();
+		writes.push_back(descriptorSets.Bind(i, 5, shadowMapInfo));
+
+		// Binding 6: ShadowUBO (light view-projection, vertex stage)
+		VkDescriptorBufferInfo shadowUboInfo{};
+		shadowUboInfo.buffer = shadowMapPass_->LightVPBuffer(i).Handle();
+		shadowUboInfo.offset = 0;
+		shadowUboInfo.range  = VK_WHOLE_SIZE;
+		writes.push_back(descriptorSets.Bind(i, 6, shadowUboInfo));
 
 		descriptorSets.UpdateDescriptors(i, writes);
 	}
