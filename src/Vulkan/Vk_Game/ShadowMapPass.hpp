@@ -95,24 +95,44 @@ namespace Vulkan::Game
 		const ShadowMapSettings& Settings() const { return settings_; }
 
 	private:
-		/// @brief Internal per-slot depth image resources.
-		struct ShadowLayer
-		{
-			std::unique_ptr<Vulkan::Image>        Image;
-			std::unique_ptr<Vulkan::DeviceMemory> Memory;
-			std::unique_ptr<Vulkan::ImageView>    ImageView;
-			VkFramebuffer                         Framebuffer{ VK_NULL_HANDLE };
-			mutable VkImageLayout                 CurrentLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
-		};
+		/// @brief Fully-resolved settings for a single shadow-map slot,
+			///        computed by merging global defaults with any per-light overrides.
+			struct ResolvedLightSettings
+			{
+				uint32_t Resolution;
+				bool     DepthBiasEnable;
+				float    DepthBiasConstantFactor;
+				float    DepthBiasSlopeFactor;
+				float    DepthBiasClamp;
+				float    SceneMargin;
+				float    NearPlane;
+			};
+
+			/// @brief Internal per-slot depth image resources.
+			struct ShadowLayer
+			{
+				std::unique_ptr<Vulkan::Image>        Image;
+				std::unique_ptr<Vulkan::DeviceMemory> Memory;
+				std::unique_ptr<Vulkan::ImageView>    ImageView;
+				VkFramebuffer                         Framebuffer{ VK_NULL_HANDLE };
+				mutable VkImageLayout                 CurrentLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+
+				/// Resolved resolution for this slot (may differ between lights).
+				uint32_t                              Resolution{ 2048 };
+			};
+
+		/// @brief Merge global settings with per-light overrides for slot @p lightIndex.
+		ResolvedLightSettings ResolveLightSettings(uint32_t lightIndex) const;
 
 		void CreateDepthResources();
 		void CreateRenderPass();
 		void CreateFramebuffers();
 		void CreateDescriptorSets(uint32_t imageCount);
 		void CreatePipeline();
-		glm::mat4 ComputeLightVP(glm::vec3        lightDir,
-								 const glm::vec3& sceneMin,
-								 const glm::vec3& sceneMax) const;
+		glm::mat4 ComputeLightVP(glm::vec3              lightDir,
+								 const glm::vec3&       sceneMin,
+								 const glm::vec3&       sceneMax,
+								 const ResolvedLightSettings& rs) const;
 
 		/// @brief Emit a VkImageMemoryBarrier for the depth image in @p layer.
 		void TransitionDepthImage(VkCommandBuffer commandBuffer,

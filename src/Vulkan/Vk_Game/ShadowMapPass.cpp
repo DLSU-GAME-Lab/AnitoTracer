@@ -56,6 +56,29 @@ CreateDescriptorSets(imageCount);
 CreatePipeline();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Private — ResolveLightSettings
+// ─────────────────────────────────────────────────────────────────────────────
+
+ShadowMapPass::ResolvedLightSettings
+ShadowMapPass::ResolveLightSettings(const uint32_t lightIndex) const
+{
+    const ShadowLightSettings* ovr =
+        (lightIndex < settings_.LightOverrides.size())
+        ? &settings_.LightOverrides[lightIndex]
+        : nullptr;
+
+    ResolvedLightSettings rs{};
+    rs.Resolution              = (ovr && ovr->Resolution)              ? *ovr->Resolution              : settings_.Resolution;
+    rs.DepthBiasEnable         = (ovr && ovr->DepthBiasEnable)         ? *ovr->DepthBiasEnable         : settings_.DepthBiasEnable;
+    rs.DepthBiasConstantFactor = (ovr && ovr->DepthBiasConstantFactor) ? *ovr->DepthBiasConstantFactor : settings_.DepthBiasConstantFactor;
+    rs.DepthBiasSlopeFactor    = (ovr && ovr->DepthBiasSlopeFactor)    ? *ovr->DepthBiasSlopeFactor    : settings_.DepthBiasSlopeFactor;
+    rs.DepthBiasClamp          = (ovr && ovr->DepthBiasClamp)          ? *ovr->DepthBiasClamp          : settings_.DepthBiasClamp;
+    rs.SceneMargin             = (ovr && ovr->SceneMargin)             ? *ovr->SceneMargin             : settings_.SceneMargin;
+    rs.NearPlane               = (ovr && ovr->NearPlane)               ? *ovr->NearPlane               : settings_.NearPlane;
+    return rs;
+}
+
 ShadowMapPass::~ShadowMapPass()
 {
 // Reverse construction order.
@@ -108,8 +131,8 @@ sceneMin = glm::vec3(-100.0f);
 sceneMax = glm::vec3( 100.0f);
 }
 
-sceneMin -= glm::vec3(settings_.SceneMargin);
-sceneMax += glm::vec3(settings_.SceneMargin);
+// NOTE: do NOT apply a global margin here — each light uses its own
+// resolved SceneMargin via ResolveLightSettings() inside the loop.
 
 // ── Fill ShadowUBO with one VP per directional light (up to kMaxShadowLights) ──
 ShadowUBO ubo{};
@@ -124,7 +147,13 @@ const glm::vec3 lightDir = (glm::length(rawDir) > 0.0001f)
                          ? glm::normalize(rawDir)
                          : glm::vec3(0.0f, -1.0f, 0.0f);
 
-ubo.LightViewProj[ubo.Count] = ComputeLightVP(lightDir, sceneMin, sceneMax);
+const ResolvedLightSettings rs = ResolveLightSettings(ubo.Count);
+
+// Expand the raw scene AABB by this light's resolved margin.
+const glm::vec3 lightMin = sceneMin - glm::vec3(rs.SceneMargin);
+const glm::vec3 lightMax = sceneMax + glm::vec3(rs.SceneMargin);
+
+ubo.LightViewProj[ubo.Count] = ComputeLightVP(lightDir, lightMin, lightMax, rs);
 ++ubo.Count;
 
 if (ubo.Count >= kMaxShadowLights)
@@ -158,17 +187,7 @@ rpInfo.renderArea.extent = { settings_.Resolution, settings_.Resolution };
 rpInfo.clearValueCount   = 1;
 rpInfo.pClearValues      = &clearDepth;
 
-VkViewport vp{};
-vp.x        = 0.0f;
-vp.y        = 0.0f;
-vp.width    = static_cast<float>(settings_.Resolution);
-vp.height   = static_cast<float>(settings_.Resolution);
-vp.minDepth = 0.0f;
-vp.maxDepth = 1.0f;
-
-VkRect2D sc{};
-sc.offset = { 0, 0 };
-sc.extent = { settings_.Resolution, settings_.Resolution };
+// Viewport and scissor are set per-slot inside the loop (each slot may differ).
 
 VkDescriptorSet ds = descriptorSetManager_->DescriptorSets().Handle(imageIndex);
 
@@ -192,9 +211,33 @@ vkCmdBeginRenderPass(commandBuffer, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 // descriptor slot holds a valid, fully-lit shadow map.
 if (li < activeLightCount_)
 {
+const ResolvedLightSettings rs = ResolveLightSettings(li);
+
+// Per-light viewport / scissor (resolution may differ between slots).
+VkViewport vp{};
+vp.x        = 0.0f;
+vp.y        = 0.0f;
+vp.width    = static_cast<float>(layer.Resolution);
+vp.height   = static_cast<float>(layer.Resolution);
+vp.minDepth = 0.0f;
+vp.maxDepth = 1.0f;
+
+VkRect2D sc{};
+sc.offset = { 0, 0 };
+sc.extent = { layer.Resolution, layer.Resolution };
+
 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
 vkCmdSetViewport(commandBuffer, 0, 1, &vp);
 vkCmdSetScissor(commandBuffer, 0, 1, &sc);
+
+// Apply per-light dynamic depth bias.
+if (rs.DepthBiasEnable)
+    vkCmdSetDepthBias(commandBuffer,
+                      rs.DepthBiasConstantFactor,
+                      rs.DepthBiasClamp,
+                      rs.DepthBiasSlopeFactor);
+else
+    vkCmdSetDepthBias(commandBuffer, 0.0f, 0.0f, 0.0f);
 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                         pipelineLayout_, 0, 1, &ds, 0, nullptr);
 vkCmdBindVertexBuffers(commandBuffer, 0, 1, vbuf, offsets);
@@ -274,23 +317,28 @@ return *lightVPBuffers_[imageIndex];
 
 void ShadowMapPass::CreateDepthResources()
 {
-const VkFormat   fmt    = settings_.DepthFormat;
-const VkExtent2D extent = { settings_.Resolution, settings_.Resolution };
+const VkFormat fmt = settings_.DepthFormat;
 
 layers_.resize(kMaxShadowLights);
 
-for (auto& layer : layers_)
+for (uint32_t i = 0; i < kMaxShadowLights; ++i)
 {
+const ResolvedLightSettings rs = ResolveLightSettings(i);
+auto& layer = layers_[i];
+layer.Resolution = rs.Resolution;
+
+const VkExtent2D extent = { rs.Resolution, rs.Resolution };
+
 layer.Image = std::make_unique<Vulkan::Image>(
-device_, extent, fmt,
-VK_IMAGE_TILING_OPTIMAL,
-VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+    device_, extent, fmt,
+    VK_IMAGE_TILING_OPTIMAL,
+    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 
 layer.Memory = std::make_unique<Vulkan::DeviceMemory>(
-layer.Image->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+    layer.Image->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
 
 layer.ImageView = std::make_unique<Vulkan::ImageView>(
-device_, layer.Image->Handle(), fmt, VK_IMAGE_ASPECT_DEPTH_BIT);
+    device_, layer.Image->Handle(), fmt, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 // ── Shared sampler for all shadow maps ────────────────────────────────────
@@ -385,8 +433,8 @@ fbInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 fbInfo.renderPass      = renderPass_;
 fbInfo.attachmentCount = 1;
 fbInfo.pAttachments    = attachments;
-fbInfo.width           = settings_.Resolution;
-fbInfo.height          = settings_.Resolution;
+fbInfo.width           = layer.Resolution;   // per-slot resolved resolution
+fbInfo.height          = layer.Resolution;
 fbInfo.layers          = 1;
 
 Check(vkCreateFramebuffer(device_.Handle(), &fbInfo, nullptr, &layer.Framebuffer),
@@ -466,9 +514,10 @@ ia.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREA
 ia.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 ia.primitiveRestartEnable = VK_FALSE;
 
-const std::array<VkDynamicState, 2> dynStates = {
+const std::array<VkDynamicState, 3> dynStates = {
 VK_DYNAMIC_STATE_VIEWPORT,
-VK_DYNAMIC_STATE_SCISSOR
+VK_DYNAMIC_STATE_SCISSOR,
+VK_DYNAMIC_STATE_DEPTH_BIAS   // per-light bias set in Render()
 };
 VkPipelineDynamicStateCreateInfo dynState{};
 dynState.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -488,10 +537,10 @@ rast.polygonMode             = VK_POLYGON_MODE_FILL;
 rast.lineWidth               = 1.0f;
 rast.cullMode                = settings_.CullMode;
 rast.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-rast.depthBiasEnable         = settings_.DepthBiasEnable ? VK_TRUE : VK_FALSE;
-rast.depthBiasConstantFactor = settings_.DepthBiasConstantFactor;
-rast.depthBiasSlopeFactor    = settings_.DepthBiasSlopeFactor;
-rast.depthBiasClamp          = settings_.DepthBiasClamp;
+rast.depthBiasEnable         = VK_TRUE;           // always on; per-light values set dynamically
+rast.depthBiasConstantFactor = 0.0f;              // overridden per frame by vkCmdSetDepthBias
+rast.depthBiasSlopeFactor    = 0.0f;
+rast.depthBiasClamp          = 0.0f;
 
 VkPipelineMultisampleStateCreateInfo ms{};
 ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -554,9 +603,10 @@ Check(vkCreateGraphicsPipelines(device_.Handle(), VK_NULL_HANDLE,
 // Private — ComputeLightVP
 // ─────────────────────────────────────────────────────────────────────────────
 
-glm::mat4 ShadowMapPass::ComputeLightVP(const glm::vec3  lightDir,
-                                        const glm::vec3& sceneMin,
-                                        const glm::vec3& sceneMax) const
+glm::mat4 ShadowMapPass::ComputeLightVP(const glm::vec3              lightDir,
+                                        const glm::vec3&             sceneMin,
+                                        const glm::vec3&             sceneMax,
+                                        const ResolvedLightSettings& rs) const
 {
 const glm::vec3 sceneCenter = (sceneMin + sceneMax) * 0.5f;
 const float     sceneRadius = glm::length(sceneMax - sceneCenter);
@@ -572,7 +622,7 @@ const glm::mat4 view = glm::lookAt(eye, sceneCenter, up);
 glm::mat4 proj = glm::ortho(
 -sceneRadius, sceneRadius,
 -sceneRadius, sceneRadius,
-settings_.NearPlane, sceneRadius * 2.0f);
+rs.NearPlane, sceneRadius * 2.0f);  // per-light near plane
 
 // Flip Y: GLM targets OpenGL (Y-up NDC); Vulkan uses Y-down NDC.
 proj[1][1] *= -1.0f;
