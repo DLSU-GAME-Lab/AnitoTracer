@@ -211,15 +211,15 @@ void GameRenderer::CreateDescriptorSets(
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		VK_SHADER_STAGE_FRAGMENT_BIT});
 
-	// binding 5 : shadow map  (COMBINED_IMAGE_SAMPLER with compare, frag)
-	bindings.push_back({5, 1,
+	// binding 5 : shadow maps (COMBINED_IMAGE_SAMPLER with compare, frag) — array of kMaxShadowLights
+	bindings.push_back({5, ShadowMapPass::kMaxShadowLights,
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		VK_SHADER_STAGE_FRAGMENT_BIT});
 
-	// binding 6 : ShadowUBO   (UNIFORM_BUFFER, vert — light view-projection)
+	// binding 6 : ShadowUBO   (UNIFORM_BUFFER, frag — array of light VP matrices)
 	bindings.push_back({6, 1,
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		VK_SHADER_STAGE_VERTEX_BIT});
+		VK_SHADER_STAGE_FRAGMENT_BIT});
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, bindings, uniformBuffers.size()));
 	auto& descriptorSets = descriptorSetManager_->DescriptorSets();
@@ -272,12 +272,25 @@ void GameRenderer::CreateDescriptorSets(
 
 		writes.push_back(descriptorSets.Bind(i, 4, skyboxInfo));
 
-		// Binding 5: shadow depth map (sampler2DShadow)
-		VkDescriptorImageInfo shadowMapInfo{};
-		shadowMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		shadowMapInfo.imageView   = shadowMapPass_->ShadowImageView();
-		shadowMapInfo.sampler     = shadowMapPass_->ShadowSampler();
-		writes.push_back(descriptorSets.Bind(i, 5, shadowMapInfo));
+		// Binding 5: shadow depth maps — one sampler per slot (kMaxShadowLights total).
+		// Unused slots are filled with the first shadow map's view so every descriptor
+		// slot is valid; the fragment shader only samples slots [0, Count).
+		const std::vector<VkImageView> shadowViews = shadowMapPass_->ShadowImageViews();
+		const VkSampler                shadowSampler = shadowMapPass_->ShadowSampler();
+
+		std::vector<VkDescriptorImageInfo> shadowInfos;
+		shadowInfos.reserve(ShadowMapPass::kMaxShadowLights);
+		for (uint32_t s = 0; s < ShadowMapPass::kMaxShadowLights; ++s)
+		{
+			VkDescriptorImageInfo si{};
+			si.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			si.imageView   = shadowViews[s]; // all kMaxShadowLights slots are always valid
+			si.sampler     = shadowSampler;
+			shadowInfos.push_back(si);
+		}
+		writes.push_back(descriptorSets.Bind(i, 5,
+			*shadowInfos.data(),
+			static_cast<uint32_t>(shadowInfos.size())));
 
 		// Binding 6: ShadowUBO (light view-projection, vertex stage)
 		VkDescriptorBufferInfo shadowUboInfo{};

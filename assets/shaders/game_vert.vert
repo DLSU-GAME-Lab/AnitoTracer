@@ -37,18 +37,11 @@ layout(push_constant) uniform PushConstant
 	mat4 WorldMatrix;
 } pc;
 
-// ── Shadow UBO: directional light view-projection (binding 6) ────────────────
-layout(binding = 6) uniform ShadowUBO
-{
-	mat4 LightViewProj;
-} shadowUBO;
-
 // ── Outputs to fragment shader ───────────────────────────────────────────────
 layout(location = 0) out vec3  outWorldPos;
 layout(location = 1) out vec3  outNormal;
 layout(location = 2) out vec2  outTexCoord;
 layout(location = 3) out flat int outMaterialIndex;
-layout(location = 4) out vec4  outShadowCoord;   // position in light clip-space
 
 void main()
 {
@@ -58,10 +51,6 @@ void main()
 	outNormal        = normalize(mat3(transpose(inverse(pc.WorldMatrix))) * inNormal);
 	outTexCoord      = inTexCoord;
 	outMaterialIndex = inMaterialIndex;
-
-	// Shadow coordinate: fragment position in the directional light's clip space.
-	// The fragment shader performs the perspective divide + PCF sampling.
-	outShadowCoord = shadowUBO.LightViewProj * worldPos;
 
 	// Match legacy Graphics.vert: Projection * ModelView * WorldMatrix * pos
 	gl_Position = ubo.Projection * ubo.ModelView * worldPos;

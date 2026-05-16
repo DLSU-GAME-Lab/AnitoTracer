@@ -1,6 +1,8 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier : require
 
+#define MAX_SHADOW_LIGHTS 4
+
 // ── Uniform buffer: camera matrices ─────────────────────────────────────────
 // Layout MUST match Assets::UniformBufferObject in UniformBuffer.hpp exactly.
 layout(binding = 0) uniform UniformBufferObject
@@ -57,17 +59,22 @@ layout(binding = 3) uniform sampler2D textures[];
 // ── Skybox cubemap ────────────────────────────────────────────────────────────
 layout(binding = 4) uniform samplerCube skybox;
 
-// ── Shadow map (binding 5) ────────────────────────────────────────────────────
-// sampler2DShadow: hardware compares the reference depth against the stored
-// depth using VK_COMPARE_OP_LESS_OR_EQUAL.  texture() returns 1.0=lit, 0.0=shadow.
-layout(binding = 5) uniform sampler2DShadow shadowMap;
+// ── Shadow maps (binding 5): one sampler2DShadow per active shadow light ──────
+// Hardware PCF compare (LESS_OR_EQUAL).  texture() returns 1.0=lit, 0.0=shadow.
+layout(binding = 5) uniform sampler2DShadow shadowMaps[MAX_SHADOW_LIGHTS];
+
+// ── Shadow UBO (binding 6): all directional-light VP matrices + active count ──
+layout(binding = 6) uniform ShadowUBO
+{
+	mat4 LightViewProj[MAX_SHADOW_LIGHTS];
+	uint Count;
+} shadowUBO;
 
 // ── Inputs from vertex shader ─────────────────────────────────────────────────
 layout(location = 0) in vec3  inWorldPos;
 layout(location = 1) in vec3  inNormal;
 layout(location = 2) in vec2  inTexCoord;
 layout(location = 3) in flat int inMaterialIndex;
-layout(location = 4) in vec4  inShadowCoord;   // fragment position in light clip-space
 
 // ── Output ────────────────────────────────────────────────────────────────────
 layout(location = 0) out vec4 outColor;
@@ -148,22 +155,24 @@ vec3 ACESToneMapping(vec3 color)
 // ─────────────────────────────────────────────────────────────────────────────
 // PCF Shadow — 3×3 kernel (9 samples)
 // ─────────────────────────────────────────────────────────────────────────────
+// PCF Shadow — 3×3 kernel (9 samples) for one shadow map slot.
+//
+//   shadowIdx : index into shadowMaps[] and shadowUBO.LightViewProj[].
+//   worldPos  : fragment world-space position (from vertex shader).
+//
 //   Returns 1.0 = fully lit, 0.0 = fully in shadow.
 //   Pixels outside the light frustum are treated as fully lit.
-//
-//   Hardware depth bias (constant + slope-scale) is applied in the shadow
-//   pipeline, so the shadow map stores slightly deeper values.  A small
-//   software bias (subtract 0.002 from the reference) is kept here as a
-//   belt-and-suspenders guard against residual shadow acne.
 // ─────────────────────────────────────────────────────────────────────────────
-float SampleShadowPCF(vec4 shadowCoord)
+float SampleShadowPCF(uint shadowIdx, vec3 worldPos)
 {
+	// Transform world-space position into the light's clip space.
+	vec4 shadowCoord = shadowUBO.LightViewProj[shadowIdx] * vec4(worldPos, 1.0);
+
 	// Perspective divide — for an ortho projection w == 1, but kept for correctness.
 	vec3 proj = shadowCoord.xyz / shadowCoord.w;
 
 	// Remap X,Y from Vulkan NDC [-1, 1] → UV [0, 1].
-	// Z is already in [0, 1] (GLM_FORCE_DEPTH_ZERO_TO_ONE makes glm::ortho output
-	// Vulkan-compatible [0, 1] depth, unlike OpenGL's [-1, 1]).
+	// Z is already in [0, 1] (GLM_FORCE_DEPTH_ZERO_TO_ONE).
 	proj.xy = proj.xy * 0.5 + 0.5;
 
 	// Pixels outside the shadow frustum are considered fully lit.
@@ -173,9 +182,9 @@ float SampleShadowPCF(vec4 shadowCoord)
 		return 1.0;
 
 	// Small software bias added to the reference value reduces acne.
-	const float kBias      = 0.002;
-	const float ref        = proj.z - kBias;
-	const vec2  texelSize  = 1.0 / vec2(textureSize(shadowMap, 0));
+	const float kBias     = 0.002;
+	const float ref       = proj.z - kBias;
+	const vec2  texelSize = 1.0 / vec2(textureSize(shadowMaps[shadowIdx], 0));
 
 	float shadow = 0.0;
 	for (int x = -1; x <= 1; ++x)
@@ -185,7 +194,7 @@ float SampleShadowPCF(vec4 shadowCoord)
 			// texture(sampler2DShadow, vec3(uv, ref)) returns
 			// 1.0 when ref <= depth_in_shadowmap  (not in shadow)
 			// 0.0 when ref >  depth_in_shadowmap  (in shadow)
-			shadow += texture(shadowMap,
+			shadow += texture(shadowMaps[shadowIdx],
 							  vec3(proj.xy + vec2(x, y) * texelSize, ref));
 		}
 	}
@@ -257,6 +266,10 @@ void main()
 	vec3 directLight = vec3(0.0);
 	uint lightCount  = uint(lights.length());
 
+	// shadowIdx tracks which shadow map slot corresponds to the current
+	// directional light — increments once per directional light encountered.
+	uint shadowIdx = 0;
+
 	for (uint i = 0; i < lightCount; ++i)
 	{
 		LightProperties light = lights[i];
@@ -283,11 +296,15 @@ void main()
 			attenuation    = (theta > cutoff) ? (1.0 / max(dist * dist, 0.0001)) : 0.0;
 		}
 
-		// PCF shadow modulation: only applied to directional lights (the single
-		// shadow map covers the dominant directional light's frustum).
+		// PCF shadow modulation: each directional light has its own shadow map slot.
+		// Other light types cast no shadows (point / spot shadows not implemented).
 		float shadowFactor = 1.0;
 		if (light.LightType == 1u)
-			shadowFactor = SampleShadowPCF(inShadowCoord);
+		{
+			if (shadowIdx < shadowUBO.Count)
+				shadowFactor = SampleShadowPCF(shadowIdx, inWorldPos);
+			++shadowIdx;
+		}
 
 		float intensity   = light.LightColor.a;
 		vec3  lightColor  = light.LightColor.rgb * intensity;

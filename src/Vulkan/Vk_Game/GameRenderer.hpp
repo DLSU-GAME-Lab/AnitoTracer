@@ -31,13 +31,13 @@ namespace Vulkan::Game
 	/// No ray tracing, no multi-frame accumulation.
 	///
 		/// Descriptor bindings (must match game_vert.spv / game_frag.spv):
-	///   0 : Uniform buffer        (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-	///   1 : Material buffer       (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-	///   2 : Light buffer          (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-	///   3 : Texture samplers[]    (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-	///   4 : Skybox sampler        (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-	///   5 : Shadow map            (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER — compare)
-	///   6 : ShadowUBO             (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER — vert only)
+		///   0 : Uniform buffer        (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+		///   1 : Material buffer       (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		///   2 : Light buffer          (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		///   3 : Texture samplers[]    (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+		///   4 : Skybox sampler        (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+		///   5 : Shadow maps[4]        (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER — compare array)
+		///   6 : ShadowUBO             (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER — frag only)
 	class GameRenderer final
 	{
 	public:
