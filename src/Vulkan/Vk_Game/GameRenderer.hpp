@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Vulkan/Vulkan.hpp"
+#include "ShadowMapSettings.hpp"
+#include "From-GDGRAP2/EventBroadcaster.h"
 #include <memory>
 #include <vector>
 
@@ -38,7 +40,7 @@ namespace Vulkan::Game
 		///   4 : Skybox sampler        (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
 		///   5 : Shadow maps[4]        (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER — compare array)
 		///   6 : ShadowUBO             (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER — frag only)
-	class GameRenderer final
+	class GameRenderer final : public Observer
 	{
 	public:
 
@@ -68,7 +70,26 @@ namespace Vulkan::Game
 		/// @brief Returns the raw VkPipelineLayout handle (needed for push constants).
 		VkPipelineLayout PipelineLayoutHandle() const { return pipelineLayoutRaw_; }
 
+		/// @brief Apply updated shadow settings immediately.
+		///        Recreates only the ShadowMapPass and its dependent descriptor sets.
+		///        Safe to call between frames (must NOT be called while the GPU
+		///        is executing a frame that uses the old shadow resources).
+		void ApplyShadowSettings(ShadowMapSettings settings);
+
+		/// @brief Read-only access to the current shadow map settings.
+		const ShadowMapSettings& GetShadowSettings() const;
+
+		/// @brief Must be called once per frame BEFORE the command buffer begins
+		///        recording (i.e. before Application::DrawFrame / commandBuffers_->Begin).
+		///        Applies any shadow settings change that was queued via the
+		///        ON_SHADOW_SETTINGS_CHANGED event during the previous frame's UI draw.
+		void FlushPendingShadowReload();
+
 	private:
+
+		// Observer callback — responds to ON_SHADOW_SETTINGS_CHANGED.
+		void onTriggeredEvent(std::string eventName,
+							  std::shared_ptr<Parameters> parameters) override;
 
 		/// Create the render pass: 1 color attachment (clear) + 1 depth attachment (clear).
 		void CreateRenderPass();
@@ -97,9 +118,15 @@ namespace Vulkan::Game
 		std::vector<VkFramebuffer> framebuffers_;
 
 		// ── Non-owning references ───────────────────────────────────────────────
-		const Vulkan::SwapChain&   swapChain_;
-		const Vulkan::DepthBuffer& depthBuffer_;
-		const Assets::Scene&       scene_;
+		const Vulkan::SwapChain&                       swapChain_;
+		const Vulkan::DepthBuffer&                     depthBuffer_;
+		const Assets::Scene&                           scene_;
+		const std::vector<Assets::UniformBuffer>*      uniformBuffers_{ nullptr };
+
+		// ── Pending hot-reload ────────────────────────────────────────────────
+		/// When set, the next Render() call will recreate shadowMapPass_ before drawing.
+		bool                pendingShadowReload_{ false };
+		ShadowMapSettings   pendingShadowSettings_{};
 	};
 
 } // namespace Vulkan::Game

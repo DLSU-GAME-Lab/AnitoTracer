@@ -3,6 +3,9 @@
 #include "Engine/LightSystem/Light.h"
 #include "From-GDGRAP2/GameObject.h"
 #include "Engine/AnimationSystem/Animation.h"
+#include "Vulkan/Vk_Game/ShadowMapSettings.hpp"
+#include <algorithm>
+#include <optional>
 
 enum EditorAction
 {
@@ -27,6 +30,7 @@ private:
 	void drawTransformTab();
 	void drawLightTab();
 	void drawCameraTab();
+	void drawShadowSettingsTab();   // per-light shadow overrides (directional lights only)
 	void showColorPickerWindow();
 
 	void updateTransformDisplays();
@@ -60,5 +64,17 @@ private:
 	Texture* materialDisplay;
 
 	float lightIntensityMultiplier = 500000.0f;
+
+	// ── Per-light shadow settings display state ────────────────────────────────
+	/// Index of the directional light slot whose overrides are being shown.
+	/// Reset whenever selection changes.
+	int shadowLightSlotIndex_{ 0 };
+
+	/// Working copy of the ShadowLightSettings that is currently being edited.
+	/// Pushed back to GameRenderer on change.
+	Vulkan::Game::ShadowLightSettings shadowLightEdit_{};
+
+	/// Whether the working copy has been initialised for the current selection.
+	bool shadowEditInitialised_{ false };
 
 };

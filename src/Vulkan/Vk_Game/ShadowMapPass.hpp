@@ -46,8 +46,9 @@ namespace Vulkan::Game
 		VULKAN_NON_COPIABLE(ShadowMapPass)
 
 		/// Maximum number of directional lights that can cast shadows simultaneously.
-		/// Must match MAX_SHADOW_LIGHTS in shadow_vert.vert and game_frag.frag.
-		static constexpr uint32_t kMaxShadowLights = 4;
+		/// Defined in ShadowMapSettings.hpp as Vulkan::Game::kMaxShadowLights;
+		/// mirrored here for convenient access via ShadowMapPass::kMaxShadowLights.
+		static constexpr uint32_t kMaxShadowLights = Vulkan::Game::kMaxShadowLights;
 
 		/// @brief CPU mirror of the GLSL ShadowUBO block (std140 compatible).
 		struct ShadowUBO

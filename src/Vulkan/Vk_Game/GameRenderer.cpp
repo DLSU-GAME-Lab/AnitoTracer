@@ -36,19 +36,26 @@ GameRenderer::GameRenderer(
 	const Assets::Scene& scene) :
 	swapChain_(swapChain),
 	depthBuffer_(depthBuffer),
-	scene_(scene)
+	scene_(scene),
+	uniformBuffers_(&uniformBuffers)
 {
 	CreateRenderPass();
 	shadowMapPass_ = std::make_unique<ShadowMapPass>(
 		swapChain.Device(),
 		static_cast<uint32_t>(uniformBuffers.size()));
 	CreateDescriptorSets(uniformBuffers, scene);
+
+	EventBroadcaster::getInstance()->addObserver(
+		EventNames::ON_SHADOW_SETTINGS_CHANGED, this);
 	CreatePipeline();
 	CreateFramebuffers();
 }
 
 GameRenderer::~GameRenderer()
 {
+	EventBroadcaster::getInstance()->removeObserver(
+		EventNames::ON_SHADOW_SETTINGS_CHANGED);
+
 	// Framebuffers first — they reference the render pass
 	for (VkFramebuffer fb : framebuffers_)
 	{
@@ -75,8 +82,59 @@ GameRenderer::~GameRenderer()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Public interface
+// Shadow settings hot-reload
 // ─────────────────────────────────────────────────────────────────────────────
+
+void GameRenderer::ApplyShadowSettings(ShadowMapSettings settings)
+{
+	// GPU must be idle before we destroy the old shadow resources.
+	vkDeviceWaitIdle(swapChain_.Device().Handle());
+
+	// Tear down the old pass + descriptor sets that reference its images.
+	descriptorSetManager_.reset();
+	shadowMapPass_.reset();
+
+	// Rebuild with the new settings.
+	shadowMapPass_ = std::make_unique<ShadowMapPass>(
+		swapChain_.Device(),
+		static_cast<uint32_t>(uniformBuffers_->size()),
+		std::move(settings));
+
+	CreateDescriptorSets(*uniformBuffers_, scene_);
+}
+
+const ShadowMapSettings& GameRenderer::GetShadowSettings() const
+{
+	return shadowMapPass_->Settings();
+}
+
+void GameRenderer::onTriggeredEvent(std::string eventName,
+									std::shared_ptr<Parameters> parameters)
+{
+	if (eventName == EventNames::ON_SHADOW_SETTINGS_CHANGED && parameters)
+	{
+		// Store the new settings and raise the pending flag.
+		// The ACTUAL Vulkan recreation is deferred to FlushPendingShadowReload(),
+		// which must be called between frames (before commandBuffers_->Begin) so
+		// that we never touch GPU resources while a command buffer is recording.
+		auto* rawSettings = static_cast<ShadowMapSettings*>(
+			parameters->getHandleData("settings", nullptr));
+		if (rawSettings)
+		{
+			pendingShadowSettings_ = *rawSettings;
+			pendingShadowReload_   = true;
+		}
+	}
+}
+
+void GameRenderer::FlushPendingShadowReload()
+{
+	if (!pendingShadowReload_) return;
+	pendingShadowReload_ = false;
+	ApplyShadowSettings(std::move(pendingShadowSettings_));
+}
+
+
 
 VkDescriptorSet GameRenderer::DescriptorSet(const uint32_t index) const
 {

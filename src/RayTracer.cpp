@@ -431,6 +431,13 @@ void RayTracer::DrawFrame()
 	rayScene_->Update(CommandPool());
 
 	ExecuteScheduledPick();
+
+	// Flush any deferred shadow-settings reload BEFORE the command buffer begins.
+	// This is the only safe point — GameRenderer::Render() is already inside
+	// commandBuffers_->Begin/End, so doing it there would invalidate in-flight resources.
+	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game && gameRenderer_)
+		gameRenderer_->FlushPendingShadowReload();
+
 	Application::DrawFrame();
 
 }

@@ -10,6 +10,7 @@
 #include "Engine/CameraSystem/Camera.h"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
+#include "Vulkan/Vk_Game/GameRenderer.hpp"
 
 #include <string>
 
@@ -43,6 +44,15 @@ void InspectorScreen::drawUI()
 	ImGui::Begin("Inspector", &enabled, UISettings::GlobalWindowFlags);
 
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
+
+	// Reset per-light shadow edit state whenever the selection changes.
+	static GameObject* lastSelected = nullptr;
+	if (this->selectedObject != lastSelected)
+	{
+		lastSelected             = this->selectedObject;
+		shadowEditInitialised_   = false;
+		shadowLightSlotIndex_    = 0;
+	}
 
 	if (this->selectedObject != nullptr)
 	{
@@ -107,6 +117,7 @@ void InspectorScreen::drawUI()
 
 		this->drawTransformTab();
 		this->drawLightTab();
+		this->drawShadowSettingsTab();
 		this->drawCameraTab();
 
 	}
@@ -248,6 +259,174 @@ void InspectorScreen::drawLightTab()
 	}
 
 	ImGui::EndTable();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shadow Settings Tab (directional lights only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+void InspectorScreen::drawShadowSettingsTab()
+{
+	// Only show for directional lights.
+	if (!selectedObject) return;
+	if (selectedObject->getType() != GameObject::PrimitiveType::DIRECTIONAL_LIGHT) return;
+
+	if (!ImGui::CollapsingHeader("Shadow Settings")) return;
+
+	// ── Fetch current global settings from GameRenderer ───────────────────────
+	// GameRenderer is reached via the event system: we read back settings through
+	// a Parameters handle round-trip.  However, for the read path we hold a local
+	// working copy (shadowLightEdit_) that is initialized once per selection and
+	// then kept in sync.
+	//
+	// To get the current global settings we broadcast a query — but that requires
+	// a two-way coupling.  Instead, we keep a self-contained working copy and let
+	// the user commit changes; on commit we broadcast ON_SHADOW_SETTINGS_CHANGED
+	// with the full merged settings object.
+
+	// ── Initialise working copy once per selection ────────────────────────────
+	if (!shadowEditInitialised_)
+	{
+		// Request current settings via a read-only broadcast (GameRenderer packs
+		// its current ShadowMapSettings as a void* "currentSettings" handle).
+		auto queryParams = std::make_shared<Parameters>("SHADOW_SETTINGS_QUERY");
+		// We broadcast a separate query event; GameRenderer stores the pointer in
+		// the same Parameters object it receives.  For simplicity, we reset the
+		// working copy to defaults and let the user adjust from there.
+		// (A true bidirectional query would need a callback / synchronous call.)
+		shadowLightEdit_       = Vulkan::Game::ShadowLightSettings{};
+		shadowEditInitialised_ = true;
+	}
+
+	// ── Light slot selector ───────────────────────────────────────────────────
+	ImGui::TextDisabled("Light slot index (0 = first directional light):");
+	ImGui::SetNextItemWidth(80.0f);
+	ImGui::InputInt("##SlotIdx", &shadowLightSlotIndex_);
+	shadowLightSlotIndex_ = std::clamp(
+		shadowLightSlotIndex_,
+		0,
+		static_cast<int>(Vulkan::Game::kMaxShadowLights) - 1);
+
+	ImGui::Separator();
+
+	// ── Resolution override ───────────────────────────────────────────────────
+	bool useResOverride = shadowLightEdit_.Resolution.has_value();
+	if (ImGui::Checkbox("Override Resolution##SRes", &useResOverride))
+	{
+		if (useResOverride) shadowLightEdit_.Resolution = 2048u;
+		else                shadowLightEdit_.Resolution.reset();
+	}
+	if (useResOverride)
+	{
+		ImGui::SameLine();
+		int res = static_cast<int>(*shadowLightEdit_.Resolution);
+		ImGui::SetNextItemWidth(120.0f);
+		if (ImGui::InputInt("##SResVal", &res, 128, 512))
+			shadowLightEdit_.Resolution = static_cast<uint32_t>(std::max(64, res));
+	}
+
+	// ── Depth bias overrides ──────────────────────────────────────────────────
+	ImGui::Spacing();
+	bool useBiasOverride = shadowLightEdit_.DepthBiasEnable.has_value();
+	if (ImGui::Checkbox("Override Depth Bias##SBias", &useBiasOverride))
+	{
+		if (useBiasOverride)
+		{
+			shadowLightEdit_.DepthBiasEnable         = true;
+			shadowLightEdit_.DepthBiasConstantFactor = 1.25f;
+			shadowLightEdit_.DepthBiasSlopeFactor    = 1.75f;
+			shadowLightEdit_.DepthBiasClamp          = 0.0f;
+		}
+		else
+		{
+			shadowLightEdit_.DepthBiasEnable.reset();
+			shadowLightEdit_.DepthBiasConstantFactor.reset();
+			shadowLightEdit_.DepthBiasSlopeFactor.reset();
+			shadowLightEdit_.DepthBiasClamp.reset();
+		}
+	}
+	if (useBiasOverride)
+	{
+		bool biasOn = *shadowLightEdit_.DepthBiasEnable;
+		if (ImGui::Checkbox("Bias Enabled##SBiasOn", &biasOn))
+			shadowLightEdit_.DepthBiasEnable = biasOn;
+
+		float constF = shadowLightEdit_.DepthBiasConstantFactor.value_or(1.25f);
+		ImGui::SetNextItemWidth(180.0f);
+		if (ImGui::SliderFloat("Constant Factor##SBiasConst", &constF, 0.0f, 10.0f, "%.3f"))
+			shadowLightEdit_.DepthBiasConstantFactor = constF;
+
+		float slopeF = shadowLightEdit_.DepthBiasSlopeFactor.value_or(1.75f);
+		ImGui::SetNextItemWidth(180.0f);
+		if (ImGui::SliderFloat("Slope Factor##SBiasSlope", &slopeF, 0.0f, 10.0f, "%.3f"))
+			shadowLightEdit_.DepthBiasSlopeFactor = slopeF;
+
+		float clampF = shadowLightEdit_.DepthBiasClamp.value_or(0.0f);
+		ImGui::SetNextItemWidth(180.0f);
+		if (ImGui::SliderFloat("Clamp##SBiasClamp", &clampF, 0.0f, 1.0f, "%.4f"))
+			shadowLightEdit_.DepthBiasClamp = clampF;
+	}
+
+	// ── Frustum / scene coverage overrides ───────────────────────────────────
+	ImGui::Spacing();
+	bool useMarginOverride = shadowLightEdit_.SceneMargin.has_value();
+	if (ImGui::Checkbox("Override Scene Margin##SMargin", &useMarginOverride))
+	{
+		if (useMarginOverride) shadowLightEdit_.SceneMargin = 100.0f;
+		else                   shadowLightEdit_.SceneMargin.reset();
+	}
+	if (useMarginOverride)
+	{
+		float margin = *shadowLightEdit_.SceneMargin;
+		ImGui::SetNextItemWidth(180.0f);
+		if (ImGui::DragFloat("Scene Margin##SMarginVal", &margin, 1.0f, 0.0f, 2000.0f, "%.1f"))
+			shadowLightEdit_.SceneMargin = margin;
+	}
+
+	bool useNearOverride = shadowLightEdit_.NearPlane.has_value();
+	if (ImGui::Checkbox("Override Near Plane##SNear", &useNearOverride))
+	{
+		if (useNearOverride) shadowLightEdit_.NearPlane = 0.1f;
+		else                 shadowLightEdit_.NearPlane.reset();
+	}
+	if (useNearOverride)
+	{
+		float nearP = *shadowLightEdit_.NearPlane;
+		ImGui::SetNextItemWidth(180.0f);
+		if (ImGui::DragFloat("Near Plane##SNearVal", &nearP, 0.01f, 0.001f, 100.0f, "%.3f"))
+			shadowLightEdit_.NearPlane = nearP;
+	}
+
+	// ── Apply button ──────────────────────────────────────────────────────────
+	ImGui::Spacing();
+	ImGui::Separator();
+	if (ImGui::Button("Apply Shadow Settings"))
+	{
+		// Build a heap-allocated ShadowMapSettings so the Parameters handle
+		// remains valid when GameRenderer::onTriggeredEvent() reads it.
+		// GameRenderer takes a copy and deletes nothing — ownership is ours.
+		// We broadcast synchronously so the pointer is valid for the duration.
+		static Vulkan::Game::ShadowMapSettings s_pendingSettings{};
+
+		// Grow / resize LightOverrides to cover the selected slot.
+		const auto slot = static_cast<size_t>(shadowLightSlotIndex_);
+		if (s_pendingSettings.LightOverrides.size() <= slot)
+			s_pendingSettings.LightOverrides.resize(slot + 1);
+
+		s_pendingSettings.LightOverrides[slot] = shadowLightEdit_;
+
+		auto params = std::make_shared<Parameters>(EventNames::ON_SHADOW_SETTINGS_CHANGED);
+		params->encodeHandle("settings", &s_pendingSettings);
+		EventBroadcaster::getInstance()->broadcastEventWithParams(
+			EventNames::ON_SHADOW_SETTINGS_CHANGED, params);
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("Reset Slot##SReset"))
+	{
+		shadowLightEdit_     = Vulkan::Game::ShadowLightSettings{};
+		shadowEditInitialised_ = false; // will re-init on next frame
+	}
 }
 
 void InspectorScreen::drawCameraTab()

@@ -1,11 +1,16 @@
 #pragma once
 
 #include "Vulkan/Vulkan.hpp"
+#include <cstdint>
 #include <optional>
 #include <vector>
 
 namespace Vulkan::Game
 {
+	/// Maximum number of directional lights that can cast shadows simultaneously.
+	/// Matches MAX_SHADOW_LIGHTS in shadow_vert.vert / game_frag.frag and
+	/// ShadowMapPass::kMaxShadowLights (kept in sync manually).
+	inline constexpr uint32_t kMaxShadowLights = 4;
 	// ─────────────────────────────────────────────────────────────────────────
 	/// @brief Optional per-light-slot overrides for ShadowMapSettings.
 	///

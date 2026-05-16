@@ -180,14 +180,12 @@ const Assets::Scene& scene)
 const VkClearValue clearDepth{ .depthStencil = { 1.0f, 0 } };
 
 VkRenderPassBeginInfo rpInfo{};
-rpInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-rpInfo.renderPass        = renderPass_;
-rpInfo.renderArea.offset = { 0, 0 };
-rpInfo.renderArea.extent = { settings_.Resolution, settings_.Resolution };
-rpInfo.clearValueCount   = 1;
-rpInfo.pClearValues      = &clearDepth;
+rpInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+rpInfo.renderPass      = renderPass_;
+rpInfo.clearValueCount = 1;
+rpInfo.pClearValues    = &clearDepth;
 
-// Viewport and scissor are set per-slot inside the loop (each slot may differ).
+// renderArea.extent is set per-slot inside the loop (resolution may differ).
 
 VkDescriptorSet ds = descriptorSetManager_->DescriptorSets().Handle(imageIndex);
 
@@ -203,7 +201,9 @@ auto& layer = layers_[li];
 TransitionDepthImage(commandBuffer, layer,
                      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-rpInfo.framebuffer = layer.Framebuffer;
+rpInfo.framebuffer      = layer.Framebuffer;
+rpInfo.renderArea.offset = { 0, 0 };
+rpInfo.renderArea.extent = { layer.Resolution, layer.Resolution };
 vkCmdBeginRenderPass(commandBuffer, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 // Only draw scene geometry for active light slots; inactive slots are
