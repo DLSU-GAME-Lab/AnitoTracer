@@ -114,6 +114,7 @@ void ModelManager::addObject(ModelManager::GameObjectPtr gameObject)
 	Debug::Log(message);
 
 	this->sceneGraph.push_back(std::move(gameObject));
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void ModelManager::addObjectAtIndex(GameObjectPtr gameObject, int index)
@@ -128,6 +129,7 @@ void ModelManager::addObjectAtIndex(GameObjectPtr gameObject, int index)
 	Debug::Log(message);
 
 	this->sceneGraph.insert(this->sceneGraph.begin() + idx, std::move(gameObject));
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
 void ModelManager::registerIfLight(GameObject* obj)
