@@ -23,6 +23,7 @@ namespace Vulkan
 namespace Vulkan::Game
 {
 	class ShadowMapPass;
+	class PointLightShadowPass;
 }
 
 namespace Vulkan::Game
@@ -105,7 +106,8 @@ namespace Vulkan::Game
 		void CreateFramebuffers();
 
 		// ── Owned Vulkan resources ──────────────────────────────────────────────
-		std::unique_ptr<ShadowMapPass>                shadowMapPass_;
+		std::unique_ptr<ShadowMapPass>           shadowMapPass_;
+		std::unique_ptr<PointLightShadowPass>   pointLightShadowPass_;
 		std::unique_ptr<Vulkan::RenderPass>           renderPass_;
 		std::unique_ptr<Vulkan::DescriptorSetManager> descriptorSetManager_;
 

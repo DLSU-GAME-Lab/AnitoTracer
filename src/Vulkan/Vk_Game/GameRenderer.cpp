@@ -1,5 +1,6 @@
 #include "GameRenderer.hpp"
 #include "ShadowMapPass.hpp"
+#include "PointLightShadowPass.hpp"
 
 #include <algorithm>
 
@@ -43,6 +44,9 @@ GameRenderer::GameRenderer(
 	shadowMapPass_ = std::make_unique<ShadowMapPass>(
 		swapChain.Device(),
 		static_cast<uint32_t>(uniformBuffers.size()));
+	pointLightShadowPass_ = std::make_unique<PointLightShadowPass>(
+		swapChain.Device(),
+		static_cast<uint32_t>(uniformBuffers.size()));
 	CreateDescriptorSets(uniformBuffers, scene);
 
 	EventBroadcaster::getInstance()->addObserver(
@@ -78,6 +82,7 @@ GameRenderer::~GameRenderer()
 
 	descriptorSetManager_.reset();
 	renderPass_.reset();
+	pointLightShadowPass_.reset();
 	shadowMapPass_.reset();
 }
 
@@ -143,9 +148,14 @@ VkDescriptorSet GameRenderer::DescriptorSet(const uint32_t index) const
 
 void GameRenderer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 {
-	// ── Shadow pass (depth-only, runs before the main forward pass) ─────────────
+	// ── Shadow passes (depth-only, runs before the main forward pass) ──────────
+	// Directional light shadows
 	shadowMapPass_->UpdateLightVP(imageIndex, scene_);
 	shadowMapPass_->Render(commandBuffer, imageIndex, scene_);
+
+	// Point light shadows (cubemaps)
+	pointLightShadowPass_->UpdateLightVP(imageIndex, scene_);
+	pointLightShadowPass_->Render(commandBuffer, imageIndex, scene_);
 
 	// ── Begin render pass ─────────────────────────────────────────────────────
 	std::array<VkClearValue, 2> clearValues{};
@@ -279,6 +289,16 @@ void GameRenderer::CreateDescriptorSets(
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		VK_SHADER_STAGE_FRAGMENT_BIT});
 
+	// binding 7 : point light shadow cubemaps (COMBINED_IMAGE_SAMPLER with compare, frag)
+	bindings.push_back({7, PointLightShadowPass::kMaxPointShadowLights,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 8 : PointShadowUBO (UNIFORM_BUFFER, frag — cubemap VP matrices)
+	bindings.push_back({8, 1,
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
 	descriptorSetManager_.reset(new DescriptorSetManager(device, bindings, uniformBuffers.size()));
 	auto& descriptorSets = descriptorSetManager_->DescriptorSets();
 
@@ -356,6 +376,31 @@ void GameRenderer::CreateDescriptorSets(
 		shadowUboInfo.offset = 0;
 		shadowUboInfo.range  = VK_WHOLE_SIZE;
 		writes.push_back(descriptorSets.Bind(i, 6, shadowUboInfo));
+
+		// Binding 7: point light shadow cubemaps — one sampler per point light slot
+		const std::vector<VkImageView> pointShadowViews = pointLightShadowPass_->PointShadowImageViews();
+		const VkSampler                pointShadowSampler = pointLightShadowPass_->PointShadowSampler();
+
+		std::vector<VkDescriptorImageInfo> pointShadowInfos;
+		pointShadowInfos.reserve(PointLightShadowPass::kMaxPointShadowLights);
+		for (uint32_t ps = 0; ps < PointLightShadowPass::kMaxPointShadowLights; ++ps)
+		{
+			VkDescriptorImageInfo psi{};
+			psi.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			psi.imageView   = pointShadowViews[ps]; // all slots are always valid
+			psi.sampler     = pointShadowSampler;
+			pointShadowInfos.push_back(psi);
+		}
+		writes.push_back(descriptorSets.Bind(i, 7,
+			*pointShadowInfos.data(),
+			static_cast<uint32_t>(pointShadowInfos.size())));
+
+		// Binding 8: PointShadowUBO (point light cubemap VP matrices, fragment stage)
+		VkDescriptorBufferInfo pointShadowUboInfo{};
+		pointShadowUboInfo.buffer = pointLightShadowPass_->PointLightVPBuffer(i).Handle();
+		pointShadowUboInfo.offset = 0;
+		pointShadowUboInfo.range  = VK_WHOLE_SIZE;
+		writes.push_back(descriptorSets.Bind(i, 8, pointShadowUboInfo));
 
 		descriptorSets.UpdateDescriptors(i, writes);
 	}

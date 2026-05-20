@@ -70,6 +70,20 @@ layout(binding = 6) uniform ShadowUBO
 	uint Count;
 } shadowUBO;
 
+// ── Point light shadow maps (binding 7): cubemap shadows with PCF compare ─────
+#define MAX_POINT_SHADOW_LIGHTS 4
+layout(binding = 7) uniform samplerCubeShadow pointShadowMaps[MAX_POINT_SHADOW_LIGHTS];
+
+// ── Point shadow UBO (binding 8): cubemap VP matrices + light positions + count
+layout(binding = 8) uniform PointShadowUBO
+{
+	mat4  CubemapViewProj[MAX_POINT_SHADOW_LIGHTS * 6];  // 6 VP matrices per light
+	vec4  LightPositions[MAX_POINT_SHADOW_LIGHTS];       // Light positions (world-space)
+	uint  Count;                                          // Number of active point lights
+	float FarPlane;                                       // Far plane used for linear depth encoding
+	float _pad[2];
+} pointShadowUBO;
+
 // ── Inputs from vertex shader ─────────────────────────────────────────────────
 layout(location = 0) in vec3  inWorldPos;
 layout(location = 1) in vec3  inNormal;
@@ -202,6 +216,32 @@ float SampleShadowPCF(uint shadowIdx, vec3 worldPos)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Point Light Cubemap Shadow — linear depth compare
+// ─────────────────────────────────────────────────────────────────────────────
+/// @brief Sample point light shadow using cubemap.
+///   pointIdx : index into pointShadowMaps[] and pointShadowUBO
+///   worldPos : fragment world-space position
+///   Returns 1.0 = fully lit, 0.0 = fully in shadow
+float SamplePointLightShadow(uint pointIdx, vec3 worldPos)
+{
+	vec3  lightPos   = pointShadowUBO.LightPositions[pointIdx].xyz;
+	vec3  toFragment = worldPos - lightPos;
+
+	// Linear reference depth — matches what point_shadow_frag.frag writes
+	// (dist / FarPlane).  A small world-space bias is subtracted so the
+	// surface doesn't shadow itself (avoids self-shadow acne).
+	const float kBiasWorld = 1.5;        // world-space units; tune if needed
+	float ref = (length(toFragment) - kBiasWorld) / pointShadowUBO.FarPlane;
+	ref = max(ref, 0.0);                  // clamp: never negative
+
+	// texture(samplerCubeShadow, vec4(dir, ref)):
+	//   dir selects the cubemap face + UV
+	//   ref is compared against the stored depth via the sampler compare op
+	//   returns 1.0 = lit  (ref < stored depth),  0.0 = in shadow
+	return texture(pointShadowMaps[pointIdx], vec4(toFragment, ref));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Derive PBR parameters from the Material enum
 // ─────────────────────────────────────────────────────────────────────────────
 void MaterialToPBR(in Material mat, in vec3 texSample,
@@ -268,7 +308,8 @@ void main()
 
 	// shadowIdx tracks which shadow map slot corresponds to the current
 	// directional light — increments once per directional light encountered.
-	uint shadowIdx = 0;
+	uint shadowIdx      = 0;
+	uint pointShadowIdx = 0;
 
 	for (uint i = 0; i < lightCount; ++i)
 	{
@@ -296,14 +337,19 @@ void main()
 			attenuation    = (theta > cutoff) ? (1.0 / max(dist * dist, 0.0001)) : 0.0;
 		}
 
-		// PCF shadow modulation: each directional light has its own shadow map slot.
-		// Other light types cast no shadows (point / spot shadows not implemented).
+		// Shadow modulation: directional lights use 2D PCF, point lights use cubemap
 		float shadowFactor = 1.0;
 		if (light.LightType == 1u)
 		{
 			if (shadowIdx < shadowUBO.Count)
 				shadowFactor = SampleShadowPCF(shadowIdx, inWorldPos);
 			++shadowIdx;
+		}
+		else if (light.LightType == 0u)
+		{
+			if (pointShadowIdx < pointShadowUBO.Count)
+				shadowFactor = SamplePointLightShadow(pointShadowIdx, inWorldPos);
+			++pointShadowIdx;
 		}
 
 		float intensity   = light.LightColor.a;

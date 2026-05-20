@@ -390,8 +390,24 @@ void RayTracer::DrawFrame()
 	//If user edited a certain model
 	if (this->isSceneDirty)
 	{
-		Debug::Log("Scene dirty, reloading scene");
 		this->isSceneDirty = false;
+
+		if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game)
+		{
+			// In Game mode we don't use acceleration structures and the swap chain
+			// doesn't depend on scene geometry — just update the scene data and
+			// recreate the renderer so it picks up the new vertex/light buffers.
+			Debug::Log("Scene dirty (Game mode), reloading scene data");
+			Device().WaitIdle();
+			gameRenderer_.reset();
+			ReloadModifiedScene();
+			gameRenderer_.reset(new Vulkan::Game::GameRenderer(
+				SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
+			Debug::Log("Game Renderer reloaded");
+			return;
+		}
+
+		Debug::Log("Scene dirty, reloading scene");
 		Device().WaitIdle();
 		DeleteSwapChainWithoutUI();
 		DeleteAccelerationStructures();
