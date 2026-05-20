@@ -64,411 +64,395 @@ namespace Assets {
 		std::cout << "- loading '" << filename << "'... " << std::flush;
 
 		const auto timer = std::chrono::high_resolution_clock::now();
-		const std::string materialPath = std::filesystem::path(filename).parent_path().string();
+		const std::string materialPath =
+			std::filesystem::path(filename).parent_path().string();
 
-		Assimp::Importer objectImporter;
-		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
-			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_Triangulate |
-			aiProcess_GenUVCoords | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs | 0);
-		// read file and return an aiScene containing model attributes
+		Assimp::Importer importer;
 
-		if (scene == nullptr)
+		// Keep postprocess flags conservative first
+		const aiScene* scene = importer.ReadFile(
+			filename,
+			aiProcess_Triangulate |
+			aiProcess_GenSmoothNormals |
+			aiProcess_CalcTangentSpace |
+			aiProcess_JoinIdenticalVertices |
+			aiProcess_FlipUVs
+		);
+
+		if (!scene || !scene->HasMeshes())
 		{
-			Throw(std::runtime_error("failed to load model '" + filename + "':\n" + objectImporter.GetErrorString()));
+			Throw(std::runtime_error(
+				"failed to load model '" + filename + "':\n" +
+				importer.GetErrorString()));
 		}
-		std::string name;
-		int totalvertices = 0;
 
-		for (int i = 0; i < scene->mNumMeshes; i++)
-		{
-			totalvertices += scene->mMeshes[i]->mNumVertices;
-		}
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
-		std::unordered_map<Vertex, uint32_t> uniqueVertices(totalvertices);
-		size_t faceId = 0;
+		std::string name = scene->mName.C_Str();
+		if (name.empty())
+			name = "Imported Object";
 
-		//instantiate all materials 
-		//Materials and Texture
+		// Materials
 		std::vector<Material> materials;
-		aiColor4D diffuse;
-		Material material{};
-		for (int i = 0; i < scene->mNumMaterials; i++)
+
+		for (unsigned int i = 0; i < scene->mNumMaterials; ++i)
 		{
-			if (AI_SUCCESS != scene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse))
+			Material material{};
+
+			aiMaterial* aiMat = scene->mMaterials[i];
+
+			aiColor4D diffuse;
+			if (AI_SUCCESS == aiMat->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse))
 			{
-
-				material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
-				material.DiffuseTextureId = -1;
-
-				std::cout << "No Texture in Mesh!" << std::endl;
-
+				material.Diffuse =
+				{
+					diffuse.r,
+					diffuse.g,
+					diffuse.b,
+					diffuse.a
+				};
 			}
 			else
 			{
-				material.Diffuse = vec4(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
+				material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0f);
+			}
 
-				//diffuse/albedo
-				int texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_DIFFUSE);
+			material.DiffuseTextureId = -1;
 
-				if (texcount > 0) {
-					aiString texture_file;
-					scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0), texture_file);
-					std::string texName = scene->mMaterials[i]->GetName().C_Str();
+			if (aiMat->GetTextureCount(aiTextureType_DIFFUSE) > 0)
+			{
+				aiString textureFile;
+
+				if (aiMat->GetTexture(aiTextureType_DIFFUSE, 0, &textureFile) == AI_SUCCESS)
+				{
+					std::string texPath = materialPath + "/" + textureFile.C_Str();
+					std::string texName = textureFile.C_Str();
+
 					if (!TextureLibrary::getInstance()->doesTextureExist(texName))
 					{
-						TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
+						TextureLibrary::getInstance()->addTexture(texName, texPath);
 						std::cout << "Initialized Texture " << texName << std::endl;
 					}
 
-					material.DiffuseTextureId = TextureLibrary::getInstance()->getTextureId(texName);
+					material.DiffuseTextureId =
+						TextureLibrary::getInstance()->getTextureId(texName);
+				}
+			}
 
+			materials.push_back(material);
+		}
+
+		// Geometry
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
+
+		vertices.reserve(100000);
+		indices.reserve(100000);
+
+		uint32_t baseVertex = 0;
+
+		for (unsigned int m = 0; m < scene->mNumMeshes; ++m)
+		{
+			aiMesh* mesh = scene->mMeshes[m];
+
+			// Copy vertices ONCE
+			for (unsigned int v = 0; v < mesh->mNumVertices; ++v)
+			{
+				Vertex vertex{};
+
+				// Position
+				vertex.Position =
+				{
+					mesh->mVertices[v].x,
+					mesh->mVertices[v].y,
+					mesh->mVertices[v].z
+				};
+
+				// Normal
+				if (mesh->HasNormals())
+				{
+					vertex.Normal =
+					{
+						mesh->mNormals[v].x,
+						mesh->mNormals[v].y,
+						mesh->mNormals[v].z
+					};
 				}
 				else
 				{
-					//material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
-					material.DiffuseTextureId = -1;
+					vertex.Normal = vec3(0.0f, 1.0f, 0.0f);
 				}
 
-
-				////Normal Map
-				//texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_NORMALS);
-
-				//if (texcount > 0) {
-				//	aiString texture_file;
-				//	scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_NORMALS, 0), texture_file);
-				//	std::string texName = scene->mMaterials[i]->GetName().C_Str();
-				//	if (!TextureLibrary::getInstance()->doesTextureExist(texName))
-				//	{
-				//		TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
-				//		std::cout << "Initialized Texture " << texName << std::endl;
-				//	}
-
-				//	material.NormalTextureId = TextureLibrary::getInstance()->getTextureId(texName);
-
-				//}
-				//else
-				//{
-				//	//material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
-				//	material.NormalTextureId = -1;
-				//}
-
-				////Metallic Map
-				//texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_METALNESS);
-
-				//if (texcount > 0) {
-				//	aiString texture_file;
-				//	scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_METALNESS, 0), texture_file);
-				//	std::string texName = scene->mMaterials[i]->GetName().C_Str();
-				//	if (!TextureLibrary::getInstance()->doesTextureExist(texName))
-				//	{
-				//		TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
-				//		std::cout << "Initialized Texture " << texName << std::endl;
-				//	}
-
-				//	material.MetallicTextureId = TextureLibrary::getInstance()->getTextureId(texName);
-
-				//}
-				//else
-				//{
-				//	//material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
-				//	material.MetallicTextureId = -1;
-				//}
-
-
-				////Metallic Map
-				//texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS);
-
-				//if (texcount > 0) {
-				//	aiString texture_file;
-				//	scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE_ROUGHNESS, 0), texture_file);
-				//	std::string texName = scene->mMaterials[i]->GetName().C_Str();
-				//	if (!TextureLibrary::getInstance()->doesTextureExist(texName))
-				//	{
-				//		TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
-				//		std::cout << "Initialized Texture " << texName << std::endl;
-				//	}
-
-				//	material.RoughTextureId = TextureLibrary::getInstance()->getTextureId(texName);
-
-				//}
-				//else
-				//{
-				//	//material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
-				//	material.RoughTextureId = -1;
-				//}
-			}
-
-			materials.emplace_back(material);
-		}
-
-		for (int m = 0; m < scene->mNumMeshes; m++)
-		{
-
-			// Geometry
-			for (int f = 0; f < scene->mMeshes[m]->mNumFaces; f++)
-			{
-
-				for (int i = 0; i < scene->mMeshes[m]->mFaces[f].mNumIndices; i++)
+				// UV
+				if (mesh->HasTextureCoords(0))
 				{
-
-					Vertex vertex = {};
-					int v = scene->mMeshes[m]->mFaces[f].mIndices[i];
-
-					vertex.Position =
+					vertex.TexCoord =
 					{
-						scene->mMeshes[m]->mVertices[v].x,
-						scene->mMeshes[m]->mVertices[v].y,
-						scene->mMeshes[m]->mVertices[v].z,
+						mesh->mTextureCoords[0][v].x,
+						mesh->mTextureCoords[0][v].y
 					};
-
-					if (scene->mMeshes[m]->HasNormals())
-					{
-						vertex.Normal =
-						{
-							scene->mMeshes[m]->mNormals[v].x,
-							scene->mMeshes[m]->mNormals[v].y,
-							scene->mMeshes[m]->mNormals[v].z,
-						};
-					}
-					else
-					{
-						vertex.Normal =
-						{
-							scene->mMeshes[m]->mVertices[v].Normalize().x,
-							scene->mMeshes[m]->mVertices[v].Normalize().y,
-							scene->mMeshes[m]->mVertices[v].Normalize().z,
-						};
-					}
-
-					if (scene->mMeshes[m]->HasTextureCoords(0))
-					{
-						vertex.TexCoord =
-						{
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].x,
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].y
-						};
-					}
-
-					//vertex.MaterialIndex = std::max(0, mesh.material_ids[faceId++ / 3]);
-
-					vertex.MaterialIndex = scene->mMeshes[m]->mMaterialIndex;
-
-					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-					vertices.push_back(vertex);
-
-
-					indices.push_back(uniqueVertices[vertex]);
+				}
+				else
+				{
+					vertex.TexCoord = vec2(0.0f);
 				}
 
+				// Material
+				vertex.MaterialIndex = mesh->mMaterialIndex;
+
+				vertices.push_back(vertex);
 			}
-			name = scene->mName.C_Str();
-			if (name == "")
-				name = "Imported Object";
+
+			// Copy indices directly
+			for (unsigned int f = 0; f < mesh->mNumFaces; ++f)
+			{
+				const aiFace& face = mesh->mFaces[f];
+
+				// aiProcess_Triangulate guarantees triangles
+				if (face.mNumIndices != 3)
+					continue;
+
+				indices.push_back(baseVertex + face.mIndices[0]);
+				indices.push_back(baseVertex + face.mIndices[1]);
+				indices.push_back(baseVertex + face.mIndices[2]);
+			}
+
+			baseVertex += mesh->mNumVertices;
 		}
 
-
-		//// --- Centering the model at (0,0,0) ---
-		//// Compute bounding box (min and max points)
+		// Center model
 		vec3 minPos(FLT_MAX);
 		vec3 maxPos(-FLT_MAX);
+
 		for (const auto& vertex : vertices)
 		{
 			minPos = glm::min(minPos, vertex.Position);
 			maxPos = glm::max(maxPos, vertex.Position);
 		}
+
 		vec3 center = (minPos + maxPos) * 0.5f;
 
-		// Shift all vertices so that the model is centered at the origin.
 		for (auto& vertex : vertices)
 		{
 			vertex.Position -= center;
 		}
-		//// --- End centering ---
 
-		const auto elapsed = std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - timer).count();
+		// Debug info
+		const auto elapsed =
+			std::chrono::duration<float>(
+				std::chrono::high_resolution_clock::now() - timer
+			).count();
 
-		std::cout << "(" << totalvertices << " vertices, " << uniqueVertices.size() << " unique vertices, " << materials.size() << " materials) ";
-		std::cout << elapsed << "s" << std::endl;
+		std::cout
+			<< vertices.size() << " verts, "
+			<< indices.size() / 3 << " tris, "
+			<< materials.size() << " mats, "
+			<< elapsed << "s"
+			<< std::endl;
 
-		Model model = Model(name, std::move(vertices), std::move(indices), std::move(materials), nullptr);
+		// Create model
+		Model model(
+			name,
+			std::move(vertices),
+			std::move(indices),
+			std::move(materials),
+			nullptr
+		);
+
 		model.filepath = filename;
 
 		return model;
 	}
-
 
 	std::vector<Model> Model::LoadModelGroup(const std::string& filename)
 	{
 		std::cout << "- loading '" << filename << "'... " << std::flush;
 
 		const auto timer = std::chrono::high_resolution_clock::now();
-		const std::string materialPath = std::filesystem::path(filename).parent_path().string();
-
-		Assimp::Importer objectImporter;
+		const std::string materialPath =
+			std::filesystem::path(filename).parent_path().string();
 		std::vector<Model> models;
 
-		const aiScene* scene = objectImporter.ReadFile(filename, aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices |
-			aiProcess_ImproveCacheLocality | aiProcess_LimitBoneWeights | aiProcess_SplitLargeMeshes | aiProcess_Triangulate |
-			aiProcess_GenUVCoords | aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_ValidateDataStructure | aiProcess_FlipUVs | 0); //read file and return an aiScene containing model attributes
+		Assimp::Importer importer;
 
+		// Keep postprocess flags conservative first
+		const aiScene* scene = importer.ReadFile(
+			filename,
+			aiProcess_Triangulate |
+			aiProcess_GenSmoothNormals |
+			aiProcess_CalcTangentSpace |
+			aiProcess_JoinIdenticalVertices |
+			aiProcess_FlipUVs
+		);
 
-		if (scene == nullptr)
+		if (!scene || !scene->HasMeshes())
 		{
-			Throw(std::runtime_error("failed to load model '" + filename + "':\n" + objectImporter.GetErrorString()));
+			Throw(std::runtime_error(
+				"failed to load model '" + filename + "':\n" +
+				importer.GetErrorString()));
 		}
 
-		std::string name = "";
-		int totalvertices = 0;
-		size_t faceId = 0;
-		int texlibcount = TextureLibrary::getInstance()->getTextureLibraryList().size() - 1;
-
-
-		//instantiate all materials 
-		//Materials and Texture
+		// Materials
 		std::vector<Material> materials;
-		aiColor4D diffuse;
-		Material material{};
-		for (int i = 0; i < scene->mNumMaterials; i++) 
+
+		for (unsigned int i = 0; i < scene->mNumMaterials; ++i)
 		{
-			if (AI_SUCCESS != scene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse))
+			Material material{};
+
+			aiMaterial* aiMat = scene->mMaterials[i];
+
+			aiColor4D diffuse;
+			if (AI_SUCCESS == aiMat->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse))
 			{
-
-				material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
-				material.DiffuseTextureId = -1;
-
-				std::cout << "No Texture in Mesh!" << std::endl;
-
+				material.Diffuse =
+				{
+					diffuse.r,
+					diffuse.g,
+					diffuse.b,
+					diffuse.a
+				};
 			}
 			else
 			{
-				material.Diffuse = vec4(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
+				material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0f);
+			}
 
-				int texcount = scene->mMaterials[i]->GetTextureCount(aiTextureType_DIFFUSE);
+			material.DiffuseTextureId = -1;
 
-				if (texcount > 0) {
-					aiString texture_file;
-					scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0), texture_file);
-					std::string texName = scene->mMaterials[i]->GetName().C_Str();
+			if (aiMat->GetTextureCount(aiTextureType_DIFFUSE) > 0)
+			{
+				aiString textureFile;
+
+				if (aiMat->GetTexture(aiTextureType_DIFFUSE, 0, &textureFile) == AI_SUCCESS)
+				{
+					std::string texPath = materialPath + "/" + textureFile.C_Str();
+					std::string texName = textureFile.C_Str();
+
 					if (!TextureLibrary::getInstance()->doesTextureExist(texName))
 					{
-						TextureLibrary::getInstance()->addTexture(texName, materialPath + "/" + texture_file.C_Str());
+						TextureLibrary::getInstance()->addTexture(texName, texPath);
 						std::cout << "Initialized Texture " << texName << std::endl;
 					}
 
-					material.DiffuseTextureId = TextureLibrary::getInstance()->getTextureId(texName);
+					material.DiffuseTextureId =
+						TextureLibrary::getInstance()->getTextureId(texName);
+				}
+			}
 
+			materials.push_back(material);
+		}
+
+		// Geometry
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
+
+		vertices.reserve(100000);
+		indices.reserve(100000);
+
+		uint32_t baseVertex = 0;
+
+		for (unsigned int m = 0; m < scene->mNumMeshes; ++m)
+		{
+			aiMesh* mesh = scene->mMeshes[m];
+
+			std::string name = scene->mName.C_Str();
+			if (name.empty())
+				name = "Imported Object";
+			else
+				name += "_" + std::to_string(m);
+		
+
+			// Copy vertices ONCE
+			for (unsigned int v = 0; v < mesh->mNumVertices; ++v)
+			{
+				Vertex vertex{};
+
+				// Position
+				vertex.Position =
+				{
+					mesh->mVertices[v].x,
+					mesh->mVertices[v].y,
+					mesh->mVertices[v].z
+				};
+
+				// Normal
+				if (mesh->HasNormals())
+				{
+					vertex.Normal =
+					{
+						mesh->mNormals[v].x,
+						mesh->mNormals[v].y,
+						mesh->mNormals[v].z
+					};
 				}
 				else
 				{
-					//material.Diffuse = vec4(0.7f, 0.7f, 0.7f, 1.0);
-					material.DiffuseTextureId = -1;
+					vertex.Normal = vec3(0.0f, 1.0f, 0.0f);
 				}
 
-
-			}
-
-			materials.emplace_back(material);
-		}
-
-		for (int m = 0; m < scene->mNumMeshes; m++)
-		{
-			name = scene->mMeshes[m]->mName.C_Str();
-			std::vector<Material> meshMaterials = materials;
-			std::vector<Vertex> vertices;
-			std::vector<uint32_t> indices;
-			std::unordered_map<Vertex, uint32_t> uniqueVertices(scene->mMeshes[m]->mNumVertices);
-
-			//faces
-			for (int f = 0; f < scene->mMeshes[m]->mNumFaces; f++) {
-
-				for (int i = 0; i < scene->mMeshes[m]->mFaces[f].mNumIndices; i++)
+				// UV
+				if (mesh->HasTextureCoords(0))
 				{
-
-					Vertex vertex = {};
-					int v = scene->mMeshes[m]->mFaces[f].mIndices[i];
-
-					vertex.Position =
+					vertex.TexCoord =
 					{
-						scene->mMeshes[m]->mVertices[v].x,
-						scene->mMeshes[m]->mVertices[v].y,
-						scene->mMeshes[m]->mVertices[v].z,
+						mesh->mTextureCoords[0][v].x,
+						mesh->mTextureCoords[0][v].y
 					};
-
-					if (scene->mMeshes[m]->HasNormals())
-					{
-						vertex.Normal =
-						{
-							scene->mMeshes[m]->mNormals[v].x,
-							scene->mMeshes[m]->mNormals[v].y,
-							scene->mMeshes[m]->mNormals[v].z,
-						};
-					}
-					else
-					{
-						vertex.Normal =
-						{
-							scene->mMeshes[m]->mVertices[v].Normalize().x,
-							scene->mMeshes[m]->mVertices[v].Normalize().y,
-							scene->mMeshes[m]->mVertices[v].Normalize().z,
-						};
-					}
-
-					if (scene->mMeshes[m]->HasTextureCoords(0))
-					{
-						vertex.TexCoord =
-						{
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].x,
-							(float)scene->mMeshes[m]->mTextureCoords[0][v].y
-						};
-					}
-
-					//vertex.MaterialIndex = std::max(0, mesh.material_ids[faceId++ / 3]);
-
-					vertex.MaterialIndex = scene->mMeshes[m]->mMaterialIndex;
-
-					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-					vertices.push_back(vertex);
-
-
-					indices.push_back(uniqueVertices[vertex]);
+				}
+				else
+				{
+					vertex.TexCoord = vec2(0.0f);
 				}
 
+				// Material
+				vertex.MaterialIndex = mesh->mMaterialIndex;
+
+				vertices.push_back(vertex);
 			}
 
-			if (name == "")
-				name = "Object_" + m;
+			// Copy indices directly
+			for (unsigned int f = 0; f < mesh->mNumFaces; ++f)
+			{
+				const aiFace& face = mesh->mFaces[f];
 
-			//// --- Centering the model at (0,0,0) ---
-			//// Compute bounding box (min and max points)
-			//vec3 minPos(FLT_MAX);
-			//vec3 maxPos(-FLT_MAX);
-			//for (const auto& vertex : vertices)
-			//{
-			//	minPos = glm::min(minPos, vertex.Position);
-			//	maxPos = glm::max(maxPos, vertex.Position);
-			//}
-			//vec3 center = (minPos + maxPos) * 0.5f;
+				// aiProcess_Triangulate guarantees triangles
+				if (face.mNumIndices != 3)
+					continue;
 
-			//// Shift all vertices so that the model is centered at the origin.
-			//for (auto& vertex : vertices)
-			//{
-			//	vertex.Position -= center;
-			//}
-			//// --- End centering ---
+				indices.push_back(baseVertex + face.mIndices[0]);
+				indices.push_back(baseVertex + face.mIndices[1]);
+				indices.push_back(baseVertex + face.mIndices[2]);
+			}
 
+			baseVertex += mesh->mNumVertices;
 
-			Model model = Model(name, std::move(vertices), std::move(indices), std::move(meshMaterials), nullptr);
+			// Create model
+			Model model(
+				name,
+				std::move(vertices),
+				std::move(indices),
+				std::move(materials),
+				nullptr
+			);
+
 			model.filepath = filename;
-			models.push_back(model);
+
+			models.push_back(std::move(model));
 		}
 
-		const auto elapsed = std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - timer).count();
+		// Debug info
+		const auto elapsed =
+			std::chrono::duration<float>(
+				std::chrono::high_resolution_clock::now() - timer
+			).count();
 
-		//std::cout << "(" << totalvertices << " vertices, " << uniqueVertices.size() << " unique vertices, " << materials.size() << " materials) ";
-		//std::cout << elapsed << "s" << std::endl;
+		std::cout
+			<< models.size() << " models, "
+			<< vertices.size() << " verts, "
+			<< indices.size() / 3 << " tris, "
+			<< materials.size() << " mats, "
+			<< elapsed << "s"
+			<< std::endl;
 
-		objectImporter.FreeScene();
+		importer.FreeScene();
 		return models;
 }
 
