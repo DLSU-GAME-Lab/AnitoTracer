@@ -1,5 +1,5 @@
 #include "SettingsScreen.h"
-
+#include "../src/Engine/CameraSystem/CameraManager.h"
 #include "SceneList.hpp"
 #include "UIManager.h"
 
@@ -115,6 +115,11 @@ void SettingsScreen::drawUI()
 
 		// ── Camera (shown for all modes) ───────────────────────────────────────
 		ImGui::Text("Camera");
+		ImGui::Separator();
+		if (ImGui::Checkbox("Right Click to Move Camera", &settings->rightClickToMoveCamera))
+		{
+			CameraManager::getInstance()->getActiveCamera()->setRightClickToMoveCamera(settings->rightClickToMoveCamera);
+		}
 		ImGui::Separator();
 		ImGui::SliderFloat("FoV", &settings->FieldOfView, UserSettings::FieldOfViewMinValue, UserSettings::FieldOfViewMaxValue, "%.0f");
 		ImGui::SliderFloat("Aperture", &settings->Aperture, 0.0f, 1.0f, "%.2f");

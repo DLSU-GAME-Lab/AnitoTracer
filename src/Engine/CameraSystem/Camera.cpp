@@ -118,6 +118,7 @@ bool Camera::OnCursorPosition(const double xpos, const double ypos)
 	mousePosX_ = xpos;
 	mousePosY_ = ypos;
 
+
 	return m_currentMode != NONE;
 }
 
@@ -208,15 +209,17 @@ void Camera::OnActionPressed(Hotkey::Action action)
 		m_currentMode = ORBIT;
 	}
 
-	if (m_currentMode == FPS)
+	if (m_currentMode == FPS || !rightClickToMoveCamera)
 	{
 		if (action == Hotkey::Action::Camera_Forward)
 		{
+			Debug::Log("Camera Forward Pressed \n");
 			cameraMovingForward_ = true;
 		}
 
 		if (action == Hotkey::Action::Camera_Backward)
 		{
+			Debug::Log("Camera Backward Pressed \n");
 			cameraMovingBackward_ = true;
 		}
 
@@ -232,11 +235,13 @@ void Camera::OnActionPressed(Hotkey::Action action)
 
 		if (action == Hotkey::Action::Camera_StrafeLeft)
 		{
+			Debug::Log("Camera Left Pressed \n");
 			cameraMovingLeft_ = true;
 		}
 
 		if (action == Hotkey::Action::Camera_StrafeRight)
 		{
+			Debug::Log("Camera Right Pressed \n");
 			cameraMovingRight_ = true;
 		}
 
@@ -249,6 +254,8 @@ void Camera::OnActionPressed(Hotkey::Action action)
 		{
 			camSlowed = true;
 		}
+
+
 	}
 
 	if (action == Hotkey::Action::Camera_MoveObjectToView)
