@@ -676,16 +676,19 @@ void PointLightShadowPass::ComputeCubemapVP(
 		rs.NearPlane,
 		rs.FarPlane);
 
-	// Flip Y for Vulkan (Y-down NDC)
-	glm::mat4 projVulkan = proj;
-	projVulkan[1][1] *= -1.0f;
+	// NOTE: Do NOT flip Y for Vulkan here.
+	// Shadow cubemaps are sampled by a direction vector via samplerCubeShadow,
+	// which uses OpenGL cubemap conventions (Y-up). Flipping Y would mirror
+	// each face vertically in memory, causing the sampler to fetch the depth
+	// for the reflected direction and producing an upside-down shadow.
+	// The Y-flip is only needed when rendering to the swapchain for display.
 
 	// Compute view-projection for each face
 	for (uint32_t face = 0; face < 6; ++face)
 	{
 		const glm::vec3 target = lightPos + directions[face];
 		const glm::mat4 view = glm::lookAt(lightPos, target, ups[face]);
-		outVP[face] = projVulkan * view;
+		outVP[face] = proj * view;
 	}
 }
 
