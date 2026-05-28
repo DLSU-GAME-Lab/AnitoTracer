@@ -60,6 +60,7 @@ private:
 	template<typename T>
 	std::vector<unsigned char> ObjectToBytes(const T& object)
 	{
+		std::cout << "Converting object of type " << typeid(T).name() << " to bytes..." << std::endl;
 		std::vector<unsigned char> bytes(sizeof(T));
 
 		std::memcpy(bytes.data(), &object, sizeof(T));
@@ -71,6 +72,7 @@ private:
 	template<typename T>
 	T BytesToObject(const std::vector<unsigned char>& bytes)
 	{
+		std::cout << "Converting bytes to object of type " << typeid(T).name() << "..." << std::endl;
 		if (bytes.size() != sizeof(T))
 		{
 			throw std::runtime_error("Byte size does not match object size.");
@@ -178,12 +180,7 @@ public:
 				objJson["materials"] = json::array();
 				for (Assets::Material mat : modelRef->materials_) {
 					json matJson;
-					matJson["diffuse"] = { mat.Diffuse.x, mat.Diffuse.y, mat.Diffuse.z, mat.Diffuse.a };
-					matJson["diffuseTextureId"] = mat.DiffuseTextureId;
-					matJson["fuzziness"] = mat.Fuzziness;
-					matJson["refractionIndex"] = mat.RefractionIndex;
-					matJson["model"] = mat.MaterialModel;
-					objJson["materials"].push_back(matJson);
+					matJson["materialData"] = ObjectToBytes(mat);
 				}
 			}
 			// Parenting
@@ -311,12 +308,7 @@ public:
 		// 2. Set materials.
 		std::vector<Assets::Material> materials;
 		for (json mat : obj["materials"]) {
-			Assets::Material material;
-			material.Diffuse = glm::vec4(mat["diffuse"][0], mat["diffuse"][1], mat["diffuse"][2], mat["diffuse"][3]);
-			material.DiffuseTextureId = mat["diffuseTextureId"];
-			material.Fuzziness = mat["fuzziness"];
-			material.RefractionIndex = mat["refractionIndex"];
-			material.MaterialModel = mat["model"];
+			Assets::Material material = BytesToObject<Assets::Material>(mat["materialData"]);
 
 			materials.push_back(material);
 		}
