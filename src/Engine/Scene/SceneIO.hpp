@@ -5,6 +5,9 @@
 #include <fstream>
 #include <filesystem>
 #include <string>
+#include <cstring>
+#include <stdexcept>
+
 #include <nlohmann/json.hpp>
 
 #include "Utilities/FileUtils.h"
@@ -51,6 +54,33 @@ private:
 		else {
 			std::cerr << "Error opening file for writing" << std::endl;
 		}
+	}
+
+
+	template<typename T>
+	std::vector<unsigned char> ObjectToBytes(const T& object)
+	{
+		std::vector<unsigned char> bytes(sizeof(T));
+
+		std::memcpy(bytes.data(), &object, sizeof(T));
+
+		return bytes;
+	}
+
+
+	template<typename T>
+	T BytesToObject(const std::vector<unsigned char>& bytes)
+	{
+		if (bytes.size() != sizeof(T))
+		{
+			throw std::runtime_error("Byte size does not match object size.");
+		}
+
+		T object;
+
+		std::memcpy(&object, bytes.data(), sizeof(T));
+
+		return object;
 	}
 
 	std::string ModelToString(std::string filename)
@@ -129,19 +159,9 @@ public:
 			std::shared_ptr<Assets::Model> modelRef = obj->getModel();
 
 			// Mesh
-			if (modelRef) {
-				if (obj->getType() == GameObject::PrimitiveType::MESH) 
-				{
-					objJson["meshData"] = ModelToString(modelRef->FilePath());
-					objJson["modelPath"] = modelRef->FilePath();
-				}
-				else
-				{
-					objJson["meshData"] = "";
-					objJson["modelPath"] = "";
-				}
-					
-			}
+			if (obj->getType() == GameObject::PrimitiveType::MESH || obj->getType() == GameObject::PrimitiveType::OBJECT_GROUP)
+				objJson["meshData"] = ObjectToBytes(*modelRef);
+
 			// Materials
 			if (obj->getType() == GameObject::PrimitiveType::POINT_LIGHT ||
 				obj->getType() == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
@@ -190,20 +210,9 @@ public:
 			glm::vec3 scale = glm::vec3(obj["scale"][0], obj["scale"][1], obj["scale"][2]);
 
 			// Mesh objects are created here.
-			if (obj["type"] == GameObject::PrimitiveType::MESH || 
-				obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
+			if (obj["type"] == GameObject::PrimitiveType::MESH || obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
 			{
-				// 1. Check if model exists, then create file or diractly load Mesh from bytes.
-				if (!std::filesystem::exists(obj["modelPath"])) {
-					std::cout << "Model file not found at " << obj["modelPath"] << ". Attempting to reconstruct from bytes..." << std::endl;
-					BytesToModel(obj["meshData"], obj["modelPath"]);
-				}
-				Assets::Model model = Assets::Model::LoadModel(obj["modelPath"]);
-				model.SetName(obj["modelName"]);
-
-				// 2. Set materials.
-				std::vector<Assets::Material> materials = LoadMaterials(obj);
-				model.SetMaterials(materials);
+				Assets::Model model = BytesToObject<Assets::Model>(obj["meshData"]);
 
 				// 3. Create the object.
 				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
