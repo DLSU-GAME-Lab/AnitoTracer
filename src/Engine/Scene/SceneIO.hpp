@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <string>
 #include <nlohmann/json.hpp>
 
@@ -52,27 +53,50 @@ private:
 		}
 	}
 
-	std::stringstream OBJToString(std::string filename)
+	std::string ModelToString(std::string filename)
 	{
 
-		const std::ifstream file(filename, std::ios::binary);
-		std::stringstream returnBytes;
-		returnBytes << file.rdbuf();
+		std::ifstream file(filename, std::ios::binary);
 
-		return returnBytes;
+		if (!file)
+		{
+			throw std::runtime_error("Failed to open file: " + filename);
+		}
+
+		// Move to end to get file size
+		file.seekg(0, std::ios::end);
+		std::streamsize fileSize = file.tellg();
+		file.seekg(0, std::ios::beg);
+
+		// Read bytes into string
+		std::string data;
+		data.resize(static_cast<size_t>(fileSize));
+
+		if (!file.read(&data[0], fileSize))
+		{
+			throw std::runtime_error("Failed to read file data.");
+		}
+
+		return data;
 	}
 
-	void BytesToOBJ(std::string bytes, std::string objName)
+	std::string BytesToModel(const std::string& data, const std::string& outputPath)
 	{
-		//load the bytes into a new obj file
-		std::string modelLocation = FileUtils::getAssetsFolderPath().generic_string() + "/models/";
-		std::string filePath = modelLocation + objName + ".obj";
-		//convert path to wchar_t
-		std::wstring widestr = std::wstring(filePath.begin(), filePath.end());
-		const wchar_t* charPath = widestr.c_str();
+		std::ofstream file(outputPath, std::ios::binary);
 
-		std::ofstream file(filePath, std::ios::binary);
-		file << bytes;
+		if (!file)
+		{
+			throw std::runtime_error("Failed to create file: " + outputPath);
+		}
+
+		file.write(data.data(), data.size());
+
+		if (!file)
+		{
+			throw std::runtime_error("Failed to write file data.");
+		}
+
+		return outputPath;
 	}
 
 public:
@@ -104,14 +128,21 @@ public:
 			// 2. Model
 			std::shared_ptr<Assets::Model> modelRef = obj->getModel();
 
-			// First the shape.
+			// Mesh
 			if (modelRef) {
-				if (obj->getType() == GameObject::PrimitiveType::MESH)
+				if (obj->getType() == GameObject::PrimitiveType::MESH) 
+				{
+					objJson["meshData"] = ModelToString(modelRef->FilePath());
 					objJson["modelPath"] = modelRef->FilePath();
+				}
 				else
+				{
+					objJson["meshData"] = "";
 					objJson["modelPath"] = "";
+				}
+					
 			}
-			// Second the material.
+			// Materials
 			if (obj->getType() == GameObject::PrimitiveType::POINT_LIGHT ||
 				obj->getType() == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
 				obj->getType() == GameObject::PrimitiveType::SPOT_LIGHT) // 2.5 Light Properties
@@ -135,7 +166,7 @@ public:
 					objJson["materials"].push_back(matJson);
 				}
 			}
-			// 3. Family
+			// Parenting
 			objJson["parent"] = obj->getParent() ? obj->getParent()->getName() : "";
 			objJson["children"] = json::array();
 			for (GameObject* child : obj->getChildren()) {
@@ -143,6 +174,8 @@ public:
 			}
 
 			scene["objects"].push_back(objJson);
+
+			
 		}
 
 		AddScene(scene, sceneName);
@@ -160,7 +193,11 @@ public:
 			if (obj["type"] == GameObject::PrimitiveType::MESH || 
 				obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
 			{
-				// 1. Load Mesh from path.
+				// 1. Check if model exists, then create file or diractly load Mesh from bytes.
+				if (!std::filesystem::exists(obj["modelPath"])) {
+					std::cout << "Model file not found at " << obj["modelPath"] << ". Attempting to reconstruct from bytes..." << std::endl;
+					BytesToModel(obj["meshData"], obj["modelPath"]);
+				}
 				Assets::Model model = Assets::Model::LoadModel(obj["modelPath"]);
 				model.SetName(obj["modelName"]);
 
