@@ -61,7 +61,11 @@ void MenuScreen::drawUI()
 			//if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {
 			//	//this->saveSceneDialog->Open();
 			//}
-			if (ImGui::MenuItem("Save Scene As", nullptr, isSaveSceneAsOpen)) 
+			if (ImGui::MenuItem("Load Scene", nullptr)) 
+			{ 
+				this->OnLoadSceneFromFile(); 
+			}
+			if (ImGui::MenuItem("Save Scene As", "Ctrl+S", isSaveSceneAsOpen))
 			{ 
 				isSaveSceneAsOpen = !isSaveSceneAsOpen;
 			}
@@ -107,14 +111,6 @@ void MenuScreen::drawUI()
 				if (ImGui::MenuItem("Load Bistro Interior")) { this->OnLoadSceneByIndex(18);  ShowLoadingPopUp(); }
 				if (ImGui::MenuItem("Load Balay Anito")) { this->OnLoadSceneByIndex(19);  ShowLoadingPopUp(); }
 
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Custom Scenes"))
-			{
-				for (std::string name : SceneIO::getInstance()->getSceneNames())
-				{
-					if (ImGui::MenuItem(name.c_str())) { this->OnLoadEmpty(); ShowLoadingPopUp(); SceneIO::getInstance()->LoadScene(name); }
-				}
 				ImGui::EndMenu();
 			}
 			ImGui::Separator();
@@ -590,6 +586,14 @@ void MenuScreen::ShowSaveSceneAsMenu()
 		}
 	}
 	ImGui::End();
+}
+
+void MenuScreen::OnLoadSceneFromFile()
+{
+	std::string filePath;
+	std::string fileName;
+	if (FileUtils::getSceneFilePath(filePath, fileName))
+		SceneIO::getInstance()->LoadSceneFromFile(filePath);
 }
 
 void MenuScreen::ShowSaveLayoutAsMenu()

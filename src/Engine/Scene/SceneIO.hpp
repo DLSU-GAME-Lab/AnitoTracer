@@ -13,6 +13,8 @@
 #include "Utilities/FileUtils.h"
 #include "../../From-GDGRAP2/GameObject.h"
 #include "../../From-GDGRAP2/Debug.h"
+#include "../../From-GDGRAP2/TextureLibrary.h"
+
 
 using namespace nlohmann;
 class SceneIO {
@@ -142,8 +144,17 @@ public:
 
 		json scene;
 		scene["scene_name"] = sceneName;
-		scene["objects"] = json::array();
 
+		//Texture Library
+		TextureLibrary* texLib = TextureLibrary::getInstance();
+		scene["textures"] = json::array();
+		json texturesJson;
+		texturesJson["textureList"] = ObjectToBytes(texLib->getTextureList());
+		texturesJson["textureMap"] = ObjectToBytes(texLib->getTextureMap());
+		scene["textures"].push_back(texturesJson);
+
+		//Objects
+		scene["objects"] = json::array();
 		for (auto obj : objects)
 		{
 			json objJson;
@@ -174,15 +185,23 @@ public:
 				lightProps["ambientColor"] = { lights[0].AmbientColor.x, lights[0].AmbientColor.y, lights[0].AmbientColor.z, lights[0].AmbientColor.w};
 				lightProps["lightColor"] = { lights[0].LightColor.x, lights[0].LightColor.y, lights[0].LightColor.z, lights[0].LightColor.w};
 				objJson["lightProps"] = lightProps;
-			} else
+			} 
+			else
 			{
 				objJson["modelName"] = modelRef->GetName();
 				objJson["materials"] = json::array();
-				for (Assets::Material mat : modelRef->materials_) {
+				for (Assets::Material mat : modelRef->materials_) 
+				{
 					json matJson;
-					matJson["materialData"] = ObjectToBytes(mat);
+					matJson["diffuse"] = { mat.Diffuse.x, mat.Diffuse.y, mat.Diffuse.z, mat.Diffuse.a };
+					matJson["diffuseTextureId"] = mat.DiffuseTextureId;
+					matJson["fuzziness"] = mat.Fuzziness;
+					matJson["refractionIndex"] = mat.RefractionIndex;
+					matJson["model"] = mat.MaterialModel;
+					objJson["materials"].push_back(matJson);
 				}
 			}
+
 			// Parenting
 			objJson["parent"] = obj->getParent() ? obj->getParent()->getName() : "";
 			objJson["children"] = json::array();
@@ -258,6 +277,92 @@ public:
 		}
 	}
 
+	void LoadSceneFromFile(std::string filePath) {
+
+		//Load the imported json file
+		std::ifstream file(filePath);
+
+		if (!file.is_open())
+		{
+			throw std::runtime_error(
+				"Failed to open JSON file: " + filePath);
+		}
+
+		nlohmann::json sceneObj;
+
+		try
+		{
+			file >> sceneObj;
+		}
+		catch (const nlohmann::json::parse_error& e)
+		{
+			throw std::runtime_error(
+				std::string("JSON parse error: ") + e.what());
+		}
+
+		//Texture Library first
+		TextureLibrary* texLib = TextureLibrary::getInstance();
+		texLib->loadTextureLibrary(BytesToObject<TextureLibrary::TextureMap>(sceneObj["textures"][0]["textureMap"]), 
+								   BytesToObject<TextureLibrary::TextureList>(sceneObj["textures"][0]["textureList"]));
+
+		//Start looping through each object
+		for (json obj : sceneObj["objects"]) {
+			glm::vec3 pos = glm::vec3(obj["position"][0], obj["position"][1], obj["position"][2]);
+			glm::vec3 rot = glm::vec3(obj["rotation"][0], obj["rotation"][1], obj["rotation"][2]);
+			glm::vec3 scale = glm::vec3(obj["scale"][0], obj["scale"][1], obj["scale"][2]);
+
+			// Mesh objects are created here.
+			if (obj["type"] == GameObject::PrimitiveType::MESH || obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
+			{
+				Assets::Model model = BytesToObject<Assets::Model>(obj["meshData"]);
+
+				// 3. Create the object.
+				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
+				object->setLocalPosition(pos);
+				object->setLocalRotationEuler(rot);
+				object->setLocalScale(scale);
+				ModelManager::getInstance()->addObject(std::move(object));
+				// 4. Family TODO
+			}
+			// Primitives, Lighting, and Camera Objects are created here.
+			else if (obj["type"] == GameObject::PrimitiveType::CUBE ||
+				obj["type"] == GameObject::PrimitiveType::SPHERE ||
+				obj["type"] == GameObject::PrimitiveType::PLANE ||
+				obj["type"] == GameObject::PrimitiveType::CYLINDER ||
+				obj["type"] == GameObject::PrimitiveType::CAPSULE ||
+				obj["type"] == GameObject::PrimitiveType::CORNELL_BOX)
+			{
+				// 2. Get materials.
+				std::vector<Assets::Material> materials = LoadMaterials(obj);
+
+				// 3. Create the object.
+				ModelManager::getInstance()->createPrimitiveFromScene(
+					obj["name"], obj["type"], obj["enabled"],
+					pos, rot, scale, materials);
+
+				// 4. Family TODO
+			}
+			else if (obj["type"] == GameObject::PrimitiveType::POINT_LIGHT ||
+				obj["type"] == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
+				obj["type"] == GameObject::PrimitiveType::SPOT_LIGHT)
+			{
+				// 2. Get materials.
+				std::vector<Assets::Material> materials = LoadMaterials(obj);
+				glm::vec3 lightDir = glm::vec3(obj["lightProps"]["lightDir"][0], obj["lightProps"]["lightDir"][1], obj["lightProps"]["lightDir"][2]);
+				glm::vec4 ambientCol = glm::vec4(obj["lightProps"]["ambientColor"][0], obj["lightProps"]["ambientColor"][1], obj["lightProps"]["ambientColor"][2], obj["lightProps"]["ambientColor"][3]);
+				glm::vec4 lightCol = glm::vec4(obj["lightProps"]["lightColor"][0], obj["lightProps"]["lightColor"][1], obj["lightProps"]["lightColor"][2], obj["lightProps"]["lightColor"][3]);
+				Assets::LightProperties props = { pos, lightDir, ambientCol, lightCol, Assets::LightProperties::Enum::PointLight };
+
+				// 3. Create the object.
+				ModelManager::getInstance()->createLightFromScene(
+					obj["name"], obj["type"], obj["enabled"],
+					pos, rot, scale, materials, props);
+
+				// 4. Family TODO
+			}
+		}
+	}
+
 	void ReadFromDirectory()
 	{
 		scenes.clear();
@@ -305,10 +410,15 @@ public:
 
 	std::vector<Assets::Material> LoadMaterials(json obj)
 	{
-		// 2. Set materials.
+		//Set materials.
 		std::vector<Assets::Material> materials;
 		for (json mat : obj["materials"]) {
-			Assets::Material material = BytesToObject<Assets::Material>(mat["materialData"]);
+			Assets::Material material;
+			material.Diffuse = glm::vec4(mat["diffuse"][0], mat["diffuse"][1], mat["diffuse"][2], mat["diffuse"][3]);
+			material.DiffuseTextureId = mat["diffuseTextureId"];
+			material.Fuzziness = mat["fuzziness"];
+			material.RefractionIndex = mat["refractionIndex"];
+			material.MaterialModel = mat["model"];
 
 			materials.push_back(material);
 		}

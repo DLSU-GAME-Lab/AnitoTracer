@@ -108,6 +108,12 @@ bool TextureLibrary::loadTextureFromFile(int& textureId)
 
 }
 
+void TextureLibrary::loadTextureLibrary(TextureMap textureMap, TextureList textureList)
+{
+	this->textureMap = textureMap;
+	this->textureList = textureList;
+}
+
 void TextureLibrary::initialize()
 {
 	sharedInstance = new TextureLibrary();
@@ -136,3 +142,25 @@ TextureLibrary* TextureLibrary::getInstance()
 {
 	return sharedInstance;
 }
+
+// Save: produce JSON array of textures as name + path
+//json texturesJson = json::array();
+//for (auto& kv : texLib->textureMap) {
+//    json t;
+//    t["name"] = kv.first;
+//    t["filePath"] = kv.second ? kv.second->GetSourcePath() : "";
+//    texturesJson.push_back(t);
+//}
+//scene["textures"] = texturesJson;
+//
+// Load: reconstruct containers
+//TextureLibrary::TextureMap newMap;
+//TextureLibrary::TextureList newList;
+//for (auto& t : scene["textures"]) {
+//    std::string name = t["name"];
+//    std::string path = t["filePath"];
+//    auto texPtr = std::make_shared<Assets::Texture>(Assets::Texture::LoadTexture(path, Vulkan::SamplerConfig()));
+//    newMap.emplace(name, texPtr);
+//    newList.push_back(texPtr);
+//}
+//texLib->loadTextureLibrary(std::move(newMap), std::move(newList));

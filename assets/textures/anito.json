@@ -18,6 +18,7 @@
                 }
             ],
             "modelName": "Box",
+            "modelPath": "",
             "name": "AreaLight",
             "parent": "",
             "position": [
@@ -43,27 +44,38 @@
             "materials": [
                 {
                     "diffuse": [
-                        0.6000000238418579,
-                        0.6000000238418579,
-                        0.6000000238418579,
+                        0.7300000190734863,
+                        0.7300000190734863,
+                        0.7300000190734863,
                         1.0
                     ],
-                    "diffuseTextureId": -1,
-                    "fuzziness": 0.0,
-                    "model": 0,
-                    "refractionIndex": 0.0
-                },
-                {
-                    "diffuse": [
-                        0.6000000238418579,
-                        0.6000000238418579,
-                        0.6000000238418579,
-                        1.0
-                    ],
-                    "diffuseTextureId": -1,
+                    "diffuseTextureId": 1,
                     "fuzziness": 0.0,
                     "model": 0,
                     "refractionIndex": 0.0
                 }
             ],
-            "meshData": "
+            "modelName": "Box",
+            "modelPath": "",
+            "name": "Cube",
+            "parent": "",
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                -0.0,
+                0.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "type": 1
+        }
+    ],
+    "scene_name": "anito"
+}

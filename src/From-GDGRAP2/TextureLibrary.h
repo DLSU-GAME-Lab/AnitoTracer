@@ -16,14 +16,14 @@ namespace Assets
 
 class TextureLibrary
 {
-private:
+
+public:
 	typedef std::unordered_map <std::string, std::shared_ptr<Assets::Texture>> TextureMap;
 	typedef std::vector<std::shared_ptr<Assets::Texture>> TextureList;
 
 	TextureMap textureMap;
 	TextureList textureList;
 
-public:
 	void addTexture(const std::string& textureName, const std::string& fileName);
 	void deleteTexture(std::string textureName);
 	Assets::Texture getTexture(std::string textureName);
@@ -32,6 +32,9 @@ public:
 	std::vector<Assets::Texture> getTextureLibraryList();
 	bool doesTextureExist(std::string textureName);
 	bool loadTextureFromFile(int& textureId);
+	void loadTextureLibrary(TextureMap textureMap, TextureList textureList);
+	TextureMap getTextureMap() const { return this->textureMap; }	
+	TextureList getTextureList() const { return this->textureList; }
 
 private:
 	static TextureLibrary* sharedInstance;

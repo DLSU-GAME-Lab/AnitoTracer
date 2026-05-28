@@ -28,6 +28,7 @@ private:
 	void onCreateLucyClicked(); 
 
 	void ShowSaveSceneAsMenu();
+	void OnLoadSceneFromFile();
 	void ShowSaveLayoutAsMenu();
 	void ShowLoadLayoutAsMenu();
 	void ShowScreenshotMenu();
