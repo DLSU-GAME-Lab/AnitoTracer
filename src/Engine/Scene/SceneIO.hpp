@@ -103,6 +103,7 @@ public:
 
 			// 2. Model
 			std::shared_ptr<Assets::Model> modelRef = obj->getModel();
+
 			// First the shape.
 			if (modelRef) {
 				if (obj->getType() == GameObject::PrimitiveType::MESH)
@@ -134,8 +135,7 @@ public:
 					objJson["materials"].push_back(matJson);
 				}
 			}
-
-			// 3. Family lol
+			// 3. Family
 			objJson["parent"] = obj->getParent() ? obj->getParent()->getName() : "";
 			objJson["children"] = json::array();
 			for (GameObject* child : obj->getChildren()) {

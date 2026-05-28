@@ -428,7 +428,7 @@ void MenuScreen::ShowLoadObjMenu()
 
 			ModelManager::getInstance()->createObjectFromFile(
 				name,
-				GameObject::PrimitiveType::CUBE,
+				GameObject::PrimitiveType::MESH,
 				glm::vec3(position[0], position[1], position[2]),
 				glm::vec3(rotation[0], rotation[1], rotation[2]),
 				glm::vec3(scale[0], scale[1], scale[2])
