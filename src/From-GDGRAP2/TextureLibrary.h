@@ -25,6 +25,7 @@ public:
 	TextureList textureList;
 
 	void addTexture(const std::string& textureName, const std::string& fileName);
+	void addTexture(const std::string& textureName, Assets::Texture texture);
 	void deleteTexture(std::string textureName);
 	Assets::Texture getTexture(std::string textureName);
 	Assets::Texture getTextureById(int textureId);
@@ -35,6 +36,7 @@ public:
 	void loadTextureLibrary(TextureMap textureMap, TextureList textureList);
 	TextureMap getTextureMap() const { return this->textureMap; }	
 	TextureList getTextureList() const { return this->textureList; }
+	void Reset();
 
 private:
 	static TextureLibrary* sharedInstance;

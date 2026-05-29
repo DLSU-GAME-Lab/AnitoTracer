@@ -594,6 +594,8 @@ void MenuScreen::OnLoadSceneFromFile()
 	std::string fileName;
 	if (FileUtils::getSceneFilePath(filePath, fileName))
 		SceneIO::getInstance()->LoadSceneFromFile(filePath);
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+
 }
 
 void MenuScreen::ShowSaveLayoutAsMenu()

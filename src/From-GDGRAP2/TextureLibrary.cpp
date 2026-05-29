@@ -11,9 +11,23 @@ TextureLibrary* TextureLibrary::sharedInstance = nullptr;
 void TextureLibrary::addTexture(const std::string& textureName, const std::string& fileName)
 {
 	std::shared_ptr<Assets::Texture> texture = std::make_shared<Assets::Texture>(Assets::Texture::LoadTexture(fileName, Vulkan::SamplerConfig()));
-
+	texture->setName(textureName);
 	this->textureMap.insert(std::make_pair(textureName, texture));
 	this->textureList.push_back(texture);
+}
+
+void TextureLibrary::addTexture(const std::string& textureName, Assets::Texture texture)
+{
+	std::shared_ptr<Assets::Texture> texPtr = std::make_shared<Assets::Texture>(texture);
+	texture.setName(textureName);
+	this->textureMap.insert(std::make_pair(textureName, texPtr));
+	this->textureList.push_back(texPtr);
+}
+
+void TextureLibrary::Reset() 
+{
+	this->textureMap.clear();
+	this->textureList.clear();
 }
 
 void TextureLibrary::deleteTexture(std::string textureName)

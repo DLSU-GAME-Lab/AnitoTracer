@@ -63,6 +63,8 @@ namespace Assets
 		}
 
 		const class Procedural* Procedural() const { return procedural_.get(); }
+		void SetProcedural(const class Procedural* procedural) { this->procedural_ = std::shared_ptr<const class Procedural>(procedural); }
+		void ResetProcedural() { this->procedural_.reset(); }
 
 		uint32_t NumberOfVertices() const { return static_cast<uint32_t>(vertices_.size()); }
 		uint32_t NumberOfIndices() const { return static_cast<uint32_t>(indices_.size()); }
@@ -86,7 +88,7 @@ namespace Assets
 		glm::mat4 worldMatrix_;
 		std::string filepath;
 		glm::vec3 origin;
-
+		bool isProcedural = false;
 	private:
 		GameObject* owner = nullptr;
 	};

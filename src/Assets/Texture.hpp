@@ -3,6 +3,7 @@
 #include "Vulkan/Sampler.hpp"
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace Assets
 {
@@ -24,16 +25,19 @@ namespace Assets
 		const unsigned char* Pixels() const { return pixels_.get(); }
 		int Width() const { return width_; }
 		int Height() const { return height_; }
+		int Channels() const { return channels_; }
+		std::string Name() { return name_; }
+		void setName(std::string texName) { name_ = texName; }
+
+		Texture(int width, int height, int channels, unsigned char* const pixels, std::string name);
 
 	private:
-
-		Texture(int width, int height, int channels, unsigned char* pixels);
 
 		Vulkan::SamplerConfig samplerConfig_;
 		int width_;
 		int height_;
 		int channels_;
-		//std::unique_ptr<unsigned char, void (*) (void*)> pixels_;
+		std::string name_;
 		std::shared_ptr<unsigned char> pixels_;
 	};
 
