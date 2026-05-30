@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Vulkan/Vulkan.hpp"
 #include "ShadowMapSettings.hpp"
@@ -91,6 +91,11 @@ namespace Vulkan::Game
 		///        Applies any shadow settings change that was queued via the
 		///        ON_SHADOW_SETTINGS_CHANGED event during the previous frame's UI draw.
 		void FlushPendingShadowReload();
+
+/// @brief Returns a non-owning pointer to the IBL pre-compute resources,
+/// or nullptr when the scene has no skybox and IBL was not computed.
+const IBLPrecompute* GetIBLPrecompute() const { return iblPrecompute_.get(); }
+
 
 	private:
 

@@ -1,4 +1,4 @@
-#include "RayTracer.hpp"
+﻿#include "RayTracer.hpp"
 //#include "UserInterface.hpp"
 #include "UserSettings.hpp"
 #include "Assets/Model.hpp"
@@ -21,6 +21,7 @@
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include "From-GDGRAP2/EventNames.h"
 #include "UI/UIManager.h"
+#include "UI/IBLDebugScreen.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
 #include "Assets/Ray.hpp"
@@ -43,6 +44,43 @@
 #include "Utilities/Screenshot.hpp"
 
 #include "imgui_impl_glfw.h"
+
+
+// ── IBL debug panel helpers ───────────────────────────────────────────────────
+
+// Returns the IBLDebugScreen from UIManager, or nullptr if not yet initialized.
+static std::shared_ptr<IBLDebugScreen> FindIBLDebugScreen()
+{
+	auto* mgr = UIManager::getInstance();
+	if (!mgr) return nullptr;
+	return std::dynamic_pointer_cast<IBLDebugScreen>(
+		mgr->findUIByName(UINames::IBL_DEBUG_SCREEN));
+}
+
+// Called BEFORE UIManager::ReinitializeBackends() — releases ImGui descriptor
+// sets while the old Vulkan pool is still alive and can accept the free calls.
+static void ReleaseIBLDescriptors()
+{
+	if (auto screen = FindIBLDebugScreen())
+		screen->ReleaseDescriptors();
+}
+
+// Called AFTER UIManager::ReinitializeBackends() — the old pool is gone so we
+// just clear stale handles (InvalidateDescriptors), then re-register against
+// the freshly created pool.
+static void RegisterIBLDescriptors(Vulkan::Game::GameRenderer* renderer, const UserSettings* settings = nullptr)
+{
+	auto screen = FindIBLDebugScreen();
+	if (!screen) return;
+
+	// Safety: zero any stale VkDescriptorSet handles that survived the reinit.
+	screen->InvalidateDescriptors();
+	screen->SetIBL(renderer ? renderer->GetIBLPrecompute() : nullptr);
+	// Let the panel reflect the current UseColorIBL / IBLSkyColor state.
+	screen->SetUserSettings(settings);
+	screen->RegisterDescriptors();
+}
+
 
 namespace
 {
@@ -249,11 +287,16 @@ void RayTracer::CreateSwapChain()
 			UIManager::getInstance()->initializeUI();
 			initializedUI = true;
 		}
+		// Backend freshly initialized — no old pool to release from, just register.
+		RegisterIBLDescriptors(gameRenderer_.get(), &userSettings_);
 	}
 	else if (initializedUI)
 	{
-		// UIManager already exists and UI was initialized - reinitialize backends only after scene dirty reload
-		// Make sure we have valid device before attempting to reinitialize
+		// UIManager already exists — backend will be torn down and recreated.
+		// Release IBL descriptor sets BEFORE the old pool is destroyed, then
+		// re-register against the fresh pool AFTER reinit completes.
+		ReleaseIBLDescriptors();
+
 		try
 		{
 			UIManager::ReinitializeBackends(&SwapChain(), &DepthBuffer());
@@ -263,6 +306,8 @@ void RayTracer::CreateSwapChain()
 			Debug::Log("WARNING: Failed to reinitialize UIManager backends: " + std::string(e.what()));
 			// Continue anyway - UI might not be critical
 		}
+		// Old pool is gone — invalidate stale handles, then register fresh ones.
+		RegisterIBLDescriptors(gameRenderer_.get(), &userSettings_);
 	}
 
 	resetAccumulation_ = true;
@@ -414,6 +459,10 @@ void RayTracer::DrawFrame()
 			gameRenderer_.reset(new Vulkan::Game::GameRenderer(
 				SwapChain(), DepthBuffer(), UniformBuffers(), GetScene(), CommandPool()));
 			Debug::Log("Game Renderer reloaded");
+			// Scene dirty reload: backends were NOT reinit'd, only the GameRenderer
+			// (and its IBL images) changed. Release old, register new.
+			ReleaseIBLDescriptors();
+			RegisterIBLDescriptors(gameRenderer_.get(), &userSettings_);
 			return;
 		}
 
@@ -692,6 +741,7 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		case GLFW_KEY_F4: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 		case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 		case GLFW_KEY_F6: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+		case GLFW_KEY_F8: UIManager::getInstance()->toggleEnabled(UINames::IBL_DEBUG_SCREEN); return;
 
 			// case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; return;
 			// case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;

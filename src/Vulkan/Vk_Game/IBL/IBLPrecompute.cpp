@@ -1,4 +1,4 @@
-#include "IBLPrecompute.hpp"
+﻿#include "IBLPrecompute.hpp"
 
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
@@ -85,6 +85,16 @@ VkImageView IBLPrecompute::PrefilteredView()    const { return prefilteredView_-
 VkSampler   IBLPrecompute::PrefilteredSampler() const { return prefilteredSampler_->Handle(); }
 VkImageView IBLPrecompute::BrdfLutView()        const { return brdfLutView_->Handle(); }
 VkSampler   IBLPrecompute::BrdfLutSampler()     const { return brdfLutSampler_->Handle(); }
+
+VkImageView IBLPrecompute::IrradianceFaceView(uint32_t face) const
+{
+return irradianceFaceViews_[face];
+}
+
+VkImageView IBLPrecompute::PrefilteredFaceView(uint32_t mip, uint32_t face) const
+{
+return prefilteredMipFaceViews_[mip][face];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Private — CreateIrradianceResources

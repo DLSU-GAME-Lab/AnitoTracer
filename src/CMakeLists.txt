@@ -241,6 +241,8 @@ set(src_files_ui
 	UI/AssetExplorerScreen.h
 	UI/SettingsScreen.cpp
 	UI/SettingsScreen.h
+	UI/IBLDebugScreen.cpp
+	UI/IBLDebugScreen.h
 	UI/UIManager.cpp
 	UI/UIManager.h
 	UI/EditorTheme.hpp

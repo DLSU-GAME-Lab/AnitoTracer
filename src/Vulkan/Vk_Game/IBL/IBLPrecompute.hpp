@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Vulkan/Vulkan.hpp"
 #include <array>
@@ -67,6 +67,17 @@ namespace Vulkan::Game
 
 		VkImageView BrdfLutView()    const;
 		VkSampler   BrdfLutSampler() const;
+
+/// @brief Returns the 2D VkImageView for a single face of the irradiance cubemap.
+/// @param face  Cubemap face index in [0, 5]  (+X, -X, +Y, -Y, +Z, -Z).
+/// These are VK_IMAGE_VIEW_TYPE_2D and are suitable for ImGui_ImplVulkan_AddTexture.
+VkImageView IrradianceFaceView(uint32_t face) const;
+
+/// @brief Returns the 2D VkImageView for a specific mip/face of the prefiltered env cubemap.
+/// @param mip   Mip level in [0, kPrefilteredMips).  Mip 0 = roughness 0 (mirror).
+/// @param face  Cubemap face index in [0, 5].
+VkImageView PrefilteredFaceView(uint32_t mip, uint32_t face) const;
+
 
 		// ── Constants ─────────────────────────────────────────────────────────
 
