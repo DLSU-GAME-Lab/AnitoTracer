@@ -1,0 +1,88 @@
+#version 460
+
+// ── IBL Irradiance Convolution ───────────────────────────────────────────────
+// Reads the scene skybox cubemap and writes a 32×32 irradiance cubemap face.
+// Dispatched once per face (faceIndex push constant). The CPU side iterates
+// all 6 faces, each time updating the descriptor set to point to the correct
+// per-face storage image view.
+// ─────────────────────────────────────────────────────────────────────────────
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// Binding 0: source skybox cubemap (read-only, sampled)
+layout(binding = 0) uniform samplerCube envMap;
+
+// Binding 1: destination irradiance face (storage image, RGBA16F)
+layout(binding = 1, rgba16f) uniform writeonly image2D outFace;
+
+// Push constant: which cube face we are writing (0–5, +X –X +Y –Y +Z –Z)
+layout(push_constant) uniform PC
+{
+	uint faceIndex;
+} pc;
+
+// ── Utility: cube face UV → world-space direction ─────────────────────────────
+// uv is in [-1, 1] (centred at the texel centre, not the texel edge).
+vec3 FaceUVToDir(uint face, vec2 uv)
+{
+	switch (face)
+	{
+		case 0u: return normalize(vec3( 1.0,  uv.y, -uv.x)); // +X right
+		case 1u: return normalize(vec3(-1.0,  uv.y,  uv.x)); // -X left
+		case 2u: return normalize(vec3( uv.x,  1.0, -uv.y)); // +Y up
+		case 3u: return normalize(vec3( uv.x, -1.0,  uv.y)); // -Y down
+		case 4u: return normalize(vec3( uv.x,  uv.y,  1.0)); // +Z front
+		default: return normalize(vec3(-uv.x,  uv.y, -1.0)); // -Z back
+	}
+}
+
+void main()
+{
+	ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size  = imageSize(outFace);
+	if (coord.x >= size.x || coord.y >= size.y) return;
+
+	// Map output pixel to the surface normal direction for this cube face
+	vec2 uv = (vec2(coord) + 0.5) / vec2(size) * 2.0 - 1.0;
+	vec3 N  = FaceUVToDir(pc.faceIndex, uv);
+
+	// Build a tangent frame (TBN) around N for hemisphere sampling
+	vec3 up    = abs(N.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+	vec3 right = normalize(cross(up, N));
+	up         = cross(N, right);
+
+	const float PI = 3.14159265359;
+
+	// Uniform hemisphere sampling via spherical coordinate walk.
+	// deltaPhi / deltaTheta control quality vs. cost.
+	// ~250 azimuth × ~62 elevation = ~15 500 samples — fast enough for 32×32.
+	const float kDeltaPhi   = 0.025;
+	const float kDeltaTheta = 0.025;
+
+	vec3  irradiance  = vec3(0.0);
+	float sampleCount = 0.0;
+
+	for (float phi = 0.0; phi < 2.0 * PI; phi += kDeltaPhi)
+	{
+		for (float theta = 0.0; theta < 0.5 * PI; theta += kDeltaTheta)
+		{
+			// Spherical → tangent-space Cartesian
+			vec3 tangentSample = vec3(
+				sin(theta) * cos(phi),
+				sin(theta) * sin(phi),
+				cos(theta));
+
+			// Rotate into world space
+			vec3 sampleDir = tangentSample.x * right
+						   + tangentSample.y * up
+						   + tangentSample.z * N;
+
+			// Lambert cosine weighting: cos(theta) * sin(theta) (Jacobian)
+			irradiance  += texture(envMap, sampleDir).rgb * cos(theta) * sin(theta);
+			sampleCount += 1.0;
+		}
+	}
+
+	irradiance = PI * irradiance / max(sampleCount, 1.0);
+	imageStore(outFace, coord, vec4(irradiance, 1.0));
+}

@@ -1,6 +1,7 @@
 #include "GameRenderer.hpp"
 #include "ShadowMapPass.hpp"
 #include "PointLightShadowPass.hpp"
+#include "IBL/IBLPrecompute.hpp"
 
 #include <algorithm>
 
@@ -13,6 +14,7 @@
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 #include "Vulkan/Buffer.hpp"
+#include "Vulkan/CommandPool.hpp"
 #include "Vulkan/DepthBuffer.hpp"
 #include "Vulkan/DescriptorBinding.hpp"
 #include "Vulkan/DescriptorSetManager.hpp"
@@ -34,11 +36,13 @@ GameRenderer::GameRenderer(
 	const Vulkan::SwapChain& swapChain,
 	const Vulkan::DepthBuffer& depthBuffer,
 	const std::vector<Assets::UniformBuffer>& uniformBuffers,
-	const Assets::Scene& scene) :
+	const Assets::Scene& scene,
+	Vulkan::CommandPool& commandPool) :
 	swapChain_(swapChain),
 	depthBuffer_(depthBuffer),
 	scene_(scene),
-	uniformBuffers_(&uniformBuffers)
+	uniformBuffers_(&uniformBuffers),
+	commandPool_(&commandPool)
 {
 	CreateRenderPass();
 	shadowMapPass_ = std::make_unique<ShadowMapPass>(
@@ -47,6 +51,17 @@ GameRenderer::GameRenderer(
 	pointLightShadowPass_ = std::make_unique<PointLightShadowPass>(
 		swapChain.Device(),
 		static_cast<uint32_t>(uniformBuffers.size()));
+
+	// Pre-compute IBL textures if the scene has a skybox
+	if (scene.SkyboxImageView() != VK_NULL_HANDLE)
+	{
+		iblPrecompute_ = std::make_unique<IBLPrecompute>(
+			swapChain.Device(),
+			commandPool,
+			scene.SkyboxImageView(),
+			scene.SkyboxSampler());
+	}
+
 	CreateDescriptorSets(uniformBuffers, scene);
 
 	EventBroadcaster::getInstance()->addObserver(
@@ -299,6 +314,21 @@ void GameRenderer::CreateDescriptorSets(
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		VK_SHADER_STAGE_FRAGMENT_BIT});
 
+	// binding 9  : IBL irradiance cubemap    (COMBINED_IMAGE_SAMPLER, frag)
+	bindings.push_back({9, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 10 : IBL prefiltered env cubemap (COMBINED_IMAGE_SAMPLER, frag)
+	bindings.push_back({10, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 11 : BRDF integration LUT       (COMBINED_IMAGE_SAMPLER, frag)
+	bindings.push_back({11, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
 	descriptorSetManager_.reset(new DescriptorSetManager(device, bindings, uniformBuffers.size()));
 	auto& descriptorSets = descriptorSetManager_->DescriptorSets();
 
@@ -401,6 +431,30 @@ void GameRenderer::CreateDescriptorSets(
 		pointShadowUboInfo.offset = 0;
 		pointShadowUboInfo.range  = VK_WHOLE_SIZE;
 		writes.push_back(descriptorSets.Bind(i, 8, pointShadowUboInfo));
+
+		// Bindings 9/10/11: IBL textures — use real IBL when available,
+		// otherwise bind the skybox itself as a harmless dummy so every
+		// descriptor slot remains valid. The shader branches on ubo.HasSky.
+		const VkImageView  iblFallbackView    = scene.SkyboxImageView();
+		const VkSampler    iblFallbackSampler = scene.SkyboxSampler();
+
+		VkDescriptorImageInfo iblIrrInfo{};
+		iblIrrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		iblIrrInfo.imageView   = iblPrecompute_ ? iblPrecompute_->IrradianceView()    : iblFallbackView;
+		iblIrrInfo.sampler     = iblPrecompute_ ? iblPrecompute_->IrradianceSampler() : iblFallbackSampler;
+		writes.push_back(descriptorSets.Bind(i, 9, iblIrrInfo));
+
+		VkDescriptorImageInfo iblPreInfo{};
+		iblPreInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		iblPreInfo.imageView   = iblPrecompute_ ? iblPrecompute_->PrefilteredView()    : iblFallbackView;
+		iblPreInfo.sampler     = iblPrecompute_ ? iblPrecompute_->PrefilteredSampler() : iblFallbackSampler;
+		writes.push_back(descriptorSets.Bind(i, 10, iblPreInfo));
+
+		VkDescriptorImageInfo iblLutInfo{};
+		iblLutInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		iblLutInfo.imageView   = iblPrecompute_ ? iblPrecompute_->BrdfLutView()    : iblFallbackView;
+		iblLutInfo.sampler     = iblPrecompute_ ? iblPrecompute_->BrdfLutSampler() : iblFallbackSampler;
+		writes.push_back(descriptorSets.Bind(i, 11, iblLutInfo));
 
 		descriptorSets.UpdateDescriptors(i, writes);
 	}

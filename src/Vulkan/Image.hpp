@@ -20,6 +20,9 @@ namespace Vulkan
 		Image(const Device& device, VkExtent2D extent, VkFormat format);
 		Image(const Device& device, VkExtent2D extent, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage);
 		Image(const Device& device, VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, uint32_t arrayLayers, VkImageCreateFlags createFlags);
+		/// @brief Cube-compatible (or any multi-layer) image with an explicit mip chain.
+		/// All other constructors hard-code mipLevels = 1.
+		Image(const Device& device, VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, uint32_t arrayLayers, VkImageCreateFlags createFlags, uint32_t mipLevels);
 		Image(Image&& other) noexcept;
 		~Image();
 

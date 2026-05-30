@@ -118,7 +118,11 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.NumberOfBounces = userSettings_.NumberOfBounces;
 	ubo.RandomSeed = 1;
 	ubo.MaxRays = userSettings_.MaxRays;
-	ubo.HasSky = init.HasSky;
+	// In Game renderer mode, IBL is gated by the EnableIBL checkbox.
+	// When disabled, HasSky is forced to 0 so the shader falls back to
+	// FallbackAmbientColor instead of sampling the IBL textures.
+	const bool gameMode = (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game);
+	ubo.HasSky = (gameMode ? (init.HasSky && userSettings_.Game.EnableIBL) : init.HasSky) ? 1u : 0u;
 	ubo.ShowHeatmap = userSettings_.ShowHeatmap;
 	ubo.HeatmapScale = userSettings_.HeatmapScale;
 
@@ -130,6 +134,11 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	// Game Renderer Settings
 	ubo.FallbackAmbientColor = userSettings_.Game.FallbackAmbientColor;
 	ubo.Exposure             = userSettings_.Game.Exposure;
+
+	// UseColorIBL is only meaningful in Game mode with IBL on.
+	// Padding fields are zero-initialised by the {} default above.
+	ubo.UseColorIBL = (gameMode && userSettings_.Game.EnableIBL && userSettings_.Game.UseColorIBL) ? 1u : 0u;
+	ubo.IBLSkyColor = userSettings_.Game.IBLSkyColor;
 
 	return ubo;
 }
@@ -224,7 +233,8 @@ void RayTracer::CreateSwapChain()
 			SwapChain(),
 			DepthBuffer(),
 			UniformBuffers(),
-			GetScene()));
+			GetScene(),
+			CommandPool()));
 		Debug::Log("Game Renderer initialized");
 	}
 
@@ -402,7 +412,7 @@ void RayTracer::DrawFrame()
 			gameRenderer_.reset();
 			ReloadModifiedScene();
 			gameRenderer_.reset(new Vulkan::Game::GameRenderer(
-				SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
+				SwapChain(), DepthBuffer(), UniformBuffers(), GetScene(), CommandPool()));
 			Debug::Log("Game Renderer reloaded");
 			return;
 		}

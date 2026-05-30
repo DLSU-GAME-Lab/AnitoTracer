@@ -27,6 +27,10 @@ layout(binding = 0) uniform UniformBufferObject
 	uint  MinSamples;
 	vec3  FallbackAmbientColor; // RGB fallback ambient when IBL is disabled
 	float Exposure;             // Scene exposure scalar applied to direct lighting before tonemapping
+	uint  UseColorIBL;          // When non-zero, IBLSkyColor replaces cubemap sampling
+	// std140 implicit padding (12 B) to align IBLSkyColor vec3 to 16-byte boundary
+	vec3  IBLSkyColor;          // Flat sky tint used when UseColorIBL != 0
+	// std140 implicit trailing padding (4 B)
 } ubo;
 
 // ── Material buffer (matches Assets::Material alignas(16)) ───────────────────
@@ -83,6 +87,18 @@ layout(binding = 8) uniform PointShadowUBO
 	float FarPlane;                                       // Far plane used for linear depth encoding
 	float _pad[2];
 } pointShadowUBO;
+
+// ── IBL textures (binding 9/10/11) ───────────────────────────────────────────
+// Bound by GameRenderer to IBLPrecompute outputs when a skybox is present.
+// When IBL is unavailable (no skybox) these are dummy-bound to the skybox
+// sampler; the shader guards access with (ubo.HasSky != 0).
+layout(binding = 9)  uniform samplerCube iblIrradiance;    // 32×32 diffuse irradiance
+layout(binding = 10) uniform samplerCube iblPrefiltered;   // 128×128 specular (mipped)
+layout(binding = 11) uniform sampler2D   brdfLUT;          // 512×512 split-sum LUT
+
+// Number of roughness mip levels in the prefiltered cubemap
+// (must match IBLPrecompute::kPrefilteredMips)
+const uint MAX_PREFILTER_MIPS = 7u;
 
 // ── Inputs from vertex shader ─────────────────────────────────────────────────
 layout(location = 0) in vec3  inWorldPos;
@@ -270,6 +286,44 @@ void MaterialToPBR(in Material mat, in vec3 texSample,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// IBL ambient (diffuse irradiance + specular split-sum)
+// ─────────────────────────────────────────────────────────────────────────────
+// Returns the image-based ambient contribution in linear HDR space.
+// Must be added AFTER tone-mapping of direct light is applied so it lands
+// in the same display-space [0,1] range as the FallbackAmbientColor path.
+vec3 IBLAmbient(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness)
+{
+	vec3 F0 = mix(vec3(0.04), albedo, metallic);
+	vec3 F  = F_Schlick(max(dot(N, V), 0.0), F0);
+	vec3 kD = (1.0 - F) * (1.0 - metallic);
+
+	// Diffuse: hemisphere-integrated irradiance.
+	// When UseColorIBL is set, substitute the flat IBLSkyColor for the cubemap
+	// so the tint drives ambient rather than the actual HDR environment capture.
+	vec3 irradiance = (ubo.UseColorIBL != 0u)
+		? ubo.IBLSkyColor
+		: texture(iblIrradiance, N).rgb;
+	vec3 diffuseIBL = kD * irradiance * albedo;
+
+	// Specular: GGX-prefiltered env at the matching roughness mip.
+	// Same substitution — flat colour acts as a uniform environment for specular.
+	vec3 prefilteredEnv;
+	if (ubo.UseColorIBL != 0u)
+	{
+		prefilteredEnv = ubo.IBLSkyColor;
+	}
+	else
+	{
+		float mipLevel = roughness * float(MAX_PREFILTER_MIPS - 1u);
+		prefilteredEnv = textureLod(iblPrefiltered, reflect(-V, N), mipLevel).rgb;
+	}
+	vec2 brdfSample  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	vec3 specularIBL = prefilteredEnv * (F0 * brdfSample.x + brdfSample.y);
+
+	return diffuseIBL + specularIBL;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────────────────────────────────────
 void main()
@@ -360,17 +414,47 @@ void main()
 					 * lightColor * attenuation;
 	}
 
-	// Apply exposure and ACES tone mapping to the HDR direct light.
-	// Exposure brings physical units (e.g. 500 000 lx) into the [0, ~8] range
-	// where ACES operates cleanly, then maps to [0, 1].
-	directLight *= ubo.Exposure;
-	directLight  = ACESToneMapping(directLight);
+	// ── Ambient / IBL ────────────────────────────────────────────────────────
+	// Three paths depending on HasSky and UseColorIBL:
+	//
+	// A) HasSky=1, UseColorIBL=0  — real HDR cubemap.
+	//    Irradiance values are HDR (>> 1), so they must be added to directLight
+	//    BEFORE exposure scaling + tonemapping so everything lands on the same curve.
+	//
+	// B) HasSky=1, UseColorIBL=1  — flat IBLSkyColor in display-space [0,1].
+	//    Treating it like HDR would multiply it by Exposure (≈0.00001) and kill it.
+	//    Instead, tonemap direct light first, then add the ambient term afterwards —
+	//    the same treatment used by FallbackAmbientColor.
+	//
+	// C) HasSky=0  — no skybox / IBL disabled.
+	//    Tonemap direct light, then add FallbackAmbientColor.
+	vec3 ambientTerm;
+	if (ubo.HasSky != 0u && ubo.UseColorIBL == 0u)
+	{
+		// Path A: real HDR cubemap — combine before exposure + tonemap.
+		ambientTerm  = IBLAmbient(N, V, albedo, metallic, roughness);
+		directLight += ambientTerm;
+		directLight *= ubo.Exposure;
+		directLight  = ACESToneMapping(directLight);
+	}
+	else if (ubo.HasSky != 0u && ubo.UseColorIBL != 0u)
+	{
+		// Path B: display-space sky colour — tonemap first, add ambient after.
+		directLight *= ubo.Exposure;
+		directLight  = ACESToneMapping(directLight);
+		ambientTerm  = IBLAmbient(N, V, albedo, metallic, roughness);
+		directLight += ambientTerm;
+	}
+	else
+	{
+		// Path C: no IBL — tonemap direct light, then add fallback ambient.
+		directLight *= ubo.Exposure;
+		directLight  = ACESToneMapping(directLight);
+		ambientTerm  = ubo.FallbackAmbientColor * albedo;
+		directLight += ambientTerm;
+	}
 
-	// Add ambient in display space AFTER tone mapping so it acts as a visible
-	// luminance floor on the dark side without being crushed by exposure.
-	vec3 ambientTerm = ubo.FallbackAmbientColor * albedo;
-
-	vec3 finalColor = clamp(ambientTerm + directLight, 0.0, 1.0);
+	vec3 finalColor = clamp(directLight, 0.0, 1.0);
 
 	// sRGB gamma correction
 	finalColor = pow(finalColor, vec3(1.0 / 2.2));

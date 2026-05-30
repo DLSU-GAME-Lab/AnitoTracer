@@ -214,6 +214,8 @@ set(src_files_vulkan_game
 	Vulkan/Vk_Game/PointLightShadowPass.cpp
 	Vulkan/Vk_Game/PointLightShadowPass.hpp
 	Vulkan/Vk_Game/ShadowMapSettings.hpp
+	Vulkan/Vk_Game/IBL/IBLPrecompute.hpp
+	Vulkan/Vk_Game/IBL/IBLPrecompute.cpp
 )
 
 set(src_files_ui

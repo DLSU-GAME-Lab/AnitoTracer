@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 
+namespace Vulkan::Game { class IBLPrecompute; }
+
 namespace Assets
 {
 	class Scene;
@@ -14,6 +16,7 @@ namespace Assets
 
 namespace Vulkan
 {
+	class CommandPool;
 	class DepthBuffer;
 	class DescriptorSetManager;
 	class RenderPass;
@@ -48,15 +51,18 @@ namespace Vulkan::Game
 		VULKAN_NON_COPIABLE(GameRenderer)
 
 		/// @brief Construct and initialize all Vulkan resources for this renderer.
-		/// @param swapChain    The active swapchain — used for format, extent and image views.
-		/// @param depthBuffer  The shared depth buffer owned by the Application.
+		/// @param swapChain     The active swapchain — used for format, extent and image views.
+		/// @param depthBuffer   The shared depth buffer owned by the Application.
 		/// @param uniformBuffers Per-frame UBO array (one entry per swapchain image).
-		/// @param scene        The loaded scene providing geometry + texture + light buffers.
+		/// @param scene         The loaded scene providing geometry + texture + light buffers.
+		/// @param commandPool   A command pool on the graphics queue, used for one-shot
+		///                      IBL pre-computation dispatches during construction.
 		GameRenderer(
 			const Vulkan::SwapChain& swapChain,
 			const Vulkan::DepthBuffer& depthBuffer,
 			const std::vector<Assets::UniformBuffer>& uniformBuffers,
-			const Assets::Scene& scene);
+			const Assets::Scene& scene,
+			Vulkan::CommandPool& commandPool);
 
 		~GameRenderer();
 
@@ -107,7 +113,8 @@ namespace Vulkan::Game
 
 		// ── Owned Vulkan resources ──────────────────────────────────────────────
 		std::unique_ptr<ShadowMapPass>           shadowMapPass_;
-		std::unique_ptr<PointLightShadowPass>   pointLightShadowPass_;
+		std::unique_ptr<PointLightShadowPass>    pointLightShadowPass_;
+		std::unique_ptr<IBLPrecompute>           iblPrecompute_;
 		std::unique_ptr<Vulkan::RenderPass>           renderPass_;
 		std::unique_ptr<Vulkan::DescriptorSetManager> descriptorSetManager_;
 
@@ -124,6 +131,7 @@ namespace Vulkan::Game
 		const Vulkan::DepthBuffer&                     depthBuffer_;
 		const Assets::Scene&                           scene_;
 		const std::vector<Assets::UniformBuffer>*      uniformBuffers_{ nullptr };
+		Vulkan::CommandPool*                           commandPool_{ nullptr };
 
 		// ── Pending hot-reload ────────────────────────────────────────────────
 		/// When set, the next Render() call will recreate shadowMapPass_ before drawing.

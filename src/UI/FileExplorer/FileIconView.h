@@ -25,8 +25,8 @@ private:
 
 	void renderCurrentNodeChildrenIcons();
 
-	FileTreeNode* currentNode;
-	ImTextureID currTexId;
+	FileTreeNode* currentNode = nullptr;
+	ImTextureID currTexId = 0;
 	std::unordered_map <std::string, std::shared_ptr<ImTextureID>> iconMap;
 
 	void renderDeleteConfirmationPrompt(FileTreeNode& toDelete);

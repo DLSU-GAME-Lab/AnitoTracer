@@ -88,6 +88,11 @@ struct UserSettings final
 		// Image-Based Lighting
 		bool EnableIBL = false;
 
+		// When true, IBL sky irradiance is tinted by IBLSkyColor instead of
+		// sampling the raw HDR cubemap. Useful for stylised / non-photorealistic looks.
+		bool      UseColorIBL = true;
+		glm::vec3 IBLSkyColor = glm::vec3(0.529f, 0.808f, 0.922f); // Light blue default
+
 		// Fallback Ambient Color (used when IBL is disabled)
 		glm::vec3 FallbackAmbientColor = glm::vec3(0.03f); // Dim ambient — prevents pure-black dark side without IBL
 
