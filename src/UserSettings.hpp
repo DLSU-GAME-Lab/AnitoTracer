@@ -38,6 +38,7 @@ struct UserSettings final
 	uint32_t SamplesPerInvocation = 4;
 
 	// Camera
+	bool rightClickToMoveCamera = true;
 	float FieldOfView;
 	float Aperture;
 	float FocusDistance;

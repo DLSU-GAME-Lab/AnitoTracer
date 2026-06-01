@@ -20,7 +20,7 @@ class Camera : public GameObject, public HotkeyListener
 {
 public:
 	enum ProjectionMode { orthographic = 0, perspective };
-	enum CameraMoveMode { NONE = -1, FPS = 0, PAN, FASTPAN, SLOWPAN, ZOOM, ORBIT };
+	enum CameraMoveMode { NONE = -1, FPS = 0, PAN, FASTPAN, SLOWPAN, ZOOM, ORBIT, FREE };
 
 	Camera(std::string name, ProjectionMode proj = perspective);
 	~Camera();
@@ -66,6 +66,7 @@ public:
 
 	void setToKeyFrame(KeyFrame* frame);
 	void setDuration(float duration) { this->duration = duration; }
+	void setRightClickToMoveCamera(bool value) { this->rightClickToMoveCamera = value; }
 	float getDuration() { return this->duration; }
 	std::vector<KeyFrame*> getKeyFrames() { return m_keyFrames; }
 
@@ -122,6 +123,7 @@ protected:
 	float m_defaultPivotDistance = 1000.0f;
 
 	CameraMoveMode m_currentMode = NONE;
+	bool rightClickToMoveCamera = true;
 
 	//KEYFRAMES
 	std::vector<KeyFrame*> m_keyFrames;
