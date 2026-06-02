@@ -258,6 +258,18 @@ void InspectorScreen::drawLightTab()
 		}
 	}
 
+	// ---- Light Direction (directional lights only) ----
+	if (type == GameObject::PrimitiveType::DIRECTIONAL_LIGHT)
+	{
+		labelCell("Direction");
+		{
+			ImGui::TextDisabled("(Read-only) Light direction in world space:");
+			ImGui::Text("X: %.3f", lightDirectionDisplay[0]);
+			ImGui::Text("Y: %.3f", lightDirectionDisplay[1]);
+			ImGui::Text("Z: %.3f", lightDirectionDisplay[2]);
+		}
+	}
+
 	ImGui::EndTable();
 }
 
@@ -572,6 +584,15 @@ void InspectorScreen::updateLightPropsDisplays()
 			(light->getLightType() == Assets::LightProperties::Enum::DirectionalLight) ? Light::DirectionalLight :
 			(light->getLightType() == Assets::LightProperties::Enum::SpotLight) ? Light::SpotLight : Light::PointLight;
 		this->lightTypeDisplay = type;
+
+		// For directional lights, read the light direction
+		if (type == Light::DirectionalLight)
+		{
+			glm::vec3 dir = light->Properties().LightDir;
+			this->lightDirectionDisplay[0] = dir.x;
+			this->lightDirectionDisplay[1] = dir.y;
+			this->lightDirectionDisplay[2] = dir.z;
+		}
 	}
 }
 

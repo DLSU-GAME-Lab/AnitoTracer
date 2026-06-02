@@ -54,6 +54,7 @@ private:
 	bool isColorPickerOpen = false;
 	ImVec4 lightColorDisplay = ImVec4(1, 1, 1, 1);
 	Light::LightType lightTypeDisplay = Light::PointLight;
+	float lightDirectionDisplay[3] = { 0.0f, -1.0f, 0.0f };  // Display-only for directional lights
 
 	bool isUniformScalingEnabled = false;
 

@@ -177,9 +177,16 @@ private:
 
 	glm::vec3 calculateDirection()
 	{
-		// Directional lights in this engine always point DOWN (-Y world space)
-		// regardless of rotation, since we want a sun-like light source.
-		// The light position doesn't matter for directional lights - only direction.
-		return glm::vec3(0.0f, -1.0f, 0.0f);
+		// For directional lights, compute the direction from the current rotation quaternion.
+		// Default (0,0,0 rotation): light should point DOWN (-Y in world space).
+		// We use (0, -1, 0) as the base direction in local space, then rotate it.
+
+		glm::quat rot = getLocalRotationQuat();
+
+		// Local "down" direction: (0, -1, 0)
+		// Transform by the object's rotation to get world-space direction.
+		glm::vec3 downDir = glm::rotate(rot, glm::vec3(0.0f, -1.0f, 0.0f));
+
+		return glm::normalize(downDir);
 	}
 };
