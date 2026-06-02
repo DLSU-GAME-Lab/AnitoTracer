@@ -1,0 +1,110 @@
+#version 460
+
+// ── IBL Specular Prefilter ────────────────────────────────────────────────────
+// Convolves the skybox environment with GGX at a given roughness level and writes
+// one face of one mip level of the prefiltered cubemap.
+// Dispatched per (mip, face) pair; push constants carry faceIndex + roughness.
+// ─────────────────────────────────────────────────────────────────────────────
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// Binding 0: source skybox cubemap (read-only, sampled)
+layout(binding = 0) uniform samplerCube envMap;
+
+// Binding 1: destination prefiltered face for this mip (storage image, RGBA16F)
+layout(binding = 1, rgba16f) uniform writeonly image2D outFace;
+
+layout(push_constant) uniform PC
+{
+	uint  faceIndex;   // 0–5 cube face
+	float roughness;   // 0.0 (mirror) → 1.0 (fully diffuse)
+} pc;
+
+const float PI           = 3.14159265359;
+const uint  SAMPLE_COUNT = 1024u;
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+
+// Van der Corput sequence (base-2 radical inverse) — one axis of Hammersley
+float RadicalInverse_VdC(uint bits)
+{
+	bits = (bits << 16u) | (bits >> 16u);
+	bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+	bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+	bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+	bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+	return float(bits) * 2.3283064365386963e-10; // / 2^32
+}
+
+// 2-D Hammersley low-discrepancy sample i of N
+vec2 Hammersley(uint i, uint N)
+{
+	return vec2(float(i) / float(N), RadicalInverse_VdC(i));
+}
+
+// GGX importance-sampled half-vector in tangent space
+vec3 ImportanceSampleGGX(vec2 Xi, float roughness)
+{
+	float a   = roughness * roughness;
+	float phi = 2.0 * PI * Xi.x;
+	// GGX NDF CDF inverse for cosTheta
+	float cosTheta = sqrt((1.0 - Xi.y) / max(1.0 + (a * a - 1.0) * Xi.y, 1e-7));
+	float sinTheta = sqrt(max(1.0 - cosTheta * cosTheta, 0.0));
+	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+vec3 FaceUVToDir(uint face, vec2 uv)
+{
+	switch (face)
+	{
+		case 0u: return normalize(vec3( 1.0,  uv.y, -uv.x));
+		case 1u: return normalize(vec3(-1.0,  uv.y,  uv.x));
+		case 2u: return normalize(vec3( uv.x,  1.0, -uv.y));
+		case 3u: return normalize(vec3( uv.x, -1.0,  uv.y));
+		case 4u: return normalize(vec3( uv.x,  uv.y,  1.0));
+		default: return normalize(vec3(-uv.x,  uv.y, -1.0));
+	}
+}
+
+void main()
+{
+	ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size  = imageSize(outFace);
+	if (coord.x >= size.x || coord.y >= size.y) return;
+
+	vec2 uv = (vec2(coord) + 0.5) / vec2(size) * 2.0 - 1.0;
+	vec3 N  = FaceUVToDir(pc.faceIndex, uv);
+
+	// Split-sum approximation: assume V == N (avoids storing view direction)
+	vec3 V = N;
+
+	// Build tangent frame
+	vec3 up    = abs(N.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+	vec3 right = normalize(cross(up, N));
+	up         = cross(N, right);
+
+	vec3  prefilteredColor = vec3(0.0);
+	float totalWeight      = 0.0;
+
+	for (uint i = 0u; i < SAMPLE_COUNT; ++i)
+	{
+		vec2 Xi = Hammersley(i, SAMPLE_COUNT);
+
+		// Half-vector in tangent space → world space
+		vec3 Ht = ImportanceSampleGGX(Xi, pc.roughness);
+		vec3 H  = normalize(Ht.x * right + Ht.y * up + Ht.z * N);
+
+		// Reflect V around H to get the light direction L
+		vec3 L = normalize(2.0 * dot(V, H) * H - V);
+
+		float NdotL = max(dot(N, L), 0.0);
+		if (NdotL > 0.0)
+		{
+			prefilteredColor += texture(envMap, L).rgb * NdotL;
+			totalWeight      += NdotL;
+		}
+	}
+
+	prefilteredColor = prefilteredColor / max(totalWeight, 0.001);
+	imageStore(outFace, coord, vec4(prefilteredColor, 1.0));
+}

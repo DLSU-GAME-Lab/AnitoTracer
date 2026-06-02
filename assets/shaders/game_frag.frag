@@ -1,6 +1,8 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier : require
 
+#define MAX_SHADOW_LIGHTS 4
+
 // ── Uniform buffer: camera matrices ─────────────────────────────────────────
 // Layout MUST match Assets::UniformBufferObject in UniformBuffer.hpp exactly.
 layout(binding = 0) uniform UniformBufferObject
@@ -25,6 +27,10 @@ layout(binding = 0) uniform UniformBufferObject
 	uint  MinSamples;
 	vec3  FallbackAmbientColor; // RGB fallback ambient when IBL is disabled
 	float Exposure;             // Scene exposure scalar applied to direct lighting before tonemapping
+	uint  UseColorIBL;          // When non-zero, IBLSkyColor replaces cubemap sampling
+	// std140 implicit padding (12 B) to align IBLSkyColor vec3 to 16-byte boundary
+	vec3  IBLSkyColor;          // Flat sky tint used when UseColorIBL != 0
+	// std140 implicit trailing padding (4 B)
 } ubo;
 
 // ── Material buffer (matches Assets::Material alignas(16)) ───────────────────
@@ -56,6 +62,43 @@ layout(binding = 3) uniform sampler2D textures[];
 
 // ── Skybox cubemap ────────────────────────────────────────────────────────────
 layout(binding = 4) uniform samplerCube skybox;
+
+// ── Shadow maps (binding 5): one sampler2DShadow per active shadow light ──────
+// Hardware PCF compare (LESS_OR_EQUAL).  texture() returns 1.0=lit, 0.0=shadow.
+layout(binding = 5) uniform sampler2DShadow shadowMaps[MAX_SHADOW_LIGHTS];
+
+// ── Shadow UBO (binding 6): all directional-light VP matrices + active count ──
+layout(binding = 6) uniform ShadowUBO
+{
+	mat4 LightViewProj[MAX_SHADOW_LIGHTS];
+	uint Count;
+} shadowUBO;
+
+// ── Point light shadow maps (binding 7): cubemap shadows with PCF compare ─────
+#define MAX_POINT_SHADOW_LIGHTS 4
+layout(binding = 7) uniform samplerCubeShadow pointShadowMaps[MAX_POINT_SHADOW_LIGHTS];
+
+// ── Point shadow UBO (binding 8): cubemap VP matrices + light positions + count
+layout(binding = 8) uniform PointShadowUBO
+{
+	mat4  CubemapViewProj[MAX_POINT_SHADOW_LIGHTS * 6];  // 6 VP matrices per light
+	vec4  LightPositions[MAX_POINT_SHADOW_LIGHTS];       // Light positions (world-space)
+	uint  Count;                                          // Number of active point lights
+	float FarPlane;                                       // Far plane used for linear depth encoding
+	float _pad[2];
+} pointShadowUBO;
+
+// ── IBL textures (binding 9/10/11) ───────────────────────────────────────────
+// Bound by GameRenderer to IBLPrecompute outputs when a skybox is present.
+// When IBL is unavailable (no skybox) these are dummy-bound to the skybox
+// sampler; the shader guards access with (ubo.HasSky != 0).
+layout(binding = 9)  uniform samplerCube iblIrradiance;    // 32×32 diffuse irradiance
+layout(binding = 10) uniform samplerCube iblPrefiltered;   // 128×128 specular (mipped)
+layout(binding = 11) uniform sampler2D   brdfLUT;          // 512×512 split-sum LUT
+
+// Number of roughness mip levels in the prefiltered cubemap
+// (must match IBLPrecompute::kPrefilteredMips)
+const uint MAX_PREFILTER_MIPS = 7u;
 
 // ── Inputs from vertex shader ─────────────────────────────────────────────────
 layout(location = 0) in vec3  inWorldPos;
@@ -140,6 +183,88 @@ vec3 ACESToneMapping(vec3 color)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PCF Shadow — 3×3 kernel (9 samples)
+// ─────────────────────────────────────────────────────────────────────────────
+// PCF Shadow — 3×3 kernel (9 samples) for one shadow map slot.
+//
+//   shadowIdx : index into shadowMaps[] and shadowUBO.LightViewProj[].
+//   worldPos  : fragment world-space position (from vertex shader).
+//
+//   Returns 1.0 = fully lit, 0.0 = fully in shadow.
+//   Pixels outside the light frustum are treated as fully lit.
+// ─────────────────────────────────────────────────────────────────────────────
+float SampleShadowPCF(uint shadowIdx, vec3 worldPos)
+{
+	// Transform world-space position into the light's clip space.
+	vec4 shadowCoord = shadowUBO.LightViewProj[shadowIdx] * vec4(worldPos, 1.0);
+
+	// Perspective divide — for an ortho projection w == 1, but kept for correctness.
+	vec3 proj = shadowCoord.xyz / shadowCoord.w;
+
+	// Remap X,Y from Vulkan NDC [-1, 1] → UV [0, 1].
+	// Z is already in [0, 1] (GLM_FORCE_DEPTH_ZERO_TO_ONE).
+	proj.xy = proj.xy * 0.5 + 0.5;
+
+	// Slope-scaled software bias: reduces acne on surfaces at grazing angles
+	// to the light without over-biasing thin horizontal surfaces.
+	// kBiasMin is the constant term; kBiasSlope scales with how much the
+	// fragment normal deviates from the light direction.
+	const float kBiasMin   = 0.0005;
+	const float kBiasSlope = 0.005;
+	const float ref        = proj.z - kBiasMin;
+	const vec2  texelSize  = 1.0 / vec2(textureSize(shadowMaps[shadowIdx], 0));
+
+	// Clamp the UV center so the 3×3 PCF kernel cannot stray into the
+	// CLAMP_TO_BORDER region (which returns 1.0 = fully lit via the white
+	// border).  Without this clamp, fragments right at the frustum edge
+	// sample half-lit because several kernel taps land outside the [0,1]
+	// range and come back white, creating a bright-lit strip along every
+	// geometry edge that happens to sit near the frustum boundary.
+	const vec2 halfTexel = texelSize * 1.5; // kernel reaches ±1 texel
+	const vec2 uvClamped = clamp(proj.xy, halfTexel, vec2(1.0) - halfTexel);
+
+	float shadow = 0.0;
+	for (int x = -1; x <= 1; ++x)
+	{
+		for (int y = -1; y <= 1; ++y)
+		{
+			// texture(sampler2DShadow, vec3(uv, ref)) returns
+			// 1.0 when ref <= depth_in_shadowmap  (not in shadow)
+			// 0.0 when ref >  depth_in_shadowmap  (in shadow)
+			shadow += texture(shadowMaps[shadowIdx],
+							  vec3(uvClamped + vec2(x, y) * texelSize, ref));
+		}
+	}
+	return shadow / 9.0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Point Light Cubemap Shadow — linear depth compare
+// ─────────────────────────────────────────────────────────────────────────────
+/// @brief Sample point light shadow using cubemap.
+///   pointIdx : index into pointShadowMaps[] and pointShadowUBO
+///   worldPos : fragment world-space position
+///   Returns 1.0 = fully lit, 0.0 = fully in shadow
+float SamplePointLightShadow(uint pointIdx, vec3 worldPos)
+{
+	vec3  lightPos   = pointShadowUBO.LightPositions[pointIdx].xyz;
+	vec3  toFragment = worldPos - lightPos;
+
+	// Linear reference depth — matches what point_shadow_frag.frag writes
+	// (dist / FarPlane).  A small world-space bias is subtracted so the
+	// surface doesn't shadow itself (avoids self-shadow acne).
+	const float kBiasWorld = 1.5;        // world-space units; tune if needed
+	float ref = (length(toFragment) - kBiasWorld) / pointShadowUBO.FarPlane;
+	ref = max(ref, 0.0);                  // clamp: never negative
+
+	// texture(samplerCubeShadow, vec4(dir, ref)):
+	//   dir selects the cubemap face + UV
+	//   ref is compared against the stored depth via the sampler compare op
+	//   returns 1.0 = lit  (ref < stored depth),  0.0 = in shadow
+	return texture(pointShadowMaps[pointIdx], vec4(toFragment, ref));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Derive PBR parameters from the Material enum
 // ─────────────────────────────────────────────────────────────────────────────
 void MaterialToPBR(in Material mat, in vec3 texSample,
@@ -165,6 +290,59 @@ void MaterialToPBR(in Material mat, in vec3 texSample,
 	} else if (mat.MaterialModel == 4u) {
 		isEmissive = true;
 	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IBL ambient (diffuse irradiance + specular split-sum)
+// ─────────────────────────────────────────────────────────────────────────────
+// Returns the image-based ambient contribution in linear HDR space.
+// Must be added AFTER tone-mapping of direct light is applied so it lands
+// in the same display-space [0,1] range as the FallbackAmbientColor path.
+vec3 IBLAmbient(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness)
+{
+	vec3 F0 = mix(vec3(0.04), albedo, metallic);
+	vec3 F  = F_Schlick(max(dot(N, V), 0.0), F0);
+
+	// For a real HDR cubemap the Fresnel term on kD is physically correct —
+	// different directions of the environment contribute different energies and
+	// the view-dependent Fresnel conserves energy across diffuse + specular.
+	//
+	// For a flat uniform colour (UseColorIBL=1) the ambient arrives equally
+	// from all directions, so there is no directional energy imbalance to
+	// compensate for.  Applying the Fresnel here would create an artificial
+	// view-angle darkening (kD → 0 at grazing NdotV) that manifests as
+	// SSAO-like contact shadows that flip sides when the camera orbits —
+	// a purely view-dependent artefact with no physical basis.
+	vec3 kD;
+	if (ubo.UseColorIBL != 0u)
+		kD = vec3(1.0 - metallic);          // uniform ambient — no Fresnel attenuation
+	else
+		kD = (1.0 - F) * (1.0 - metallic); // real cubemap — physically correct
+
+	// Diffuse: hemisphere-integrated irradiance.
+	// When UseColorIBL is set, substitute the flat IBLSkyColor for the cubemap
+	// so the tint drives ambient rather than the actual HDR environment capture.
+	vec3 irradiance = (ubo.UseColorIBL != 0u)
+		? ubo.IBLSkyColor
+		: texture(iblIrradiance, N).rgb;
+	vec3 diffuseIBL = kD * irradiance * albedo;
+
+	// Specular: GGX-prefiltered env at the matching roughness mip.
+	// Same substitution — flat colour acts as a uniform environment for specular.
+	vec3 prefilteredEnv;
+	if (ubo.UseColorIBL != 0u)
+	{
+		prefilteredEnv = ubo.IBLSkyColor;
+	}
+	else
+	{
+		float mipLevel = roughness * float(MAX_PREFILTER_MIPS - 1u);
+		prefilteredEnv = textureLod(iblPrefiltered, reflect(-V, N), mipLevel).rgb;
+	}
+	vec2 brdfSample  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	vec3 specularIBL = prefilteredEnv * (F0 * brdfSample.x + brdfSample.y);
+
+	return diffuseIBL + specularIBL;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -204,6 +382,11 @@ void main()
 	vec3 directLight = vec3(0.0);
 	uint lightCount  = uint(lights.length());
 
+	// shadowIdx tracks which shadow map slot corresponds to the current
+	// directional light — increments once per directional light encountered.
+	uint shadowIdx      = 0;
+	uint pointShadowIdx = 0;
+
 	for (uint i = 0; i < lightCount; ++i)
 	{
 		LightProperties light = lights[i];
@@ -230,24 +413,70 @@ void main()
 			attenuation    = (theta > cutoff) ? (1.0 / max(dist * dist, 0.0001)) : 0.0;
 		}
 
+		// Shadow modulation: directional lights use 2D PCF, point lights use cubemap
+		float shadowFactor = 1.0;
+		if (light.LightType == 1u)
+		{
+			if (shadowIdx < shadowUBO.Count)
+				shadowFactor = SampleShadowPCF(shadowIdx, inWorldPos);
+			++shadowIdx;
+		}
+		else if (light.LightType == 0u)
+		{
+			if (pointShadowIdx < pointShadowUBO.Count)
+				shadowFactor = SamplePointLightShadow(pointShadowIdx, inWorldPos);
+			++pointShadowIdx;
+		}
+
 		float intensity   = light.LightColor.a;
 		vec3  lightColor  = light.LightColor.rgb * intensity;
 
-		directLight += CookTorranceBRDF(N, V, L, albedo, metallic, roughness)
-					  * lightColor * attenuation;
+		directLight += shadowFactor
+					 * CookTorranceBRDF(N, V, L, albedo, metallic, roughness)
+					 * lightColor * attenuation;
 	}
 
-	// Apply exposure and ACES tone mapping to the HDR direct light.
-	// Exposure brings physical units (e.g. 500 000 lx) into the [0, ~8] range
-	// where ACES operates cleanly, then maps to [0, 1].
-	directLight *= ubo.Exposure;
-	directLight  = ACESToneMapping(directLight);
+	// ── Ambient / IBL ────────────────────────────────────────────────────────
+	// Three paths depending on HasSky and UseColorIBL:
+	//
+	// A) HasSky=1, UseColorIBL=0  — real HDR cubemap.
+	//    Irradiance values are HDR (>> 1), so they must be added to directLight
+	//    BEFORE exposure scaling + tonemapping so everything lands on the same curve.
+	//
+	// B) HasSky=1, UseColorIBL=1  — flat IBLSkyColor in display-space [0,1].
+	//    Treating it like HDR would multiply it by Exposure (≈0.00001) and kill it.
+	//    Instead, tonemap direct light first, then add the ambient term afterwards —
+	//    the same treatment used by FallbackAmbientColor.
+	//
+	// C) HasSky=0  — no skybox / IBL disabled.
+	//    Tonemap direct light, then add FallbackAmbientColor.
+	vec3 ambientTerm;
+	if (ubo.HasSky != 0u && ubo.UseColorIBL == 0u)
+	{
+		// Path A: real HDR cubemap — combine before exposure + tonemap.
+		ambientTerm  = IBLAmbient(N, V, albedo, metallic, roughness);
+		directLight += ambientTerm;
+		directLight *= ubo.Exposure;
+		directLight  = ACESToneMapping(directLight);
+	}
+	else if (ubo.HasSky != 0u && ubo.UseColorIBL != 0u)
+	{
+		// Path B: display-space sky colour — tonemap first, add ambient after.
+		directLight *= ubo.Exposure;
+		directLight  = ACESToneMapping(directLight);
+		ambientTerm  = IBLAmbient(N, V, albedo, metallic, roughness);
+		directLight += ambientTerm;
+	}
+	else
+	{
+		// Path C: no IBL — tonemap direct light, then add fallback ambient.
+		directLight *= ubo.Exposure;
+		directLight  = ACESToneMapping(directLight);
+		ambientTerm  = ubo.FallbackAmbientColor * albedo;
+		directLight += ambientTerm;
+	}
 
-	// Add ambient in display space AFTER tone mapping so it acts as a visible
-	// luminance floor on the dark side without being crushed by exposure.
-	vec3 ambientTerm = ubo.FallbackAmbientColor * albedo;
-
-	vec3 finalColor = clamp(ambientTerm + directLight, 0.0, 1.0);
+	vec3 finalColor = clamp(directLight, 0.0, 1.0);
 
 	// sRGB gamma correction
 	finalColor = pow(finalColor, vec3(1.0 / 2.2));

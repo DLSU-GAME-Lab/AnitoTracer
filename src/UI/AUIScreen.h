@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <imgui.h>
 #include <string>
@@ -22,6 +22,7 @@ public:
 	static constexpr char SETTINGS_SCREEN[] = "SETTINGS_SCREEN";
 	static constexpr char PROJECT_SCREEN[] = "PROJECT_SCREEN";
 	static constexpr char EXPORT_ANIMATION_SCREEN[] = "EXPORT_ANIMATION_SCREEN";
+	static constexpr char IBL_DEBUG_SCREEN[] = "IBL_DEBUG_SCREEN";
 };
 
 class UISettings

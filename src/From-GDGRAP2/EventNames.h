@@ -16,5 +16,6 @@ public:
 	inline static const String RAYS_END_RENDER = "RAYS_END_RENDER";
 	inline static const String ON_SAMPLE_PROGRESS = "ON_SAMPLE_PROGRESS"; // Broadcasts at configurable percentage intervals (default 1%) with progress data
 	inline static const String ON_SWAP_RENDERER = "ON_SWAP_RENDERER"; // Broadcasts when user switches between Legacy and Compute Shader renderers
+	inline static const String ON_SHADOW_SETTINGS_CHANGED = "ON_SHADOW_SETTINGS_CHANGED"; // Broadcasts when per-light shadow settings are edited in the Inspector
 };
 

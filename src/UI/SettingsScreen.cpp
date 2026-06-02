@@ -160,6 +160,12 @@ void SettingsScreen::drawUI()
 			ImGui::Checkbox("Enable SSAO",        &settings->Game.EnableSSAO);
 			ImGui::Checkbox("Enable Bloom",       &settings->Game.EnableBloom);
 			ImGui::Checkbox("Enable IBL",         &settings->Game.EnableIBL);
+			if (settings->Game.EnableIBL)
+			{
+				ImGui::Checkbox("Use Color in IBL",   &settings->Game.UseColorIBL);
+				if (settings->Game.UseColorIBL)
+					ImGui::ColorEdit3("IBL Sky Color", glm::value_ptr(settings->Game.IBLSkyColor));
+			}
 			ImGui::ColorEdit3("Fallback Ambient Color", glm::value_ptr(settings->Game.FallbackAmbientColor));
 			ImGui::NewLine();
 		}

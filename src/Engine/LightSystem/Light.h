@@ -177,10 +177,16 @@ private:
 
 	glm::vec3 calculateDirection()
 	{
-		glm::vec3 localForward = glm::vec3(0.0f, -1.0f, 0.0f); // pointing down by default
-		glm::mat4 modelMatrix = this->localMatrix;
+		// For directional lights, compute the direction from the current rotation quaternion.
+		// Default (0,0,0 rotation): light should point DOWN (-Y in world space).
+		// We use (0, -1, 0) as the base direction in local space, then rotate it.
 
-		glm::vec3 worldDirection = glm::normalize(glm::mat3(modelMatrix) * localForward);
-		return worldDirection;
+		glm::quat rot = getLocalRotationQuat();
+
+		// Local "down" direction: (0, -1, 0)
+		// Transform by the object's rotation to get world-space direction.
+		glm::vec3 downDir = glm::rotate(rot, glm::vec3(0.0f, -1.0f, 0.0f));
+
+		return glm::normalize(downDir);
 	}
 };

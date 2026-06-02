@@ -209,6 +209,13 @@ set(src_files_vulkan_compute
 set(src_files_vulkan_game
 	Vulkan/Vk_Game/GameRenderer.cpp
 	Vulkan/Vk_Game/GameRenderer.hpp
+	Vulkan/Vk_Game/ShadowMapPass.cpp
+	Vulkan/Vk_Game/ShadowMapPass.hpp
+	Vulkan/Vk_Game/PointLightShadowPass.cpp
+	Vulkan/Vk_Game/PointLightShadowPass.hpp
+	Vulkan/Vk_Game/ShadowMapSettings.hpp
+	Vulkan/Vk_Game/IBL/IBLPrecompute.hpp
+	Vulkan/Vk_Game/IBL/IBLPrecompute.cpp
 )
 
 set(src_files_ui
@@ -234,6 +241,8 @@ set(src_files_ui
 	UI/AssetExplorerScreen.h
 	UI/SettingsScreen.cpp
 	UI/SettingsScreen.h
+	UI/IBLDebugScreen.cpp
+	UI/IBLDebugScreen.h
 	UI/UIManager.cpp
 	UI/UIManager.h
 	UI/EditorTheme.hpp

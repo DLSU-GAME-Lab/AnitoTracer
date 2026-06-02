@@ -1,4 +1,9 @@
 #include "GameRenderer.hpp"
+#include "ShadowMapPass.hpp"
+#include "PointLightShadowPass.hpp"
+#include "IBL/IBLPrecompute.hpp"
+
+#include <algorithm>
 
 #include "Assets/Scene.hpp"
 #include "Assets/UniformBuffer.hpp"
@@ -9,6 +14,7 @@
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 #include "Vulkan/Buffer.hpp"
+#include "Vulkan/CommandPool.hpp"
 #include "Vulkan/DepthBuffer.hpp"
 #include "Vulkan/DescriptorBinding.hpp"
 #include "Vulkan/DescriptorSetManager.hpp"
@@ -30,19 +36,45 @@ GameRenderer::GameRenderer(
 	const Vulkan::SwapChain& swapChain,
 	const Vulkan::DepthBuffer& depthBuffer,
 	const std::vector<Assets::UniformBuffer>& uniformBuffers,
-	const Assets::Scene& scene) :
+	const Assets::Scene& scene,
+	Vulkan::CommandPool& commandPool) :
 	swapChain_(swapChain),
 	depthBuffer_(depthBuffer),
-	scene_(scene)
+	scene_(scene),
+	uniformBuffers_(&uniformBuffers),
+	commandPool_(&commandPool)
 {
 	CreateRenderPass();
+	shadowMapPass_ = std::make_unique<ShadowMapPass>(
+		swapChain.Device(),
+		static_cast<uint32_t>(uniformBuffers.size()));
+	pointLightShadowPass_ = std::make_unique<PointLightShadowPass>(
+		swapChain.Device(),
+		static_cast<uint32_t>(uniformBuffers.size()));
+
+	// Pre-compute IBL textures if the scene has a skybox
+	if (scene.SkyboxImageView() != VK_NULL_HANDLE)
+	{
+		iblPrecompute_ = std::make_unique<IBLPrecompute>(
+			swapChain.Device(),
+			commandPool,
+			scene.SkyboxImageView(),
+			scene.SkyboxSampler());
+	}
+
 	CreateDescriptorSets(uniformBuffers, scene);
+
+	EventBroadcaster::getInstance()->addObserver(
+		EventNames::ON_SHADOW_SETTINGS_CHANGED, this);
 	CreatePipeline();
 	CreateFramebuffers();
 }
 
 GameRenderer::~GameRenderer()
 {
+	EventBroadcaster::getInstance()->removeObserver(
+		EventNames::ON_SHADOW_SETTINGS_CHANGED);
+
 	// Framebuffers first — they reference the render pass
 	for (VkFramebuffer fb : framebuffers_)
 	{
@@ -65,11 +97,64 @@ GameRenderer::~GameRenderer()
 
 	descriptorSetManager_.reset();
 	renderPass_.reset();
+	pointLightShadowPass_.reset();
+	shadowMapPass_.reset();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Public interface
+// Shadow settings hot-reload
 // ─────────────────────────────────────────────────────────────────────────────
+
+void GameRenderer::ApplyShadowSettings(ShadowMapSettings settings)
+{
+	// GPU must be idle before we destroy the old shadow resources.
+	vkDeviceWaitIdle(swapChain_.Device().Handle());
+
+	// Tear down the old pass + descriptor sets that reference its images.
+	descriptorSetManager_.reset();
+	shadowMapPass_.reset();
+
+	// Rebuild with the new settings.
+	shadowMapPass_ = std::make_unique<ShadowMapPass>(
+		swapChain_.Device(),
+		static_cast<uint32_t>(uniformBuffers_->size()),
+		std::move(settings));
+
+	CreateDescriptorSets(*uniformBuffers_, scene_);
+}
+
+const ShadowMapSettings& GameRenderer::GetShadowSettings() const
+{
+	return shadowMapPass_->Settings();
+}
+
+void GameRenderer::onTriggeredEvent(std::string eventName,
+									std::shared_ptr<Parameters> parameters)
+{
+	if (eventName == EventNames::ON_SHADOW_SETTINGS_CHANGED && parameters)
+	{
+		// Store the new settings and raise the pending flag.
+		// The ACTUAL Vulkan recreation is deferred to FlushPendingShadowReload(),
+		// which must be called between frames (before commandBuffers_->Begin) so
+		// that we never touch GPU resources while a command buffer is recording.
+		auto* rawSettings = static_cast<ShadowMapSettings*>(
+			parameters->getHandleData("settings", nullptr));
+		if (rawSettings)
+		{
+			pendingShadowSettings_ = *rawSettings;
+			pendingShadowReload_   = true;
+		}
+	}
+}
+
+void GameRenderer::FlushPendingShadowReload()
+{
+	if (!pendingShadowReload_) return;
+	pendingShadowReload_ = false;
+	ApplyShadowSettings(std::move(pendingShadowSettings_));
+}
+
+
 
 VkDescriptorSet GameRenderer::DescriptorSet(const uint32_t index) const
 {
@@ -78,6 +163,15 @@ VkDescriptorSet GameRenderer::DescriptorSet(const uint32_t index) const
 
 void GameRenderer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 {
+	// ── Shadow passes (depth-only, runs before the main forward pass) ──────────
+	// Directional light shadows
+	shadowMapPass_->UpdateLightVP(imageIndex, scene_);
+	shadowMapPass_->Render(commandBuffer, imageIndex, scene_);
+
+	// Point light shadows (cubemaps)
+	pointLightShadowPass_->UpdateLightVP(imageIndex, scene_);
+	pointLightShadowPass_->Render(commandBuffer, imageIndex, scene_);
+
 	// ── Begin render pass ─────────────────────────────────────────────────────
 	std::array<VkClearValue, 2> clearValues{};
 	clearValues[0].color        = { { 0.05f, 0.05f, 0.05f, 1.0f } };
@@ -113,6 +207,17 @@ void GameRenderer::Render(VkCommandBuffer commandBuffer, const uint32_t imageInd
 		for (GameObject* go : ModelManager::getInstance()->getObjectList())
 		{
 			if (!go || !go->getModel()) continue;
+
+			// Skip purely emissive meshes (ray-tracer area lights — DiffuseLight material).
+			// They are not PBR light sources; rendering them in the Game Renderer would
+			// just show a bright flat box that confuses the scene.
+			{
+				const auto& mats = go->getModel()->Materials();
+				const bool allEmissive = !mats.empty() && std::all_of(
+					mats.begin(), mats.end(),
+					[](const Assets::Material& m){ return m.MaterialModel == Assets::Material::Enum::DiffuseLight; });
+				if (allEmissive) { indexOffset += static_cast<uint32_t>(go->getModel()->NumberOfIndices()); vertexOffset += static_cast<uint32_t>(go->getModel()->NumberOfVertices()); continue; }
+			}
 
 			glm::mat4 worldMatrix = go->getWorldMatrix();
 				vkCmdPushConstants(commandBuffer, pipelineLayoutRaw_,
@@ -189,6 +294,41 @@ void GameRenderer::CreateDescriptorSets(
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		VK_SHADER_STAGE_FRAGMENT_BIT});
 
+	// binding 5 : shadow maps (COMBINED_IMAGE_SAMPLER with compare, frag) — array of kMaxShadowLights
+	bindings.push_back({5, ShadowMapPass::kMaxShadowLights,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 6 : ShadowUBO   (UNIFORM_BUFFER, frag — array of light VP matrices)
+	bindings.push_back({6, 1,
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 7 : point light shadow cubemaps (COMBINED_IMAGE_SAMPLER with compare, frag)
+	bindings.push_back({7, PointLightShadowPass::kMaxPointShadowLights,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 8 : PointShadowUBO (UNIFORM_BUFFER, frag — cubemap VP matrices)
+	bindings.push_back({8, 1,
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 9  : IBL irradiance cubemap    (COMBINED_IMAGE_SAMPLER, frag)
+	bindings.push_back({9, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 10 : IBL prefiltered env cubemap (COMBINED_IMAGE_SAMPLER, frag)
+	bindings.push_back({10, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
+	// binding 11 : BRDF integration LUT       (COMBINED_IMAGE_SAMPLER, frag)
+	bindings.push_back({11, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT});
+
 	descriptorSetManager_.reset(new DescriptorSetManager(device, bindings, uniformBuffers.size()));
 	auto& descriptorSets = descriptorSetManager_->DescriptorSets();
 
@@ -239,6 +379,82 @@ void GameRenderer::CreateDescriptorSets(
 		}
 
 		writes.push_back(descriptorSets.Bind(i, 4, skyboxInfo));
+
+		// Binding 5: shadow depth maps — one sampler per slot (kMaxShadowLights total).
+		// Unused slots are filled with the first shadow map's view so every descriptor
+		// slot is valid; the fragment shader only samples slots [0, Count).
+		const std::vector<VkImageView> shadowViews = shadowMapPass_->ShadowImageViews();
+		const VkSampler                shadowSampler = shadowMapPass_->ShadowSampler();
+
+		std::vector<VkDescriptorImageInfo> shadowInfos;
+		shadowInfos.reserve(ShadowMapPass::kMaxShadowLights);
+		for (uint32_t s = 0; s < ShadowMapPass::kMaxShadowLights; ++s)
+		{
+			VkDescriptorImageInfo si{};
+			si.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			si.imageView   = shadowViews[s]; // all kMaxShadowLights slots are always valid
+			si.sampler     = shadowSampler;
+			shadowInfos.push_back(si);
+		}
+		writes.push_back(descriptorSets.Bind(i, 5,
+			*shadowInfos.data(),
+			static_cast<uint32_t>(shadowInfos.size())));
+
+		// Binding 6: ShadowUBO (light view-projection, vertex stage)
+		VkDescriptorBufferInfo shadowUboInfo{};
+		shadowUboInfo.buffer = shadowMapPass_->LightVPBuffer(i).Handle();
+		shadowUboInfo.offset = 0;
+		shadowUboInfo.range  = VK_WHOLE_SIZE;
+		writes.push_back(descriptorSets.Bind(i, 6, shadowUboInfo));
+
+		// Binding 7: point light shadow cubemaps — one sampler per point light slot
+		const std::vector<VkImageView> pointShadowViews = pointLightShadowPass_->PointShadowImageViews();
+		const VkSampler                pointShadowSampler = pointLightShadowPass_->PointShadowSampler();
+
+		std::vector<VkDescriptorImageInfo> pointShadowInfos;
+		pointShadowInfos.reserve(PointLightShadowPass::kMaxPointShadowLights);
+		for (uint32_t ps = 0; ps < PointLightShadowPass::kMaxPointShadowLights; ++ps)
+		{
+			VkDescriptorImageInfo psi{};
+			psi.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			psi.imageView   = pointShadowViews[ps]; // all slots are always valid
+			psi.sampler     = pointShadowSampler;
+			pointShadowInfos.push_back(psi);
+		}
+		writes.push_back(descriptorSets.Bind(i, 7,
+			*pointShadowInfos.data(),
+			static_cast<uint32_t>(pointShadowInfos.size())));
+
+		// Binding 8: PointShadowUBO (point light cubemap VP matrices, fragment stage)
+		VkDescriptorBufferInfo pointShadowUboInfo{};
+		pointShadowUboInfo.buffer = pointLightShadowPass_->PointLightVPBuffer(i).Handle();
+		pointShadowUboInfo.offset = 0;
+		pointShadowUboInfo.range  = VK_WHOLE_SIZE;
+		writes.push_back(descriptorSets.Bind(i, 8, pointShadowUboInfo));
+
+		// Bindings 9/10/11: IBL textures — use real IBL when available,
+		// otherwise bind the skybox itself as a harmless dummy so every
+		// descriptor slot remains valid. The shader branches on ubo.HasSky.
+		const VkImageView  iblFallbackView    = scene.SkyboxImageView();
+		const VkSampler    iblFallbackSampler = scene.SkyboxSampler();
+
+		VkDescriptorImageInfo iblIrrInfo{};
+		iblIrrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		iblIrrInfo.imageView   = iblPrecompute_ ? iblPrecompute_->IrradianceView()    : iblFallbackView;
+		iblIrrInfo.sampler     = iblPrecompute_ ? iblPrecompute_->IrradianceSampler() : iblFallbackSampler;
+		writes.push_back(descriptorSets.Bind(i, 9, iblIrrInfo));
+
+		VkDescriptorImageInfo iblPreInfo{};
+		iblPreInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		iblPreInfo.imageView   = iblPrecompute_ ? iblPrecompute_->PrefilteredView()    : iblFallbackView;
+		iblPreInfo.sampler     = iblPrecompute_ ? iblPrecompute_->PrefilteredSampler() : iblFallbackSampler;
+		writes.push_back(descriptorSets.Bind(i, 10, iblPreInfo));
+
+		VkDescriptorImageInfo iblLutInfo{};
+		iblLutInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		iblLutInfo.imageView   = iblPrecompute_ ? iblPrecompute_->BrdfLutView()    : iblFallbackView;
+		iblLutInfo.sampler     = iblPrecompute_ ? iblPrecompute_->BrdfLutSampler() : iblFallbackSampler;
+		writes.push_back(descriptorSets.Bind(i, 11, iblLutInfo));
 
 		descriptorSets.UpdateDescriptors(i, writes);
 	}

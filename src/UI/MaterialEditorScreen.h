@@ -51,11 +51,10 @@ namespace gdeng03
 
 		ImVec4 diffuse = ImVec4(1, 1, 1, 1);
 		int textureId;
-		//ImTextureID currTexId = 0;
 		bool textureChanged = false;
 		bool dielectric = false;
 		Material::Enum originalMat;
-		ImTextureID currTexId;
+		ImTextureID currTexId = 0;
 		Assets::TextureImage* textureimg;
 		//VkDescriptorSet tex_dset;
 		 // Base material

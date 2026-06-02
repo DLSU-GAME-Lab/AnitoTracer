@@ -1,4 +1,4 @@
-#include "UIManager.h"
+﻿#include "UIManager.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -49,6 +49,7 @@
 #include "HotkeySystem/HotkeySystem.hpp"
 #include "StateManagement/ConcreteCommands/GUICommands.hpp"
 #include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
+#include "IBLDebugScreen.h"
 
 #include "glm/fwd.hpp"
 #include "Assets/Model.hpp"
@@ -114,11 +115,13 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	sharedInstance->m_currentGizmoOperation = uiConfig->currentGizmoOperation;
 
 	// Initialise descriptor pool and render pass for ImGui.
+	// Budget: 64 combined-image-sampler slots — enough for fonts, IBL debug
+	// panel (14 textures), and future UI texture users with room to spare.
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
 	{
 		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
 	};
-	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 64));
 	sharedInstance->renderPass.reset(
 		new Vulkan::RenderPass(
 			*swapChain,
@@ -304,6 +307,12 @@ void UIManager::initializeUI()
 	this->uiList.push_back(settingsScreen);
 	settingsScreen->setEnabled(this->uiConfig->isSettingsEnabled);
 	sharedInstance->settingsActive = this->uiConfig->isSettingsEnabled;
+
+const std::shared_ptr<IBLDebugScreen> iblDebugScreen = std::make_shared<IBLDebugScreen>();
+this->uiTable[UINames::IBL_DEBUG_SCREEN] = iblDebugScreen;
+this->uiList.push_back(iblDebugScreen);
+iblDebugScreen->setEnabled(false);   // off by default; toggle via menu or F2
+iblDebugScreen->RegisterDescriptors();
 
 	// std::shared_ptr<AssetExplorerScreen> assetExplorerScreen = std::make_shared<AssetExplorerScreen>();
 	// this->uiTable[uiNames.ASSET_EXPLORER_SCREEN] = assetExplorerScreen;
@@ -710,12 +719,13 @@ void UIManager::ReinitializeBackends(const Vulkan::SwapChain* swapChain, const V
 	// Update the swapChain pointer to the new one
 	sharedInstance->swapChain = swapChain;
 
-	// Recreate the descriptor pool with the new device
+	// Recreate the descriptor pool with the new device.
+	// Keep the same 64-slot budget as the initial pool.
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
 	{
 		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
 	};
-	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 64));
 
 	// Recreate the render pass with the new swapchain and depth buffer
 	sharedInstance->renderPass.reset(
@@ -854,15 +864,17 @@ void UIManager::showAllUI() const
 
 void UIManager::FreeDescriptor(VkDescriptorSet& descriptorset)
 {
-	const auto& device = swapChain->Device();
-
-	// Initialise descriptor pool and render pass for ImGui.
-	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
+	// Free the individual descriptor set back into the pool.
+	// The pool was created with VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+	// so individual sets can be freed without resetting the whole pool.
+	if (descriptorset != VK_NULL_HANDLE && sharedInstance && sharedInstance->descriptorPool)
 	{
-		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
-	};
-	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
-
+		vkFreeDescriptorSets(
+			sharedInstance->descriptorPool->Device().Handle(),
+			sharedInstance->descriptorPool->Handle(),
+			1, &descriptorset);
+		descriptorset = VK_NULL_HANDLE;
+	}
 }
 
 bool UIManager::wantsToCaptureKeyboard()

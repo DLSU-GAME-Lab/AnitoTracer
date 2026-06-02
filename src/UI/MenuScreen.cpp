@@ -24,6 +24,52 @@
 using namespace Assets;
 using namespace glm;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: Generate unique light name
+// ─────────────────────────────────────────────────────────────────────────────
+static std::string GenerateUniqueLightName(const std::string& baseName)
+{
+	std::string uniqueName = baseName;
+	const auto& allObjects = ModelManager::getInstance()->getObjectList();
+
+	// Also need to check existing lights, since they're stored separately
+	// We need to access the light list through a public method if available
+	// For now, check all objects in the scene graph for matching names
+	int counter = 1;
+	bool nameExists = true;
+	while (nameExists)
+	{
+		nameExists = false;
+
+		// Check regular objects
+		for (const auto obj : allObjects)
+		{
+			if (obj && obj->getName() == uniqueName)
+			{
+				nameExists = true;
+				uniqueName = baseName + "_" + std::to_string(counter++);
+				break;
+			}
+		}
+
+		// Check scene graph all objects (including lights which may be in hierarchy)
+		if (!nameExists)
+		{
+			const auto& sceneGraph = ModelManager::getInstance()->getSceneGraph();
+			for (const auto obj : sceneGraph)
+			{
+				if (obj && obj->getName() == uniqueName)
+				{
+					nameExists = true;
+					uniqueName = baseName + "_" + std::to_string(counter++);
+					break;
+				}
+			}
+		}
+	}
+	return uniqueName;
+}
+
 MenuScreen::MenuScreen() : AUIScreen(UINames::MENU_SCREEN)
 {
 	// this->openSceneDialog = new ImGui::FileBrowser();
@@ -445,33 +491,38 @@ void MenuScreen::OnCreateLightClicked(Light::LightType type)
 	switch (type)
 	{
 	case Light::PointLight:
-
+	{
+		std::string uniqueName = GenerateUniqueLightName("Point Light");
 		CommandManager::getInstance()->executeCommand(
 			new CreateLightCommand(
 				Light::PointLight,
-				"Point Light"
+				uniqueName
 			)
 		);
 		break;
-
+	}
 	case Light::DirectionalLight:
-
+	{
+		std::string uniqueName = GenerateUniqueLightName("Directional Light");
 		CommandManager::getInstance()->executeCommand(
 			new CreateLightCommand(
 				Light::DirectionalLight,
-				"Directional Light"
+				uniqueName
 			)
 		);
 		break;
+	}
 	case Light::SpotLight:
-
+	{
+		std::string uniqueName = GenerateUniqueLightName("Spot Light");
 		CommandManager::getInstance()->executeCommand(
 			new CreateLightCommand(
 				Light::SpotLight,
-				"Spot Light"
+				uniqueName
 			)
 		);
 		break;
+	}
 	}
 }
 
