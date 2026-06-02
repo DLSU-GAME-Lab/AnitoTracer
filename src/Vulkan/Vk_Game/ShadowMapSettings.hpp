@@ -133,7 +133,12 @@ namespace Vulkan::Game
 		// ── Rasteriser (shared pipeline — applies to all lights) ──────────────
 
 		/// Face-cull mode for the shared shadow pipeline.
-		VkCullModeFlags CullMode{ VK_CULL_MODE_BACK_BIT };
+		/// VK_CULL_MODE_NONE is required for scenes with single-sided geometry
+		/// (e.g. Sponza roof) where the only face faces away from the light.
+		/// With BACK_BIT, such faces are culled and never write to the shadow map,
+		/// causing light to bleed through solid ceilings/roofs.
+		/// Depth bias (ConstantFactor + SlopeFactor) handles self-shadow acne.
+		VkCullModeFlags CullMode{ VK_CULL_MODE_NONE };
 
 		// ── Per-light slot overrides ──────────────────────────────────────────
 

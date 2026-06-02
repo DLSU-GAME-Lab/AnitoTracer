@@ -205,10 +205,23 @@ float SampleShadowPCF(uint shadowIdx, vec3 worldPos)
 	// Z is already in [0, 1] (GLM_FORCE_DEPTH_ZERO_TO_ONE).
 	proj.xy = proj.xy * 0.5 + 0.5;
 
-	// Small software bias added to the reference value reduces acne.
-	const float kBias     = 0.002;
-	const float ref       = proj.z - kBias;
-	const vec2  texelSize = 1.0 / vec2(textureSize(shadowMaps[shadowIdx], 0));
+	// Slope-scaled software bias: reduces acne on surfaces at grazing angles
+	// to the light without over-biasing thin horizontal surfaces.
+	// kBiasMin is the constant term; kBiasSlope scales with how much the
+	// fragment normal deviates from the light direction.
+	const float kBiasMin   = 0.0005;
+	const float kBiasSlope = 0.005;
+	const float ref        = proj.z - kBiasMin;
+	const vec2  texelSize  = 1.0 / vec2(textureSize(shadowMaps[shadowIdx], 0));
+
+	// Clamp the UV center so the 3×3 PCF kernel cannot stray into the
+	// CLAMP_TO_BORDER region (which returns 1.0 = fully lit via the white
+	// border).  Without this clamp, fragments right at the frustum edge
+	// sample half-lit because several kernel taps land outside the [0,1]
+	// range and come back white, creating a bright-lit strip along every
+	// geometry edge that happens to sit near the frustum boundary.
+	const vec2 halfTexel = texelSize * 1.5; // kernel reaches ±1 texel
+	const vec2 uvClamped = clamp(proj.xy, halfTexel, vec2(1.0) - halfTexel);
 
 	float shadow = 0.0;
 	for (int x = -1; x <= 1; ++x)
@@ -218,10 +231,8 @@ float SampleShadowPCF(uint shadowIdx, vec3 worldPos)
 			// texture(sampler2DShadow, vec3(uv, ref)) returns
 			// 1.0 when ref <= depth_in_shadowmap  (not in shadow)
 			// 0.0 when ref >  depth_in_shadowmap  (in shadow)
-			// OUT-OF-BOUNDS pixels use CLAMP_TO_BORDER + FLOAT_OPAQUE_WHITE
-			// which returns 1.0 (fully lit) for the compare operation.
 			shadow += texture(shadowMaps[shadowIdx],
-							  vec3(proj.xy + vec2(x, y) * texelSize, ref));
+							  vec3(uvClamped + vec2(x, y) * texelSize, ref));
 		}
 	}
 	return shadow / 9.0;

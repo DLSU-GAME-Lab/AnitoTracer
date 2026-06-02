@@ -623,13 +623,53 @@ const glm::vec3 up = (std::abs(lightDir.y) < 0.99f)
                    ? glm::vec3(0.0f, 1.0f, 0.0f)
                    : glm::vec3(1.0f, 0.0f, 0.0f);
 
+// Place the light eye far enough above the scene to see all geometry.
 const glm::vec3 eye  = sceneCenter - lightDir * sceneRadius;
 const glm::mat4 view = glm::lookAt(eye, sceneCenter, up);
 
-glm::mat4 proj = glm::ortho(
--sceneRadius, sceneRadius,
--sceneRadius, sceneRadius,
-rs.NearPlane, sceneRadius * 2.0f);  // per-light near plane
+// ── Tight AABB ortho bounds ───────────────────────────────────────────────
+// Project all 8 world-space AABB corners into light view space and derive
+// the tightest possible ortho frustum.  The old approach used ±sceneRadius
+// (sphere radius) for the ortho half-extents, which wastes shadow-map texels
+// proportionally to the scene's aspect ratio — especially bad when SceneMargin
+// is large (e.g. 5000).  For Sponza at 5000 margin each texel covered ≈10
+// world units, making thin geometry (ledge edges, cornices) nearly invisible
+// in the shadow map and producing bright bleeding strips at architecture edges.
+constexpr float kBig = std::numeric_limits<float>::max();
+float lsMinX =  kBig, lsMaxX = -kBig;
+float lsMinY =  kBig, lsMaxY = -kBig;
+float lsMinZ =  kBig, lsMaxZ = -kBig;
+
+const glm::vec3 corners[8] =
+{
+    { sceneMin.x, sceneMin.y, sceneMin.z },
+    { sceneMax.x, sceneMin.y, sceneMin.z },
+    { sceneMin.x, sceneMax.y, sceneMin.z },
+    { sceneMax.x, sceneMax.y, sceneMin.z },
+    { sceneMin.x, sceneMin.y, sceneMax.z },
+    { sceneMax.x, sceneMin.y, sceneMax.z },
+    { sceneMin.x, sceneMax.y, sceneMax.z },
+    { sceneMax.x, sceneMax.y, sceneMax.z },
+};
+
+for (const auto& c : corners)
+{
+    const glm::vec4 ls = view * glm::vec4(c, 1.0f);
+    lsMinX = std::min(lsMinX, ls.x); lsMaxX = std::max(lsMaxX, ls.x);
+    lsMinY = std::min(lsMinY, ls.y); lsMaxY = std::max(lsMaxY, ls.y);
+    lsMinZ = std::min(lsMinZ, ls.z); lsMaxZ = std::max(lsMaxZ, ls.z);
+}
+
+// In GLM view space the camera looks in -Z: objects in front have negative Z.
+// glm::ortho(near, far) clips view-space Z in [-near, -far] (both positive distances).
+//   lsMinZ is most-negative (farthest from light)  → far  = -lsMinZ
+//   lsMaxZ is least-negative (closest to light)    → near = max(rs.NearPlane, -lsMaxZ)
+// We use rs.NearPlane as the near value and pull it back slightly so geometry
+// exactly at the near boundary is not clipped out of the shadow map.
+const float zNear = rs.NearPlane;
+const float zFar  = std::max(-lsMinZ + rs.NearPlane, zNear + 1.0f);
+
+glm::mat4 proj = glm::ortho(lsMinX, lsMaxX, lsMinY, lsMaxY, zNear, zFar);
 
 // Flip Y: GLM targets OpenGL (Y-up NDC); Vulkan uses Y-down NDC.
 proj[1][1] *= -1.0f;
