@@ -157,13 +157,50 @@ void HierarchyScreen::CreatePrimitive(GameObject::PrimitiveType type, String nam
 
 void HierarchyScreen::CreateLight(Light::LightType type, String name)
 {
+	// Generate a unique name by checking existing objects AND lights in the scene
+	String uniqueName = name;
+	const auto& allObjects = ModelManager::getInstance()->getObjectList();
+	const auto& sceneGraph = ModelManager::getInstance()->getSceneGraph();
+
+	int counter = 1;
+	bool nameExists = true;
+	while (nameExists)
+	{
+		nameExists = false;
+
+		// Check regular objects with models
+		for (const auto obj : allObjects)
+		{
+			if (obj && obj->getName() == uniqueName)
+			{
+				nameExists = true;
+				uniqueName = name + "_" + std::to_string(counter++);
+				break;
+			}
+		}
+
+		// Check all scene graph objects (to catch lights and other entities)
+		if (!nameExists)
+		{
+			for (const auto obj : sceneGraph)
+			{
+				if (obj && obj->getName() == uniqueName)
+				{
+					nameExists = true;
+					uniqueName = name + "_" + std::to_string(counter++);
+					break;
+				}
+			}
+		}
+	}
+
 	// For directional lights, position high above and set to point DOWN
 	// We don't use rotation for directional lights - we directly set the direction
 	glm::vec3 defaultPos = glm::vec3(0);
 	glm::vec3 defaultRotation = glm::vec3(0);
 
 	CommandManager::getInstance()->executeCommand(
-		new CreateLightCommand(type, name, defaultPos, defaultRotation)
+		new CreateLightCommand(type, uniqueName, defaultPos, defaultRotation)
 	);
 }
 

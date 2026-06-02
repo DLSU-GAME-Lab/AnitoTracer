@@ -45,13 +45,25 @@ void InspectorScreen::drawUI()
 
 	this->selectedObject = ModelManager::getInstance()->getSelectedObject();
 
-	// Reset per-light shadow edit state whenever the selection changes.
-	static GameObject* lastSelected = nullptr;
-	if (this->selectedObject != lastSelected)
+	// Reset per-light shadow edit state only when a DIFFERENT DIRECTIONAL LIGHT is selected.
+	// (Not when switching to other object types — those don't use shadow settings anyway.)
+	static GameObject* lastDirectionalLightSelected = nullptr;
+	const bool isDirectionalLight = this->selectedObject && 
+		this->selectedObject->getType() == GameObject::PrimitiveType::DIRECTIONAL_LIGHT;
+
+	if (isDirectionalLight && this->selectedObject != lastDirectionalLightSelected)
 	{
-		lastSelected             = this->selectedObject;
-		shadowEditInitialised_   = false;
-		shadowLightSlotIndex_    = 0;
+		// Changed to a different directional light — reset editing state
+		lastDirectionalLightSelected = this->selectedObject;
+		shadowEditInitialised_       = false;
+		shadowLightSlotIndex_        = 0;
+	}
+	else if (!isDirectionalLight)
+	{
+		// Non-directional-light object selected — remember this for next time
+		lastDirectionalLightSelected = nullptr;
+		// Don't reset shadowEditInitialised_ or shadowLightSlotIndex_
+		// so they persist if we return to a directional light
 	}
 
 	if (this->selectedObject != nullptr)
@@ -297,17 +309,23 @@ void InspectorScreen::drawShadowSettingsTab()
 	// with the full merged settings object.
 
 	// ── Initialise working copy once per selection ────────────────────────────
-	if (!shadowEditInitialised_)
+	if (!shadowEditInitialised_ || shadowLightSlotIndex_ != lastInitializedSlot_)
 	{
-		// Request current settings via a read-only broadcast (GameRenderer packs
-		// its current ShadowMapSettings as a void* "currentSettings" handle).
-		auto queryParams = std::make_shared<Parameters>("SHADOW_SETTINGS_QUERY");
-		// We broadcast a separate query event; GameRenderer stores the pointer in
-		// the same Parameters object it receives.  For simplicity, we reset the
-		// working copy to defaults and let the user adjust from there.
-		// (A true bidirectional query would need a callback / synchronous call.)
-		shadowLightEdit_       = Vulkan::Game::ShadowLightSettings{};
+		// Check if we have a cached version of settings for this light + slot combo
+		const size_t cacheKey = MakeCacheKey(selectedObject, shadowLightSlotIndex_);
+		const auto cacheIt = shadowSettingsCache_.find(cacheKey);
+		if (cacheIt != shadowSettingsCache_.end())
+		{
+			// Restore from cache (what was previously applied for THIS light)
+			shadowLightEdit_ = cacheIt->second;
+		}
+		else
+		{
+			// No cache — initialize to defaults
+			shadowLightEdit_ = Vulkan::Game::ShadowLightSettings{};
+		}
 		shadowEditInitialised_ = true;
+		lastInitializedSlot_ = shadowLightSlotIndex_;
 	}
 
 	// ── Light slot selector ───────────────────────────────────────────────────
@@ -431,13 +449,19 @@ void InspectorScreen::drawShadowSettingsTab()
 		params->encodeHandle("settings", &s_pendingSettings);
 		EventBroadcaster::getInstance()->broadcastEventWithParams(
 			EventNames::ON_SHADOW_SETTINGS_CHANGED, params);
+
+		// Cache the applied settings for this light + slot combo
+		const size_t cacheKey = MakeCacheKey(selectedObject, shadowLightSlotIndex_);
+		shadowSettingsCache_[cacheKey] = shadowLightEdit_;
 	}
 
 	ImGui::SameLine();
 	if (ImGui::Button("Reset Slot##SReset"))
 	{
 		shadowLightEdit_     = Vulkan::Game::ShadowLightSettings{};
-		shadowEditInitialised_ = false; // will re-init on next frame
+		shadowEditInitialised_ = true;  // Keep initialized, just reset the values
+		const size_t cacheKey = MakeCacheKey(selectedObject, shadowLightSlotIndex_);
+		shadowSettingsCache_[cacheKey] = shadowLightEdit_;  // Cache the reset
 	}
 }
 

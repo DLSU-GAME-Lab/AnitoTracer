@@ -6,6 +6,7 @@
 #include "Vulkan/Vk_Game/ShadowMapSettings.hpp"
 #include <algorithm>
 #include <optional>
+#include <unordered_map>
 
 enum EditorAction
 {
@@ -77,5 +78,22 @@ private:
 
 	/// Whether the working copy has been initialised for the current selection.
 	bool shadowEditInitialised_{ false };
+
+	/// Tracks which slot was last initialized to force re-init if slot changes
+	int lastInitializedSlot_{ -1 };
+
+	/// Cache of the last-applied shadow settings per (light pointer, slot) pair.
+	/// Each directional light can have different overrides per slot.
+	/// Key: hash of (light pointer address + slot index)
+	std::unordered_map<size_t, Vulkan::Game::ShadowLightSettings> shadowSettingsCache_;
+
+	/// Helper to create a unique cache key from light pointer and slot index
+	static size_t MakeCacheKey(GameObject* light, int slot)
+	{
+		// Combine pointer hash and slot into a single key
+		size_t h1 = std::hash<GameObject*>{}(light);
+		size_t h2 = std::hash<int>{}(slot);
+		return h1 ^ (h2 << 1);
+	}
 
 };
