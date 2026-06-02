@@ -131,6 +131,13 @@ sceneMin = glm::vec3(-100.0f);
 sceneMax = glm::vec3( 100.0f);
 }
 
+// CRITICAL FIX: Expand AABB to encompass actual geometry extents, not just centers.
+// For Sponza, objects like pillars and roof are large and far from their pivot points.
+// This ensures shadow frustum includes all shadow-casting geometry above the floor.
+const float geometryExtentPadding = 300.0f;
+sceneMin -= glm::vec3(geometryExtentPadding);
+sceneMax += glm::vec3(geometryExtentPadding);
+
 // NOTE: do NOT apply a global margin here — each light uses its own
 // resolved SceneMargin via ResolveLightSettings() inside the loop.
 

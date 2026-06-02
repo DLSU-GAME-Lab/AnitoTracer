@@ -177,10 +177,9 @@ private:
 
 	glm::vec3 calculateDirection()
 	{
-		glm::vec3 localForward = glm::vec3(0.0f, -1.0f, 0.0f); // pointing down by default
-		glm::mat4 modelMatrix = this->localMatrix;
-
-		glm::vec3 worldDirection = glm::normalize(glm::mat3(modelMatrix) * localForward);
-		return worldDirection;
+		// Directional lights in this engine always point DOWN (-Y world space)
+		// regardless of rotation, since we want a sun-like light source.
+		// The light position doesn't matter for directional lights - only direction.
+		return glm::vec3(0.0f, -1.0f, 0.0f);
 	}
 };

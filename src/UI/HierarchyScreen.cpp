@@ -157,8 +157,13 @@ void HierarchyScreen::CreatePrimitive(GameObject::PrimitiveType type, String nam
 
 void HierarchyScreen::CreateLight(Light::LightType type, String name)
 {
-    CommandManager::getInstance()->executeCommand(
-        new CreateLightCommand(type, name)
+	// For directional lights, position high above and set to point DOWN
+	// We don't use rotation for directional lights - we directly set the direction
+	glm::vec3 defaultPos = glm::vec3(0);
+	glm::vec3 defaultRotation = glm::vec3(0);
+
+	CommandManager::getInstance()->executeCommand(
+		new CreateLightCommand(type, name, defaultPos, defaultRotation)
 	);
 }
 

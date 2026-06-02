@@ -205,12 +205,6 @@ float SampleShadowPCF(uint shadowIdx, vec3 worldPos)
 	// Z is already in [0, 1] (GLM_FORCE_DEPTH_ZERO_TO_ONE).
 	proj.xy = proj.xy * 0.5 + 0.5;
 
-	// Pixels outside the shadow frustum are considered fully lit.
-	if (proj.z > 1.0 || proj.z < 0.0 ||
-		proj.x < 0.0 || proj.x > 1.0 ||
-		proj.y < 0.0 || proj.y > 1.0)
-		return 1.0;
-
 	// Small software bias added to the reference value reduces acne.
 	const float kBias     = 0.002;
 	const float ref       = proj.z - kBias;
@@ -224,6 +218,8 @@ float SampleShadowPCF(uint shadowIdx, vec3 worldPos)
 			// texture(sampler2DShadow, vec3(uv, ref)) returns
 			// 1.0 when ref <= depth_in_shadowmap  (not in shadow)
 			// 0.0 when ref >  depth_in_shadowmap  (in shadow)
+			// OUT-OF-BOUNDS pixels use CLAMP_TO_BORDER + FLOAT_OPAQUE_WHITE
+			// which returns 1.0 (fully lit) for the compare operation.
 			shadow += texture(shadowMaps[shadowIdx],
 							  vec3(proj.xy + vec2(x, y) * texelSize, ref));
 		}
