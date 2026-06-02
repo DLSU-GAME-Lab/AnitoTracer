@@ -302,7 +302,22 @@ vec3 IBLAmbient(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness)
 {
 	vec3 F0 = mix(vec3(0.04), albedo, metallic);
 	vec3 F  = F_Schlick(max(dot(N, V), 0.0), F0);
-	vec3 kD = (1.0 - F) * (1.0 - metallic);
+
+	// For a real HDR cubemap the Fresnel term on kD is physically correct —
+	// different directions of the environment contribute different energies and
+	// the view-dependent Fresnel conserves energy across diffuse + specular.
+	//
+	// For a flat uniform colour (UseColorIBL=1) the ambient arrives equally
+	// from all directions, so there is no directional energy imbalance to
+	// compensate for.  Applying the Fresnel here would create an artificial
+	// view-angle darkening (kD → 0 at grazing NdotV) that manifests as
+	// SSAO-like contact shadows that flip sides when the camera orbits —
+	// a purely view-dependent artefact with no physical basis.
+	vec3 kD;
+	if (ubo.UseColorIBL != 0u)
+		kD = vec3(1.0 - metallic);          // uniform ambient — no Fresnel attenuation
+	else
+		kD = (1.0 - F) * (1.0 - metallic); // real cubemap — physically correct
 
 	// Diffuse: hemisphere-integrated irradiance.
 	// When UseColorIBL is set, substitute the flat IBLSkyColor for the cubemap
