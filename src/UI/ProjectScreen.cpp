@@ -17,6 +17,8 @@ ProjectScreen::ProjectScreen() : AUIScreen(UINames::PROJECT_SCREEN)
 {
     if (create_directory(FileExplorerConstants::ASSETS_DIR))
     {
+        create_directory(FileExplorerConstants::MODELS_DIR);
+        create_directory(FileExplorerConstants::TEXTURES_DIR);
         std::cout << "Assets directory created" << std::endl;
     }
     else

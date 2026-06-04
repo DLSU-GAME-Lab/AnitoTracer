@@ -11,11 +11,21 @@
 #include <nlohmann/json.hpp>
 
 #include "Utilities/FileUtils.h"
+<<<<<<< Updated upstream
 #include "../../From-GDGRAP2/GameObject.h"
 #include "../../From-GDGRAP2/Debug.h"
 #include "../../From-GDGRAP2/TextureLibrary.h"
 #include "../../Assets/Texture.hpp"
 #include "../../Assets/Procedural.hpp"
+=======
+#include "From-GDGRAP2/GameObject.h"
+#include "From-GDGRAP2/Debug.h"
+#include "From-GDGRAP2/TextureLibrary.h"
+
+#include "Utilities/FileExplorer/FileExplorerConstants.h"
+#include "Utilities/FileExplorer/FileExplorerUtils.h"
+
+>>>>>>> Stashed changes
 
 using namespace nlohmann;
 class SceneIO {
@@ -34,11 +44,17 @@ private:
 	SceneMap map;
 
 public:
+	enum FILETYPE
+	{
+		MODEL,
+		TEXTURE
+	};
+
+
 	static SceneIO* getInstance();
 	static void initialize();
 	static void destroy();
 
-private:
 	void AddScene(json scene, std::string sceneName)
 	{
 		scenes.push_back(scene);
@@ -129,6 +145,59 @@ private:
 		if (!file)
 		{
 			throw std::runtime_error("Failed to write file data.");
+		}
+
+		return outputPath;
+	}
+
+	std::string CopyToProjectFolder(const std::string& originalPath, FILETYPE fileType)
+	{
+		//Open original file
+		std::ifstream file(originalPath, std::ios::binary);
+
+		if (!file)
+		{
+			throw std::runtime_error("Failed to open file: " + originalPath);
+		}
+
+		// Move to end to get file size
+		file.seekg(0, std::ios::end);
+		std::streamsize fileSize = file.tellg();
+		file.seekg(0, std::ios::beg);
+
+		// Read bytes into string
+		std::string data;
+		data.resize(static_cast<size_t>(fileSize));
+
+		if (!file.read(&data[0], fileSize))
+		{
+			throw std::runtime_error("Failed to read file data.");
+		}
+		else {
+			std::cout << "Successfully read file: " + originalPath << std::endl;
+			std::cout << data.size() << " Bytes" << std::endl;
+		}
+
+		std::string outputPath;
+		if (fileType == FILETYPE::MODEL)
+			outputPath = FileUtils::getProjectFolderPath().string() + "Models/" + std::filesystem::path(originalPath).filename().string();
+		else if (fileType == FILETYPE::TEXTURE)
+			outputPath = FileUtils::getProjectFolderPath().string() + "Textures/" + std::filesystem::path(originalPath).filename().string();
+		
+		//Create output file
+		std::ofstream output(outputPath, std::ios::binary);
+
+		if (!output)
+		{
+			throw std::runtime_error("Failed to create file: " + outputPath);
+		}
+
+		//Write to new file
+		output.write(data.data(), data.size());
+
+		if (!output)
+		{
+			throw std::runtime_error("Failed to write file data at: " + outputPath);
 		}
 
 		return outputPath;

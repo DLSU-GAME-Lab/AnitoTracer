@@ -33,6 +33,12 @@ std::filesystem::path FileUtils::getExecutablePath()
 	}
 }
 
+
+std::filesystem::path FileUtils::getProjectFolderPath() {
+	std::filesystem::path p = getExecutablePath().parent_path().parent_path().append("src/Assets/");
+	return p;
+}
+
 // Prompts the user to open a 3D model file. Supply a reference to a filePath and fileName string for the result.
 bool FileUtils::getModelFilePath(std::string& filePath, std::string& fileName)
 {

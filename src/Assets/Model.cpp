@@ -33,6 +33,8 @@
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/GameObject.h"
 
+#include "Engine/Scene/SceneIO.hpp"
+
 using namespace glm;
 
 namespace std
@@ -61,11 +63,15 @@ namespace Assets {
 
 	Model Model::LoadModel(const std::string& filename)
 	{
-		std::cout << "- loading '" << filename << "'... " << std::flush;
 
+		//Import the model to the project folder first and get the new path
+		std::string path = SceneIO::getInstance()->CopyToProjectFolder(filename, SceneIO::FILETYPE::MODEL);
+
+		std::cout << "- loading '" << path << "'... " << std::flush;
+		
 		const auto timer = std::chrono::high_resolution_clock::now();
 		const std::string materialPath =
-			std::filesystem::path(filename).parent_path().string();
+			std::filesystem::path(path).parent_path().string();
 
 		Assimp::Importer importer;
 
@@ -82,7 +88,7 @@ namespace Assets {
 		if (!scene || !scene->HasMeshes())
 		{
 			Throw(std::runtime_error(
-				"failed to load model '" + filename + "':\n" +
+				"failed to load model '" + path + "':\n" +
 				importer.GetErrorString()));
 		}
 
