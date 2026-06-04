@@ -11,21 +11,14 @@
 #include <nlohmann/json.hpp>
 
 #include "Utilities/FileUtils.h"
-<<<<<<< Updated upstream
-#include "../../From-GDGRAP2/GameObject.h"
-#include "../../From-GDGRAP2/Debug.h"
-#include "../../From-GDGRAP2/TextureLibrary.h"
-#include "../../Assets/Texture.hpp"
-#include "../../Assets/Procedural.hpp"
-=======
 #include "From-GDGRAP2/GameObject.h"
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/TextureLibrary.h"
+#include "Assets/Texture.hpp"
+#include "Assets/Procedural.hpp"
 
 #include "Utilities/FileExplorer/FileExplorerConstants.h"
 #include "Utilities/FileExplorer/FileExplorerUtils.h"
-
->>>>>>> Stashed changes
 
 using namespace nlohmann;
 class SceneIO {

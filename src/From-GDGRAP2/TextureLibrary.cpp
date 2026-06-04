@@ -7,10 +7,13 @@
 #include "Utilities/FileUtils.h"
 #include "Debug.h"
 
+#include "Engine/Scene/SceneIO.hpp"
+
 TextureLibrary* TextureLibrary::sharedInstance = nullptr;
 void TextureLibrary::addTexture(const std::string& textureName, const std::string& fileName)
 {
-	std::shared_ptr<Assets::Texture> texture = std::make_shared<Assets::Texture>(Assets::Texture::LoadTexture(fileName, Vulkan::SamplerConfig()));
+	std::string path = SceneIO::getInstance()->CopyToProjectFolder(fileName, SceneIO::FILETYPE::TEXTURE);
+	std::shared_ptr<Assets::Texture> texture = std::make_shared<Assets::Texture>(Assets::Texture::LoadTexture(path, Vulkan::SamplerConfig()));
 	texture->setName(textureName);
 	this->textureMap.insert(std::make_pair(textureName, texture));
 	this->textureList.push_back(texture);
