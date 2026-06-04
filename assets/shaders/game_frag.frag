@@ -96,6 +96,128 @@ layout(binding = 9)  uniform samplerCube iblIrradiance;    // 32×32 diffuse irr
 layout(binding = 10) uniform samplerCube iblPrefiltered;   // 128×128 specular (mipped)
 layout(binding = 11) uniform sampler2D   brdfLUT;          // 512×512 split-sum LUT
 
+// ========== NEW: Normal mapping and PBR texture support ==========
+
+// Struct matching Vulkan::Game::GameRendererMaterialProperties
+struct GameRenderMaterialProperties
+{
+	int   NormalMapTextureId;
+	float NormalMapStrength;
+	int   MetallicMapTextureId;
+	float MetallicValue;
+	int   RoughnessMapTextureId;
+	float RoughnessValue;
+	int   AOMapTextureId;
+	float AOStrength;
+};
+
+// Binding 12: Normal maps texture array (only exists when scene has textures)
+layout(binding = 12) uniform sampler2D normalMaps[];
+
+// Binding 13: Material properties buffer (only exists when scene has textures)
+layout(binding = 13) readonly buffer GameRenderMatProps
+{
+	GameRenderMaterialProperties materialProperties[];
+};
+
+// Binding 14: Metallic maps texture array (only exists when scene has textures)
+layout(binding = 14) uniform sampler2D metallicMaps[];
+
+// Binding 15: Roughness maps texture array (only exists when scene has textures)
+layout(binding = 15) uniform sampler2D roughnessMaps[];
+
+// Binding 16: Ambient occlusion maps texture array (only exists when scene has textures)
+layout(binding = 16) uniform sampler2D aoMaps[];
+
+// ========== Helper Functions for Normal Mapping ==========
+
+/// Constructs orthonormal TBN matrix from tangent and normal
+mat3 ConstructTBNMatrix(vec3 normal, vec3 tangent)
+{
+	// Gram-Schmidt orthogonalization to ensure orthogonal basis
+	tangent = normalize(tangent - dot(tangent, normal) * normal);
+	vec3 bitangent = cross(normal, tangent);
+	return mat3(tangent, bitangent, normal);
+}
+
+/// Samples normal map and applies it to the surface normal
+/// When no textures exist (texCount == 0), this gracefully returns the input normal
+vec3 SampleAndApplyNormalMap(
+	int materialIndex, 
+	vec3 normal, 
+	vec3 tangent, 
+	vec2 texCoord)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	// If no normal map, return the interpolated normal
+	if (matProps.NormalMapTextureId < 0)
+		return normal;
+
+	// Sample normal map (expected to be in tangent space, where RGB = XYZ tangent coords)
+	vec3 sampledNormal = texture(normalMaps[nonuniformEXT(matProps.NormalMapTextureId)], texCoord).rgb;
+
+	// Convert from [0,1] range to [-1,1] range
+	sampledNormal = normalize(sampledNormal * 2.0 - 1.0);
+
+	// Apply normal map strength: blend between flat (0,0,1) and sampled normal
+	sampledNormal = normalize(mix(vec3(0.0, 0.0, 1.0), sampledNormal, matProps.NormalMapStrength));
+
+	// Construct TBN matrix and transform sampled normal to world space
+	mat3 tbnMatrix = ConstructTBNMatrix(normal, tangent);
+	vec3 worldNormal = normalize(tbnMatrix * sampledNormal);
+
+	return worldNormal;
+}
+
+/// Samples metallic map if available, otherwise returns material default
+/// When textures don't exist, gracefully returns the default value
+float SampleMetallicMap(int materialIndex, float defaultMetallic, vec2 texCoord)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	if (matProps.MetallicMapTextureId < 0)
+		return defaultMetallic;
+
+	// Sample metallic map (typically uses R channel)
+	float sampledMetallic = texture(metallicMaps[nonuniformEXT(matProps.MetallicMapTextureId)], texCoord).r;
+
+	// Blend material metallic value with sampled value
+	return mix(matProps.MetallicValue, sampledMetallic, 1.0);
+}
+
+/// Samples roughness map if available, otherwise returns material default
+/// When textures don't exist, gracefully returns the default value
+float SampleRoughnessMap(int materialIndex, float defaultRoughness, vec2 texCoord)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	if (matProps.RoughnessMapTextureId < 0)
+		return defaultRoughness;
+
+	// Sample roughness map (typically uses R channel)
+	float sampledRoughness = texture(roughnessMaps[nonuniformEXT(matProps.RoughnessMapTextureId)], texCoord).r;
+
+	// Blend material roughness value with sampled value
+	return mix(matProps.RoughnessValue, sampledRoughness, 1.0);
+}
+
+/// Samples AO map if available, otherwise returns 1.0 (no occlusion)
+/// When textures don't exist, gracefully returns 1.0 (full brightness)
+float SampleAOMap(int materialIndex, vec2 texCoord)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	if (matProps.AOMapTextureId < 0)
+		return 1.0;  // No occlusion when no map available
+
+	// Sample AO map (typically uses R channel for grayscale occlusion)
+	float sampledAO = texture(aoMaps[nonuniformEXT(matProps.AOMapTextureId)], texCoord).r;
+
+	// Apply AO strength: blend between full brightness (1.0) and sampled value
+	return mix(1.0, sampledAO, matProps.AOStrength);
+}
+
 // Number of roughness mip levels in the prefiltered cubemap
 // (must match IBLPrecompute::kPrefilteredMips)
 const uint MAX_PREFILTER_MIPS = 7u;
@@ -105,6 +227,7 @@ layout(location = 0) in vec3  inWorldPos;
 layout(location = 1) in vec3  inNormal;
 layout(location = 2) in vec2  inTexCoord;
 layout(location = 3) in flat int inMaterialIndex;
+layout(location = 4) in vec3  inTangent;  // NEW: Tangent for TBN matrix
 
 // ── Output ────────────────────────────────────────────────────────────────────
 layout(location = 0) out vec4 outColor;
@@ -376,6 +499,14 @@ void main()
 	vec3 camWorldPos = vec3(ubo.ModelViewInverse[3]);
 	V = normalize(camWorldPos - inWorldPos);
 
+	// ===== NEW: Apply normal map =====
+	N = SampleAndApplyNormalMap(inMaterialIndex, N, inTangent, inTexCoord);
+
+	// ===== NEW: Apply texture-based metallic/roughness/AO =====
+	metallic = SampleMetallicMap(inMaterialIndex, metallic, inTexCoord);
+	roughness = SampleRoughnessMap(inMaterialIndex, roughness, inTexCoord);
+	float ao = SampleAOMap(inMaterialIndex, inTexCoord);
+
 	// Accumulate direct lighting in physical / HDR space.
 	// Ambient is handled separately because FallbackAmbientColor is a
 	// display-space [0,1] value and must not be exposure-scaled.
@@ -455,6 +586,7 @@ void main()
 	{
 		// Path A: real HDR cubemap — combine before exposure + tonemap.
 		ambientTerm  = IBLAmbient(N, V, albedo, metallic, roughness);
+		ambientTerm *= ao;  // Apply ambient occlusion
 		directLight += ambientTerm;
 		directLight *= ubo.Exposure;
 		directLight  = ACESToneMapping(directLight);
@@ -465,6 +597,7 @@ void main()
 		directLight *= ubo.Exposure;
 		directLight  = ACESToneMapping(directLight);
 		ambientTerm  = IBLAmbient(N, V, albedo, metallic, roughness);
+		ambientTerm *= ao;  // Apply ambient occlusion
 		directLight += ambientTerm;
 	}
 	else
@@ -473,6 +606,7 @@ void main()
 		directLight *= ubo.Exposure;
 		directLight  = ACESToneMapping(directLight);
 		ambientTerm  = ubo.FallbackAmbientColor * albedo;
+		ambientTerm *= ao;  // Apply ambient occlusion
 		directLight += ambientTerm;
 	}
 

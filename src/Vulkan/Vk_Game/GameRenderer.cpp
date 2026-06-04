@@ -14,6 +14,7 @@
 #include "Utilities/Exception.hpp"
 #include "Utilities/FileUtils.h"
 #include "Vulkan/Buffer.hpp"
+#include "Vulkan/BufferUtil.hpp"
 #include "Vulkan/CommandPool.hpp"
 #include "Vulkan/DepthBuffer.hpp"
 #include "Vulkan/DescriptorBinding.hpp"
@@ -61,6 +62,8 @@ GameRenderer::GameRenderer(
 			scene.SkyboxImageView(),
 			scene.SkyboxSampler());
 	}
+
+	CreateGameRendererMaterialPropsBuffer(scene);
 
 	CreateDescriptorSets(uniformBuffers, scene);
 
@@ -252,11 +255,54 @@ void GameRenderer::CreateRenderPass()
 		VK_ATTACHMENT_LOAD_OP_CLEAR)); // depth — reset depth buffer every frame
 }
 
+void GameRenderer::CreateGameRendererMaterialPropsBuffer(const Assets::Scene& scene)
+{
+	// Calculate the number of materials from the material buffer size
+	const size_t materialBufferSize = scene.MaterialBuffer().Size();
+	const size_t materialCount = materialBufferSize / sizeof(Assets::Material);
+
+	// Create default properties for each material
+	// (all -1 means no maps used, graceful fallback to material defaults)
+	std::vector<Vulkan::Game::GameRendererMaterialProperties> properties;
+
+	// Always create at least 1 element even if materialCount is 0
+	// This prevents issues with empty buffers when no materials exist
+	const size_t minimumCount = std::max(size_t(1), materialCount);
+	properties.reserve(minimumCount);
+
+	for (size_t i = 0; i < minimumCount; ++i)
+	{
+		Vulkan::Game::GameRendererMaterialProperties prop{};
+		// Default initialization: no maps, use material defaults
+		prop.NormalMapTextureId = -1;
+		prop.NormalMapStrength = 1.0f;
+		prop.MetallicMapTextureId = -1;
+		prop.MetallicValue = 0.0f;
+		prop.RoughnessMapTextureId = -1;
+		prop.RoughnessValue = 0.5f;
+		prop.AOMapTextureId = -1;
+		prop.AOStrength = 1.0f;
+		properties.push_back(prop);
+	}
+
+	// Use BufferUtil to create a GPU-resident buffer with staging
+	Vulkan::BufferUtil::CreateDeviceBuffer(
+		*commandPool_,
+		"GameRendererMaterialProperties",
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		properties,
+		gameRendererMatPropsBuffer_,
+		gameRendererMatPropsBufferMemory_);
+}
+
 void GameRenderer::CreateDescriptorSets(
 	const std::vector<Assets::UniformBuffer>& uniformBuffers,
 	const Assets::Scene& scene)
 {
 	const auto& device = swapChain_.Device();
+
+	// Ensure device is idle before updating descriptors (critical when switching renderers)
+	device.WaitIdle();
 
 	// binding 0 : UBO              (UNIFORM_BUFFER,         vert + frag)
 	// binding 1 : Material buffer  (STORAGE_BUFFER,         frag)
@@ -329,6 +375,44 @@ void GameRenderer::CreateDescriptorSets(
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		VK_SHADER_STAGE_FRAGMENT_BIT});
 
+	// ═══ NEW BINDINGS FOR NORMAL MAPPING & PBR (Game Renderer only) ═══
+	// All texture map bindings (12-16) are only added when the scene has textures.
+	// When texCount == 0:
+	//   - No textures exist, so material texture IDs are all -1 (checked in shader)
+	//   - Bindings 12-16 are simply not used
+	//   - Binding 13 is omitted from descriptor set layout
+	// When bindings are omitted, shader function calls gracefully handle it because
+	// the texture ID checks (matProps.NormalMapTextureId < 0) will always be true.
+
+	if (texCount > 0)
+	{
+		// binding 12 : Normal maps array     (COMBINED_IMAGE_SAMPLER, frag)
+		bindings.push_back({12, texCount,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			VK_SHADER_STAGE_FRAGMENT_BIT});
+
+		// binding 13 : Material properties buffer (STORAGE_BUFFER, frag)
+		// Contains per-material texture IDs and strength values
+		bindings.push_back({13, 1,
+			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			VK_SHADER_STAGE_FRAGMENT_BIT});
+
+		// binding 14 : Metallic maps array   (COMBINED_IMAGE_SAMPLER, frag)
+		bindings.push_back({14, texCount,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			VK_SHADER_STAGE_FRAGMENT_BIT});
+
+		// binding 15 : Roughness maps array  (COMBINED_IMAGE_SAMPLER, frag)
+		bindings.push_back({15, texCount,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			VK_SHADER_STAGE_FRAGMENT_BIT});
+
+		// binding 16 : AO maps array         (COMBINED_IMAGE_SAMPLER, frag)
+		bindings.push_back({16, texCount,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			VK_SHADER_STAGE_FRAGMENT_BIT});
+	}
+
 	descriptorSetManager_.reset(new DescriptorSetManager(device, bindings, uniformBuffers.size()));
 	auto& descriptorSets = descriptorSetManager_->DescriptorSets();
 
@@ -337,16 +421,38 @@ void GameRenderer::CreateDescriptorSets(
 		VkDescriptorBufferInfo uboInfo{};
 		uboInfo.buffer = uniformBuffers[i].Buffer().Handle();
 		uboInfo.range  = VK_WHOLE_SIZE;
+		if (uboInfo.buffer == VK_NULL_HANDLE)
+		{
+			Throw(std::runtime_error("UBO buffer handle is null when creating descriptor sets"));
+		}
 
 		VkDescriptorBufferInfo materialInfo{};
 		materialInfo.buffer = scene.MaterialBuffer().Handle();
 		materialInfo.range  = VK_WHOLE_SIZE;
+		if (materialInfo.buffer == VK_NULL_HANDLE)
+		{
+			Throw(std::runtime_error("Material buffer handle is null when creating descriptor sets"));
+		}
 
 		VkDescriptorBufferInfo lightsInfo{};
 		lightsInfo.buffer = scene.LightBuffer().Handle();
 		lightsInfo.range  = VK_WHOLE_SIZE;
+		if (lightsInfo.buffer == VK_NULL_HANDLE)
+		{
+			Throw(std::runtime_error("Lights buffer handle is null when creating descriptor sets"));
+		}
 
+		// ─── CRITICAL: Keep all image info vectors in scope until UpdateDescriptors ───
+		// The Bind() function stores pointers to imageInfo data in VkWriteDescriptorSet.
+		// If these vectors go out of scope before UpdateDescriptors(), we'll have stale pointers!
 		std::vector<VkDescriptorImageInfo> textureInfos;
+		std::vector<VkDescriptorImageInfo> shadowInfos;
+		std::vector<VkDescriptorImageInfo> pointShadowInfos;
+		std::vector<VkDescriptorImageInfo> normalMapInfos;
+		std::vector<VkDescriptorImageInfo> metallicMapInfos;
+		std::vector<VkDescriptorImageInfo> roughnessMapInfos;
+		std::vector<VkDescriptorImageInfo> aoMapInfos;
+
 		textureInfos.reserve(scene.TextureSamplers().size());
 		for (size_t t = 0; t < scene.TextureSamplers().size(); ++t)
 		{
@@ -386,7 +492,6 @@ void GameRenderer::CreateDescriptorSets(
 		const std::vector<VkImageView> shadowViews = shadowMapPass_->ShadowImageViews();
 		const VkSampler                shadowSampler = shadowMapPass_->ShadowSampler();
 
-		std::vector<VkDescriptorImageInfo> shadowInfos;
 		shadowInfos.reserve(ShadowMapPass::kMaxShadowLights);
 		for (uint32_t s = 0; s < ShadowMapPass::kMaxShadowLights; ++s)
 		{
@@ -411,7 +516,6 @@ void GameRenderer::CreateDescriptorSets(
 		const std::vector<VkImageView> pointShadowViews = pointLightShadowPass_->PointShadowImageViews();
 		const VkSampler                pointShadowSampler = pointLightShadowPass_->PointShadowSampler();
 
-		std::vector<VkDescriptorImageInfo> pointShadowInfos;
 		pointShadowInfos.reserve(PointLightShadowPass::kMaxPointShadowLights);
 		for (uint32_t ps = 0; ps < PointLightShadowPass::kMaxPointShadowLights; ++ps)
 		{
@@ -456,6 +560,85 @@ void GameRenderer::CreateDescriptorSets(
 		iblLutInfo.sampler     = iblPrecompute_ ? iblPrecompute_->BrdfLutSampler() : iblFallbackSampler;
 		writes.push_back(descriptorSets.Bind(i, 11, iblLutInfo));
 
+		// ═══ NEW DESCRIPTOR WRITES FOR NORMAL MAPPING (Bindings 12-16) ═══
+		// Only written when the scene has textures (texCount > 0).
+		if (texCount > 0)
+		{
+			// Validate gameRendererMatPropsBuffer_ exists before using it
+			if (!gameRendererMatPropsBuffer_)
+			{
+				Throw(std::runtime_error("Game renderer material properties buffer was not initialized"));
+			}
+
+			// Binding 12: Normal maps — reuse the same texture array, just another view
+			normalMapInfos.reserve(scene.TextureSamplers().size());
+			for (size_t t = 0; t < scene.TextureSamplers().size(); ++t)
+			{
+				VkDescriptorImageInfo nmi{};
+				nmi.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				nmi.imageView   = scene.TextureImageViews()[t];
+				nmi.sampler     = scene.TextureSamplers()[t];
+				normalMapInfos.push_back(nmi);
+			}
+			writes.push_back(descriptorSets.Bind(i, 12,
+				*normalMapInfos.data(),
+				static_cast<uint32_t>(normalMapInfos.size())));
+
+			// Binding 13: Material properties buffer (Game Renderer-specific)
+			VkDescriptorBufferInfo matPropsInfo{};
+			matPropsInfo.buffer = gameRendererMatPropsBuffer_->Handle();
+			matPropsInfo.offset = 0;
+			matPropsInfo.range  = VK_WHOLE_SIZE;
+			if (matPropsInfo.buffer == VK_NULL_HANDLE)
+			{
+				Throw(std::runtime_error("Material properties buffer handle is null"));
+			}
+			writes.push_back(descriptorSets.Bind(i, 13, matPropsInfo));
+
+			// Binding 14: Metallic maps — same texture array
+			metallicMapInfos.reserve(scene.TextureSamplers().size());
+			for (size_t t = 0; t < scene.TextureSamplers().size(); ++t)
+			{
+				VkDescriptorImageInfo mmi{};
+				mmi.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				mmi.imageView   = scene.TextureImageViews()[t];
+				mmi.sampler     = scene.TextureSamplers()[t];
+				metallicMapInfos.push_back(mmi);
+			}
+			writes.push_back(descriptorSets.Bind(i, 14,
+				*metallicMapInfos.data(),
+				static_cast<uint32_t>(metallicMapInfos.size())));
+
+			// Binding 15: Roughness maps — same texture array
+			roughnessMapInfos.reserve(scene.TextureSamplers().size());
+			for (size_t t = 0; t < scene.TextureSamplers().size(); ++t)
+			{
+				VkDescriptorImageInfo rmi{};
+				rmi.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				rmi.imageView   = scene.TextureImageViews()[t];
+				rmi.sampler     = scene.TextureSamplers()[t];
+				roughnessMapInfos.push_back(rmi);
+			}
+			writes.push_back(descriptorSets.Bind(i, 15,
+				*roughnessMapInfos.data(),
+				static_cast<uint32_t>(roughnessMapInfos.size())));
+
+			// Binding 16: AO maps — same texture array
+			aoMapInfos.reserve(scene.TextureSamplers().size());
+			for (size_t t = 0; t < scene.TextureSamplers().size(); ++t)
+			{
+				VkDescriptorImageInfo ami{};
+				ami.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				ami.imageView   = scene.TextureImageViews()[t];
+				ami.sampler     = scene.TextureSamplers()[t];
+				aoMapInfos.push_back(ami);
+			}
+			writes.push_back(descriptorSets.Bind(i, 16,
+				*aoMapInfos.data(),
+				static_cast<uint32_t>(aoMapInfos.size())));
+		}
+
+		// ─── CRITICAL: All vectors stay in scope until after this call ───
 		descriptorSets.UpdateDescriptors(i, writes);
 	}
 

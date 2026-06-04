@@ -1,7 +1,9 @@
 ﻿#pragma once
 
 #include "Vulkan/Vulkan.hpp"
+#include "Vulkan/Buffer.hpp"
 #include "ShadowMapSettings.hpp"
+#include "GameRendererMaterialProperties.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
 #include <memory>
 #include <vector>
@@ -116,12 +118,20 @@ const IBLPrecompute* GetIBLPrecompute() const { return iblPrecompute_.get(); }
 		/// Create one VkFramebuffer per swapchain image, attaching color + depth views.
 		void CreateFramebuffers();
 
+		/// Create the material properties buffer for normal mapping and other
+		/// Game Renderer-specific material features.
+		void CreateGameRendererMaterialPropsBuffer(const Assets::Scene& scene);
+
 		// ── Owned Vulkan resources ──────────────────────────────────────────────
 		std::unique_ptr<ShadowMapPass>           shadowMapPass_;
 		std::unique_ptr<PointLightShadowPass>    pointLightShadowPass_;
 		std::unique_ptr<IBLPrecompute>           iblPrecompute_;
 		std::unique_ptr<Vulkan::RenderPass>           renderPass_;
 		std::unique_ptr<Vulkan::DescriptorSetManager> descriptorSetManager_;
+
+		// Material properties for normal mapping and PBR textures
+		std::unique_ptr<Vulkan::Buffer> gameRendererMatPropsBuffer_;
+		std::unique_ptr<Vulkan::DeviceMemory> gameRendererMatPropsBufferMemory_;
 
 		// Managed manually so we can add push-constant ranges (the PipelineLayout
 		// wrapper class does not expose that option).
