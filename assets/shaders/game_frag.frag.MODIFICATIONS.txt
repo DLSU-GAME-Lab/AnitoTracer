@@ -1,0 +1,253 @@
+// ============================================================================
+// GAME_FRAG.FRAG - MODIFICATIONS FOR NORMAL MAP SUPPORT
+// ============================================================================
+//
+// This document describes the changes needed to update game_frag.frag
+// to support normal mapping in the Game Renderer.
+//
+// The actual game_frag.frag file is 485 lines long and mostly unchanged.
+// Only specific sections need modification.
+//
+
+// ============================================================================
+// MODIFICATION 1: ADD NEW INPUT (around line 110)
+// ============================================================================
+//
+// EXISTING CODE:
+//   layout(location = 0) in vec3  inWorldPos;
+//   layout(location = 1) in vec3  inNormal;
+//   layout(location = 2) in vec2  inTexCoord;
+//   layout(location = 3) in flat int inMaterialIndex;
+//
+// ADD AFTER:
+//   layout(location = 4) in vec3  inTangent;  // NEW: Tangent for TBN matrix
+//
+
+// ============================================================================
+// MODIFICATION 2: ADD NEW DESCRIPTOR BINDINGS (after line 111, BRDF LUT)
+// ============================================================================
+//
+// EXISTING CODE (line 111):
+//   layout(binding = 11) uniform sampler2D brdfLUT;
+//
+// ADD IMMEDIATELY AFTER:
+/*
+
+// ========== NEW: Normal mapping and PBR texture support ==========
+
+// Struct matching Vulkan::Game::GameRendererMaterialProperties
+struct GameRenderMaterialProperties
+{
+	int   NormalMapTextureId;
+	float NormalMapStrength;
+	int   MetallicMapTextureId;
+	float MetallicValue;
+	int   RoughnessMapTextureId;
+	float RoughnessValue;
+	int   AOMapTextureId;
+	float AOStrength;
+};
+
+// Binding 12: Normal maps texture array
+layout(binding = 12) uniform sampler2D normalMaps[];
+
+// Binding 13: Material properties buffer
+layout(binding = 13) readonly buffer GameRenderMatProps
+{
+	GameRenderMaterialProperties materialProperties[];
+};
+
+// Binding 14: Metallic maps texture array
+layout(binding = 14) uniform sampler2D metallicMaps[];
+
+// Binding 15: Roughness maps texture array
+layout(binding = 15) uniform sampler2D roughnessMaps[];
+
+// Binding 16: Ambient occlusion maps texture array
+layout(binding = 16) uniform sampler2D aoMaps[];
+
+// ========== Helper Functions for Normal Mapping ==========
+
+/// Constructs orthonormal TBN matrix from tangent and normal
+mat3 ConstructTBNMatrix(vec3 normal, vec3 tangent)
+{
+	// Gram-Schmidt orthogonalization to ensure orthogonal basis
+	tangent = normalize(tangent - dot(tangent, normal) * normal);
+	vec3 bitangent = cross(normal, tangent);
+	return mat3(tangent, bitangent, normal);
+}
+
+/// Samples normal map and applies it to the surface normal
+vec3 SampleAndApplyNormalMap(
+	int materialIndex, 
+	vec3 normal, 
+	vec3 tangent, 
+	vec2 texCoord)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	// If no normal map, return the interpolated normal
+	if (matProps.NormalMapTextureId < 0)
+		return normal;
+
+	// Sample normal map (expected to be in tangent space, where RGB = XYZ tangent coords)
+	vec3 sampledNormal = texture(normalMaps[nonuniformEXT(matProps.NormalMapTextureId)], texCoord).rgb;
+
+	// Convert from [0,1] range to [-1,1] range
+	sampledNormal = normalize(sampledNormal * 2.0 - 1.0);
+
+	// Apply normal map strength: blend between flat (0,0,1) and sampled normal
+	sampledNormal = normalize(mix(vec3(0.0, 0.0, 1.0), sampledNormal, matProps.NormalMapStrength));
+
+	// Construct TBN matrix and transform sampled normal to world space
+	mat3 tbnMatrix = ConstructTBNMatrix(normal, tangent);
+	vec3 worldNormal = normalize(tbnMatrix * sampledNormal);
+
+	return worldNormal;
+}
+
+/// Samples metallic map if available, otherwise returns material default
+float SampleMetallicMap(int materialIndex, float defaultMetallic, vec2 texCoord)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	if (matProps.MetallicMapTextureId < 0)
+		return defaultMetallic;
+
+	// Sample metallic map (typically uses R channel)
+	float sampledMetallic = texture(metallicMaps[nonuniformEXT(matProps.MetallicMapTextureId)], texCoord).r;
+
+	// Blend material metallic value with sampled value
+	return mix(matProps.MetallicValue, sampledMetallic, 1.0);
+}
+
+/// Samples roughness map if available, otherwise returns material default
+float SampleRoughnessMap(int materialIndex, float defaultRoughness, vec2 texCoord)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	if (matProps.RoughnessMapTextureId < 0)
+		return defaultRoughness;
+
+	// Sample roughness map (typically uses R channel)
+	float sampledRoughness = texture(roughnessMaps[nonuniformEXT(matProps.RoughnessMapTextureId)], texCoord).r;
+
+	// Blend material roughness value with sampled value
+	return mix(matProps.RoughnessValue, sampledRoughness, 1.0);
+}
+
+/// Samples AO map if available, otherwise returns 1.0 (no occlusion)
+float SampleAOMap(int materialIndex, vec2 texCoord)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	if (matProps.AOMapTextureId < 0)
+		return 1.0;  // No occlusion when no map available
+
+	// Sample AO map (typically uses R channel for grayscale occlusion)
+	float sampledAO = texture(aoMaps[nonuniformEXT(matProps.AOMapTextureId)], texCoord).r;
+
+	// Apply AO strength: blend between full brightness (1.0) and sampled value
+	return mix(1.0, sampledAO, matProps.AOStrength);
+}
+
+*/
+
+// ============================================================================
+// MODIFICATION 3: UPDATE MAIN FUNCTION (around line 370-380)
+// ============================================================================
+//
+// EXISTING CODE (line ~375):
+//   Material mat = materials[inMaterialIndex];
+//   // ... texture sampling ...
+//   vec3 N = normalize(inNormal);
+//
+// CHANGE TO:
+/*
+	Material mat = materials[inMaterialIndex];
+
+	// Sample diffuse texture (or white if none)
+	vec3 texSample = vec3(1.0);
+	if (mat.DiffuseTextureId >= 0)
+		texSample = texture(textures[nonuniformEXT(mat.DiffuseTextureId)], inTexCoord).rgb;
+
+	vec3  albedo;
+	float metallic, roughness;
+	bool  isEmissive;
+	MaterialToPBR(mat, texSample, albedo, metallic, roughness, isEmissive);
+
+	// Emissive materials simply output their albedo colour
+	if (isEmissive)
+	{
+		outColor = vec4(albedo, 1.0);
+		return;
+	}
+
+	// ===== NEW: Apply normal map =====
+	vec3 N = SampleAndApplyNormalMap(inMaterialIndex, inNormal, inTangent, inTexCoord);
+
+	// ===== NEW: Apply texture-based metallic/roughness/AO =====
+	metallic *= SampleMetallicMap(inMaterialIndex, metallic, inTexCoord);
+	roughness *= SampleRoughnessMap(inMaterialIndex, roughness, inTexCoord);
+	float ao = SampleAOMap(inMaterialIndex, inTexCoord);
+
+	vec3 V = normalize(-inWorldPos);
+	// ... rest of lighting code ...
+*/
+
+// ============================================================================
+// MODIFICATION 4: APPLY AO TO AMBIENT LIGHTING (around line 450-470)
+// ============================================================================
+//
+// EXISTING CODE:
+//   ambientTerm = IBLAmbient(N, V, albedo, metallic, roughness);
+//   directLight += ambientTerm;
+//
+// CHANGE TO:
+//   ambientTerm = IBLAmbient(N, V, albedo, metallic, roughness);
+//   ambientTerm *= ao;  // <-- ADD THIS LINE
+//   directLight += ambientTerm;
+//
+// This applies the ambient occlusion to indirect lighting for consistency.
+
+// ============================================================================
+// INTEGRATION CHECKLIST
+// ============================================================================
+//
+// [ ] Added layout(location = 4) in vec3 inTangent;
+// [ ] Added struct GameRenderMaterialProperties
+// [ ] Added layout(binding = 12-16) image/buffer declarations
+// [ ] Added ConstructTBNMatrix() function
+// [ ] Added SampleAndApplyNormalMap() function
+// [ ] Added SampleMetallicMap() function
+// [ ] Added SampleRoughnessMap() function
+// [ ] Added SampleAOMap() function
+// [ ] Updated main() to call SampleAndApplyNormalMap() with inTangent
+// [ ] Updated main() to sample metallic/roughness/AO maps
+// [ ] Updated ambient lighting code to multiply by ao
+// [ ] Shader compiles without errors
+// [ ] nonuniformEXT used for all dynamic indexing
+// [ ] Recompiled to game_frag.frag.spv
+//
+
+// ============================================================================
+// NOTES
+// ============================================================================
+//
+// - All nonuniformEXT() calls are REQUIRED for correct GLSL semantics
+//   when using dynamic array indices. Without them, results are undefined.
+//
+// - Normal maps are expected in OpenGL format (XYZ tangent space):
+//   • Red   = Tangent-space X (right direction)
+//   • Green = Tangent-space Y (up direction)
+//   • Blue  = Tangent-space Z (outward direction, typically high/bright)
+//
+// - MaterialTextureId = -1 means no texture; shader gracefully falls back
+//   to material defaults (metallic/roughness fields, vertex normal).
+//
+// - All strength values (0-1) control lerp amount:
+//   • 0.0 = no effect (full fallback)
+//   • 1.0 = full effect (full sampled value)
+//   • 0.5 = 50/50 blend
+//
+// ============================================================================

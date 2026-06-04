@@ -98,9 +98,11 @@ layout(binding = 11) uniform sampler2D   brdfLUT;          // 512×512 split-sum
 
 // ========== NEW: Normal mapping and PBR texture support ==========
 
-// Struct matching Vulkan::Game::GameRendererMaterialProperties
+// Struct matching Vulkan::Game::GameRendererMaterialPropertiesAlphaCutoff
+// Layout MUST match the C++ header exactly (std140 alignment, 64 bytes total)
 struct GameRenderMaterialProperties
 {
+	// ===== Original Properties (first 48 bytes) =====
 	int   NormalMapTextureId;
 	float NormalMapStrength;
 	int   MetallicMapTextureId;
@@ -109,6 +111,15 @@ struct GameRenderMaterialProperties
 	float RoughnessValue;
 	int   AOMapTextureId;
 	float AOStrength;
+
+	// ===== NEW: Alpha Cutoff Properties (second 16 bytes) =====
+	int   AlphaMapTextureId;           // -1 = no alpha map
+	float AlphaCutoffThreshold;        // Alpha test threshold (0.0-1.0)
+	uint  AlphaBlendMode;              // 0=Opaque, 1=Transparent, 2=Additive
+	float _pad;                        // Padding for alignment
+
+	// Note: Additional padding (_padEnd[3]) is part of the buffer's 64-byte boundary,
+	// but GLSL std140 handles this automatically; no explicit declaration needed here.
 };
 
 // Binding 12: Normal maps texture array (only exists when scene has textures)
@@ -128,6 +139,9 @@ layout(binding = 15) uniform sampler2D roughnessMaps[];
 
 // Binding 16: Ambient occlusion maps texture array (only exists when scene has textures)
 layout(binding = 16) uniform sampler2D aoMaps[];
+
+// Binding 17: Alpha channel texture maps (for transparency/alpha test support)
+layout(binding = 17) uniform sampler2D alphaMaps[];
 
 // ========== Helper Functions for Normal Mapping ==========
 
@@ -226,6 +240,101 @@ float SampleAOMap(int materialIndex, vec2 texCoord)
 
 	// Apply AO strength: blend between full brightness (1.0) and sampled value
 	return mix(1.0, sampledAO, matProps.AOStrength);
+}
+
+// ========== Helper Functions for Alpha Cutoff & Transparency ==========
+
+/// @brief Samples alpha from the appropriate texture or material channel.
+/// 
+/// Priority order:
+///   1. If AlphaMapTextureId >= 0: use that texture (R channel, or RGBA avg)
+///   2. Else if DiffuseTextureId >= 0: use diffuse texture alpha channel
+///   3. Else: return 1.0 (fully opaque)
+///
+/// @param materialIndex Index into materialProperties buffer
+/// @param mat           Material from materials buffer
+/// @param texCoord      UV coordinates for texture sampling
+/// @return Alpha value in [0, 1] range
+float SampleAlpha(int materialIndex, in Material mat, vec2 texCoord)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	// First priority: dedicated alpha map texture
+	if (matProps.AlphaMapTextureId >= 0)
+	{
+		// Sample dedicated alpha map (typically uses R channel for grayscale)
+		float sampledAlpha = texture(alphaMaps[nonuniformEXT(matProps.AlphaMapTextureId)], texCoord).r;
+		return sampledAlpha;
+	}
+
+	// Second priority: alpha channel from diffuse texture
+	if (mat.DiffuseTextureId >= 0)
+	{
+		// Sample diffuse texture and extract alpha channel
+		float diffuseAlpha = texture(textures[nonuniformEXT(mat.DiffuseTextureId)], texCoord).a;
+		return diffuseAlpha;
+	}
+
+	// Default: fully opaque
+	return 1.0;
+}
+
+/// @brief Applies alpha cutoff test and handles transparency blending.
+///
+/// This function should be called early in main() after computing alpha value.
+/// 
+/// Behavior:
+///   - AlphaBlendMode 0 (Opaque):      Discard if alpha < threshold, else set alpha=1.0
+///   - AlphaBlendMode 1 (Transparent): Allow partial alpha (no cutoff)
+///   - AlphaBlendMode 2 (Additive):    Allow partial alpha (no cutoff), prepare for additive
+///   - Unknown mode:                    Treat as Opaque (safest default)
+///
+/// @param alpha         Sampled alpha value [0, 1]
+/// @param materialIndex Index into materialProperties buffer
+/// @return Final alpha value to use for output color
+float ApplyAlphaCutoff(float alpha, int materialIndex)
+{
+	GameRenderMaterialProperties matProps = materialProperties[materialIndex];
+
+	uint blendMode = matProps.AlphaBlendMode;
+
+	if (blendMode == 0u) {
+		// Opaque mode: apply alpha cutoff (alpha test)
+		if (alpha < matProps.AlphaCutoffThreshold) {
+			discard;  // Fragment is transparent, remove it
+		}
+		return 1.0;  // Force fully opaque for opaque materials
+	}
+	else if (blendMode == 1u) {
+		// Transparent mode: preserve alpha for blending
+		return alpha;
+	}
+	else if (blendMode == 2u) {
+		// Additive mode: preserve alpha for additive blending
+		return alpha;
+	}
+	else {
+		// Unknown/invalid mode: default to opaque for safety
+		if (alpha < matProps.AlphaCutoffThreshold) {
+			discard;
+		}
+		return 1.0;
+	}
+}
+
+/// @brief Convenience function to sample alpha and apply cutoff in one call.
+///
+/// Recommended usage in main():
+///   float finalAlpha = SampleAndApplyAlpha(inMaterialIndex, mat, inTexCoord);
+///
+/// @param materialIndex Index into materialProperties buffer
+/// @param mat           Material from materials buffer
+/// @param texCoord      UV coordinates for texture sampling
+/// @return Final alpha value after cutoff processing
+float SampleAndApplyAlpha(int materialIndex, in Material mat, vec2 texCoord)
+{
+	float alpha = SampleAlpha(materialIndex, mat, texCoord);
+	return ApplyAlphaCutoff(alpha, materialIndex);
 }
 
 // Number of roughness mip levels in the prefiltered cubemap
@@ -492,6 +601,10 @@ void main()
 {
 	Material mat = materials[inMaterialIndex];
 
+	// ===== NEW: Early exit for alpha cutoff/transparency =====
+	float finalAlpha = SampleAndApplyAlpha(inMaterialIndex, mat, inTexCoord);
+	// If alpha cutoff was applied (Opaque mode), we never reach here for discarded pixels
+
 	// Sample diffuse texture (or white if none)
 	vec3 texSample = vec3(1.0);
 	if (mat.DiffuseTextureId >= 0)
@@ -632,5 +745,6 @@ void main()
 	// sRGB gamma correction
 	finalColor = pow(finalColor, vec3(1.0 / 2.2));
 
-	outColor = vec4(finalColor, 1.0);
+	// ===== MODIFIED: Include finalAlpha in output =====
+	outColor = vec4(finalColor, finalAlpha);
 }

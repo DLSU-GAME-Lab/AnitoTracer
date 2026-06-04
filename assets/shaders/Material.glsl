@@ -11,6 +11,23 @@ struct Material
 	float Fuzziness;
 	float RefractionIndex;
 	uint MaterialModel;
+
+	// ===== NEW: Alpha/Transparency Support =====  
+	// Note: These fields must match the C++ Material struct alignment
+	// C++ Layout (48 bytes total, 3 vec4s for std140):
+	//   Bytes 0-15:   glm::vec4 Diffuse
+	//   Bytes 16-19:  int32_t DiffuseTextureId
+	//   Bytes 20-23:  float Fuzziness
+	//   Bytes 24-27:  float RefractionIndex
+	//   Bytes 28-31:  uint32_t MaterialModel
+	//   Bytes 32-35:  int32_t AlphaMapTextureId
+	//   Bytes 36-39:  float AlphaCutoffThreshold
+	//   Bytes 40-43:  uint32_t AlphaBlendMode
+	//   Bytes 44-47:  float _pad (padding to 48-byte boundary)
+	int AlphaMapTextureId;
+	float AlphaCutoffThreshold;
+	uint AlphaBlendMode;
+	float _pad; // Padding to maintain 48-byte size
 };
 
 

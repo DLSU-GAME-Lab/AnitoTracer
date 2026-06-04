@@ -13,6 +13,8 @@
 #include "Vulkan/Window.hpp"
 #include <iostream>
 #include <sstream>
+#include <thread>
+#include <chrono>
 
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/GlobalConfig.h"
@@ -453,7 +455,19 @@ void RayTracer::DrawFrame()
 			// doesn't depend on scene geometry — just update the scene data and
 			// recreate the renderer so it picks up the new vertex/light buffers.
 			Debug::Log("Scene dirty (Game mode), reloading scene data");
+
+			// CRITICAL: Delete any stale acceleration structures from previous ray-tracing mode
+			// before reloading the scene. If we don't, they will reference the old scene vertex
+			// buffers which will be destroyed during ReloadModifiedScene().
+			// This prevents "access violation" in the validation layer during destructor.
 			Device().WaitIdle();
+			DeleteAccelerationStructures();
+
+			// Small delay to allow GPU to completely finish pending operations
+			// This is especially important for large model processing
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			Device().WaitIdle();
+
 			gameRenderer_.reset();
 			ReloadModifiedScene();
 			gameRenderer_.reset(new Vulkan::Game::GameRenderer(
@@ -467,7 +481,15 @@ void RayTracer::DrawFrame()
 		}
 
 		Debug::Log("Scene dirty, reloading scene");
+
+		// CRITICAL: Ensure GPU is completely idle before destroying any resources
+		// This prevents "command buffer in use" errors during scene updates
 		Device().WaitIdle();
+
+		// Small delay to allow GPU to completely finish pending operations
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		Device().WaitIdle();
+
 		DeleteSwapChainWithoutUI();
 		DeleteAccelerationStructures();
 		ReloadModifiedScene();

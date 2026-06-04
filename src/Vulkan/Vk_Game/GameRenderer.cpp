@@ -262,7 +262,6 @@ void GameRenderer::CreateGameRendererMaterialPropsBuffer(const Assets::Scene& sc
 	const size_t materialCount = materialBufferSize / sizeof(Assets::Material);
 
 	// Create default properties for each material
-	// (all -1 means no maps used, graceful fallback to material defaults)
 	std::vector<Vulkan::Game::GameRendererMaterialProperties> properties;
 
 	// Always create at least 1 element even if materialCount is 0
@@ -282,6 +281,18 @@ void GameRenderer::CreateGameRendererMaterialPropsBuffer(const Assets::Scene& sc
 		prop.RoughnessValue = 0.5f;
 		prop.AOMapTextureId = -1;
 		prop.AOStrength = 1.0f;
+
+		// ===== NEW: Alpha fields initialization =====
+		// Note: Alpha properties are now part of the base Material struct.
+		// When scene materials are loaded with SetTransparent(), they will have
+		// AlphaBlendMode, AlphaCutoffThreshold, and AlphaMapTextureId set.
+		// However, the GameRendererMaterialProperties buffer is independent and
+		// initialized with safe defaults here. To actually use transparency,
+		// update the material loading pipeline to populate these fields correctly.
+		prop.AlphaMapTextureId = -1;      // No dedicated alpha map by default
+		prop.AlphaCutoffThreshold = 0.5f; // Standard cutoff threshold
+		prop.AlphaBlendMode = 0u;         // 0 = Opaque (no blending)
+
 		properties.push_back(prop);
 	}
 
@@ -411,6 +422,12 @@ void GameRenderer::CreateDescriptorSets(
 		bindings.push_back({16, texCount,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			VK_SHADER_STAGE_FRAGMENT_BIT});
+
+		// binding 17 : Alpha maps array      (COMBINED_IMAGE_SAMPLER, frag)
+		// Dedicated alpha/transparency textures for alpha cutoff and transparency blending
+		bindings.push_back({17, texCount,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			VK_SHADER_STAGE_FRAGMENT_BIT});
 	}
 
 	descriptorSetManager_.reset(new DescriptorSetManager(device, bindings, uniformBuffers.size()));
@@ -452,6 +469,7 @@ void GameRenderer::CreateDescriptorSets(
 		std::vector<VkDescriptorImageInfo> metallicMapInfos;
 		std::vector<VkDescriptorImageInfo> roughnessMapInfos;
 		std::vector<VkDescriptorImageInfo> aoMapInfos;
+		std::vector<VkDescriptorImageInfo> alphaMapInfos;
 
 		textureInfos.reserve(scene.TextureSamplers().size());
 		for (size_t t = 0; t < scene.TextureSamplers().size(); ++t)
@@ -636,6 +654,21 @@ void GameRenderer::CreateDescriptorSets(
 			writes.push_back(descriptorSets.Bind(i, 16,
 				*aoMapInfos.data(),
 				static_cast<uint32_t>(aoMapInfos.size())));
+
+			// Binding 17: Alpha maps — dedicated alpha/transparency textures
+			// Same texture array as other map types; can be reused or contain dedicated alpha-only content
+			alphaMapInfos.reserve(scene.TextureSamplers().size());
+			for (size_t t = 0; t < scene.TextureSamplers().size(); ++t)
+			{
+				VkDescriptorImageInfo ami{};
+				ami.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				ami.imageView   = scene.TextureImageViews()[t];
+				ami.sampler     = scene.TextureSamplers()[t];
+				alphaMapInfos.push_back(ami);
+			}
+			writes.push_back(descriptorSets.Bind(i, 17,
+				*alphaMapInfos.data(),
+				static_cast<uint32_t>(alphaMapInfos.size())));
 		}
 
 		// ─── CRITICAL: All vectors stay in scope until after this call ───

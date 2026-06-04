@@ -15,7 +15,7 @@ namespace Vulkan::Game
 	/// 
 	/// Layout must match the shader buffer exactly (std140 alignment rules).
 	/// Total size: 64 bytes (4 vec4s) for proper alignment.
-	struct alignas(16) GameRendererMaterialProperties final
+	struct alignas(16) GameRendererMaterialPropertiesAlphaCutoff final
 	{
 		// ===== Original Properties (first 48 bytes) =====
 
@@ -75,7 +75,9 @@ namespace Vulkan::Game
 		float _padEnd[3];
 	};
 
-	static_assert(sizeof(GameRendererMaterialProperties) == 64,
-		"GameRendererMaterialProperties must be exactly 64 bytes (4 vec4s) for std140 alignment");
-}
+	static_assert(sizeof(GameRendererMaterialPropertiesAlphaCutoff) == 64,
+		"GameRendererMaterialPropertiesAlphaCutoff must be exactly 64 bytes (4 vec4s) for std140 alignment");
 
+	// For backward compatibility, keep a type alias for the original struct
+	using GameRendererMaterialProperties = GameRendererMaterialPropertiesAlphaCutoff;
+}
