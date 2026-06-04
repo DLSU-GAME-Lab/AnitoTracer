@@ -28,6 +28,8 @@ namespace Assets
 		int Channels() const { return channels_; }
 		std::string Name() { return name_; }
 		void setName(std::string texName) { name_ = texName; }
+		void setPath(std::string path) { texPath_ = path; }
+		std::string getPath() { return texPath_; }
 
 		Texture(int width, int height, int channels, unsigned char* const pixels, std::string name);
 
@@ -37,6 +39,7 @@ namespace Assets
 		int width_;
 		int height_;
 		int channels_;
+		std::string texPath_;
 		std::string name_;
 		std::shared_ptr<unsigned char> pixels_;
 	};

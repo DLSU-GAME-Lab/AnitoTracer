@@ -15,6 +15,7 @@ void TextureLibrary::addTexture(const std::string& textureName, const std::strin
 	std::string path = SceneIO::getInstance()->CopyToProjectFolder(fileName, SceneIO::FILETYPE::TEXTURE);
 	std::shared_ptr<Assets::Texture> texture = std::make_shared<Assets::Texture>(Assets::Texture::LoadTexture(path, Vulkan::SamplerConfig()));
 	texture->setName(textureName);
+	texture->setPath(path);
 	this->textureMap.insert(std::make_pair(textureName, texture));
 	this->textureList.push_back(texture);
 }

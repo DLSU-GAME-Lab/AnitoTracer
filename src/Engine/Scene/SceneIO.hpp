@@ -145,6 +145,13 @@ public:
 
 	std::string CopyToProjectFolder(const std::string& originalPath, FILETYPE fileType)
 	{
+		//Generate output path first for checking
+		std::string outputPath;
+		if (fileType == FILETYPE::MODEL)
+			outputPath = FileUtils::getProjectFolderPath().string() + "Models/" + std::filesystem::path(originalPath).filename().string();
+		else if (fileType == FILETYPE::TEXTURE)
+			outputPath = FileUtils::getProjectFolderPath().string() + "Textures/" + std::filesystem::path(originalPath).filename().string();
+
 		//Open original file
 		std::ifstream file(originalPath, std::ios::binary);
 
@@ -158,6 +165,21 @@ public:
 		std::streamsize fileSize = file.tellg();
 		file.seekg(0, std::ios::beg);
 
+
+		if (std::filesystem::exists(outputPath))
+		{
+			std::cout << "File already exists at: " + outputPath << std::endl;
+			// If exists, check if byte size is the same. If not, overwrite.
+			std::ifstream existingFile(outputPath, std::ios::binary);
+			existingFile.seekg(0, std::ios::end);
+			std::streamsize existingFileSize = existingFile.tellg();
+			existingFile.seekg(0, std::ios::beg);
+
+			if (fileSize == existingFileSize)
+				return outputPath;
+		}
+
+		// If file eists but size is different, or file doesn't exist, copy the file to the project folder
 		// Read bytes into string
 		std::string data;
 		data.resize(static_cast<size_t>(fileSize));
@@ -171,12 +193,6 @@ public:
 			std::cout << data.size() << " Bytes" << std::endl;
 		}
 
-		std::string outputPath;
-		if (fileType == FILETYPE::MODEL)
-			outputPath = FileUtils::getProjectFolderPath().string() + "Models/" + std::filesystem::path(originalPath).filename().string();
-		else if (fileType == FILETYPE::TEXTURE)
-			outputPath = FileUtils::getProjectFolderPath().string() + "Textures/" + std::filesystem::path(originalPath).filename().string();
-		
 		//Create output file
 		std::ofstream output(outputPath, std::ios::binary);
 
@@ -191,6 +207,11 @@ public:
 		if (!output)
 		{
 			throw std::runtime_error("Failed to write file data at: " + outputPath);
+		}
+		else
+		{
+			std::cout << "Successfully wrote file: " + outputPath << std::endl;
+			std::cout << data.size() << " Bytes" << std::endl;
 		}
 
 		return outputPath;
@@ -211,15 +232,12 @@ public:
 		//Texture Library
 		TextureLibrary* texLib = TextureLibrary::getInstance();
 		scene["textures"] = json::array();
-		
-		for (std::shared_ptr<Assets::Texture> tex : texLib->getTextureList()) 
+
+		for (std::shared_ptr<Assets::Texture> tex : texLib->getTextureList())
 		{
 			json textureJson;
 			textureJson["textureName"] = tex->Name();
-			textureJson["textureWidth"] = tex->Width();
-			textureJson["textureHeight"] = tex->Height();
-			textureJson["textureChannels"] = tex->Channels();
-			textureJson["texturePixels"] = *tex->Pixels();
+			textureJson["texturePath"] = tex->getPath();
 			scene["textures"].push_back(textureJson);
 		}
 
@@ -233,7 +251,7 @@ public:
 			objJson["name"] = obj->getName();
 			objJson["type"] = obj->getType();
 			objJson["enabled"] = obj->isActive();
-
+			objJson["path"] = obj->getModel()->FilePath();
 			objJson["position"] = { obj->getWorldPosition().x, obj->getWorldPosition().y, obj->getWorldPosition().z };
 			objJson["rotation"] = { obj->getWorldRotationEuler().x, obj->getWorldRotationEuler().y, obj->getWorldRotationEuler().z };
 			objJson["scale"] = { obj->getWorldScale().x, obj->getWorldScale().y, obj->getWorldScale().z };
@@ -243,53 +261,11 @@ public:
 			json modelJson;
 			std::shared_ptr<Assets::Model> modelRef = obj->getModel();
 			modelJson["modelName"] = modelRef ? modelRef->GetName() : "";
-
-			modelJson["originalVertices"] = json::array();
-			for (Assets::Vertex v : modelRef->OriginalVertices()) 
-			{
-				modelJson["originalVertices"].push_back({
-					v.Position.x, v.Position.y, v.Position.z,
-					v.Normal.x, v.Normal.y, v.Normal.z,
-					v.TexCoord.x, v.TexCoord.y,
-					v.MaterialIndex
-					});
-			}
-			modelJson["transformedVertices"] = json::array();
-			for (Assets::Vertex v : modelRef->TransformedVertices())
-			{
-				modelJson["transformedVertices"].push_back({
-					v.Position.x, v.Position.y, v.Position.z,
-					v.Normal.x, v.Normal.y, v.Normal.z,
-					v.TexCoord.x, v.TexCoord.y,
-					v.MaterialIndex
-					});
-			}
-			modelJson["vertices"] = json::array();
-			for (Assets::Vertex v : modelRef->Vertices())
-			{
-				modelJson["vertices"].push_back({
-					v.Position.x, v.Position.y, v.Position.z,
-					v.Normal.x, v.Normal.y, v.Normal.z,
-					v.TexCoord.x, v.TexCoord.y,
-					v.MaterialIndex
-					});
-			}
-			modelJson["indices"] = json::array();
-			for (uint32_t i : modelRef->Indices())
-			{
-				modelJson["indices"].push_back(i);
-			}
-			modelJson["worldMatrix"] = {
-				modelRef->GetWorldMatrix()[0][0], modelRef->GetWorldMatrix()[0][1], modelRef->GetWorldMatrix()[0][2], modelRef->GetWorldMatrix()[0][3],
-				modelRef->GetWorldMatrix()[1][0], modelRef->GetWorldMatrix()[1][1], modelRef->GetWorldMatrix()[1][2], modelRef->GetWorldMatrix()[1][3],
-				modelRef->GetWorldMatrix()[2][0], modelRef->GetWorldMatrix()[2][1], modelRef->GetWorldMatrix()[2][2], modelRef->GetWorldMatrix()[2][3],
-				modelRef->GetWorldMatrix()[3][0], modelRef->GetWorldMatrix()[3][1], modelRef->GetWorldMatrix()[3][2], modelRef->GetWorldMatrix()[3][3]
-			};
 			modelJson["filePath"] = modelRef->FilePath();
-			modelJson["origin"] = { modelRef->GetOrigin().x, modelRef->GetOrigin().y, modelRef->GetOrigin().z };
+			modelJson["materialID"] = modelRef->GetMaterialIndex();
 
 			objJson["model"] = modelJson;
-				
+
 
 			// Materials
 			if (obj->getType() == GameObject::PrimitiveType::POINT_LIGHT ||
@@ -298,15 +274,15 @@ public:
 			{
 				json lightProps;
 				lightProps["lightDir"] = { lights[0].LightDir.x, lights[0].LightDir.y, lights[0].LightDir.z };
-				lightProps["ambientColor"] = { lights[0].AmbientColor.x, lights[0].AmbientColor.y, lights[0].AmbientColor.z, lights[0].AmbientColor.w};
-				lightProps["lightColor"] = { lights[0].LightColor.x, lights[0].LightColor.y, lights[0].LightColor.z, lights[0].LightColor.w};
+				lightProps["ambientColor"] = { lights[0].AmbientColor.x, lights[0].AmbientColor.y, lights[0].AmbientColor.z, lights[0].AmbientColor.w };
+				lightProps["lightColor"] = { lights[0].LightColor.x, lights[0].LightColor.y, lights[0].LightColor.z, lights[0].LightColor.w };
 				objJson["lightProps"] = lightProps;
-			} 
+			}
 			else
 			{
 				objJson["modelName"] = modelRef->GetName();
 				objJson["materials"] = json::array();
-				for (Assets::Material mat : modelRef->materials_) 
+				for (Assets::Material mat : modelRef->materials_)
 				{
 					json matJson;
 					matJson["diffuse"] = { mat.Diffuse.x, mat.Diffuse.y, mat.Diffuse.z, mat.Diffuse.a };
@@ -327,7 +303,7 @@ public:
 
 			scene["objects"].push_back(objJson);
 
-			
+
 		}
 
 		AddScene(scene, sceneName);
@@ -355,11 +331,11 @@ public:
 			}
 			// Primitives, Lighting, and Camera Objects are created here.
 			else if (obj["type"] == GameObject::PrimitiveType::CUBE ||
-					obj["type"] == GameObject::PrimitiveType::SPHERE ||
-					obj["type"] == GameObject::PrimitiveType::PLANE || 
-					obj["type"] == GameObject::PrimitiveType::CYLINDER || 
-					obj["type"] == GameObject::PrimitiveType::CAPSULE ||
-					obj["type"] == GameObject::PrimitiveType::CORNELL_BOX)
+				obj["type"] == GameObject::PrimitiveType::SPHERE ||
+				obj["type"] == GameObject::PrimitiveType::PLANE ||
+				obj["type"] == GameObject::PrimitiveType::CYLINDER ||
+				obj["type"] == GameObject::PrimitiveType::CAPSULE ||
+				obj["type"] == GameObject::PrimitiveType::CORNELL_BOX)
 			{
 				// 2. Get materials.
 				std::vector<Assets::Material> materials = LoadMaterials(obj);
@@ -370,8 +346,8 @@ public:
 					pos, rot, scale, materials);
 			}
 			else if (obj["type"] == GameObject::PrimitiveType::POINT_LIGHT ||
-					obj["type"] == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
-					obj["type"] == GameObject::PrimitiveType::SPOT_LIGHT)
+				obj["type"] == GameObject::PrimitiveType::DIRECTIONAL_LIGHT ||
+				obj["type"] == GameObject::PrimitiveType::SPOT_LIGHT)
 			{
 				// 2. Get materials.
 				std::vector<Assets::Material> materials = LoadMaterials(obj);
@@ -415,7 +391,7 @@ public:
 		}
 
 		//Texture Library first
-		//LoadTextures(sceneObj);
+		LoadTextures(sceneObj);
 
 		//Start looping through each object
 		for (json obj : sceneObj["objects"]) {
@@ -426,7 +402,8 @@ public:
 			// Mesh objects are created here.
 			if (obj["type"] == GameObject::PrimitiveType::MESH || obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
 			{
-				Assets::Model model = LoadModel(obj);
+				Assets::Model model = Assets::Model::LoadModel(obj["path"]);
+				model.SetMaterialIndex(obj["model"]["materialID"]);
 
 				// 3. Create the object.
 				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
@@ -542,65 +519,12 @@ public:
 
 	void LoadTextures(json scene)
 	{
-		//Add textures back to Texture Library.
-		TextureLibrary::getInstance()->Reset();
-
 		for (json tex : scene["textures"]) {
 			std::string name = tex["textureName"];
-			int width = tex["textureWidth"];
-			int height = tex["textureHeight"];
-			int channels = tex["textureChannels"];
-			unsigned char pixels = tex["texturePixels"].get<unsigned char>();
-			Assets::Texture texture = Assets::Texture(width, height, channels, &pixels, name);
+			std::string path = tex["texturePath"];
 
-			TextureLibrary::getInstance()->addTexture(name,texture);
+			TextureLibrary::getInstance()->addTexture(name, path);
 		}
 
-	}
-
-	Assets::Model LoadModel(json objJson) 
-	{
-		Assets::Model model;
-		model.name = objJson["model"]["modelName"];
-		model.filepath = objJson["model"]["filePath"];
-		//vertices
-		std::vector<Assets::Vertex> originalVertices;
-		for (json v : objJson["model"]["originalVertices"]) {
-			Assets::Vertex vertex;
-			vertex.Position = glm::vec3(v[0], v[1], v[2]);
-			vertex.Normal = glm::vec3(v[3], v[4], v[5]);
-			vertex.TexCoord = glm::vec2(v[6], v[7]);
-			vertex.MaterialIndex = v[8];
-			originalVertices.push_back(vertex);
-		}
-		std::vector<Assets::Vertex> transformedVertices;
-		for (json v : objJson["model"]["transformedVertices"]) {
-			Assets::Vertex vertex;
-			vertex.Position = glm::vec3(v[0], v[1], v[2]);
-			vertex.Normal = glm::vec3(v[3], v[4], v[5]);
-			vertex.TexCoord = glm::vec2(v[6], v[7]);
-			vertex.MaterialIndex = v[8];
-			transformedVertices.push_back(vertex);
-		}
-		std::vector<Assets::Vertex> vertices;
-		for (json v : objJson["model"]["vertices"]) {
-			Assets::Vertex vertex;
-			vertex.Position = glm::vec3(v[0], v[1], v[2]);
-			vertex.Normal = glm::vec3(v[3], v[4], v[5]);
-			vertex.TexCoord = glm::vec2(v[6], v[7]);
-			vertex.MaterialIndex = v[8];
-			vertices.push_back(vertex);
-		}
-
-		model.indices_ = objJson["model"]["indices"].get<std::vector<uint32_t>>();
-		model.worldMatrix_ = glm::mat4(
-			(float)objJson["model"]["worldMatrix"][0], (float)objJson["model"]["worldMatrix"][1], (float)objJson["model"]["worldMatrix"][2], (float)objJson["model"]["worldMatrix"][3],
-			(float)objJson["model"]["worldMatrix"][4], (float)objJson["model"]["worldMatrix"][5], (float)objJson["model"]["worldMatrix"][6], (float)objJson["model"]["worldMatrix"][7],
-			(float)objJson["model"]["worldMatrix"][8], (float)objJson["model"]["worldMatrix"][9], (float)objJson["model"]["worldMatrix"][10], (float)objJson["model"]["worldMatrix"][11],
-			(float)objJson["model"]["worldMatrix"][12], (float)objJson["model"]["worldMatrix"][13], (float)objJson["model"]["worldMatrix"][14], (float)objJson["model"]["worldMatrix"][15]
-		);
-		model.origin = glm::vec3(objJson["model"]["origin"][0], objJson["model"]["origin"][1], objJson["model"]["origin"][2]);
-
-		return model;
 	}
 };

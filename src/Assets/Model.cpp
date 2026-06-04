@@ -77,7 +77,7 @@ namespace Assets {
 
 		// Keep postprocess flags conservative first
 		const aiScene* scene = importer.ReadFile(
-			filename,
+			path,
 			aiProcess_Triangulate |
 			aiProcess_GenSmoothNormals |
 			aiProcess_CalcTangentSpace |
@@ -263,25 +263,27 @@ namespace Assets {
 			nullptr
 		);
 
-		model.filepath = filename;
+		model.filepath = path;
 
 		return model;
 	}
 
 	std::vector<Model> Model::LoadModelGroup(const std::string& filename)
 	{
-		std::cout << "- loading '" << filename << "'... " << std::flush;
+		std::string path = SceneIO::getInstance()->CopyToProjectFolder(filename, SceneIO::FILETYPE::MODEL);
+
+		std::cout << "- loading '" << path << "'... " << std::flush;
 
 		const auto timer = std::chrono::high_resolution_clock::now();
 		const std::string materialPath =
-			std::filesystem::path(filename).parent_path().string();
+			std::filesystem::path(path).parent_path().string();
 		std::vector<Model> models;
 
 		Assimp::Importer importer;
 
 		// Keep postprocess flags conservative first
 		const aiScene* scene = importer.ReadFile(
-			filename,
+			path,
 			aiProcess_Triangulate |
 			aiProcess_GenSmoothNormals |
 			aiProcess_CalcTangentSpace |
@@ -292,7 +294,7 @@ namespace Assets {
 		if (!scene || !scene->HasMeshes())
 		{
 			Throw(std::runtime_error(
-				"failed to load model '" + filename + "':\n" +
+				"failed to load model '" + path + "':\n" +
 				importer.GetErrorString()));
 		}
 
@@ -439,7 +441,7 @@ namespace Assets {
 				nullptr
 			);
 
-			model.filepath = filename;
+			model.filepath = path;
 
 			models.push_back(std::move(model));
 		}
@@ -572,6 +574,11 @@ void Model::SetMaterials(std::vector<Material> mats)
 void Model::SetMaterialIndex(int index)
 {
 	this->materials_[0].DiffuseTextureId = index;
+}
+
+int Model::GetMaterialIndex()
+{
+	return this->materials_[0].DiffuseTextureId;
 }
 
 void Model::Transform(const mat4& transform)

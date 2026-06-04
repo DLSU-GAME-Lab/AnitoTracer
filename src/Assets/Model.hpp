@@ -42,6 +42,7 @@ namespace Assets
 		void SetMaterial(const Material& material);
 		void SetMaterials(std::vector<Material> mats);
 		void SetMaterialIndex(int index);
+		int GetMaterialIndex();
 		void Transform(const glm::mat4& transform);
 		void ResetVertices();
 
