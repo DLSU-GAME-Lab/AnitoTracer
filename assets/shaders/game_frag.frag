@@ -132,11 +132,21 @@ layout(binding = 16) uniform sampler2D aoMaps[];
 // ========== Helper Functions for Normal Mapping ==========
 
 /// Constructs orthonormal TBN matrix from tangent and normal
+/// Note: After interpolation, tangent and normal may not be perfectly orthogonal.
+/// We reconstruct bitangent via cross product (inherently perpendicular) rather
+/// than Gram-Schmidt, which can be numerically unstable on normalized vectors.
 mat3 ConstructTBNMatrix(vec3 normal, vec3 tangent)
 {
-	// Gram-Schmidt orthogonalization to ensure orthogonal basis
-	tangent = normalize(tangent - dot(tangent, normal) * normal);
+	// Normalize in case interpolation scaled the vectors
+	normal = normalize(normal);
+	tangent = normalize(tangent);
+
+	// Cross product is ALWAYS perpendicular — numerically stable and reliable
 	vec3 bitangent = cross(normal, tangent);
+
+	// Ensure bitangent is normalized (cross of two unit vectors may not be exactly unit)
+	bitangent = normalize(bitangent);
+
 	return mat3(tangent, bitangent, normal);
 }
 
@@ -453,17 +463,24 @@ vec3 IBLAmbient(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness)
 	// Specular: GGX-prefiltered env at the matching roughness mip.
 	// Same substitution — flat colour acts as a uniform environment for specular.
 	vec3 prefilteredEnv;
+	vec3 specularIBL;
+
 	if (ubo.UseColorIBL != 0u)
 	{
+		// For flat colour IBL: use simplified specular calculation
+		// without complex BRDF lookup that can cause grainy artifacts
 		prefilteredEnv = ubo.IBLSkyColor;
+		// Simplified specular: just apply Fresnel to the flat environment colour
+		specularIBL = prefilteredEnv * F * (1.0 - roughness * 0.5);  // Reduce spec for non-metallic
 	}
 	else
 	{
+		// Real HDR cubemap: full PBR with BRDF integration
 		float mipLevel = roughness * float(MAX_PREFILTER_MIPS - 1u);
 		prefilteredEnv = textureLod(iblPrefiltered, reflect(-V, N), mipLevel).rgb;
+		vec2 brdfSample  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+		specularIBL = prefilteredEnv * (F0 * brdfSample.x + brdfSample.y);
 	}
-	vec2 brdfSample  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
-	vec3 specularIBL = prefilteredEnv * (F0 * brdfSample.x + brdfSample.y);
 
 	return diffuseIBL + specularIBL;
 }
