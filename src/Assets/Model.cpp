@@ -64,20 +64,21 @@ namespace Assets {
 	Model Model::LoadModel(const std::string& filename)
 	{
 
-		//Import the model to the project folder first and get the new path
+		//Import the model to the project folder first and get the path for saving
 		std::string path = SceneIO::getInstance()->CopyToProjectFolder(filename, SceneIO::FILETYPE::MODEL);
 
-		std::cout << "- loading '" << path << "'... " << std::flush;
+		std::cout << "- loading '" << filename << "'... " << std::flush;
 		
 		const auto timer = std::chrono::high_resolution_clock::now();
 		const std::string materialPath =
-			std::filesystem::path(path).parent_path().string();
+			std::filesystem::path(filename).parent_path().string();
 
 		Assimp::Importer importer;
 
+		//Use the original path for importing still
 		// Keep postprocess flags conservative first
 		const aiScene* scene = importer.ReadFile(
-			path,
+			filename,
 			aiProcess_Triangulate |
 			aiProcess_GenSmoothNormals |
 			aiProcess_CalcTangentSpace |
@@ -88,7 +89,7 @@ namespace Assets {
 		if (!scene || !scene->HasMeshes())
 		{
 			Throw(std::runtime_error(
-				"failed to load model '" + path + "':\n" +
+				"failed to load model '" + filename + "':\n" +
 				importer.GetErrorString()));
 		}
 
