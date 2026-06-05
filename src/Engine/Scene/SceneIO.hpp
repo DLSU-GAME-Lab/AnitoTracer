@@ -261,12 +261,15 @@ public:
 
 			json modelJson;
 			std::shared_ptr<Assets::Model> modelRef = obj->getModel();
-			modelJson["modelName"] = modelRef ? modelRef->GetName() : "";
+			modelJson["modelName"] = modelRef->GetName();
 			modelJson["filePath"] = modelRef->FilePath();
 			modelJson["materialID"] = modelRef->GetMaterialIndex();
 
 			objJson["model"] = modelJson;
 
+			// ===============================================================================================================
+			// ============== TODO : Reinitialize materials in a way that will work without the mtl of the mesh ==============
+			// ===============================================================================================================
 
 			// Materials
 			if (obj->getType() == GameObject::PrimitiveType::POINT_LIGHT ||
