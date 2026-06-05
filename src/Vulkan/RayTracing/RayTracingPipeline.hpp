@@ -50,6 +50,10 @@ namespace Vulkan::RayTracing
 		VkDescriptorSet DescriptorSet(uint32_t index) const;
 		const class PipelineLayout& PipelineLayout() const { return *pipelineLayout_; }
 
+		/// @brief Update the acceleration structure descriptor binding.
+		/// Call this after the TLAS has been rebuilt to refresh descriptor sets.
+		void UpdateAccelerationStructureDescriptor(const TopLevelAccelerationStructure& accelerationStructure);
+
 	private:
 
 		const SwapChain& swapChain_;
@@ -58,6 +62,9 @@ namespace Vulkan::RayTracing
 
 		std::unique_ptr<DescriptorSetManager> descriptorSetManager_;
 		std::unique_ptr<class PipelineLayout> pipelineLayout_;
+
+		/// @brief Non-owning reference to the current TLAS for descriptor updates.
+		const TopLevelAccelerationStructure* accelerationStructure_{ nullptr };
 
 		uint32_t rayGenIndex_;
 		uint32_t missIndex_;

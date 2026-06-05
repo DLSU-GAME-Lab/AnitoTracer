@@ -28,7 +28,8 @@ RayTracingPipeline::RayTracingPipeline(
 	const std::vector<Assets::UniformBuffer>& uniformBuffers,
 	const Assets::Scene& scene,
 	const Assets::RayScene& rayScene) :
-	swapChain_(swapChain)
+	swapChain_(swapChain),
+	accelerationStructure_(&accelerationStructure)
 {
 	// Create descriptor pool/sets.
 	const auto& device = swapChain.Device();
@@ -177,7 +178,7 @@ RayTracingPipeline::RayTracingPipeline(
 
 		// Procedural buffer (optional)
 		VkDescriptorBufferInfo proceduralBufferInfo = {};
-		
+
 		if (scene.HasProcedurals())
 		{
 			proceduralBufferInfo.buffer = scene.ProceduralBuffer().Handle();
@@ -190,7 +191,7 @@ RayTracingPipeline::RayTracingPipeline(
 		descriptorWrites.push_back(descriptorSets.Bind(i, 12, rayCounterBufferInfo));
 		descriptorWrites.push_back(descriptorSets.Bind(i, 13, rayVertexBufferInfo));
 		descriptorWrites.push_back(descriptorSets.Bind(i, 14, rayInfoBufferInfo));
-		
+
 		descriptorSets.UpdateDescriptors(i, descriptorWrites);
 	}
 
@@ -296,6 +297,32 @@ RayTracingPipeline::~RayTracingPipeline()
 VkDescriptorSet RayTracingPipeline::DescriptorSet(const uint32_t index) const
 {
 	return descriptorSetManager_->DescriptorSets().Handle(index);
+}
+
+void RayTracingPipeline::UpdateAccelerationStructureDescriptor(const TopLevelAccelerationStructure& accelerationStructure)
+{
+	// Update the stored reference
+	accelerationStructure_ = &accelerationStructure;
+
+	// Update all descriptor sets with the new TLAS handle
+	auto& descriptorSets = descriptorSetManager_->DescriptorSets();
+	const auto device = swapChain_.Device().Handle();
+
+	for (uint32_t i = 0; i != swapChain_.Images().size(); ++i)
+	{
+		// Create a new write descriptor set with the updated TLAS handle
+		const auto accelerationStructureHandle = accelerationStructure.Handle();
+		VkWriteDescriptorSetAccelerationStructureKHR structureInfo = {};
+		structureInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+		structureInfo.pNext = nullptr;
+		structureInfo.accelerationStructureCount = 1;
+		structureInfo.pAccelerationStructures = &accelerationStructureHandle;
+
+		VkWriteDescriptorSet descriptorWrite = descriptorSets.Bind(i, 0, structureInfo);
+
+		// Apply the update
+		vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+	}
 }
 
 }

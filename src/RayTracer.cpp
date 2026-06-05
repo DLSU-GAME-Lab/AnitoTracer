@@ -38,6 +38,7 @@
 #include "Vulkan/ImageMemoryBarrier.hpp"
 #include "Vulkan/Vk_Compute/ComputeShaderRayTracer.hpp"
 #include "Vulkan/Vk_Game/GameRenderer.hpp"
+#include "Vulkan/RayTracing/RayTracingPipeline.hpp"
 
 #include "StateManagement/CommandManager.hpp"
 #include "Assets/ModelLibrary.hpp"
@@ -266,18 +267,6 @@ void RayTracer::CreateSwapChain()
 		computeImagesInitialized_ = false; // Reset layout initialization flag for new renderer
 	}
 
-	// Initialize game rasterization renderer if in Game mode
-	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game)
-	{
-		gameRenderer_.reset(new Vulkan::Game::GameRenderer(
-			SwapChain(),
-			DepthBuffer(),
-			UniformBuffers(),
-			GetScene(),
-			CommandPool()));
-		Debug::Log("Game Renderer initialized");
-	}
-
 	// If UIManager hasn't been initialized yet
 	if (UIManager::getInstance() == nullptr)
 	{
@@ -289,8 +278,6 @@ void RayTracer::CreateSwapChain()
 			UIManager::getInstance()->initializeUI();
 			initializedUI = true;
 		}
-		// Backend freshly initialized — no old pool to release from, just register.
-		RegisterIBLDescriptors(gameRenderer_.get(), &userSettings_);
 	}
 	else if (initializedUI)
 	{
@@ -308,9 +295,25 @@ void RayTracer::CreateSwapChain()
 			Debug::Log("WARNING: Failed to reinitialize UIManager backends: " + std::string(e.what()));
 			// Continue anyway - UI might not be critical
 		}
-		// Old pool is gone — invalidate stale handles, then register fresh ones.
-		RegisterIBLDescriptors(gameRenderer_.get(), &userSettings_);
 	}
+
+	// ═══ CRITICAL: Initialize Game Renderer AFTER UIManager backend setup ═══
+	// GameRenderer creates its own descriptor sets, which must be created AFTER
+	// UIManager's descriptor pool is initialized/reinitialized. If we create it
+	// before UIManager backend reinit, its descriptor sets may reference an old/dead pool.
+	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game)
+	{
+		gameRenderer_.reset(new Vulkan::Game::GameRenderer(
+			SwapChain(),
+			DepthBuffer(),
+			UniformBuffers(),
+			GetScene(),
+			CommandPool()));
+		Debug::Log("Game Renderer initialized");
+	}
+
+	// Register IBL descriptors after all backends are set up
+	RegisterIBLDescriptors(gameRenderer_.get(), &userSettings_);
 
 	resetAccumulation_ = true;
 
@@ -473,6 +476,20 @@ void RayTracer::DrawFrame()
 			gameRenderer_.reset(new Vulkan::Game::GameRenderer(
 				SwapChain(), DepthBuffer(), UniformBuffers(), GetScene(), CommandPool()));
 			Debug::Log("Game Renderer reloaded");
+
+			// CRITICAL: Clear stale TLAS references in ray tracing pipeline
+			// Even though we're in Game mode, the ray tracing pipeline still exists and has
+			// descriptors pointing to the now-destroyed TLAS. If the user later switches to
+			// ray tracing mode without doing a full scene reload, those stale descriptors
+			// will cause a validation error. We clear them by recreating the acceleration
+			// structures so the descriptor update can occur if needed.
+			// We don't actually use them in Game mode, but this prevents crashes on mode switches.
+			CreateAccelerationStructures();
+			if (rayTracingPipeline_)
+			{
+				rayTracingPipeline_->UpdateAccelerationStructureDescriptor(topAs_[0]);
+			}
+
 			// Scene dirty reload: backends were NOT reinit'd, only the GameRenderer
 			// (and its IBL images) changed. Release old, register new.
 			ReleaseIBLDescriptors();
@@ -494,6 +511,15 @@ void RayTracer::DrawFrame()
 		DeleteAccelerationStructures();
 		ReloadModifiedScene();
 		CreateAccelerationStructures();
+
+		// CRITICAL: Update ray tracing pipeline descriptors with the newly created TLAS
+		// The old TLAS was deleted above, and vkCmdTraceRaysKHR would crash using stale
+		// references. This must happen BEFORE CreateSwapChain() recreates the pipeline.
+		if (rayTracingPipeline_)
+		{
+			rayTracingPipeline_->UpdateAccelerationStructureDescriptor(topAs_[0]);
+		}
+
 		CreateSwapChain();
 		ResetPicker();
 		return;
