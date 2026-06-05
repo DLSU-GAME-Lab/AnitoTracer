@@ -463,7 +463,7 @@ void ExportAnimationScreen::PrepareFramesFolder()
     {
         //auto fullPath = std::string(FileExplorerConstants::ASSETS_DIR) + "/" + filename;
         //auto assetsPath = FileUtils::getExecutablePath() / std::string(FileExplorerConstants::ASSETS_DIR);
-        auto framesPath = std::string(FileExplorerConstants::ASSETS_DIR) + "/Frames";
+        auto framesPath = FileUtils::getProjectFolderPath().string() + "/Frames";
 
 		Debug::Log("[ExportAnimationScreen] Preparing Frames folder at: " + framesPath);
 
@@ -553,8 +553,8 @@ void ExportAnimationScreen::ExportVideoFromFrames()
     try
     {
         // Create video output path
-        auto framesPath = std::string(FileExplorerConstants::ASSETS_DIR) + "/Frames";
-        auto videoPath = std::string(FileExplorerConstants::ASSETS_DIR) + "/animation.mp4";
+        auto framesPath = FileUtils::getProjectFolderPath().string() + "/Frames";
+        auto videoPath = FileUtils::getProjectFolderPath().string() + "/animation.mp4";
 
         Debug::Log("[ExportAnimationScreen] Starting video export from: " + framesPath);
         Debug::Log("[ExportAnimationScreen] Output video: " + videoPath);

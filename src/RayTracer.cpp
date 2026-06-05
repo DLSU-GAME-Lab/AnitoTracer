@@ -59,6 +59,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 	Application(windowConfig, presentMode, EnableValidationLayers),
 	userSettings_(userSettings)
 {
+	FileUtils::initializeProjectFolder();
 	CheckFramebufferSize();
 
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SCENE_LOADED, this);

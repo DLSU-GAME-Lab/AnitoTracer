@@ -8,6 +8,7 @@
 #include "UI/UIConfig.hpp"
 #include "RayPicker/RayPicker.hpp"
 #include "HotkeySystem/HotkeyListener.hpp"
+#include "Utilities/FileUtils.h"
 
 namespace Vulkan {
 	class RayVisualizationPipeline;

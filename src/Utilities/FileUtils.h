@@ -9,6 +9,7 @@
 class FileUtils
 {
 public:
+	static void initializeProjectFolder();
 	static std::filesystem::path getAssetsFolderPath();
 	static std::filesystem::path getExecutablePath();
 	static std::filesystem::path getProjectFolderPath();

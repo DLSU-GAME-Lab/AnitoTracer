@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <commdlg.h>
+#include <fstream>
+#include <iostream>
 
 // #if __cplusplus <= 201402L
 // #define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
@@ -9,6 +11,25 @@
 // #endif
 
 //#include "LogUtils.h"
+
+void FileUtils::initializeProjectFolder()
+{
+	if (std::filesystem::create_directory(FileUtils::getProjectFolderPath()))
+	{
+		std::filesystem::create_directory(FileUtils::getProjectFolderPath().string() + "/Models");
+		std::filesystem::create_directory(FileUtils::getProjectFolderPath().string() + "/Textures");
+		std::cout << "Assets directory created" << std::endl;
+	}
+	else
+	{
+		if (exists(FileUtils::getProjectFolderPath()) && is_directory(FileUtils::getProjectFolderPath())) {
+			std::cout << "Assets directory already exists" << std::endl;
+		}
+		else {
+			std::cerr << "Failed to create Assets directory" << std::endl;
+		}
+	}
+}
 
 std::filesystem::path FileUtils::getAssetsFolderPath()
 {
@@ -35,7 +56,7 @@ std::filesystem::path FileUtils::getExecutablePath()
 
 
 std::filesystem::path FileUtils::getProjectFolderPath() {
-	std::filesystem::path p = getExecutablePath().parent_path().parent_path().append("src/Assets/");
+	std::filesystem::path p = getExecutablePath().parent_path().append("/Project/");
 	return p;
 }
 

@@ -9,21 +9,22 @@
 #include "Utilities/FileExplorer/FileExplorerUtils.h"
 #include "UI/FileExplorer/FileListView.h"
 #include "UI/FileExplorer/FileIconView.h"
+#include "Utilities/FileUtils.h"
 
 #include <fstream>
 #include <iostream>
 
 ProjectScreen::ProjectScreen() : AUIScreen(UINames::PROJECT_SCREEN)
 {
-    if (create_directory(FileExplorerConstants::ASSETS_DIR))
+    if (create_directory(FileUtils::getProjectFolderPath()))
     {
-        create_directory(FileExplorerConstants::MODELS_DIR);
-        create_directory(FileExplorerConstants::TEXTURES_DIR);
+        create_directory(FileUtils::getProjectFolderPath().string() + "/Models");
+        create_directory(FileUtils::getProjectFolderPath().string() + "/Textures");
         std::cout << "Assets directory created" << std::endl;
     }
     else
     {
-        if (exists(FileExplorerConstants::ASSETS_DIR) && is_directory(FileExplorerConstants::ASSETS_DIR)) {
+        if (exists(FileUtils::getProjectFolderPath()) && is_directory(FileUtils::getProjectFolderPath())) {
             std::cout << "Assets directory already exists" << std::endl;
         }
         else {
@@ -40,7 +41,7 @@ ProjectScreen::~ProjectScreen()
 
 void ProjectScreen::drawUI()
 {
-    if (ImGui::Begin(FileExplorerConstants::PANEL_NAME, nullptr, UISettings::GlobalWindowFlags))
+    if (ImGui::Begin("Project", nullptr, UISettings::GlobalWindowFlags))
     {
         if (ImGui::BeginTable("MyTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
 

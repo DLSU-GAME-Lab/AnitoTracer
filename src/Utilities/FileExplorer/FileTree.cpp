@@ -1,6 +1,7 @@
 #include "FileTree.h"
 
 #include "FileExplorerConstants.h"
+#include "../FileUtils.h"
 
 #include <fstream>
 #include <sstream>
@@ -16,7 +17,7 @@ FileTree::FileTree(FileTreeNode& rootNode) : root(rootNode)
 
 FileTree* FileTree::getInstance() {
     if (instance == nullptr) {
-        directory_entry dirEnt(FileExplorerConstants::ASSETS_DIR);
+        directory_entry dirEnt(FileUtils::getProjectFolderPath());
         FileTreeNode* newRoot = new FileTreeNode(dirEnt);
         newRoot->init();
         instance = new FileTree(*newRoot);
@@ -25,7 +26,7 @@ FileTree* FileTree::getInstance() {
 }
 
 void FileTree::setRoot() {
-    directory_entry dirEnt(FileExplorerConstants::ASSETS_DIR);
+    directory_entry dirEnt(FileUtils::getProjectFolderPath());
     FileTreeNode* newRoot = new FileTreeNode(dirEnt);
     newRoot->init();
     FileTree::root = *newRoot;
