@@ -56,15 +56,16 @@ public:
 
 	void WriteToFile(json scene, std::string sceneName) {
 		// Implement file writing logic here
-		std::ofstream file(sceneName + ".json");
+		std::string path = FileUtils::getProjectFolderPath().string() + sceneName + ".json";
+		std::ofstream file(path);
 
 		if (file.is_open()) {
 			file << std::setw(4) << scene << std::endl; // Use setw for pretty printing
 			file.close();
-			std::cout << "Scene saved to " + sceneName + ".json" << std::endl;
+			std::cout << "Scene saved to " + path << std::endl;
 		}
 		else {
-			std::cerr << "Error opening file for writing" << std::endl;
+			std::cerr << "Error opening" << path << " for writing" << std::endl;
 		}
 	}
 
