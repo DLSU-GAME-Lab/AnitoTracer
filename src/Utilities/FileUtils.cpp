@@ -40,24 +40,31 @@ std::filesystem::path FileUtils::getAssetsFolderPath()
 
 std::filesystem::path FileUtils::getExecutablePath()
 {
-	//return std::filesystem::current_path();
-	{
-#ifdef _WIN32
-		wchar_t path[MAX_PATH] = { 0 };
-		GetModuleFileName(nullptr, path, MAX_PATH);
-		return path;
-#else
-		char result[PATH_MAX];
-		ssize_t count = readlink("/proc/self/exe" reult, PATH_MAX);
-		return std::string(result, (count > 0) ? count : 0);
-#endif
+	wchar_t path[MAX_PATH];
+	// Get the full executable path
+	if (GetModuleFileNameW(NULL, path, MAX_PATH) > 0) {
+		std::filesystem::path exePath(path);
+		//std::cout << "Executable: " << exePath.string() << "\n";
+		//std::cout << "Directory: " << exePath.parent_path().string() << "\n";
+
+		return exePath;
 	}
 }
 
 
 std::filesystem::path FileUtils::getProjectFolderPath() {
-	std::filesystem::path p = getExecutablePath().parent_path().append("/Project/");
-	return p;
+	wchar_t path[MAX_PATH];
+	if (GetModuleFileNameW(NULL, path, MAX_PATH) > 0) 
+	{
+		std::filesystem::path exePath(path);
+		//std::cout << "Executable: " << exePath.string() << "\n";
+		//std::cout << "Directory: " << exePath.parent_path().string() << "\n";
+
+		std::string projectPath = exePath.parent_path().string() + "/Project/";
+		std::filesystem::path p = projectPath;
+		std::cout << "Project folder: " << p.string() << '\n';
+		return p;
+	}
 }
 
 // Prompts the user to open a 3D model file. Supply a reference to a filePath and fileName string for the result.
