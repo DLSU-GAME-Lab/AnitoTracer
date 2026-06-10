@@ -446,17 +446,19 @@ target_link_directories(${exe_name} PRIVATE Assimp/lib ${Vulkan_LIBRARY})
 target_link_libraries(${exe_name} PRIVATE assimp::assimp ${Boost_LIBRARIES} freetype glfw glm::glm ${Vulkan_LIBRARIES} 
 	##FFMPEG_LIBRARIES has a lot of dependencies that CMake doesn't automatically link, so we have to add them manually -..-
 	${FFMPEG_LIBRARIES}
-    ncrypt.lib 
-    crypt32.lib 
-    setupapi.lib 
-    winmm.lib 
-    imm32.lib 
-    version.lib 
-    mfplat.lib 
-    strmiids.lib 
-    mfuuid.lib 
-    Bcrypt.lib 
-${extra_libs})
+	ncrypt.lib 
+	crypt32.lib 
+	setupapi.lib 
+	winmm.lib 
+	imm32.lib 
+	version.lib 
+	mfplat.lib 
+	strmiids.lib 
+	mfuuid.lib 
+	Bcrypt.lib 
+	${extra_libs}
+	Jolt::Jolt
+)
 
 #if(${WIN32})
 #add_custom_command(TARGET ${exe_name} POST_BUILD

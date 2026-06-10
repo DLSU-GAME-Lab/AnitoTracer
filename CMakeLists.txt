@@ -85,6 +85,7 @@ find_package(Stb REQUIRED)
 find_package(Assimp REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(FFMPEG REQUIRED)
+find_package(Jolt CONFIG REQUIRED)
 
 
 # add_definitions(-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS)

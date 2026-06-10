@@ -18,6 +18,7 @@ vcpkg.exe install ^
 	assimp:x64-windows-static ^
 	nlohmann-json:x64-windows-static ^
 	ffmpeg[core,avcodec,avformat,swscale,zlib,x264]:x64-windows-static ^
+	joltphysics:x64-windows-static ^
 	|| goto :error
 
 cd ..
