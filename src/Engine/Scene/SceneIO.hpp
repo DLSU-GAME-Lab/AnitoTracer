@@ -263,7 +263,6 @@ public:
 			std::shared_ptr<Assets::Model> modelRef = obj->getModel();
 			modelJson["modelName"] = modelRef->GetName();
 			modelJson["filePath"] = modelRef->FilePath();
-			modelJson["materialID"] = modelRef->GetMaterialIndex();
 
 			objJson["model"] = modelJson;
 
@@ -324,7 +323,13 @@ public:
 			// Mesh objects are created here.
 			if (obj["type"] == GameObject::PrimitiveType::MESH || obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
 			{
-				Assets::Model model = BytesToObject<Assets::Model>(obj["meshData"]);
+				Assets::Model model = Assets::Model::LoadModel(obj["path"]);
+				//Materials
+				std::vector<Assets::Material> materials = LoadMaterials(obj);
+				model.SetMaterials(materials);
+
+				std::cout << "Loaded model: " << model.GetName() << " with " << model.NumberOfVertices() << " vertices, "
+					<< model.NumberOfIndices() << " indices, and " << model.NumberOfMaterials() << " materials." << std::endl;
 
 				// 3. Create the object.
 				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
@@ -407,7 +412,7 @@ public:
 			if (obj["type"] == GameObject::PrimitiveType::MESH || obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
 			{
 				Assets::Model model = Assets::Model::LoadModel(obj["path"]);
-				model.SetMaterialIndex(obj["model"]["materialID"]);
+				std::vector<Assets::Material> materials = LoadMaterials(obj);
 
 				// 3. Create the object.
 				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));

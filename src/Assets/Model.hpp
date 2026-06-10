@@ -62,6 +62,7 @@ namespace Assets
 				
 			return &materials_.at(index);
 		}
+		//void SetMaterials(const std::vector<Material> materials) { this->materials_ = materials; }
 
 		const class Procedural* Procedural() const { return procedural_.get(); }
 		void SetProcedural(const class Procedural* procedural) { this->procedural_ = std::shared_ptr<const class Procedural>(procedural); }
