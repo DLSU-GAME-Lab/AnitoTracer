@@ -356,6 +356,19 @@ set(src_files_imgui
 	Dependencies/include/ImGuizmo.h
 )
 
+set(
+	src_physics 
+	Engine/Physics/PhysicsBody.hpp 
+	Engine/Physics/PhysicsComponent.hpp
+	Engine/Physics/PhysicsContactListener.hpp
+	Engine/Physics/PhysicsDefines.hpp 
+	Engine/Physics/PhysicsEngine.hpp 
+	Engine/Physics/PhysicsEngine.cpp 
+	Engine/Physics/PhysicsShapes.hpp 
+	Engine/Physics/PhysicsWorld.hpp 
+	Engine/Physics/PhysicsWorld.cpp 
+)
+
 
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
@@ -398,7 +411,8 @@ add_executable(${exe_name}
 	${src_files_vulkan_game}
 	${src_files_raypicker}
 	${src_files}
-	${src_files_imgui}
+	${src_files_imgui} 
+	${src_physics} 
 	"Engine/Scene/SceneIO.cpp" 
 	"UI/ButtonTexture.cpp" 
 	"UI/ProjectScreen.cpp"

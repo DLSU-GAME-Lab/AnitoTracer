@@ -234,6 +234,24 @@ void RayTracer::OnDeviceSet()
 
 	LoadScene(userSettings_.SceneIndex);
 	CreateAccelerationStructures();
+
+	try {
+		auto& engine = Anito::Physics::PhysicsEngine::Get();
+
+		if (!engine.IsInitialized()) {
+			if (engine.Initialize()) {
+				mDefaultPhysicsWorld = engine.GetDefaultWorld();
+				std::cout << "[RayTracer] Physics engine initialized successfully" << std::endl;
+			} else {
+				std::cerr << "[RayTracer] Failed to initialize physics engine, continuing without physics" << std::endl;
+				mDefaultPhysicsWorld = nullptr;
+			}
+		}
+	}
+	catch (const std::exception& e) {
+		std::cerr << "[RayTracer] Exception during physics engine initialization: " << e.what() << std::endl;
+		mDefaultPhysicsWorld = nullptr;
+	}
 }
 
 void RayTracer::CreateSwapChain()
@@ -386,6 +404,12 @@ void RayTracer::DrawFrame()
 		//{
 		//	userSettings_.NumberOfSamples = 24;
 		//}
+	}
+
+	// Step physics simulation if the engine has been initialized
+	auto& engine = Anito::Physics::PhysicsEngine::Get();
+	if (engine.IsInitialized() && mDefaultPhysicsWorld) {
+		engine.StepAllWorlds(1.f / 60.f);  // Assuming 60 FPS update rate
 	}
 
 	// Check if renderer mode was switched
