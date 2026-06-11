@@ -8,9 +8,9 @@
 #include "UI/UIConfig.hpp"
 #include "RayPicker/RayPicker.hpp"
 #include "HotkeySystem/HotkeyListener.hpp"
-
 #include "Engine/Physics/PhysicsEngine.hpp"
 #include "Engine/Physics/PhysicsWorld.hpp"
+
 
 namespace Vulkan {
 	class RayVisualizationPipeline;
@@ -46,7 +46,6 @@ public:
 	const UserSettings& getUserSettings() const { return userSettings_; }
 
 protected:
-	Anito::Physics::PhysicsWorldPtr mDefaultPhysicsWorld;
 
 	const Assets::Scene& GetScene() const override { return *scene_; }
 	const Assets::RayScene& GetRayScene() const override { return *rayScene_; }

@@ -8,6 +8,8 @@
 #include "Utilities/HardwareCheck.hpp"
 #include "Options.hpp"
 #include "RayTracer.hpp"
+#include "Engine/Physics/PhysicsEngine.hpp"
+#include "Engine/Physics/PhysicsWorld.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -16,6 +18,7 @@
 namespace
 {
 	UserSettings CreateUserSettings(const Options& options);
+	Anito::Physics::PhysicsWorldPtr InitializePhysics();
 	void PrintVulkanSdkInformation();
 	void PrintVulkanInstanceInformation(const Vulkan::Application& application, bool benchmark);
 	void PrintVulkanLayersInformation(const Vulkan::Application& application, bool benchmark);
@@ -49,6 +52,8 @@ int main(int argc, const char* argv[]) noexcept
 		UserSettings userSettings = CreateUserSettings(options);
 		RayTracer::initialize(userSettings, windowConfig, static_cast<VkPresentModeKHR>(options.PresentMode));
 		RayTracer* application = RayTracer::getInstance();
+
+		Anito::Physics::PhysicsWorldPtr defaultPhysicsWorld = InitializePhysics();
 
 		PrintVulkanSdkInformation();
 		PrintVulkanInstanceInformation(*application, options.Benchmark);
@@ -127,6 +132,31 @@ namespace
 		userSettings.HeatmapScale = 1.5f;
 
 		return userSettings;
+	}
+
+	Anito::Physics::PhysicsWorldPtr InitializePhysics() {
+		Anito::Physics::PhysicsWorldPtr mDefaultPhysicsWorld;
+
+		try {
+			auto& engine = Anito::Physics::PhysicsEngine::Get();
+
+			if (!engine.IsInitialized()) {
+				if (engine.Initialize()) {
+					mDefaultPhysicsWorld = engine.GetDefaultWorld();
+					std::cout << "[RayTracer] Physics engine initialized successfully" << std::endl;
+				}
+				else {
+					std::cerr << "[RayTracer] Failed to initialize physics engine, continuing without physics" << std::endl;
+					mDefaultPhysicsWorld = nullptr;
+				}
+			}
+		}
+		catch (const std::exception& e) {
+			std::cerr << "[RayTracer] Exception during physics engine initialization: " << e.what() << std::endl;
+			mDefaultPhysicsWorld = nullptr;
+		}
+
+		return mDefaultPhysicsWorld;
 	}
 
 	void PrintVulkanSdkInformation()

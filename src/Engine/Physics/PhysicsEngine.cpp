@@ -43,7 +43,16 @@ namespace Anito::Physics {
 		}
 
 		try {
-			// First, we must register types with Jolt before using any physics functionality
+			// IMPORTANT: Register default allocator FIRST before any Jolt operations
+			// This is required by Jolt Physics 5.5
+			JPH::RegisterDefaultAllocator();
+			std::cout << "[PhysicsEngine] Jolt default allocator registered" << std::endl;
+
+			// Create the Factory singleton - this is required before RegisterTypes()
+			JPH::Factory::sInstance = new JPH::Factory();
+			std::cout << "[PhysicsEngine] Jolt Factory created" << std::endl;
+
+			// Now we can register types with Jolt
 			JPH::RegisterTypes();
 			std::cout << "[PhysicsEngine] Jolt types registered" << std::endl;
 
@@ -51,20 +60,11 @@ namespace Anito::Physics {
 			std::cout << "[PhysicsEngine]   - Thread count: " << mThreadCount << std::endl;
 			std::cout << "[PhysicsEngine]   - Temp memory: " << (mTempMemorySize / (1024 * 1024)) << " MB" << std::endl;
 
-			// Create default physics world
-			PhysicsWorldSettings defaultSettings;
-			mDefaultWorld = PhysicsWorld::Create(defaultSettings);
-
-			if (!mDefaultWorld) {
-				std::cerr << "[PhysicsEngine] Failed to create default world" << std::endl;
-				return false;
-			}
-
-			mWorlds.push_back(mDefaultWorld);
-
-			std::cout << "[PhysicsEngine] Default physics world created" << std::endl;
+			// NOTE: Default world creation is deferred to first use to avoid early initialization issues
+			// TODO: Create default physics world on first demand instead of here
 
 			mInitialized = true;
+			std::cout << "[PhysicsEngine] Physics engine ready (world creation deferred)" << std::endl;
 			return true;
 		}
 		catch (const std::exception& e) {
@@ -90,6 +90,13 @@ namespace Anito::Physics {
 			// Unregister types
 			JPH::UnregisterTypes();
 			std::cout << "[PhysicsEngine] Jolt types unregistered" << std::endl;
+
+			// Delete the Factory singleton
+			if (JPH::Factory::sInstance != nullptr) {
+				delete JPH::Factory::sInstance;
+				JPH::Factory::sInstance = nullptr;
+				std::cout << "[PhysicsEngine] Jolt Factory destroyed" << std::endl;
+			}
 
 			mInitialized = false;
 			std::cout << "[PhysicsEngine] Shutdown complete" << std::endl;
