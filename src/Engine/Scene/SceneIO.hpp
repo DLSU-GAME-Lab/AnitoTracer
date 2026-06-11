@@ -239,6 +239,7 @@ public:
 			json textureJson;
 			textureJson["textureName"] = tex->Name();
 			textureJson["texturePath"] = tex->getPath();
+			textureJson["textureIndex"] = texLib->getTextureId(tex->Name());
 			scene["textures"].push_back(textureJson);
 		}
 
@@ -264,11 +265,17 @@ public:
 			modelJson["modelName"] = modelRef->GetName();
 			modelJson["filePath"] = modelRef->FilePath();
 
-			objJson["model"] = modelJson;
+			//Vertex Materials
+			json vertices = json::array();
+			for (Assets::Vertex vertex : modelRef->vertices_)
+			{
+				json vertJson;
+				vertJson["vertexMatIndex"] = vertex.MaterialIndex;
+				vertices.push_back(vertJson);
+			}
 
-			// ===============================================================================================================
-			// ============== TODO : Reinitialize materials in a way that will work without the mtl of the mesh ==============
-			// ===============================================================================================================
+			modelJson["vertices"] = vertices;
+			objJson["model"] = modelJson;
 
 			// Materials
 			if (obj->getType() == GameObject::PrimitiveType::POINT_LIGHT ||
@@ -315,6 +322,9 @@ public:
 	}
 
 	void LoadScene(std::string name) {
+
+		std::cout << "Loading scene: " << name << std::endl;
+
 		for (json obj : map[name]["objects"]) {
 			glm::vec3 pos = glm::vec3(obj["position"][0], obj["position"][1], obj["position"][2]);
 			glm::vec3 rot = glm::vec3(obj["rotation"][0], obj["rotation"][1], obj["rotation"][2]);
@@ -327,6 +337,13 @@ public:
 				//Materials
 				std::vector<Assets::Material> materials = LoadMaterials(obj);
 				model.SetMaterials(materials);
+
+				//Set materialIndex of each vertex
+				for (Assets::Vertex vertex : model.vertices_)
+				{
+					vertex.MaterialIndex = obj["model"]["vertices"]["vertexMatIndex"];
+					std::cout << "Set vertex material index to: " << vertex.MaterialIndex << std::endl;
+				}
 
 				std::cout << "Loaded model: " << model.GetName() << " with " << model.NumberOfVertices() << " vertices, "
 					<< model.NumberOfIndices() << " indices, and " << model.NumberOfMaterials() << " materials." << std::endl;
@@ -411,8 +428,20 @@ public:
 			// Mesh objects are created here.
 			if (obj["type"] == GameObject::PrimitiveType::MESH || obj["type"] == GameObject::PrimitiveType::OBJECT_GROUP)
 			{
+
 				Assets::Model model = Assets::Model::LoadModel(obj["path"]);
+				//Materials
 				std::vector<Assets::Material> materials = LoadMaterials(obj);
+				model.SetMaterials(materials);
+
+				//Set materialIndex of each vertex
+				for (int i = 0; i < model.vertices_.size(); i++)
+				{
+					model.vertices_[i].MaterialIndex = obj["model"]["vertices"][i]["vertexMatIndex"];
+				}
+
+				std::cout << "Loaded model: " << model.GetName() << " with " << model.NumberOfVertices() << " vertices, "
+					<< model.NumberOfIndices() << " indices, and " << model.NumberOfMaterials() << " materials." << std::endl;
 
 				// 3. Create the object.
 				std::unique_ptr<GameObject> object = std::make_unique<GameObject>(obj["name"], GameObject::PrimitiveType::MESH, std::make_shared<Assets::Model>(model));
@@ -528,12 +557,32 @@ public:
 
 	void LoadTextures(json scene)
 	{
-		for (json tex : scene["textures"]) {
-			std::string name = tex["textureName"];
-			std::string path = tex["texturePath"];
-
-			TextureLibrary::getInstance()->addTexture(name, path);
+		//Load textures in a way that preserves texture ID's 
+		for (int i = 0; i < scene["textures"].size(); i++)
+		{
+			for (int j = i; j < scene["textures"].size(); j++)
+			{
+				if (scene["textures"][j]["textureIndex"] == i)
+				{
+					std::string name = scene["textures"][j]["textureName"];
+					std::string path = scene["textures"][j]["texturePath"];
+					if (!TextureLibrary::getInstance()->doesTextureExist(name))
+					{
+						TextureLibrary::getInstance()->addTexture(name, path);
+						std::cout << "Loaded texture: " + name + " from path: " + path << std::endl;
+					}
+					else
+					{
+						std::cout << "Texture already exists: " + name + ", skipping load." << std::endl;
+					}
+					break;
+				}
+				else
+				{
+					std::cout << "Texture ID: " << i << " does not exist, skipping load." << std::endl;
+				}
+			}
 		}
-
 	}
+
 };
