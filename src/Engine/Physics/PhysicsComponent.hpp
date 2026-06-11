@@ -3,10 +3,10 @@
 #include "PhysicsDefines.hpp"
 #include <glm/glm.hpp>
 #include <memory>
+#include <stdexcept>
 
-namespace Anito {
-	class GameObject;
-}
+// Forward declare GameObject (not in Anito namespace)
+class GameObject;
 
 namespace Anito::Physics {
 

@@ -6,6 +6,7 @@
 #include "EventBroadcaster.h"
 #include "ModelManager.h"
 #include "RayTracer.hpp"
+#include "Engine/Physics/PhysicsComponent.hpp"
 
 
 static glm::vec3 ExtractScale(const glm::mat4& m)
@@ -57,6 +58,12 @@ GameObject::GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::
 	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
+GameObject::~GameObject()
+{
+	// Clean up physics component if attached
+	RemovePhysicsComponent();
+}
+
 GameObject::GameObject(const GameObject& other) : name(other.name), type(other.type), active(other.active), visible(other.visible), pickable(other.pickable), 
 localPosition(other.localPosition), localRotationQuat(other.localRotationQuat), localRotationEuler(other.localRotationEuler), localScale(other.localScale), localMatrix(other.localMatrix), 
 worldPosition(other.worldPosition), worldRotationQuat(other.worldRotationQuat), worldRotationEuler(other.worldRotationEuler),worldScale(other.worldScale), worldMatrix(other.worldMatrix), 
@@ -65,6 +72,7 @@ localDirty(other.localDirty), worldDirty(other.worldDirty), m_wasDirty(other.m_w
 	this->parent = nullptr;
 	this->modelRef = other.modelRef->Clone();
 	this->modelRef->SetOwner(this);
+	this->mPhysicsComponent = nullptr;  // Don't copy physics component; it should be added separately
 
 	for (const auto& child : other.children)
 	{
@@ -504,4 +512,47 @@ bool GameObject::IsHierarchyNodeOpen() const
 void GameObject::SetHierarchyNodeOpen(bool isOpen)
 {
 	this->isHierarchyNodeOpen = isOpen;
+}
+
+// --- Physics Component Methods ---
+
+void GameObject::AddPhysicsComponent(const Anito::Physics::PhysicsBodySettings& settings)
+{
+	if (mPhysicsComponent) {
+		return; // Already has a physics component
+	}
+
+	auto* physicsComp = new Anito::Physics::PhysicsComponent(this, settings);
+	mPhysicsComponent = physicsComp;
+
+	// Initialize creates the body and registers it with the physics world
+	physicsComp->Initialize();
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void GameObject::RemovePhysicsComponent()
+{
+	if (mPhysicsComponent) {
+		auto* physicsComp = static_cast<Anito::Physics::PhysicsComponent*>(mPhysicsComponent);
+		physicsComp->Cleanup();
+		delete physicsComp;
+		mPhysicsComponent = nullptr;
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+	}
+}
+
+bool GameObject::HasPhysicsComponent() const
+{
+	return mPhysicsComponent != nullptr;
+}
+
+Anito::Physics::PhysicsComponent* GameObject::GetPhysicsComponent()
+{
+	return static_cast<Anito::Physics::PhysicsComponent*>(mPhysicsComponent);
+}
+
+const Anito::Physics::PhysicsComponent* GameObject::GetPhysicsComponent() const
+{
+	return static_cast<const Anito::Physics::PhysicsComponent*>(mPhysicsComponent);
 }

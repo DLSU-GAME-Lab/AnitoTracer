@@ -7,6 +7,12 @@
 #include "Assets/Model.hpp"
 #include "From-GDGRAP2/VectorUtils.h"
 
+// Forward declaration for PhysicsComponent
+namespace Anito::Physics {
+	class PhysicsComponent;
+	struct PhysicsBodySettings;
+}
+
 
 
 class GameObject
@@ -26,7 +32,7 @@ public:
     GameObject();
     GameObject(String name, PrimitiveType type);
     GameObject(String name, PrimitiveType type, std::shared_ptr<Assets::Model> modelRef);
-    ~GameObject() = default;
+    ~GameObject();
 
     GameObject(const GameObject& other);
     virtual GameObject::GameObjectPtr Clone() const;
@@ -94,6 +100,31 @@ public:
 	bool IsHierarchyNodeOpen() const;
 	void SetHierarchyNodeOpen(bool isOpen);
 
+	// --- Physics Component ---
+
+	/**
+	 * @brief Add a physics component to this GameObject
+	 * @param settings The physics body settings for this component
+	 */
+	void AddPhysicsComponent(const Anito::Physics::PhysicsBodySettings& settings);
+
+	/**
+	 * @brief Remove the physics component from this GameObject
+	 */
+	void RemovePhysicsComponent();
+
+	/**
+	 * @brief Check if this GameObject has a physics component
+	 */
+	bool HasPhysicsComponent() const;
+
+	/**
+	 * @brief Get the physics component attached to this GameObject
+	 * @return Pointer to the PhysicsComponent, or nullptr if not attached
+	 */
+	Anito::Physics::PhysicsComponent* GetPhysicsComponent();
+	const Anito::Physics::PhysicsComponent* GetPhysicsComponent() const;
+
 protected:
     String name;
     PrimitiveType type;
@@ -127,6 +158,10 @@ protected:
     bool m_wasDirty = true;
 
     bool isHierarchyNodeOpen = true;
+
+    // Physics component (optional) - stored as void* to avoid including full header
+    // Access through GetPhysicsComponent() methods
+    mutable void* mPhysicsComponent = nullptr;
 
     friend class ModelManager;
 };

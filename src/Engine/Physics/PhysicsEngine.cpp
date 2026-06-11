@@ -116,6 +116,7 @@ namespace Anito::Physics {
 		if (world) {
 			mWorlds.push_back(world);
 			std::cout << "[PhysicsEngine] Created physics world (total: " << mWorlds.size() << ")" << std::endl;
+			mDefaultWorld = world; // Set the first created world as the default
 		}
 
 		return world;

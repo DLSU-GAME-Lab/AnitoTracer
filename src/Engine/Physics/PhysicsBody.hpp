@@ -5,6 +5,12 @@
 #include <glm/gtc/quaternion.hpp>
 #include <memory>
 #include <functional>
+#include <Jolt/Physics/Body/BodyID.h>
+
+// Forward declare PhysicsWorld to avoid circular dependency
+namespace Anito::Physics {
+	class PhysicsWorld;
+}
 
 namespace Anito::Physics {
 
@@ -20,7 +26,9 @@ namespace Anito::Physics {
 			uint32_t bodyId,
 			const glm::vec3& position,
 			const glm::quat& rotation,
-			const PhysicsBodySettings& settings
+			const PhysicsBodySettings& settings,
+			PhysicsWorld* physicsWorld = nullptr,
+			JPH::BodyID joltBodyId = JPH::BodyID()
 		);
 
 		~PhysicsBody();
@@ -215,7 +223,9 @@ namespace Anito::Physics {
 		void Reset(const glm::vec3& position, const glm::quat& rotation);
 
 	private:
-		uint32_t mBodyId;                   ///< Jolt body ID
+		uint32_t mBodyId;                   ///< Our internal body ID
+		JPH::BodyID mJoltBodyId;            ///< The Jolt physics body ID
+		PhysicsWorld* mPhysicsWorld;        ///< Pointer to parent physics world
 		PhysicsBodySettings mSettings;      ///< Cached settings
 		glm::vec3 mLastPosition;            ///< For change detection
 		glm::quat mLastRotation;            ///< For change detection

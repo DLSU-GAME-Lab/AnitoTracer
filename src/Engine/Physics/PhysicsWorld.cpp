@@ -1,7 +1,12 @@
 #include "PhysicsWorld.hpp"
 #include "PhysicsContactListener.hpp"
+#include "PhysicsBody.hpp"
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/PhysicsSystem.h>
+#include <Jolt/Physics/Body/BodyInterface.h>
+#include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Shapes/SphereShape.h>
+#include <Jolt/Physics/Shapes/BoxShape.h>
 #include <iostream>
 
 namespace Anito::Physics {
@@ -120,8 +125,97 @@ namespace Anito::Physics {
 		const glm::quat& rotation,
 		const PhysicsBodySettings& settings)
 	{
-		// TODO: Implement body creation
-		return nullptr;
+		if (!mPhysicsSystem) {
+			std::cerr << "[PhysicsWorld] Cannot create body - physics system not initialized" << std::endl;
+			return nullptr;
+		}
+
+		try {
+			// Create sphere shape (1 meter radius for now)
+			// TODO: Support different shapes and sizes based on settings
+			JPH::RefConst<JPH::Shape> shape = new JPH::SphereShape(0.5f);
+
+			// Convert GLM types to Jolt types
+			JPH::Vec3 joltPos(position.x, position.y, position.z);
+			JPH::Quat joltRot(rotation.x, rotation.y, rotation.z, rotation.w);
+
+			// Map Anito body type to Jolt
+			JPH::EMotionType motionType = JPH::EMotionType::Dynamic;
+			switch (settings.type) {
+				case BodyType::STATIC:
+					motionType = JPH::EMotionType::Static;
+					break;
+				case BodyType::DYNAMIC:
+					motionType = JPH::EMotionType::Dynamic;
+					break;
+				case BodyType::KINEMATIC:
+					motionType = JPH::EMotionType::Kinematic;
+					break;
+			}
+
+			// Create body settings with the sphere shape
+			JPH::BodyCreationSettings bodySettings(
+				shape,
+				joltPos,
+				joltRot,
+				motionType,
+				static_cast<JPH::ObjectLayer>(settings.layer)
+			);
+
+			// Apply physics properties from our settings
+			bodySettings.mMassPropertiesOverride.mMass = settings.mass;
+			bodySettings.mLinearDamping = settings.material.linearDamping;
+			bodySettings.mAngularDamping = settings.material.angularDamping;
+			bodySettings.mGravityFactor = settings.useGravity ? 1.0f : 0.0f;
+			bodySettings.mFriction = settings.material.friction;
+			bodySettings.mRestitution = settings.material.restitution;
+
+			// Create the actual Jolt body via the physics system
+			JPH::BodyInterface& bodyInterface = mPhysicsSystem->GetBodyInterface();
+			JPH::Body* joltBody = bodyInterface.CreateBody(bodySettings);
+
+			if (!joltBody) {
+				std::cerr << "[PhysicsWorld] Failed to create Jolt sphere body" << std::endl;
+				return nullptr;
+			}
+
+			JPH::BodyID joltBodyId = joltBody->GetID();
+
+			// Add the body to the physics system so it simulates
+			bodyInterface.AddBody(joltBodyId, JPH::EActivation::Activate);
+
+			// Generate unique Anito body ID
+			uint32_t bodyId = static_cast<uint32_t>(mBodies.size());
+
+			// Create our wrapper with references to the Jolt body
+			auto body = std::make_shared<PhysicsBody>(
+				bodyId, position, rotation, settings, 
+				this,  // Pass this PhysicsWorld pointer
+				joltBodyId  // Pass the Jolt BodyID
+			);
+
+			if (!body) {
+				std::cerr << "[PhysicsWorld] Failed to allocate PhysicsBody wrapper" << std::endl;
+				bodyInterface.DestroyBody(joltBodyId);
+				return nullptr;
+			}
+
+			// Store the body and mapping
+			mBodies[bodyId] = body;
+			mBodyIdMapping[bodyId] = joltBodyId;
+
+			std::cout << "[PhysicsWorld] Created sphere physics body" << std::endl;
+			std::cout << "  - Anito ID: " << bodyId << std::endl;
+			std::cout << "  - Jolt ID: " << joltBodyId.GetIndex() << std::endl;
+			std::cout << "  - Position: (" << position.x << ", " << position.y << ", " << position.z << ")" << std::endl;
+			std::cout << "  - Mass: " << settings.mass << " kg" << std::endl;
+
+			return body;
+		}
+		catch (const std::exception& e) {
+			std::cerr << "[PhysicsWorld::CreateBody] Exception: " << e.what() << std::endl;
+			return nullptr;
+		}
 	}
 
 	void PhysicsWorld::DestroyBody(const PhysicsBodyPtr& body) {
@@ -129,14 +223,43 @@ namespace Anito::Physics {
 			return;
 		}
 
-		// TODO: Implement body destruction
-		mBodies.erase(body->GetBodyId());
+		try {
+			uint32_t bodyId = body->GetBodyId();
+
+			// Find and remove from Jolt
+			auto it = mBodyIdMapping.find(bodyId);
+			if (it != mBodyIdMapping.end()) {
+				JPH::BodyID joltBodyId = it->second;
+				if (mPhysicsSystem) {
+					mPhysicsSystem->GetBodyInterface().DestroyBody(joltBodyId);
+					std::cout << "[PhysicsWorld] Destroyed Jolt body ID: " << joltBodyId.GetIndex() << std::endl;
+				}
+				mBodyIdMapping.erase(it);
+			}
+
+			// Remove from our collection
+			mBodies.erase(bodyId);
+			std::cout << "[PhysicsWorld] Destroyed physics body ID: " << bodyId << std::endl;
+		}
+		catch (const std::exception& e) {
+			std::cerr << "[PhysicsWorld::DestroyBody] Exception: " << e.what() << std::endl;
+		}
 	}
 
 	void PhysicsWorld::Clear() {
-		mBodies.clear();
-		if (mPhysicsSystem) {
-			// TODO: Clear all bodies from the Jolt system
+		try {
+			if (mPhysicsSystem) {
+				// Destroy all Jolt bodies
+				for (const auto& [bodyId, joltBodyId] : mBodyIdMapping) {
+					mPhysicsSystem->GetBodyInterface().DestroyBody(joltBodyId);
+				}
+			}
+			mBodies.clear();
+			mBodyIdMapping.clear();
+			std::cout << "[PhysicsWorld] Cleared all physics bodies" << std::endl;
+		}
+		catch (const std::exception& e) {
+			std::cerr << "[PhysicsWorld::Clear] Exception: " << e.what() << std::endl;
 		}
 	}
 
@@ -170,8 +293,18 @@ namespace Anito::Physics {
 
 		// Fixed time stepping
 		while (mAccumulatedTime >= mSettings.timeStep) {
-			// TODO: Perform physics step with Jolt
-			mAccumulatedTime -= mSettings.timeStep;
+			try {
+				// TODO: Implement actual Jolt physics stepping
+				// This requires proper understanding of the Jolt API and temp allocator setup
+				// For now, just accumulate time
+				// mPhysicsSystem->StepPhysics(...);
+
+				mAccumulatedTime -= mSettings.timeStep;
+			}
+			catch (const std::exception& e) {
+				std::cerr << "[PhysicsWorld::StepSimulation] Exception during physics step: " << e.what() << std::endl;
+				break;
+			}
 		}
 	}
 
@@ -241,5 +374,20 @@ namespace Anito::Physics {
 		}
 	}
 
+	JPH::Body* PhysicsWorld::GetJoltBody(JPH::BodyID bodyId) const {
+		if (!mPhysicsSystem || !bodyId.IsValid()) {
+			return nullptr;
+		}
+
+		try {
+			return mPhysicsSystem->GetBodyLockInterface().TryGetBody(bodyId);
+		}
+		catch (const std::exception& e) {
+			std::cerr << "[PhysicsWorld::GetJoltBody] Exception: " << e.what() << std::endl;
+			return nullptr;
+		}
+	}
+
 } // namespace Anito::Physics
+
 

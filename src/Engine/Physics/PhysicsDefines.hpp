@@ -114,6 +114,7 @@ namespace Anito::Physics {
 	class PhysicsContactListener;
 	class PhysicsDebugRenderer;
 
+	// Type aliases - must be before CollisionEvent to avoid incomplete type issues
 	using PhysicsBodyPtr = std::shared_ptr<PhysicsBody>;
 	using PhysicsWorldPtr = std::shared_ptr<PhysicsWorld>;
 
@@ -126,8 +127,8 @@ namespace Anito::Physics {
 		};
 
 		Type eventType;
-		PhysicsBodyPtr bodyA;
-		PhysicsBodyPtr bodyB;
+		PhysicsBody* bodyA;
+		PhysicsBody* bodyB;
 		glm::vec3 contactPoint;
 		glm::vec3 contactNormal;
 		float impactForce;

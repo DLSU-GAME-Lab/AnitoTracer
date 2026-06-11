@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include "From-GDGRAP2/GameObject.h"
 #include "Engine/LightSystem/Light.h"
+#include "Engine/Physics/PhysicsComponent.hpp"
 
 class GameObject;
 
@@ -56,7 +57,7 @@ public:
 
 protected:
 	std::unique_ptr<GameObject> createObject() override;
-	void applyPostCreation(GameObject* obj) override {}
+	void applyPostCreation(GameObject* obj) override;
 
 private:
 	GameObject::PrimitiveType type;
@@ -71,6 +72,7 @@ public:
 
 protected:
 	std::unique_ptr<GameObject> createObject() override;
+	void applyPostCreation(GameObject* obj) override;
 
 private:
 	std::string filePath;

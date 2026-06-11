@@ -54,6 +54,9 @@ int main(int argc, const char* argv[]) noexcept
 		RayTracer* application = RayTracer::getInstance();
 
 		Anito::Physics::PhysicsWorldPtr defaultPhysicsWorld = InitializePhysics();
+		auto& engine = Anito::Physics::PhysicsEngine::Get();
+		Anito::Physics::PhysicsWorldSettings physicsWorldSettings;
+		engine.CreateWorld(physicsWorldSettings);
 
 		PrintVulkanSdkInformation();
 		PrintVulkanInstanceInformation(*application, options.Benchmark);

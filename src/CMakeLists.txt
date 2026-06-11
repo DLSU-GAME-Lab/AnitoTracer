@@ -359,7 +359,9 @@ set(src_files_imgui
 set(
 	src_physics 
 	Engine/Physics/PhysicsBody.hpp 
+	Engine/Physics/PhysicsBody.cpp  
 	Engine/Physics/PhysicsComponent.hpp
+	Engine/Physics/PhysicsComponent.cpp 
 	Engine/Physics/PhysicsContactListener.hpp
 	Engine/Physics/PhysicsDefines.hpp 
 	Engine/Physics/PhysicsEngine.hpp 

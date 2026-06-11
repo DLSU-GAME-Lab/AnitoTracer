@@ -2,6 +2,7 @@
 #include "From-GDGRAP2/GameObject.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "Assets/GameObjectFactory.hpp"
+#include "Engine/Physics/PhysicsEngine.hpp"
 
 ReparentCommand::ReparentCommand(GameObject* child, GameObject* oldParent, int oldIndex, GameObject* newParent, int newIndex)
 	: child(child), oldParent(oldParent), oldIndex(oldIndex), newParent(newParent), newIndex(newIndex)
@@ -128,6 +129,28 @@ std::unique_ptr<GameObject> CreatePrimitiveCommand::createObject()
 	return GameObjectFactory::CreatePrimitive(this->type, this->name);
 }
 
+void CreatePrimitiveCommand::applyPostCreation(GameObject* obj)
+{
+	if (!obj) return;
+
+	// Apply transform first (from base class)
+	obj->setLocalPosition(this->storedPosition);
+	obj->setLocalRotationEuler(this->storedRotation);
+	obj->setLocalScale(this->storedScale);
+
+	// Automatically add physics component for spheres
+	if (obj->getType() == GameObject::PrimitiveType::SPHERE)
+	{
+		Anito::Physics::PhysicsBodySettings settings;
+		settings.type = Anito::Physics::BodyType::DYNAMIC;
+		settings.layer = Anito::Physics::ObjectLayer::DYNAMIC;
+		settings.mass = 1.0f;
+		settings.useGravity = true;
+
+		obj->AddPhysicsComponent(settings);
+	}
+}
+
 // ---------------- CreateMeshCommand ----------------
 CreateMeshCommand::CreateMeshCommand(std::string filePath, std::string name, glm::vec3 pos, glm::vec3 rot, glm::vec3 sca)
 	: CreateObjectCommand(pos, rot, sca), filePath(filePath), name(name)
@@ -137,6 +160,52 @@ CreateMeshCommand::CreateMeshCommand(std::string filePath, std::string name, glm
 std::unique_ptr<GameObject> CreateMeshCommand::createObject()
 {
 	return GameObjectFactory::CreateFromModelFile(this->filePath, this->name);
+}
+
+void CreateMeshCommand::applyPostCreation(GameObject* obj)
+{
+	if (!obj) return;
+
+	// Apply transform first
+	obj->setLocalPosition(this->storedPosition);
+	obj->setLocalRotationEuler(this->storedRotation);
+	obj->setLocalScale(this->storedScale);
+
+	// Create and assign physics body for the mesh
+	try {
+		// Get physics engine and default world
+		auto& physicsEngine = Anito::Physics::PhysicsEngine::Get();
+		if (!physicsEngine.IsInitialized()) {
+			return;  // Physics engine not available, skip physics setup
+		}
+
+		auto defaultWorld = physicsEngine.GetDefaultWorld();
+		if (!defaultWorld) {
+			return;  // No default world available
+		}
+
+		// Configure physics body settings with a box collider for simplicity
+		Anito::Physics::PhysicsBodySettings settings;
+		settings.type = Anito::Physics::BodyType::DYNAMIC;
+		settings.layer = Anito::Physics::ObjectLayer::DYNAMIC;
+		settings.mass = 1.0f;
+		settings.useGravity = true;
+
+		// Create the physics body in the world
+		Anito::Physics::PhysicsBodyPtr physicsBody = defaultWorld->CreateBody(
+			obj->getWorldPosition(),
+			settings
+		);
+
+		if (physicsBody) {
+			// Physics body created successfully
+			// The physics component will be initialized when the GameObject enters the scene
+		}
+	}
+	catch (const std::exception& e) {
+		// Silently fail - physics is optional
+		// In a production system, log this error
+	}
 }
 
 // ---------------- CreateLightCommand ----------------

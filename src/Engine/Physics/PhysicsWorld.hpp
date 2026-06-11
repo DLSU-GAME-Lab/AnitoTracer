@@ -7,6 +7,8 @@
 #include <vector>
 #include <functional>
 #include <unordered_map>
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/Body/BodyID.h>
 
 namespace Anito::Physics {
 
@@ -192,9 +194,13 @@ namespace Anito::Physics {
 		PhysicsWorldSettings mSettings;
 		std::unique_ptr<JoltPhysicsSystem> mPhysicsSystem;
 		std::unordered_map<uint32_t, PhysicsBodyPtr> mBodies;
+		std::unordered_map<uint32_t, JPH::BodyID> mBodyIdMapping;  // Maps Anito body ID to Jolt body ID
 		std::vector<std::function<void(const CollisionEvent&)>> mCollisionCallbacks;
 		bool mDebugDrawingEnabled = false;
 		float mAccumulatedTime = 0.0f;
+
+		// Helper to get Jolt body from BodyID
+		JPH::Body* GetJoltBody(JPH::BodyID bodyId) const;
 
 		friend class PhysicsEngine;
 		friend class PhysicsBody;
