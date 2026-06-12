@@ -46,7 +46,7 @@ public:
 
 	void AddSphere(GameObject* obj);
 
-	void Step(float deltaTime);
+	void Step(float deltaTime, bool broadcastSceneDirty = false);
 
 	/**
 	 * @brief Synchronizes physics engine bodies to GameObjects
@@ -54,8 +54,11 @@ public:
 	 * Updates all GameObjects' positions and rotations to match their corresponding
 	 * physics bodies. This should be called after physics simulation steps to reflect
 	 * the current state of the physics world in the scene hierarchy.
+	 * 
+	 * @param broadcastDirty If true, broadcasts scene dirty event (expensive, use sparingly).
+	 *                       If false, only updates GameObject transforms (fast).
 	 */
-	void SyncPhysicsToGameObjects();
+	void SyncPhysicsToGameObjects(bool broadcastDirty = false);
 
 	// Delete copy and move constructors/assignments to prevent copies
 	TracerPhysics(const TracerPhysics&) = delete;

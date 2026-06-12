@@ -34,14 +34,17 @@ void TracerPhysics::AddSphere(GameObject* obj)
 }
 
 //Bridge Function- so I only call one thing later
-void TracerPhysics::Step(float deltaTime)
+//Only broadcast dirty if outside gameRenderer
+void TracerPhysics::Step(float deltaTime, bool broadcastSceneDirty)
 {
 	PhysicsEngine::GetInstance()->Step(deltaTime);
 	SyncPhysicsToGameObjects();
-	//EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+
+	if(broadcastSceneDirty)
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 }
 
-void TracerPhysics::SyncPhysicsToGameObjects()
+void TracerPhysics::SyncPhysicsToGameObjects(bool broadcastDirty)
 {
 	PhysicsEngine* engine = PhysicsEngine::GetInstance();
 	BodyInterface* body_interface = &engine->physics_system.GetBodyInterface();
@@ -81,5 +84,12 @@ void TracerPhysics::SyncPhysicsToGameObjects()
 		// Use world position to ensure correct placement
 		pair.gameObject->setLocalPosition(newPosition);
 		pair.gameObject->setLocalRotationQuat(newRotation);
+	}
+
+	// Only broadcast scene dirty if explicitly requested (expensive operation)
+	// This allows physics updates without triggering full scene rebuilds
+	if (broadcastDirty)
+	{
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 }

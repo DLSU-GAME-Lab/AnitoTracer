@@ -517,7 +517,11 @@ void RayTracer::DrawFrame()
 
 			if (physicsAccumulator_ >= userSettings_.PhysicsTimestep)
 			{
-				TracerPhysics::GetInstance().Step(userSettings_.PhysicsTimestep);
+				// Update physics without triggering expensive scene rebuild
+				// Game mode: positions update automatically via push constants
+				// Ray tracing mode: consider batching scene rebuilds or using TLAS updates
+				bool isGameRenderer = userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game;
+				TracerPhysics::GetInstance().Step(userSettings_.PhysicsTimestep, !isGameRenderer);
 				physicsAccumulator_ -= userSettings_.PhysicsTimestep;
 			}
 		}
