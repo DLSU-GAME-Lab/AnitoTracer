@@ -362,7 +362,7 @@ set(src_physics
 	Engine/Physics/PhysicsEngine.h
  "Engine/Physics/PhysicsEngine.cpp"
 
-)
+ "Engine/Physics/TracerPhysics.h" "Engine/Physics/TracerPhysics.cpp")
 
 
 source_group("Assets" FILES ${src_files_assets})

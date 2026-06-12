@@ -8,6 +8,7 @@
 #include "Engine/LightSystem/Light.h"
 #include "Assets/Material.hpp"
 #include "Assets/ModelLibrary.hpp"
+#include "../Engine/Physics/TracerPhysics.h"
 
 class GameObjectFactory
 {

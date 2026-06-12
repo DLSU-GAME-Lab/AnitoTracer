@@ -67,7 +67,7 @@ public:
 		case Layers::NON_MOVING:
 			return inObject2 == Layers::MOVING; // Non moving only collides with moving
 		case Layers::MOVING:
-			return true; // Moving collides with everything
+			return inObject2 == Layers::NON_MOVING || inObject2 == Layers::MOVING; // Moving collides with static and other dynamic
 		default:
 			JPH_ASSERT(false);
 			return false;

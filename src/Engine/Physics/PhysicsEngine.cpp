@@ -80,9 +80,13 @@ void PhysicsEngine::InitializeEngine()
 
 	// The main way to interact with the bodies in the physics system is through the body interface. There is a locking and a non-locking
 	// variant of this. We're going to use the locking version (even though we're not planning to access bodies from multiple threads)
-	
+
 	std::cout << "Get Body Interface" << endl;
 	body_interface = &physics_system.GetBodyInterface();
+
+	// Set gravity - Standard Earth gravity is -9.81 m/s^2 on the Y axis
+	physics_system.SetGravity(Vec3(0.0f, -9.81f, 0.0f));
+	std::cout << "Gravity set to: (0, -9.81, 0)" << endl;
 
 	std::cout << "Done Initializing Physics System" << endl;
 }
@@ -91,33 +95,34 @@ void PhysicsEngine::Step(float deltaTime)
 {
 	physics_system.Update(deltaTime, cCollisionSteps, temp_allocator, job_system);
 
-	if (!ball.IsInvalid())
-	{
-		// 3. Request a safe read lock from the physics system using the ID
-		JPH::BodyLockRead lock(physics_system.GetBodyLockInterface(), ball);
+	//if (!ball.IsInvalid())
+	//{
+	//	// 3. Request a safe read lock from the physics system using the ID
+	//	JPH::BodyLockRead lock(physics_system.GetBodyLockInterface(), ball);
 
-		// 4. Check if the body still exists in the physics world
-		if (lock.Succeeded())
-		{
-			const JPH::Body& body = lock.GetBody();
-			JPH::RVec3 position = body.GetPosition();
+	//	// 4. Check if the body still exists in the physics world
+	//	if (lock.Succeeded())
+	//	{
+	//		const JPH::Body& body = lock.GetBody();
+	//		JPH::RVec3 position = body.GetPosition();
 
-			std::cout << "Current Ball Pos ";
-			PhysicsUtils::PrintVec3(position);
-			std::cout << std::endl;
-		}
-		else
-		{
-			std::cout << "Ball body was destroyed or is no longer valid." << std::endl;
-		}
-	}
+	//		std::cout << "Current Ball Pos ";
+	//		PhysicsUtils::PrintVec3(position);
+	//		std::cout << std::endl;
+	//	}
+	//	else
+	//	{
+	//		std::cout << "Ball body was destroyed or is no longer valid." << std::endl;
+	//	}
+	//}
 }
 
 void PhysicsEngine::CreateDefaultFloor(glm::vec3 pos)
 {
-	BoxShapeSettings floorSettings (Vec3(100.0f, 1.0f, 100.0f));
+	BoxShapeSettings floorSettings(Vec3(100.0f, 1.0f, 100.0f));
+	floorSettings.SetDensity(1.0f); // Ensure proper density
 
-	ShapeSettings::ShapeResult shapeRes =  floorSettings.Create();
+	ShapeSettings::ShapeResult shapeRes = floorSettings.Create();
 	ShapeRefC floorShape = shapeRes.Get();
 
 	BodyCreationSettings floor_setting(
@@ -127,10 +132,16 @@ void PhysicsEngine::CreateDefaultFloor(glm::vec3 pos)
 		EMotionType::Static, 
 		Layers::NON_MOVING);
 
-	floor_setting.mRestitution = 0.8f;//Bouncy test
+	floor_setting.mRestitution = 0.8f; // Bouncy test
+	floor_setting.mCollisionGroup.SetGroupFilter(0); // Ensure collision is enabled
+	floor_setting.mMotionQuality = EMotionQuality::LinearCast; // Enable CCD for floor too
 
 	Body* floor = body_interface->CreateBody(floor_setting);
 	body_interface->AddBody(floor->GetID(), EActivation::DontActivate);
+
+	std::cout << "Created floor at: ";
+	PhysicsUtils::PrintVec3(PhysicsUtils::ToJoltVec3(pos));
+	std::cout << " | Floor ID: " << floor->GetID().GetIndexAndSequenceNumber() << " | Layer: NON_MOVING" << std::endl;
 }
 
 void PhysicsEngine::CreateDefaultBall(float r, glm::vec3 pos)
@@ -145,6 +156,29 @@ void PhysicsEngine::CreateDefaultBall(float r, glm::vec3 pos)
 	ball = body_interface->CreateAndAddBody(sphere_settings, EActivation::Activate);
 
 	//body_interface->SetLinearVelocity(ball, Vec3(0.0f, -5.0f, 0.0f));
+}
+
+BodyID PhysicsEngine::CreateSphere(float r, glm::vec3 pos, float restitution)
+{
+	BodyCreationSettings sphere_settings(new SphereShape(r),
+		PhysicsUtils::ToJoltVec3(pos),
+		Quat::sIdentity(), EMotionType::Dynamic,
+		Layers::MOVING);
+
+	sphere_settings.mRestitution = restitution;
+	sphere_settings.mGravityFactor = 1.0f; // Ensure gravity is applied
+	sphere_settings.mLinearDamping = 0.05f; // Slight damping to stabilize
+	sphere_settings.mAngularDamping = 0.05f; // Slight rotational damping
+	sphere_settings.mAllowedDOFs = EAllowedDOFs::All; // Allow all degrees of freedom
+	sphere_settings.mMotionQuality = EMotionQuality::LinearCast; // Enable continuous collision detection
+
+	BodyID sphere_id = body_interface->CreateAndAddBody(sphere_settings, EActivation::Activate);
+
+	std::cout << "Created sphere at: ";
+	PhysicsUtils::PrintVec3(PhysicsUtils::ToJoltVec3(pos));
+	std::cout << " with radius: " << r << " | Layer: MOVING | CCD: Enabled" << std::endl;
+
+	return sphere_id;
 }
 
 

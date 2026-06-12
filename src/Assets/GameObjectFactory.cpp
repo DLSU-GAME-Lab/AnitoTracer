@@ -66,7 +66,11 @@ GameObject::GameObjectPtr GameObjectFactory::CreatePlane(const String& name)
 GameObject::GameObjectPtr GameObjectFactory::CreateSphere(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("SPHERE");
-    return std::make_unique<GameObject>(name, GameObject::SPHERE, modelResult.modelsData[0]);
+    GameObject::GameObjectPtr ret = std::make_unique<GameObject>(name, GameObject::SPHERE, modelResult.modelsData[0]);
+
+    TracerPhysics::GetInstance().AddSphere(ret.get());
+
+    return ret;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreateCylinder(const String& name)

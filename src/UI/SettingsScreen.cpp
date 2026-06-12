@@ -126,6 +126,13 @@ void SettingsScreen::drawUI()
 		ImGui::SliderFloat("Focus", &settings->FocusDistance, 0.1f, 20.0f, "%.1f");
 		ImGui::NewLine();
 
+		// ── Physics ────────────────────────────────────────────────────────────
+		ImGui::Text("Physics");
+		ImGui::Separator();
+		ImGui::SliderFloat("Physics Timestep", &settings->PhysicsTimestep, 0.01f, 1.0f, "%.3f");
+		ImGui::TextDisabled("(Controls how often physics simulation updates)");
+		ImGui::NewLine();
+
 		// ── Adaptive Sampling (ray tracing only) ──────────────────────────────
 		if (!isGameMode)
 		{

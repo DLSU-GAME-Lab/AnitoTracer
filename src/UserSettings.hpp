@@ -43,6 +43,9 @@ struct UserSettings final
 	float Aperture;
 	float FocusDistance;
 
+	// Physics
+	float PhysicsTimestep = 0.33f;
+
 	// Profiler
 	bool ShowHeatmap;
 	float HeatmapScale;

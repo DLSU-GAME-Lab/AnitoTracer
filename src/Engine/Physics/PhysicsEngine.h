@@ -41,6 +41,8 @@ class PhysicsEngine {
 		void CreateDefaultFloor(glm::vec3 pos);
 		void CreateDefaultBall(float r, glm::vec3 pos);
 
+		BodyID CreateSphere(float r, glm::vec3 pos, float restitution = 0.8f);
+
 		// Public physics system member
 		PhysicsSystem physics_system;
 
@@ -49,7 +51,7 @@ class PhysicsEngine {
 		const uint cNumBodyMutexes = 0;
 		const uint cMaxBodyPairs = 1024;
 		const uint cMaxContactConstraints = 1024;
-		const uint cCollisionSteps = 1;
+		const uint cCollisionSteps = 4; // Increased for better collision detection
 
 		BodyID ball;
 };

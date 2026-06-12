@@ -11,7 +11,7 @@
 #include "Vulkan/Device.hpp"
 #include "Vulkan/SwapChain.hpp"
 #include "Vulkan/Window.hpp"
-#include "Engine/Physics/PhysicsEngine.h"
+#include "Engine/Physics/TracerPhysics.h"
 #include <iostream>
 #include <sstream>
 
@@ -510,10 +510,16 @@ void RayTracer::DrawFrame()
 		physicsTime_ = Window().GetTime();
 		const float deltaTime = static_cast<float>(physicsTime_ - prevTime);
 
-		// Only step physics if deltaTime is valid (avoid negative or zero deltas on first frame)
+		// Accumulate time for fixed timestep physics
 		if (deltaTime > 0.0f)
 		{
-			PhysicsEngine::GetInstance()->Step(deltaTime);
+			physicsAccumulator_ += deltaTime;
+
+			if (physicsAccumulator_ >= userSettings_.PhysicsTimestep)
+			{
+				TracerPhysics::GetInstance().Step(userSettings_.PhysicsTimestep);
+				physicsAccumulator_ -= userSettings_.PhysicsTimestep;
+			}
 		}
 	}
 

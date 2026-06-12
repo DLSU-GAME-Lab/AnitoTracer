@@ -97,6 +97,7 @@ private:
 
 	double time_{};
 	double physicsTime_{};
+	double physicsAccumulator_{};	// Accumulator for fixed physics timestep (0.33 seconds)
 
 	uint32_t totalNumberOfSamples_{};
 	uint32_t numberOfSamples_{};
