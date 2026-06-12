@@ -96,6 +96,7 @@ private:
 	//std::unique_ptr<class UserInterface> userInterface_;
 
 	double time_{};
+	double physicsTime_{};
 
 	uint32_t totalNumberOfSamples_{};
 	uint32_t numberOfSamples_{};

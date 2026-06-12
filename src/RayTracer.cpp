@@ -11,6 +11,7 @@
 #include "Vulkan/Device.hpp"
 #include "Vulkan/SwapChain.hpp"
 #include "Vulkan/Window.hpp"
+#include "Engine/Physics/PhysicsEngine.h"
 #include <iostream>
 #include <sstream>
 
@@ -501,6 +502,19 @@ void RayTracer::DrawFrame()
 
 		// Broadcast sample progress every 10%
 		BroadcastSampleProgress();
+	}
+
+	// Update physics simulation
+	{
+		const auto prevTime = physicsTime_;
+		physicsTime_ = Window().GetTime();
+		const float deltaTime = static_cast<float>(physicsTime_ - prevTime);
+
+		// Only step physics if deltaTime is valid (avoid negative or zero deltas on first frame)
+		if (deltaTime > 0.0f)
+		{
+			PhysicsEngine::GetInstance()->Step(deltaTime);
+		}
 	}
 
 	rayScene_->Update(CommandPool());

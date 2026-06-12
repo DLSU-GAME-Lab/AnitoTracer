@@ -9,6 +9,8 @@
 #include "Options.hpp"
 #include "RayTracer.hpp"
 
+#include "Engine/Physics/PhysicsEngine.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -49,6 +51,10 @@ int main(int argc, const char* argv[]) noexcept
 		UserSettings userSettings = CreateUserSettings(options);
 		RayTracer::initialize(userSettings, windowConfig, static_cast<VkPresentModeKHR>(options.PresentMode));
 		RayTracer* application = RayTracer::getInstance();
+
+		PhysicsEngine* physics_engine = PhysicsEngine::GetInstance();
+		physics_engine->CreateDefaultFloor(glm::vec3(0, -50, 0));
+		physics_engine->CreateDefaultBall(5, glm::vec3(0, 0, 0));
 
 		PrintVulkanSdkInformation();
 		PrintVulkanInstanceInformation(*application, options.Benchmark);

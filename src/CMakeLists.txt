@@ -356,6 +356,14 @@ set(src_files_imgui
 	Dependencies/include/ImGuizmo.h
 )
 
+set(src_physics 
+	Engine/Physics/PhysicsDefs.h
+	Engine/Physics/PhysicsUtils.hpp
+	Engine/Physics/PhysicsEngine.h
+ "Engine/Physics/PhysicsEngine.cpp"
+
+)
+
 
 source_group("Assets" FILES ${src_files_assets})
 source_group("OBB" FILES ${src_files_obb})
@@ -399,6 +407,7 @@ add_executable(${exe_name}
 	${src_files_raypicker}
 	${src_files}
 	${src_files_imgui}
+	${src_physics}
 	"Engine/Scene/SceneIO.cpp" 
 	"UI/ButtonTexture.cpp" 
 	"UI/ProjectScreen.cpp"
