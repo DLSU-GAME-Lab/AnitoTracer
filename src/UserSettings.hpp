@@ -44,7 +44,7 @@ struct UserSettings final
 	float FocusDistance;
 
 	// Physics
-	float PhysicsTimestep = 0.33f;
+	float PhysicsTimestep = 1.f/60.f; //60fps
 
 	// Profiler
 	bool ShowHeatmap;

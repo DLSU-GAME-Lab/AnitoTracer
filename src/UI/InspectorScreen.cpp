@@ -749,6 +749,12 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalPosition(std::get<glm::vec3>(v)); },
 					before,
 					after));
+
+			// Sync to physics body if this is a physics object with physics deactivated
+			if (isPhysicsObject && !physicsActivationState)
+			{
+				TracerPhysics::GetInstance().SetBodyPosition(selectedObject, after);
+			}
 			break;
 
 		case EditorAction::Rotate:
@@ -758,6 +764,13 @@ void InspectorScreen::drawVector3Field(const char* label, float* values, EditorA
 					[](GameObject* g, AlterTransformCommand::Variant v) { g->setLocalRotationEuler(std::get<glm::vec3>(v)); },
 					before,
 					after));
+
+			// Convert Euler angles back to quaternion and sync to physics body if physics is deactivated
+			if (isPhysicsObject && !physicsActivationState)
+			{
+				glm::quat quatRotation = glm::quat(glm::radians(after));
+				TracerPhysics::GetInstance().SetBodyRotation(selectedObject, quatRotation);
+			}
 			break;
 
 		case EditorAction::Scale:
