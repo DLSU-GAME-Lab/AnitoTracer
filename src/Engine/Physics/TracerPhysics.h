@@ -137,6 +137,18 @@ public:
 	 */
 	void SetBodySize(GameObject* obj, const glm::vec3& scale);
 
+	/**
+	 * @brief Applies a force to a physics body
+	 *
+	 * Applies the specified force vector to the physics body associated with the given GameObject.
+	 * The force is applied immediately and will affect the body's motion if it's dynamic.
+	 * For static or sleeping bodies, this may not have the desired effect.
+	 *
+	 * @param obj The GameObject whose physics body should receive the force
+	 * @param force The force vector to apply (in world space)
+	 */
+	void ApplyForce(GameObject* obj, const glm::vec3& force);
+
 	// Delete copy and move constructors/assignments to prevent copies
 	TracerPhysics(const TracerPhysics&) = delete;
 	TracerPhysics& operator=(const TracerPhysics&) = delete;

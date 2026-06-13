@@ -14,6 +14,7 @@
 #include "Engine/Physics/TracerPhysics.h"
 #include <iostream>
 #include <sstream>
+#include <chrono>
 
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/GlobalConfig.h"
@@ -40,6 +41,7 @@
 
 #include "StateManagement/CommandManager.hpp"
 #include "Assets/ModelLibrary.hpp"
+#include "Assets/GameObjectFactory.hpp"
 #include "RayPicker/RayPickerUBO.hpp"
 #include "HotkeySystem/HotkeySystem.hpp"
 #include "Utilities/Screenshot.hpp"
@@ -837,6 +839,37 @@ void RayTracer::OnMouseButton(const int button, const int action, const int mods
 	{
 		isMoving = true;
 		mousePressed = true;
+	}
+
+	if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS)
+	{
+		// Spawn a sphere 10 units in front of the camera
+		auto camera = CameraManager::getInstance()->getActiveCamera();
+		glm::vec3 cameraPos = camera->getLocalPosition();
+
+		// Get camera forward direction directly from the camera
+		glm::vec3 forward = camera->getForward();
+
+		// Calculate spawn position (100 units in front)
+		glm::vec3 spawnPos = cameraPos + forward * 100.0f;
+
+		// Create a sphere with unique name
+		auto sphere = GameObjectFactory::CreateSphere("SpawnedSphere_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()));
+		sphere->setLocalPosition(spawnPos);
+
+		// Get raw pointer before moving
+		GameObject* spherePtr = sphere.get();
+
+		// Add to model manager
+		ModelManager::getInstance()->addObject(std::move(sphere));
+
+		// Apply force to launch the sphere in the forward direction
+		// The physics body was already created by GameObjectFactory::CreateSphere -> AddSphere
+		TracerPhysics::GetInstance().SetBodyPosition(spherePtr, spawnPos);
+		TracerPhysics::GetInstance().ApplyForce(spherePtr, forward * 500.0f);
+
+		Debug::Log("Sphere spawned at position (" + std::to_string(spawnPos.x) + ", " 
+			+ std::to_string(spawnPos.y) + ", " + std::to_string(spawnPos.z) + ") with force");
 	}
 
 	if (!HasSwapChain() ||

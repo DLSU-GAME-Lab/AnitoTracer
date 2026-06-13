@@ -22,12 +22,12 @@ void TracerPhysics::AddSponzaColliders()
 	glm::vec3 LR_wall_size = glm::vec3(55, 655, 1);
 	eng->CreateStaticBox(
 		LR_wall_size,
-		glm::vec3(0, -620, 0),
+		glm::vec3(0,0, -620),
 		q_id
 	);
 	eng->CreateStaticBox(
 		LR_wall_size,
-		glm::vec3(0, 630, 0),
+		glm::vec3(0,0, 630),
 		q_id
 	);
 
@@ -631,4 +631,47 @@ void TracerPhysics::SetBodySize(GameObject* obj, const glm::vec3& scale)
 	std::cout << "SetBodySize: Body " << targetBodyID.GetIndexAndSequenceNumber()
 		<< " size set requested to scale (" << scale.x << ", " << scale.y << ", " << scale.z << ")"
 		<< " - Note: Direct shape scaling not supported. Consider recreating the body with new dimensions." << std::endl;
+}
+
+void TracerPhysics::ApplyForce(GameObject* obj, const glm::vec3& force)
+{
+	if (!obj)
+	{
+		std::cout << "ApplyForce: GameObject pointer is null!" << endl;
+		return;
+	}
+
+	// Find the corresponding BodyID for this GameObject
+	JPH::BodyID targetBodyID;
+	bool found = false;
+
+	for (const auto& pair : physics_body_pairs)
+	{
+		if (pair.gameObject == obj)
+		{
+			targetBodyID = pair.bodyID;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found || targetBodyID.IsInvalid())
+	{
+		std::cout << "ApplyForce: GameObject not found in physics pairs or BodyID is invalid!" << endl;
+		return;
+	}
+
+	PhysicsEngine* engine = PhysicsEngine::GetInstance();
+	JPH::BodyInterface& body_interface = engine->physics_system.GetBodyInterface();
+
+	// Convert glm::vec3 to Jolt format
+	JPH::Vec3 joltForce = JPH::Vec3(force.x, force.y, force.z);
+
+	// Apply the force to the body
+	body_interface.AddForce(targetBodyID, joltForce, JPH::EActivation::Activate);
+
+	body_interface.SetLinearVelocity(targetBodyID, joltForce);
+
+	std::cout << "ApplyForce: Body " << targetBodyID.GetIndexAndSequenceNumber()
+		<< " force applied: (" << force.x << ", " << force.y << ", " << force.z << ")" << std::endl;
 }
