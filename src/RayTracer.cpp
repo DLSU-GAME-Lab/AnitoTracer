@@ -514,7 +514,8 @@ void RayTracer::DrawFrame()
 		if (deltaTime > 0.25f)
 			deltaTime = 0.25f;
 
-		if (deltaTime > 0.0f)
+		// Only process physics if not paused
+		if (!isPhysicsPaused && deltaTime > 0.0f)
 		{
 			physicsAccumulator_ += deltaTime;
 
@@ -770,6 +771,10 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 		case GLFW_KEY_F6: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 		case GLFW_KEY_F8: UIManager::getInstance()->toggleEnabled(UINames::IBL_DEBUG_SCREEN); return;
+		case GLFW_KEY_SPACE: 
+			isPhysicsPaused = !isPhysicsPaused;
+			Debug::Log("Physics " + std::string(isPhysicsPaused ? "PAUSED" : "RESUMED"));
+			return;
 
 			// case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; return;
 			// case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;

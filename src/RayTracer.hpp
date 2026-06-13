@@ -127,6 +127,9 @@ private:
 
 	bool isPickScheduled = false;
 
+	// Physics pause state
+	bool isPhysicsPaused = false;
+
 	// Compute shader renderer
 	std::unique_ptr<Vulkan::Compute::ComputeShaderRayTracer> computeShaderRenderer_;
 
