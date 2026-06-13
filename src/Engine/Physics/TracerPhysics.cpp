@@ -203,6 +203,31 @@ void TracerPhysics::AddSponzaColliders()
 		glm::identity<glm::quat>()
 	);
 
+	//2nd Floor Smoll Walls
+	glm::vec3 SmollWallLR = glm::vec3(1.5f, 2.8f, 11.f);
+	eng->CreateStaticBox(
+		SmollWallLR,
+		glm::vec3(938, -205, 0),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		SmollWallLR,
+		glm::vec3(-950, -205, 0),
+		glm::identity<glm::quat>()
+	);
+
+	glm::vec3 SmollWallUD = glm::vec3(39.f, 2.8f, 1.5f);
+	eng->CreateStaticBox(
+		SmollWallUD,
+		glm::vec3(0, -205, 250),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		SmollWallUD,
+		glm::vec3(0, -205, -245),
+		glm::identity<glm::quat>()
+	);
+
 	sponza_colliders_added = true;
 	std::cout << "Sponza colliders added." << std::endl;
 }
