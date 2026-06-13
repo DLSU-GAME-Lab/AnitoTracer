@@ -8,6 +8,7 @@
 #include "From-GDGRAP2/GameObject.h"
 #include "IconsMaterialDesign.h"
 #include "Engine/CameraSystem/Camera.h"
+#include "Engine/Physics/TracerPhysics.h"
 #include "StateManagement/CommandManager.hpp"
 #include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
 #include "Vulkan/Vk_Game/GameRenderer.hpp"
@@ -130,6 +131,7 @@ void InspectorScreen::drawUI()
 		this->drawTransformTab();
 		this->drawLightTab();
 		this->drawShadowSettingsTab();
+		this->drawPhysicsTab();
 		this->drawCameraTab();
 
 	}
@@ -843,4 +845,53 @@ void InspectorScreen::showColorPickerWindow()
 		}
 	}
 	ImGui::End();
+}
+
+void InspectorScreen::drawPhysicsTab()
+{
+	// Only show for physics objects (spheres and cubes)
+	if (!selectedObject) return;
+
+	const auto type = selectedObject->getType();
+	isPhysicsObject =
+		type == GameObject::PrimitiveType::SPHERE ||
+		type == GameObject::PrimitiveType::CUBE;
+
+	if (!isPhysicsObject) return;
+
+	if (!ImGui::CollapsingHeader("Physics", ImGuiTreeNodeFlags_DefaultOpen)) return;
+
+	if (!ImGui::BeginTable("PhysicsTable", 2,
+		ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoBordersInBody))
+		return;
+
+	const float labelWidth = ImGui::CalcTextSize("Active Physics").x;
+	ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
+	ImGui::TableSetupColumn("Control", ImGuiTableColumnFlags_WidthStretch);
+
+	// ---- Active Physics Toggle ----
+	{
+		ImGui::TableNextRow();
+		ImGui::TableSetColumnIndex(0);
+		ImGui::AlignTextToFramePadding();
+		ImGui::TextUnformatted("Active Physics");
+
+		ImGui::TableSetColumnIndex(1);
+
+		if (ImGui::Checkbox("##PhysicsActive", &physicsActivationState))
+		{
+			// Toggle the physics body activation
+			TracerPhysics::GetInstance().ToggleBodyActivation(
+				selectedObject,
+				physicsActivationState
+			);
+		}
+
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+		{
+			ImGui::SetTooltip("Enable or disable physics simulation for this object");
+		}
+	}
+
+	ImGui::EndTable();
 }

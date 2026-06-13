@@ -32,6 +32,7 @@ private:
 	void drawLightTab();
 	void drawCameraTab();
 	void drawShadowSettingsTab();   // per-light shadow overrides (directional lights only)
+	void drawPhysicsTab();          // physics activation toggle
 	void showColorPickerWindow();
 
 	void updateTransformDisplays();
@@ -58,6 +59,9 @@ private:
 	float lightDirectionDisplay[3] = { 0.0f, -1.0f, 0.0f };  // Display-only for directional lights
 
 	bool isUniformScalingEnabled = false;
+
+	bool isPhysicsObject = false;  // Track if selected object is a physics object (sphere/cube)
+	bool physicsActivationState = true;  // Current activation state of physics body
 
 	GameObject* selectedObject = nullptr;
 	const String DEFAULT_MATERIAL = "None";
