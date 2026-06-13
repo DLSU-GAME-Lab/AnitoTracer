@@ -54,7 +54,11 @@ GameObject::GameObjectPtr GameObjectFactory::CreateFromModelFile(const String& f
 GameObject::GameObjectPtr GameObjectFactory::CreateCube(const String& name)
 {
     auto modelResult = ModelLibrary::getInstance()->GetModel("CUBE");
-    return std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+    GameObject::GameObjectPtr ret = std::make_unique<GameObject>(name, GameObject::CUBE, modelResult.modelsData[0]);
+
+    TracerPhysics::GetInstance().AddBox(ret.get(), false);
+
+    return ret;
 }
 
 GameObject::GameObjectPtr GameObjectFactory::CreatePlane(const String& name)

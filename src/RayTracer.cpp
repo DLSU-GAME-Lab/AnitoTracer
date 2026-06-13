@@ -508,20 +508,24 @@ void RayTracer::DrawFrame()
 	{
 		const auto prevTime = physicsTime_;
 		physicsTime_ = Window().GetTime();
-		const float deltaTime = static_cast<float>(physicsTime_ - prevTime);
+		float deltaTime = static_cast<float>(physicsTime_ - prevTime);
 
-		// Accumulate time for fixed timestep physics
+		// Prevent "spiral of death" if the window is dragged or frozen
+		if (deltaTime > 0.25f)
+			deltaTime = 0.25f;
+
 		if (deltaTime > 0.0f)
 		{
 			physicsAccumulator_ += deltaTime;
 
-			if (physicsAccumulator_ >= userSettings_.PhysicsTimestep)
+			// CRUCIAL: Change 'if' to 'while' to process all accumulated time
+			while (physicsAccumulator_ >= userSettings_.PhysicsTimestep)
 			{
-				// Update physics without triggering expensive scene rebuild
-				// Game mode: positions update automatically via push constants
-				// Ray tracing mode: consider batching scene rebuilds or using TLAS updates
 				bool isGameRenderer = userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game;
+
+				// Execute a single discrete step
 				TracerPhysics::GetInstance().Step(userSettings_.PhysicsTimestep, !isGameRenderer);
+
 				physicsAccumulator_ -= userSettings_.PhysicsTimestep;
 			}
 		}

@@ -45,6 +45,7 @@ public:
 	void Initialize();
 
 	void AddSphere(GameObject* obj);
+	void AddBox(GameObject* obj, bool isStatic = false);
 
 	void Step(float deltaTime, bool broadcastSceneDirty = false);
 
@@ -73,6 +74,8 @@ private:
 	 * @brief Private constructor for singleton pattern
 	 */
 	TracerPhysics() = default;
+
+	void AddPair(GameObject* obj, JPH::BodyID id);
 
 	// Tracking container for GameObject and BodyID pairs
 	std::vector<PhysicsBodyPair> physics_body_pairs;	///< List tracking GameObjects and their paired BodyIDs

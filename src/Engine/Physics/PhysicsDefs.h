@@ -130,14 +130,14 @@ private:
 class ObjectVsBroadPhaseLayerFilterImpl : public ObjectVsBroadPhaseLayerFilter
 {
 public:
-	virtual bool				ShouldCollide(ObjectLayer inLayer1, BroadPhaseLayer inLayer2) const override
+	virtual bool ShouldCollide(ObjectLayer inLayer1, BroadPhaseLayer inLayer2) const override
 	{
 		switch (inLayer1)
 		{
 		case Layers::NON_MOVING:
-			return inLayer2 == BroadPhaseLayers::MOVING;
+			return inLayer2 == BroadPhaseLayers::MOVING;  // Static objects only collide with dynamic
 		case Layers::MOVING:
-			return true;
+			return inLayer2 == BroadPhaseLayers::MOVING || inLayer2 == BroadPhaseLayers::NON_MOVING;  // Dynamic collides with both
 		default:
 			JPH_ASSERT(false);
 			return false;
@@ -152,7 +152,7 @@ public:
 	// See: ContactListener
 	virtual ValidateResult	OnContactValidate(const Body& inBody1, const Body& inBody2, RVec3Arg inBaseOffset, const CollideShapeResult& inCollisionResult) override
 	{
-		std::cout << "Contact validate callback" << endl;
+		std::cout << "Contact validate callback between bodies" << endl;
 
 		// Allows you to ignore a contact before it is created (using layers to not make objects collide is cheaper!)
 		return ValidateResult::AcceptAllContactsForThisBodyPair;
@@ -160,7 +160,9 @@ public:
 
 	virtual void			OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
 	{
-		std::cout << "A contact was added" << endl;
+		std::cout << "A contact was ADDED" << endl;
+		std::cout << "  Body 1 Position: (" << inBody1.GetPosition().GetX() << ", " << inBody1.GetPosition().GetY() << ", " << inBody1.GetPosition().GetZ() << ")" << endl;
+		std::cout << "  Body 2 Position: (" << inBody2.GetPosition().GetX() << ", " << inBody2.GetPosition().GetY() << ", " << inBody2.GetPosition().GetZ() << ")" << endl;
 	}
 
 	virtual void			OnContactPersisted(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override

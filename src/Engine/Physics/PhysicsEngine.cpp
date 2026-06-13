@@ -93,7 +93,7 @@ void PhysicsEngine::InitializeEngine()
 
 void PhysicsEngine::Step(float deltaTime)
 {
-	physics_system.Update(deltaTime, cCollisionSteps, temp_allocator, job_system);
+	physics_system.Update(deltaTime, 1, temp_allocator, job_system);
 
 	//if (!ball.IsInvalid())
 	//{
@@ -133,7 +133,7 @@ void PhysicsEngine::CreateDefaultFloor(glm::vec3 pos)
 		Layers::NON_MOVING);
 
 	floor_setting.mRestitution = 0.8f; // Bouncy test
-	floor_setting.mCollisionGroup.SetGroupFilter(0); // Ensure collision is enabled
+	floor_setting.mCollisionGroup.SetGroupFilter(0); // Enable collision with all groups
 	floor_setting.mMotionQuality = EMotionQuality::LinearCast; // Enable CCD for floor too
 
 	Body* floor = body_interface->CreateBody(floor_setting);
@@ -160,7 +160,8 @@ void PhysicsEngine::CreateDefaultBall(float r, glm::vec3 pos)
 
 BodyID PhysicsEngine::CreateSphere(float r, glm::vec3 pos, float restitution)
 {
-	BodyCreationSettings sphere_settings(new SphereShape(r),
+	//Scale needs to offset by 50 >..>
+	BodyCreationSettings sphere_settings(new SphereShape(r * 50),
 		PhysicsUtils::ToJoltVec3(pos),
 		Quat::sIdentity(), EMotionType::Dynamic,
 		Layers::MOVING);
@@ -171,6 +172,7 @@ BodyID PhysicsEngine::CreateSphere(float r, glm::vec3 pos, float restitution)
 	sphere_settings.mAngularDamping = 0.05f; // Slight rotational damping
 	sphere_settings.mAllowedDOFs = EAllowedDOFs::All; // Allow all degrees of freedom
 	sphere_settings.mMotionQuality = EMotionQuality::LinearCast; // Enable continuous collision detection
+	sphere_settings.mCollisionGroup.SetGroupFilter(0); // Enable collision with ALL groups
 
 	BodyID sphere_id = body_interface->CreateAndAddBody(sphere_settings, EActivation::Activate);
 
@@ -180,5 +182,63 @@ BodyID PhysicsEngine::CreateSphere(float r, glm::vec3 pos, float restitution)
 
 	return sphere_id;
 }
+
+BodyID PhysicsEngine::CreateBox(glm::vec3 scale, glm::vec3 pos, glm::quat rot, float restitution)
+{
+	//glm::vec3 half_extents = scale * 0.5f; // Jolt's BoxShape uses half extents
+	glm::vec3 half_extents = scale * 25.f; //25 is the correct offset >..>
+
+	BodyCreationSettings box_settings(new BoxShape(PhysicsUtils::ToJoltVec3(half_extents)),
+		PhysicsUtils::ToJoltVec3(pos),
+		PhysicsUtils::ToJoltQuat(rot),
+		EMotionType::Dynamic,
+		Layers::MOVING);
+
+	box_settings.mRestitution = restitution;
+	box_settings.mGravityFactor = 1.0f; // Ensure gravity is applied
+	box_settings.mLinearDamping = 0.05f; // Slight damping to stabilize
+	box_settings.mAngularDamping = 0.05f; // Slight rotational damping
+	box_settings.mAllowedDOFs = EAllowedDOFs::All; // Allow all degrees of freedom
+	box_settings.mMotionQuality = EMotionQuality::LinearCast; // Enable continuous collision detection
+	box_settings.mCollisionGroup.SetGroupFilter(0); // Enable collision with ALL groups
+
+	BodyID box_id = body_interface->CreateAndAddBody(box_settings, EActivation::Activate);
+
+	std::cout << "Created box at: ";
+	PhysicsUtils::PrintVec3(PhysicsUtils::ToJoltVec3(pos));
+	std::cout << " with scale: (" << scale.x << ", " << scale.y << ", " << scale.z << ") | Layer: MOVING | CCD: Enabled" << std::endl;
+
+	return box_id;
+}
+
+BodyID PhysicsEngine::CreateStaticBox(glm::vec3 scale, glm::vec3 pos, glm::quat rot, float restitution)
+{
+	//glm::vec3 half_extents = scale * 0.5f; // Jolt's BoxShape uses half extents
+	glm::vec3 half_extents = scale * 25.f; //25 is the correct offset >..>
+
+	BodyCreationSettings box_settings(new BoxShape(PhysicsUtils::ToJoltVec3(half_extents)),
+		PhysicsUtils::ToJoltVec3(pos),
+		PhysicsUtils::ToJoltQuat(rot),
+		EMotionType::Static,
+		Layers::NON_MOVING);
+
+	box_settings.mRestitution = restitution;
+	box_settings.mGravityFactor = 1.0f; // Ensure gravity is applied
+	box_settings.mLinearDamping = 0.05f; // Slight damping to stabilize
+	box_settings.mAngularDamping = 0.05f; // Slight rotational damping
+	box_settings.mAllowedDOFs = EAllowedDOFs::All; // Allow all degrees of freedom
+	box_settings.mMotionQuality = EMotionQuality::LinearCast; // Enable continuous collision detection
+	box_settings.mCollisionGroup.SetGroupFilter(0); // Enable collision with all groups
+
+	BodyID box_id = body_interface->CreateAndAddBody(box_settings, EActivation::DontActivate);
+
+	std::cout << "Created box at: ";
+	PhysicsUtils::PrintVec3(PhysicsUtils::ToJoltVec3(pos));
+	std::cout << " with scale: (" << scale.x << ", " << scale.y << ", " << scale.z << ") | Layer: NON_MOVING | CCD: Enabled" << std::endl;
+
+	return box_id;
+}
+
+
 
 

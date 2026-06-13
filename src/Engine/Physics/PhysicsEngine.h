@@ -42,6 +42,8 @@ class PhysicsEngine {
 		void CreateDefaultBall(float r, glm::vec3 pos);
 
 		BodyID CreateSphere(float r, glm::vec3 pos, float restitution = 0.8f);
+		BodyID CreateBox(glm::vec3 scale, glm::vec3 pos, glm::quat rot, float restitution = 0.8f);
+		BodyID CreateStaticBox(glm::vec3 scale, glm::vec3 pos, glm::quat rot, float restitution = 0.8f);
 
 		// Public physics system member
 		PhysicsSystem physics_system;

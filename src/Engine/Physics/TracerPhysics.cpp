@@ -26,11 +26,32 @@ void TracerPhysics::AddSphere(GameObject* obj)
 
 	auto bodyID = PhysicsEngine::GetInstance()->CreateSphere(scale.x, pos);
 
-	if (bodyID.IsInvalid()) {
-		std::cout << "Physics Sphere pair fail" << endl;
+	AddPair(obj, bodyID);
+}
+
+void TracerPhysics::AddBox(GameObject* obj, bool isStatic)
+{
+	// Ensure floor is initialized before adding objects
+	if (!floor_initialized)
+	{
+		Initialize();
 	}
 
-	physics_body_pairs.emplace_back(obj, bodyID);
+	auto pos = obj->getWorldPosition();
+	auto scale = obj->getWorldScale();
+	auto rot = obj->getLocalRotationQuat();
+
+	BodyID boxID;
+
+	if (isStatic) {
+		boxID = PhysicsEngine::GetInstance()->CreateStaticBox(scale, pos, rot);
+
+	}
+	else {
+		boxID = PhysicsEngine::GetInstance()->CreateBox(scale, pos, rot);
+	}
+
+	AddPair(obj, boxID);
 }
 
 //Bridge Function- so I only call one thing later
@@ -66,13 +87,13 @@ void TracerPhysics::SyncPhysicsToGameObjects(bool broadcastDirty)
 		JPH::RVec3 physicsPosition = body.GetPosition();
 		JPH::Quat physicsRotation = body.GetRotation();
 
-		// Debug output for first few frames
+		// Debug output for EVERY frame to see what's happening
 		static int frameCount = 0;
-		if (frameCount < 5)
+		if (frameCount < 100)  // More frames for better debugging
 		{
-			std::cout << "[Frame " << frameCount << "] Body Position: ";
-			PhysicsUtils::PrintVec3(physicsPosition);
-			std::cout << " | IsActive: " << body.IsActive() << std::endl;
+			std::cout << "[Frame " << frameCount << "] Body " << body.GetID().GetIndexAndSequenceNumber() <<" at: ("
+				<< physicsPosition.GetX() << ", " << physicsPosition.GetY() << ", " << physicsPosition.GetZ()
+				<< ") | Active: " << body.IsActive() << std::endl;
 			frameCount++;
 		}
 
@@ -81,8 +102,8 @@ void TracerPhysics::SyncPhysicsToGameObjects(bool broadcastDirty)
 		glm::quat newRotation = PhysicsUtils::ToGlmQuat(physicsRotation);
 
 		// Update the GameObject's world position and rotation
-		// Use world position to ensure correct placement
-		pair.gameObject->setLocalPosition(newPosition);
+		// Physics engine works in world space, so set world position
+		pair.gameObject->setLocalPosition (newPosition);
 		pair.gameObject->setLocalRotationQuat(newRotation);
 	}
 
@@ -92,4 +113,13 @@ void TracerPhysics::SyncPhysicsToGameObjects(bool broadcastDirty)
 	{
 		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
+}
+
+void TracerPhysics::AddPair(GameObject* obj, JPH::BodyID id)
+{
+	if (id.IsInvalid()) {
+		std::cout << "Physics Body pair fail" << endl;
+	}
+
+	physics_body_pairs.emplace_back(obj, id);
 }
