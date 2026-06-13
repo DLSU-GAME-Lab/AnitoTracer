@@ -1,5 +1,212 @@
 #include "TracerPhysics.h"
 
+void TracerPhysics::AddSponzaColliders()
+{
+	std::cout << "Adding Sponza colliders..." << std::endl;
+	if (sponza_colliders_added)
+	{
+		std::cout << "Sponza colliders have already been added. Skipping." << std::endl;
+		return;
+	}
+	auto eng = PhysicsEngine::GetInstance();
+	auto q_id = glm::identity<glm::quat>();
+
+	//Ground Floor
+	eng->CreateStaticBox(
+		glm::vec3(55, 1, 24),
+		glm::vec3(0, -670, 0),
+		q_id
+	);
+
+	//LR Walls
+	glm::vec3 LR_wall_size = glm::vec3(55, 655, 1);
+	eng->CreateStaticBox(
+		LR_wall_size,
+		glm::vec3(0, -620, 0),
+		q_id
+	);
+	eng->CreateStaticBox(
+		LR_wall_size,
+		glm::vec3(0, 630, 0),
+		q_id
+	);
+
+	//UD Walls
+	glm::vec3 UD_wall_size = glm::vec3(1, 55, 26);
+	eng->CreateStaticBox(
+		UD_wall_size,
+		glm::vec3(1380, 0, 0),
+		q_id
+	);
+	eng->CreateStaticBox(
+		UD_wall_size,
+		glm::vec3(-1380, 0, 0),
+		q_id
+	);
+
+	//Middle Pillars
+	glm::vec3 mid_pillar_size = glm::vec3(1.2f, 30.f, 1.2f);
+	eng->CreateStaticBox(
+		mid_pillar_size,
+		glm::vec3(550, -80, 240),
+		q_id
+	);
+	eng->CreateStaticBox(
+		mid_pillar_size,
+		glm::vec3(180, -80, 240),
+		q_id
+	);
+	eng->CreateStaticBox(
+		mid_pillar_size,
+		glm::vec3(-190, -80, 240),
+		q_id
+	);
+	eng->CreateStaticBox(
+		mid_pillar_size,
+		glm::vec3(-560, -80, 240),
+		q_id
+	);
+
+	eng->CreateStaticBox(
+		mid_pillar_size,
+		glm::vec3(550, -80, -240),
+		q_id
+	);
+	eng->CreateStaticBox(
+		mid_pillar_size,
+		glm::vec3(180, -80, -240),
+		q_id
+	);
+	eng->CreateStaticBox(
+		mid_pillar_size,
+		glm::vec3(-190, -80, -240),
+		q_id
+	);
+	eng->CreateStaticBox(
+		mid_pillar_size,
+		glm::vec3(-560, -80, -240),
+		q_id
+	);
+
+	//Corner Pillars
+	glm::vec3 corner_pillar_size = glm::vec3(1.9f, 30.f, 1.9f);
+	eng->CreateStaticBox(
+		corner_pillar_size,
+		glm::vec3(-940, -80, -230),
+		q_id
+	);
+	eng->CreateStaticBox(
+		corner_pillar_size,
+		glm::vec3(930, -80, -230),
+		q_id
+	);
+	eng->CreateStaticBox(
+		corner_pillar_size,
+		glm::vec3(930, -80, 230),
+		q_id
+	);
+	eng->CreateStaticBox(
+		corner_pillar_size,
+		glm::vec3(-940, -80, 230),
+		q_id
+	);
+
+	//Second Floor Floors
+	float secondFloorY = -260;
+	glm::vec3 scaleLR2 = glm::vec3(55, 1, 7);
+	eng->CreateStaticBox(
+		scaleLR2,
+		glm::vec3(0, secondFloorY, 450),
+		glm::identity<glm::quat>()
+	);
+
+	eng->CreateStaticBox(
+		scaleLR2,
+		glm::vec3(0, secondFloorY, -450),
+		glm::identity<glm::quat>()
+	);
+
+	glm::vec3 scaleUD = glm::vec3(9, 1, 12);
+	eng->CreateStaticBox(
+		scaleUD,
+		glm::vec3(1150, secondFloorY, 0),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		scaleUD,
+		glm::vec3(-1150, secondFloorY, 0),
+		glm::identity<glm::quat>()
+	);
+
+	//Second Floor Pillars
+	glm::vec3 second_floor_pillar_size = glm::vec3(0.9f, 8.f, 0.9f);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(940, -80, 3),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(-940, -80, 3),
+		glm::identity<glm::quat>()
+	);
+
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(-744, -80, 245),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(-374, -80, 245),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(-4, -80, 245),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(366, -80, 245),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(736, -80, 245),
+		glm::identity<glm::quat>()
+	);
+
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(-744, -80, -242),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(-374, -80, -242),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(-4, -80, -242),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(366, -80, -242),
+		glm::identity<glm::quat>()
+	);
+	eng->CreateStaticBox(
+		second_floor_pillar_size,
+		glm::vec3(736, -80, -242),
+		glm::identity<glm::quat>()
+	);
+
+	sponza_colliders_added = true;
+	std::cout << "Sponza colliders added." << std::endl;
+}
+
 void TracerPhysics::Initialize()
 {
 	if (floor_initialized)
@@ -8,7 +215,7 @@ void TracerPhysics::Initialize()
 		return;
 	}
 
-	PhysicsEngine::GetInstance()->CreateDefaultFloor(glm::vec3(0, -100, 0));
+	//PhysicsEngine::GetInstance()->CreateDefaultFloor(glm::vec3(0, -100, 0));
 	floor_initialized = true;
 	std::cout << "TracerPhysics: Default floor initialized" << endl;
 }

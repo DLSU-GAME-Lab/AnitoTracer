@@ -30,6 +30,11 @@ struct PhysicsBodyPair
 
 class TracerPhysics {
 public:
+
+	//Manual adding of physics bodies for testing purposes
+	//Sponza ver
+	void AddSponzaColliders();
+
 	/**
 	 * @brief Gets the singleton instance of TracerPhysics
 	 * @return Reference to the singleton instance
@@ -152,4 +157,5 @@ private:
 	std::vector<PhysicsBodyPair> physics_body_pairs;	///< List tracking GameObjects and their paired BodyIDs
 
 	bool floor_initialized = false; ///< Flag to track if default floor has been created
+	bool sponza_colliders_added = false; ///< Flag to track if Sponza colliders have been added
 };

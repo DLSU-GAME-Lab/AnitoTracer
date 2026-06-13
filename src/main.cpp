@@ -56,7 +56,7 @@ int main(int argc, const char* argv[]) noexcept
 		PhysicsEngine::GetInstance();
 		//physics_engine->CreateDefaultBall(1, glm::vec3(0, 0, 0));
 
-		TracerPhysics::GetInstance();
+		//TracerPhysics::GetInstance().AddSponzaColliders();
 
 		PrintVulkanSdkInformation();
 		PrintVulkanInstanceInformation(*application, options.Benchmark);

@@ -21,6 +21,8 @@
 
 #include "RayTracer.hpp"
 
+#include "../Engine/Physics/TracerPhysics.h"
+
 using namespace Assets;
 using namespace glm;
 
@@ -250,6 +252,9 @@ void MenuScreen::drawUI()
 			if (ImGui::MenuItem("Material Editor", nullptr, UIManager::getInstance()->getEnabled(UINames::MATERIAL_EDITOR_SCREEN)))
 			{
 				CommandManager::getInstance()->executeCommand(new ToggleWindowVisibiltyCommand(UINames::MATERIAL_EDITOR_SCREEN));
+			}
+			if (ImGui::MenuItem("Create Sponza Colliders")) {
+				TracerPhysics::GetInstance().AddSponzaColliders();
 			}
 			//if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
 			//{
