@@ -61,7 +61,7 @@ private:
 	bool isUniformScalingEnabled = false;
 
 	bool isPhysicsObject = false;  // Track if selected object is a physics object (sphere/cube)
-	bool physicsActivationState = true;  // Current activation state of physics body
+	bool physicsActivationState = false;  // Current activation state of physics body
 
 	GameObject* selectedObject = nullptr;
 	const String DEFAULT_MATERIAL = "None";

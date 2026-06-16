@@ -259,6 +259,9 @@ void TracerPhysics::AddSphere(GameObject* obj)
 	auto bodyID = PhysicsEngine::GetInstance()->CreateSphere(scale.x, pos);
 
 	AddPair(obj, bodyID);
+
+	//Turn off physics by default
+	ToggleBodyActivation(obj, false);
 }
 
 void TracerPhysics::AddBox(GameObject* obj, bool isStatic)

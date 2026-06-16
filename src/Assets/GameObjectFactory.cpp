@@ -74,6 +74,8 @@ GameObject::GameObjectPtr GameObjectFactory::CreateSphere(const String& name)
 
     TracerPhysics::GetInstance().AddSphere(ret.get());
 
+    
+
     return ret;
 }
 
