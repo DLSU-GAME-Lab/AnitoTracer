@@ -3,6 +3,8 @@
 #include "PhysicsUtils.hpp"
 #include "../../From-GDGRAP2/GameObject.h"
 
+#include "TracerCollisionHandlers.h"
+
 #include <memory>
 #include <vector>
 
@@ -148,6 +150,18 @@ public:
 	 * @param force The force vector to apply (in world space)
 	 */
 	void ApplyForce(GameObject* obj, const glm::vec3& force);
+
+	/**
+	 * @brief Retrieves the GameObject associated with a physics BodyID
+	 *
+	 * Searches through the physics body pairs to find the GameObject that corresponds
+	 * to the given BodyID. This is useful for reverse lookups when you have a BodyID
+	 * from the physics engine and need to find its associated game object.
+	 *
+	 * @param bodyID The physics engine BodyID to search for
+	 * @return Pointer to the GameObject if found, nullptr if not found or BodyID is invalid
+	 */
+	GameObject* GetGameObjectByBodyID(JPH::BodyID bodyID) const;
 
 	// Delete copy and move constructors/assignments to prevent copies
 	TracerPhysics(const TracerPhysics&) = delete;

@@ -362,7 +362,7 @@ set(src_physics
 	Engine/Physics/PhysicsEngine.h
  "Engine/Physics/PhysicsEngine.cpp"
 
- "Engine/Physics/TracerPhysics.h" "Engine/Physics/TracerPhysics.cpp")
+ "Engine/Physics/TracerPhysics.h" "Engine/Physics/TracerPhysics.cpp" "Engine/Physics/ContactListenerManager.cpp" "Engine/Physics/ContactListenerManager.h" "Engine/Physics/TracerCollisionHandlers.h" "Engine/Physics/TracerCollisionHandlers.cpp")
 
 
 source_group("Assets" FILES ${src_files_assets})

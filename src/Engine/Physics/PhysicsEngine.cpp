@@ -76,7 +76,11 @@ void PhysicsEngine::InitializeEngine()
 	// Note that this is called from a job so whatever you do here needs to be thread safe.
 	// Registering one is entirely optional.
 	contact_listener = new MyContactListener();
-	physics_system.SetContactListener(contact_listener);
+	contact_listenerManager = new ContactListenerManager();
+
+	physics_system.SetContactListener(contact_listenerManager);
+
+
 
 	// The main way to interact with the bodies in the physics system is through the body interface. There is a locking and a non-locking
 	// variant of this. We're going to use the locking version (even though we're not planning to access bodies from multiple threads)
@@ -88,33 +92,40 @@ void PhysicsEngine::InitializeEngine()
 	physics_system.SetGravity(Vec3(0.0f, -9.81f, 0.0f));
 	std::cout << "Gravity set to: (0, -9.81, 0)" << endl;
 
+	SetContactListener(contact_listener);
+
 	std::cout << "Done Initializing Physics System" << endl;
 }
 
 void PhysicsEngine::Step(float deltaTime)
 {
 	physics_system.Update(deltaTime, 1, temp_allocator, job_system);
+}
 
-	//if (!ball.IsInvalid())
-	//{
-	//	// 3. Request a safe read lock from the physics system using the ID
-	//	JPH::BodyLockRead lock(physics_system.GetBodyLockInterface(), ball);
+void PhysicsEngine::SetContactListener(ContactListener* listener, bool useDefaultType)
+{
+	if (listener != nullptr) {
+		// Delete the existing listener if it was created by the engine
+		if (contact_listener != nullptr) {
+			//delete contact_listener;
+		}
 
-	//	// 4. Check if the body still exists in the physics world
-	//	if (lock.Succeeded())
-	//	{
-	//		const JPH::Body& body = lock.GetBody();
-	//		JPH::RVec3 position = body.GetPosition();
-
-	//		std::cout << "Current Ball Pos ";
-	//		PhysicsUtils::PrintVec3(position);
-	//		std::cout << std::endl;
-	//	}
-	//	else
-	//	{
-	//		std::cout << "Ball body was destroyed or is no longer valid." << std::endl;
-	//	}
-	//}
+		//Use default type- only for initialization-
+		//Will remove laturs desu
+		if (useDefaultType) {
+			// Assign the new listener - use a cast since we expect MyContactListener
+			contact_listener = static_cast<MyContactListener*>(listener);
+			contact_listenerManager->AddListener(contact_listener);
+		}
+		else {
+			contact_listenerManager->AddListener(listener);
+		}
+		
+		std::cout << "Contact listener assigned to physics system successfully" << endl;
+	}
+	else {
+		std::cout << "Warning: Attempted to assign null contact listener" << endl;
+	}
 }
 
 void PhysicsEngine::CreateDefaultFloor(glm::vec3 pos)

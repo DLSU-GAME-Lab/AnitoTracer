@@ -240,6 +240,9 @@ void TracerPhysics::Initialize()
 		return;
 	}
 
+	auto tracerCollisionHandler = new TracerCollisionHandlers();
+	PhysicsEngine::GetInstance()->SetContactListener(tracerCollisionHandler);
+
 	//PhysicsEngine::GetInstance()->CreateDefaultFloor(glm::vec3(0, -100, 0));
 	floor_initialized = true;
 	std::cout << "TracerPhysics: Default floor initialized" << endl;
@@ -702,4 +705,24 @@ void TracerPhysics::ApplyForce(GameObject* obj, const glm::vec3& force)
 
 	std::cout << "ApplyForce: Body " << targetBodyID.GetIndexAndSequenceNumber()
 		<< " force applied: (" << force.x << ", " << force.y << ", " << force.z << ")" << std::endl;
+}
+
+GameObject* TracerPhysics::GetGameObjectByBodyID(JPH::BodyID bodyID) const
+{
+	if (bodyID.IsInvalid())
+	{
+		std::cout << "GetGameObjectByBodyID: BodyID is invalid!" << endl;
+		return nullptr;
+	}
+
+	for (const auto& pair : physics_body_pairs)
+	{
+		if (pair.bodyID == bodyID)
+		{
+			return pair.gameObject;
+		}
+	}
+
+	std::cout << "GetGameObjectByBodyID: No GameObject found for BodyID " << bodyID.GetIndexAndSequenceNumber() << std::endl;
+	return nullptr;
 }

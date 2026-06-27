@@ -2,6 +2,7 @@
 
 #include "PhysicsDefs.h"
 #include "PhysicsUtils.hpp"
+#include "ContactListenerManager.h"
 
 class PhysicsEngine {
 	private:
@@ -27,6 +28,8 @@ class PhysicsEngine {
 		MyBodyActivationListener* body_activation_listener = nullptr;
 		MyContactListener* contact_listener = nullptr;
 
+		ContactListenerManager* contact_listenerManager = nullptr;
+
 		BodyInterface* body_interface = nullptr;
 
 	public:
@@ -37,6 +40,9 @@ class PhysicsEngine {
 		// Initialize the physics engine
 		void InitializeEngine();
 		void Step(float deltaTime);
+
+		// Contact Listener management
+		void SetContactListener(ContactListener* listener, bool useDefaultType = false);
 
 		void CreateDefaultFloor(glm::vec3 pos);
 		void CreateDefaultBall(float r, glm::vec3 pos);
