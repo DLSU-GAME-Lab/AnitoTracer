@@ -1,6 +1,7 @@
 #include "Scene.hpp"
 
 #include <iostream>
+#include <cstring>
 
 #include "From-GDGRAP2/GameObject.h"
 #include "SphereProc.hpp"
@@ -20,7 +21,8 @@ namespace Assets {
 	Scene::Scene(Vulkan::CommandPool& commandPool, std::vector<GameObject*>&& gameObjects, std::vector<Texture>&& textures, std::vector<LightProperties>&& lights) :
 		gameObjects_(std::move(gameObjects)),
 		textures_(std::move(textures)),
-		lights_(std::move(lights))
+		lights_(std::move(lights)),
+		commandPool_(&commandPool)
 	{
 		// Concatenate all the models
 		std::vector<Vertex> vertices;
@@ -113,6 +115,39 @@ namespace Assets {
 	{
 		skyboxImageView_ = imageView;
 		skyboxSampler_ = sampler;
+	}
+
+	void Scene::UpdateMaterialBuffer()
+	{
+		// Safety check: ensure we have a command pool for GPU operations
+		if (!commandPool_ || !materialBuffer_)
+		{
+			return;
+		}
+
+		// Gather all materials from all game objects in the same order as construction
+		std::vector<Material> materials;
+
+		for (const auto& obj : gameObjects_)
+		{
+			if (!obj->getModel()) continue;
+
+			// Copy materials from this object's model
+			materials.insert(materials.end(), 
+				obj->getModel()->Materials().begin(), 
+				obj->getModel()->Materials().end());
+		}
+
+		// Only update if there are materials
+		if (materials.empty()) return;
+
+		// Use staging buffer approach: BufferUtil::UpdateDeviceBuffer handles:
+		// 1. Creating a temporary host-visible staging buffer
+		// 2. Copying material data to staging buffer
+		// 3. Recording GPU command to copy from staging to device buffer
+		// 4. Cleaning up staging buffer
+		// This is safe for device-local memory and respects Vulkan synchronization.
+		Vulkan::BufferUtil::UpdateDeviceBuffer(*commandPool_, materials, materialBuffer_);
 	}
 
 	Scene::~Scene()

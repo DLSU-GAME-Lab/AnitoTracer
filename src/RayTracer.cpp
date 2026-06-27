@@ -104,6 +104,7 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SCENE_LOADED, this);
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MARK_SCENE_DIRTY, this);
+	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MATERIAL_UPDATED, this);
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SWAP_RENDERER, this);
 
 	HotkeySystem::getInstance()->addListener(this);
@@ -126,6 +127,7 @@ RayTracer::~RayTracer()
 	HotkeySystem::getInstance()->removeListener(this);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MATERIAL_UPDATED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SWAP_RENDERER);
 }
 
@@ -936,6 +938,15 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 		this->isSceneDirty = true;
 		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, true);
 		//Debug::Log("Scene marked as dirty! \n");
+	}
+	else if (eventName == EventNames::ON_MATERIAL_UPDATED)
+	{
+		// Material properties have changed. Update the GPU material buffer.
+		// This is lightweight compared to full scene rebuild — no AS rebuild needed.
+		if (scene_)
+		{
+			scene_->UpdateMaterialBuffer();
+		}
 	}
 	else if (eventName == EventNames::ON_SWAP_RENDERER)
 	{

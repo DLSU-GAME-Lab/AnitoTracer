@@ -54,6 +54,10 @@ namespace Assets
 		VkImageView SkyboxImageView() const { return skyboxImageView_; }
 		VkSampler SkyboxSampler() const { return skyboxSampler_; }
 
+		/// @brief Update the material buffer on GPU with the latest material data from all game objects.
+		///        Call this when material properties (color, texture) change to synchronize them to the GPU.
+		void UpdateMaterialBuffer();
+
 		/// @brief CPU-side light array — used by ShadowMapPass to compute light VP matrices.
 		const std::vector<LightProperties>& Lights() const { return lights_; }
 
@@ -62,6 +66,8 @@ namespace Assets
 		const std::vector<GameObject*> gameObjects_;
 		const std::vector<Texture> textures_;
 		const std::vector<LightProperties> lights_;
+
+		Vulkan::CommandPool* commandPool_{ nullptr };
 
 		std::unique_ptr<Vulkan::Buffer> vertexBuffer_;
 		std::unique_ptr<Vulkan::DeviceMemory> vertexBufferMemory_;

@@ -3,6 +3,7 @@
 #include "Vulkan/Vulkan.hpp"
 #include "ShadowMapSettings.hpp"
 #include "From-GDGRAP2/EventBroadcaster.h"
+#include "From-GDGRAP2/EventNames.h"
 #include <memory>
 #include <vector>
 

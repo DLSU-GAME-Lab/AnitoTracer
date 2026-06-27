@@ -68,13 +68,15 @@ namespace Assets
 		void SetAlbedoColor(glm::vec4 color) 
 		{ 
 			this->Diffuse = color; 
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MATERIAL_UPDATED);
 		}
 
 		void SetAlbedoTexture(int textureId)
 		{
 			this->DiffuseTextureId = textureId;
-			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+			// Texture swaps don't require expensive AS rebuild — just update descriptor sets
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MATERIAL_UPDATED);
 		}
 
 		void SetFuzziness(float value)

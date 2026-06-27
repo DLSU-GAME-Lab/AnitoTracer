@@ -66,6 +66,8 @@ GameRenderer::GameRenderer(
 
 	EventBroadcaster::getInstance()->addObserver(
 		EventNames::ON_SHADOW_SETTINGS_CHANGED, this);
+	EventBroadcaster::getInstance()->addObserver(
+		EventNames::ON_MATERIAL_UPDATED, this);
 	CreatePipeline();
 	CreateFramebuffers();
 }
@@ -74,6 +76,8 @@ GameRenderer::~GameRenderer()
 {
 	EventBroadcaster::getInstance()->removeObserver(
 		EventNames::ON_SHADOW_SETTINGS_CHANGED);
+	EventBroadcaster::getInstance()->removeObserver(
+		EventNames::ON_MATERIAL_UPDATED);
 
 	// Framebuffers first — they reference the render pass
 	for (VkFramebuffer fb : framebuffers_)
@@ -144,6 +148,14 @@ void GameRenderer::onTriggeredEvent(std::string eventName,
 			pendingShadowSettings_ = *rawSettings;
 			pendingShadowReload_   = true;
 		}
+	}
+	else if (eventName == EventNames::ON_MATERIAL_UPDATED)
+	{
+		// Material properties (color, texture) have changed.
+		// Update the GPU material buffer with latest data from all game objects.
+		// This is safe to call from the event handler since it only maps/unmaps
+		// the material buffer memory — it doesn't rebuild any GPU structures.
+		const_cast<Assets::Scene&>(scene_).UpdateMaterialBuffer();
 	}
 }
 

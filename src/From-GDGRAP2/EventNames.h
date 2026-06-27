@@ -17,5 +17,6 @@ public:
 	inline static const String ON_SAMPLE_PROGRESS = "ON_SAMPLE_PROGRESS"; // Broadcasts at configurable percentage intervals (default 1%) with progress data
 	inline static const String ON_SWAP_RENDERER = "ON_SWAP_RENDERER"; // Broadcasts when user switches between Legacy and Compute Shader renderers
 	inline static const String ON_SHADOW_SETTINGS_CHANGED = "ON_SHADOW_SETTINGS_CHANGED"; // Broadcasts when per-light shadow settings are edited in the Inspector
+	inline static const String ON_MATERIAL_UPDATED = "ON_MATERIAL_UPDATED"; // Broadcasts when material properties (color, texture) change without geometry changes — lighter than ON_MARK_SCENE_DIRTY
 };
 
