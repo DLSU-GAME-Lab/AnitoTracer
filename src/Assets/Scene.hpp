@@ -54,8 +54,18 @@ namespace Assets
 		VkImageView SkyboxImageView() const { return skyboxImageView_; }
 		VkSampler SkyboxSampler() const { return skyboxSampler_; }
 
-		/// @brief Update the material buffer on GPU with the latest material data from all game objects.
-		///        Call this when material properties (color, texture) change to synchronize them to the GPU.
+		/// @brief Mark materials as needing update. The actual GPU buffer update is deferred
+		///        to FlushDeferredMaterialUpdate() to ensure it happens between frames,
+		///        NOT during command buffer recording. This prevents GPU synchronization deadlocks.
+		void MarkMaterialsDirty() { materialsDirty_ = true; }
+
+		/// @brief Perform deferred material buffer update. Call this between frames, BEFORE
+		///        command buffer recording begins. This batches all pending material changes
+		///        into a single GPU transfer, avoiding multiple vkQueueWaitIdle() calls.
+		void FlushDeferredMaterialUpdate();
+
+		/// @deprecated Use MarkMaterialsDirty() instead for thread-safe marking.
+		///             This function is kept for compatibility but should not be called during rendering.
 		void UpdateMaterialBuffer();
 
 		/// @brief CPU-side light array — used by ShadowMapPass to compute light VP matrices.
@@ -100,6 +110,8 @@ namespace Assets
 		std::unique_ptr<TextureImage> skyboxTexture_;
 		VkImageView skyboxImageView_ = VK_NULL_HANDLE;
 		VkSampler skyboxSampler_ = VK_NULL_HANDLE;
+
+		bool materialsDirty_ = false;  // Flag to defer material updates between frames
 	};
 
 }

@@ -150,6 +150,19 @@ namespace Assets {
 		Vulkan::BufferUtil::UpdateDeviceBuffer(*commandPool_, materials, materialBuffer_);
 	}
 
+	void Scene::FlushDeferredMaterialUpdate()
+	{
+		if (!materialsDirty_)
+		{
+			return;  // No pending updates
+		}
+
+		materialsDirty_ = false;
+
+		// Now perform the actual material buffer update
+		UpdateMaterialBuffer();
+	}
+
 	Scene::~Scene()
 	{
 		textureSamplerHandles_.clear();

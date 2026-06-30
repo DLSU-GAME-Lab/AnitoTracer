@@ -152,10 +152,9 @@ void GameRenderer::onTriggeredEvent(std::string eventName,
 	else if (eventName == EventNames::ON_MATERIAL_UPDATED)
 	{
 		// Material properties (color, texture) have changed.
-		// Update the GPU material buffer with latest data from all game objects.
-		// This is safe to call from the event handler since it only maps/unmaps
-		// the material buffer memory — it doesn't rebuild any GPU structures.
-		const_cast<Assets::Scene&>(scene_).UpdateMaterialBuffer();
+		// Mark materials dirty for deferred update to ensure proper synchronization.
+		// The actual GPU buffer update will happen safely between frames.
+		const_cast<Assets::Scene&>(scene_).MarkMaterialsDirty();
 	}
 }
 

@@ -540,6 +540,14 @@ void RayTracer::DrawFrame()
 
 	ExecuteScheduledPick();
 
+	// Flush any deferred material updates BEFORE the command buffer begins.
+	// This is the only safe point — command buffers will soon be recording,
+	// and we cannot call vkQueueWaitIdle() while buffers are in flight.
+	if (scene_)
+	{
+		scene_->FlushDeferredMaterialUpdate();
+	}
+
 	// Flush any deferred shadow-settings reload BEFORE the command buffer begins.
 	// This is the only safe point — GameRenderer::Render() is already inside
 	// commandBuffers_->Begin/End, so doing it there would invalidate in-flight resources.
@@ -941,11 +949,12 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 	}
 	else if (eventName == EventNames::ON_MATERIAL_UPDATED)
 	{
-		// Material properties have changed. Update the GPU material buffer.
-		// This is lightweight compared to full scene rebuild — no AS rebuild needed.
+		// Material properties have changed. Mark materials dirty for deferred update.
+		// The actual GPU buffer update will happen in DrawFrame() before command buffer recording,
+		// ensuring we never call vkQueueWaitIdle() while buffers are in flight.
 		if (scene_)
 		{
-			scene_->UpdateMaterialBuffer();
+			scene_->MarkMaterialsDirty();
 		}
 	}
 	else if (eventName == EventNames::ON_SWAP_RENDERER)

@@ -5,7 +5,7 @@ void TracerPhysics::SpawnFountain()
 	std::cout << "Spawning Fountain" << std::endl;
 
 	m_isFountainActive = true;
-	m_spheresLeftToSpawn = 30;
+	m_spheresLeftToSpawn = 80;
 	m_spawnTimer = 0.0f;
 	std::cout << "Fountain triggered: 10 spheres queued." << std::endl;
 
@@ -102,6 +102,7 @@ void TracerPhysics::UpdateFountain(float deltaTime)
 
 		// Calculate and apply physical force
 		glm::vec3 fountainForce(lateralForce(gen), upwardForce(gen), lateralForce(gen));
+		UpdateBodyPosition(spherePtr);
 		ApplyForce(spherePtr, fountainForce);
 
 		// Transfer ownership
