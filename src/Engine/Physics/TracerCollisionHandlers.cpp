@@ -1,9 +1,20 @@
 #include "TracerCollisionHandlers.h"
 
+glm::vec4 TracerCollisionHandlers::GetRandomColor()
+{
+	// Generate random values for RGB channels
+	float r = dis(gen);
+	float g = dis(gen);
+	float b = dis(gen);
+	float a = 1.0f; // Keep full opacity
+
+	return glm::vec4(glm::vec4(r, g, b, a));
+}
+
 void TracerCollisionHandlers::ChangeColor(GameObject* obj)
 {
 
-	obj->getModel()->getMaterial(0)->SetAlbedoColor(glm::vec4(0,0,1,1));
+	obj->getModel()->getMaterial(0)->SetAlbedoColor(GetRandomColor());
 
 }
 

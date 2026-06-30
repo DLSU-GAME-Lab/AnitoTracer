@@ -256,6 +256,10 @@ void MenuScreen::drawUI()
 			if (ImGui::MenuItem("Create Sponza Colliders")) {
 				TracerPhysics::GetInstance().AddSponzaColliders();
 			}
+
+			if (ImGui::MenuItem("Spawn Fountain")) {
+				TracerPhysics::GetInstance().SpawnFountain();
+			}
 			//if (ImGui::MenuItem("Playback Options", nullptr, UIManager::getInstance()->getEnabled(UINames::PLAYBACK_SCREEN)))
 			//{
 			//	UIManager::getInstance()->toggleEnabled(UINames::PLAYBACK_SCREEN);

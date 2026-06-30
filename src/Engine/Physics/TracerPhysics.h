@@ -2,6 +2,8 @@
 #include "PhysicsEngine.h"
 #include "PhysicsUtils.hpp"
 #include "../../From-GDGRAP2/GameObject.h"
+#include "../../From-GDGRAP2/ModelManager.h"
+#include "../../Assets/GameObjectFactory.hpp"
 
 #include "TracerCollisionHandlers.h"
 
@@ -32,6 +34,17 @@ struct PhysicsBodyPair
 
 class TracerPhysics {
 public:
+
+	bool m_isFountainActive = false;
+	int m_spheresLeftToSpawn = 0;
+	float m_spawnTimer = 0.0f;
+
+	const float SPAWN_INTERVAL = 0.0001f; // 0.1ms in seconds
+
+	//Manual Spawn Fountain
+	void SpawnFountain();
+	//Fountain updater
+	void UpdateFountain(float deltaTime);
 
 	//Manual adding of physics bodies for testing purposes
 	//Sponza ver
@@ -181,6 +194,9 @@ private:
 
 	// Tracking container for GameObject and BodyID pairs
 	std::vector<PhysicsBodyPair> physics_body_pairs;	///< List tracking GameObjects and their paired BodyIDs
+
+	// Persistent storage for dynamically spawned GameObjects to prevent deletion
+	std::vector<GameObject::GameObjectPtr> spawned_game_objects;	///< Stores ownership of dynamically spawned objects
 
 	bool floor_initialized = false; ///< Flag to track if default floor has been created
 	bool sponza_colliders_added = false; ///< Flag to track if Sponza colliders have been added

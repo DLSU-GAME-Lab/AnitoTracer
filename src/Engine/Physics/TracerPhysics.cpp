@@ -1,5 +1,65 @@
 #include "TracerPhysics.h"
 
+void TracerPhysics::SpawnFountain()
+{
+	std::cout << "Spawning Fountain" << std::endl;
+
+	glm::vec3 fountainPos = glm::vec3(0, -600, 0);
+
+	//string name = "SpawnedSphere_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
+
+	//auto sphere = GameObjectFactory::CreateSphere(name, 0.2f);
+
+	//// Set the position before transferring ownership
+	//sphere->setLocalPosition(fountainPos);
+	//GameObject* spherePtr = sphere.get();
+
+	////SetBodyPosition(spherePtr, fountainPos);
+	//ApplyForce(spherePtr, glm::vec3(0, 50, 0));
+	//
+	//ModelManager::getInstance()->addObject(std::move(sphere));
+
+	// Set up random generator for spray dispersion
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	// Adjust these values to make the spray wider or tighter
+	std::uniform_real_distribution<float> lateralForce(-15.0f, 15.0f);
+	std::uniform_real_distribution<float> upwardForce(45.0f, 65.0f);
+
+	// Get a base timestamp to keep string generation fast and unique
+	auto baseTime = std::chrono::system_clock::now().time_since_epoch().count();
+
+	for (int i = 0; i < 10; ++i)
+	{
+		// 1. Create unique name for each of the 100 spheres
+		std::string name = "SpawnedSphere_" + std::to_string(baseTime) + "_" + std::to_string(i);
+
+		// 2. Instantiate the sphere
+		auto sphere = GameObjectFactory::CreateSphere(name, 0.2f);
+
+		// 3. Set the initial position
+		sphere->setLocalPosition(fountainPos);
+		GameObject* spherePtr = sphere.get();
+
+		// 4. Calculate a random fountain force vector
+		float forceX = lateralForce(gen);
+		float forceY = upwardForce(gen); // Strong upward push
+		float forceZ = lateralForce(gen);
+		glm::vec3 fountainForce(forceX, forceY, forceZ);
+
+		// 5. Apply the physical force
+		ApplyForce(spherePtr, fountainForce);
+
+		// Optional: Mix in your previous random color logic if desired
+		// TracerCollisionHandlers::ChangeColor(spherePtr);
+
+		// 6. Transfer ownership to the manager
+		ModelManager::getInstance()->addObject(std::move(sphere));
+	}
+
+	std::cout << "Done Spawning Fountain" << std::endl;
+}
+
 void TracerPhysics::AddSponzaColliders()
 {
 	std::cout << "Adding Sponza colliders..." << std::endl;
@@ -257,7 +317,7 @@ void TracerPhysics::AddSphere(GameObject* obj)
 	}
 
 	auto pos = obj->getWorldPosition();
-	auto scale = obj->getWorldScale();
+	auto scale = obj->getLocalScale();
 
 	auto bodyID = PhysicsEngine::GetInstance()->CreateSphere(scale.x, pos);
 
@@ -339,9 +399,13 @@ void TracerPhysics::SyncPhysicsToGameObjects(bool broadcastDirty)
 		glm::vec3 newPosition = PhysicsUtils::ToGlmVec3(physicsPosition);
 		glm::quat newRotation = PhysicsUtils::ToGlmQuat(physicsRotation);
 
+		//Revalidate
+		if (!pair.gameObject)
+			continue;
+
 		// Update the GameObject's world position and rotation
 		// Physics engine works in world space, so set world position
-		pair.gameObject->setLocalPosition (newPosition);
+		pair.gameObject->setLocalPosition(newPosition);
 		pair.gameObject->setLocalRotationQuat(newRotation);
 	}
 
@@ -355,8 +419,15 @@ void TracerPhysics::SyncPhysicsToGameObjects(bool broadcastDirty)
 
 void TracerPhysics::AddPair(GameObject* obj, JPH::BodyID id)
 {
+	// Validate both GameObject and BodyID before adding
+	if (!obj) {
+		std::cout << "Physics Body pair fail: GameObject is null" << endl;
+		return;
+	}
+
 	if (id.IsInvalid()) {
-		std::cout << "Physics Body pair fail" << endl;
+		std::cout << "Physics Body pair fail: BodyID is invalid" << endl;
+		return;
 	}
 
 	physics_body_pairs.emplace_back(obj, id);

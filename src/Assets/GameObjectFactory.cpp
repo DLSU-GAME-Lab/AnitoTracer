@@ -74,7 +74,17 @@ GameObject::GameObjectPtr GameObjectFactory::CreateSphere(const String& name)
 
     TracerPhysics::GetInstance().AddSphere(ret.get());
 
-    
+    return ret;
+}
+
+GameObject::GameObjectPtr GameObjectFactory::CreateSphere(const String& name, float radius)
+{
+    auto modelResult = ModelLibrary::getInstance()->GetModel("SPHERE");
+    GameObject::GameObjectPtr ret = std::make_unique<GameObject>(name, GameObject::SPHERE, modelResult.modelsData[0]);
+
+    ret->setLocalScale(glm::vec3(radius));
+
+    TracerPhysics::GetInstance().AddSphere(ret.get());
 
     return ret;
 }

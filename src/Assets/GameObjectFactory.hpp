@@ -24,7 +24,10 @@ public:
 
     static GameObjectPtr CreateCube(const String& name = "Cube");
     static GameObjectPtr CreatePlane(const String& name = "Plane");
+
     static GameObjectPtr CreateSphere(const String& name = "Sphere");
+    static GameObjectPtr CreateSphere(const String& name, float radius);
+
     static GameObjectPtr CreateCylinder(const String& name = "Cylinder");
     static GameObjectPtr CreateCapsule(const String& name = "Capsule");
     static GameObjectPtr CreateCornellBox(const String& name = "Cornell_Box");

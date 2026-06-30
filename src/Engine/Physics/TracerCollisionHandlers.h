@@ -6,11 +6,17 @@
 #include "TracerPhysics.h"
 
 #include <iostream>
+#include <random>
 
 using namespace JPH;
 
 class TracerCollisionHandlers : public ContactListener {
 
+    std::random_device rd;
+    std::mt19937 gen{rd()};
+    std::uniform_real_distribution<float> dis{0.0f, 1.0f};
+
+    glm::vec4 GetRandomColor();
 
     void ChangeColor(GameObject* obj);
 
