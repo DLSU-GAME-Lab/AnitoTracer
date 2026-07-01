@@ -5,64 +5,9 @@ void TracerPhysics::SpawnFountain()
 	std::cout << "Spawning Fountain" << std::endl;
 
 	m_isFountainActive = true;
-	m_spheresLeftToSpawn = 80;
+	m_spheresLeftToSpawn = 200;
 	m_spawnTimer = 0.0f;
 	std::cout << "Fountain triggered: 10 spheres queued." << std::endl;
-
-	//glm::vec3 fountainPos = glm::vec3(0, -600, 0);
-
-	////string name = "SpawnedSphere_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
-
-	////auto sphere = GameObjectFactory::CreateSphere(name, 0.2f);
-
-	////// Set the position before transferring ownership
-	////sphere->setLocalPosition(fountainPos);
-	////GameObject* spherePtr = sphere.get();
-
-	//////SetBodyPosition(spherePtr, fountainPos);
-	////ApplyForce(spherePtr, glm::vec3(0, 50, 0));
-	////
-	////ModelManager::getInstance()->addObject(std::move(sphere));
-
-	//// Set up random generator for spray dispersion
-	//std::random_device rd;
-	//std::mt19937 gen(rd());
-	//// Adjust these values to make the spray wider or tighter
-	//std::uniform_real_distribution<float> lateralForce(-15.0f, 15.0f);
-	//std::uniform_real_distribution<float> upwardForce(45.0f, 65.0f);
-
-	//// Get a base timestamp to keep string generation fast and unique
-	//auto baseTime = std::chrono::system_clock::now().time_since_epoch().count();
-
-	//for (int i = 0; i < 10; ++i)
-	//{
-	//	// 1. Create unique name for each of the 100 spheres
-	//	std::string name = "SpawnedSphere_" + std::to_string(baseTime) + "_" + std::to_string(i);
-
-	//	// 2. Instantiate the sphere
-	//	auto sphere = GameObjectFactory::CreateSphere(name, 0.2f);
-
-	//	// 3. Set the initial position
-	//	sphere->setLocalPosition(fountainPos);
-	//	GameObject* spherePtr = sphere.get();
-
-	//	// 4. Calculate a random fountain force vector
-	//	float forceX = lateralForce(gen);
-	//	float forceY = upwardForce(gen); // Strong upward push
-	//	float forceZ = lateralForce(gen);
-	//	glm::vec3 fountainForce(forceX, forceY, forceZ);
-
-	//	// 5. Apply the physical force
-	//	ApplyForce(spherePtr, fountainForce);
-
-	//	// Optional: Mix in your previous random color logic if desired
-	//	// TracerCollisionHandlers::ChangeColor(spherePtr);
-
-	//	// 6. Transfer ownership to the manager
-	//	ModelManager::getInstance()->addObject(std::move(sphere));
-	//}
-
-	//std::cout << "Done Spawning Fountain" << std::endl;
 }
 
 void TracerPhysics::UpdateFountain(float deltaTime)
@@ -97,7 +42,7 @@ void TracerPhysics::UpdateFountain(float deltaTime)
 
 		// Instantiate
 		auto sphere = GameObjectFactory::CreateSphere(name, 0.2f);
-		sphere->setLocalPosition(fountainPos);
+		sphere->SetWorldPosition(fountainPos);
 		GameObject* spherePtr = sphere.get();
 
 		// Calculate and apply physical force

@@ -505,3 +505,8 @@ void GameObject::SetHierarchyNodeOpen(bool isOpen)
 {
 	this->isHierarchyNodeOpen = isOpen;
 }
+
+void GameObject::SetWorldPosition(vec3 newWorldPos)
+{
+	this->worldPosition = newWorldPos;
+}

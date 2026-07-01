@@ -94,6 +94,8 @@ public:
 	bool IsHierarchyNodeOpen() const;
 	void SetHierarchyNodeOpen(bool isOpen);
 
+	void SetWorldPosition(vec3 newWorldPos);
+
 protected:
     String name;
     PrimitiveType type;

@@ -39,7 +39,7 @@ public:
 	int m_spheresLeftToSpawn = 0;
 	float m_spawnTimer = 0.0f;
 
-	const float SPAWN_INTERVAL = 0.1f; // 0.1ms in seconds
+	const float SPAWN_INTERVAL = 0.3f; // 0.5s in seconds
 
 	//Manual Spawn Fountain
 	void SpawnFountain();
