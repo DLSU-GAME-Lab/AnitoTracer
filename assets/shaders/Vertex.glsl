@@ -1,4 +1,3 @@
-
 struct Vertex
 {
   vec3 Position;

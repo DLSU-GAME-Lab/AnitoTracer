@@ -25,11 +25,28 @@ namespace Assets
 		float HeatmapScale;
 		uint32_t TotalNumberOfSamples;
 		uint32_t NumberOfSamples;
+		uint32_t SamplesPerInvocation; // samples computed inside a single shader dispatch
 		uint32_t NumberOfBounces;
 		uint32_t RandomSeed;
 		uint32_t MaxRays;
 		uint32_t HasSky; // bool
 		uint32_t ShowHeatmap; // bool
+		uint32_t EnableAdaptiveSampling; // bool
+		float VarianceThreshold;
+		uint32_t MinSamples;
+		uint32_t _padFAC0;               // std140 padding: align vec3 FallbackAmbientColor to 16-byte boundary
+		uint32_t _padFAC1;               // std140 padding
+		glm::vec3 FallbackAmbientColor;  // RGB fallback ambient when IBL is disabled
+		float     Exposure;              // Scene exposure scalar applied to direct lighting before tonemapping
+
+		// UseColorIBL: when non-zero, IBLSkyColor replaces cubemap sampling in IBLAmbient.
+		// std140: uint (4 B) + 3×uint pad (12 B) → vec3 IBLSkyColor aligned to offset+16.
+		uint32_t  UseColorIBL;           // bool — use flat IBLSkyColor instead of cubemap
+		uint32_t  _padIBL0;              // std140 padding: align IBLSkyColor vec3 to 16-byte boundary
+		uint32_t  _padIBL1;              // std140 padding
+		uint32_t  _padIBL2;              // std140 padding
+		glm::vec3 IBLSkyColor;           // flat sky tint used when UseColorIBL != 0
+		float     _padIBLEnd;            // std140 padding: complete the vec4 slot
 	};
 
 	// might move to a push constant class

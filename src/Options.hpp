@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <exception>
 #include <vector>
+#include <vulkan/vulkan.h>
 
 class Options final
 {
@@ -16,8 +17,12 @@ public:
 		~Help() = default;
 	};
 
-	Options(int argc, const char* argv[]);
+	Options(int argc, const char* argv[], VkPhysicalDevice physicalDevice = VK_NULL_HANDLE);
 	~Options() = default;
+
+	/// Recalibrates sample count based on the selected physical device
+	/// Call this after device selection if you pass VK_NULL_HANDLE to the constructor
+	void RecalibrateSamplesForDevice(VkPhysicalDevice physicalDevice);
 
 	// Application options.
 	bool Benchmark{};

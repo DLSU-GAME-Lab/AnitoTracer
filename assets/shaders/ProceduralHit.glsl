@@ -1,5 +1,4 @@
-
-struct ProceduralHit
+struct ProceduralGeometry
 {
-	vec3 NormalAndObjectId
+	vec3 NormalAndObjectId;
 };

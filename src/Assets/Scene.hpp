@@ -14,6 +14,8 @@ namespace Vulkan
 	class Image;
 }
 
+class GameObject;
+
 namespace Assets
 {
 	class Model;
@@ -29,11 +31,11 @@ namespace Assets
 		Scene& operator = (const Scene&) = delete;
 		Scene& operator = (Scene&&) = delete;
 
-		Scene(Vulkan::CommandPool& commandPool, std::vector<Model>&& models, 
+		Scene(Vulkan::CommandPool& commandPool, std::vector<GameObject*>&& gameObjects,
 			std::vector<Texture>&& textures, std::vector<LightProperties>&& lights);
 		~Scene();
 
-		const std::vector<Model>& Models() const { return models_; }
+		const std::vector<GameObject*>& GameObjects() const { return gameObjects_; }
 		bool HasProcedurals() const { return static_cast<bool>(proceduralBuffer_); }
 
 		const Vulkan::Buffer& VertexBuffer() const { return *vertexBuffer_; }
@@ -41,6 +43,7 @@ namespace Assets
 		const Vulkan::Buffer& MaterialBuffer() const { return *materialBuffer_; }
 		const Vulkan::Buffer& LightBuffer() const { return *lightsBuffer_; }
 		const Vulkan::Buffer& OffsetsBuffer() const { return *offsetBuffer_; }
+		const Vulkan::Buffer& WorldMatrixBuffer() const { return *worldMatrixBuffer_; }
 		const Vulkan::Buffer& AabbBuffer() const { return *aabbBuffer_; }
 		const Vulkan::Buffer& ProceduralBuffer() const { return *proceduralBuffer_; }
 		const std::vector<VkImageView> TextureImageViews() const { return textureImageViewHandles_; }
@@ -51,11 +54,30 @@ namespace Assets
 		VkImageView SkyboxImageView() const { return skyboxImageView_; }
 		VkSampler SkyboxSampler() const { return skyboxSampler_; }
 
+		/// @brief Mark materials as needing update. The actual GPU buffer update is deferred
+		///        to FlushDeferredMaterialUpdate() to ensure it happens between frames,
+		///        NOT during command buffer recording. This prevents GPU synchronization deadlocks.
+		void MarkMaterialsDirty() { materialsDirty_ = true; }
+
+		/// @brief Perform deferred material buffer update. Call this between frames, BEFORE
+		///        command buffer recording begins. This batches all pending material changes
+		///        into a single GPU transfer, avoiding multiple vkQueueWaitIdle() calls.
+		void FlushDeferredMaterialUpdate();
+
+		/// @deprecated Use MarkMaterialsDirty() instead for thread-safe marking.
+		///             This function is kept for compatibility but should not be called during rendering.
+		void UpdateMaterialBuffer();
+
+		/// @brief CPU-side light array — used by ShadowMapPass to compute light VP matrices.
+		const std::vector<LightProperties>& Lights() const { return lights_; }
+
 	private:
 
-		const std::vector<Model> models_;
+		const std::vector<GameObject*> gameObjects_;
 		const std::vector<Texture> textures_;
 		const std::vector<LightProperties> lights_;
+
+		Vulkan::CommandPool* commandPool_{ nullptr };
 
 		std::unique_ptr<Vulkan::Buffer> vertexBuffer_;
 		std::unique_ptr<Vulkan::DeviceMemory> vertexBufferMemory_;
@@ -78,6 +100,9 @@ namespace Assets
 		std::unique_ptr<Vulkan::Buffer> lightsBuffer_;
 		std::unique_ptr<Vulkan::DeviceMemory> lightsBufferMemory_;
 
+		std::unique_ptr<Vulkan::Buffer> worldMatrixBuffer_;
+		std::unique_ptr<Vulkan::DeviceMemory> worldMatrixBufferMemory_;
+
 		std::vector<std::unique_ptr<TextureImage>> textureImages_;
 		std::vector<VkImageView> textureImageViewHandles_;
 		std::vector<VkSampler> textureSamplerHandles_;
@@ -85,6 +110,8 @@ namespace Assets
 		std::unique_ptr<TextureImage> skyboxTexture_;
 		VkImageView skyboxImageView_ = VK_NULL_HANDLE;
 		VkSampler skyboxSampler_ = VK_NULL_HANDLE;
+
+		bool materialsDirty_ = false;  // Flag to defer material updates between frames
 	};
 
 }

@@ -1,4 +1,3 @@
-
 const uint MaterialLambertian = 0;
 const uint MaterialMetallic = 1;
 const uint MaterialDielectric = 2;

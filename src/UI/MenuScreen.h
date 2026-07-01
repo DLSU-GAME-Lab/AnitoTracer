@@ -11,12 +11,13 @@ public:
 
 private:
 	virtual void drawUI() override;
+
 	void OnCreateCubeClicked();
-	void OnCreateTexturedCubeClicked();
 	void OnCreateSphereClicked();
 	void onCreateCapsuleClicked();
 	void onCreateCylinderClicked();
 	void OnCreatePlaneClicked();
+
 	void OnCreateLightClicked(Light::LightType type);
 	void OnCreateRProbe();
 	void OnCreateTProbe();
@@ -25,8 +26,11 @@ private:
 	void onCreateBunnyClicked();
 	void onCreateTeapotClicked(); 
 	void onCreateLucyClicked(); 
-	void onCreateCornellClicked();
+
 	void ShowSaveSceneAsMenu();
+	void ShowSaveLayoutAsMenu();
+	void ShowLoadLayoutAsMenu();
+	void ShowScreenshotMenu();
 
 	void ShowLoadObjMenu();
 	void OnMaterialComponentClicked();
@@ -47,6 +51,12 @@ private:
 	void OnLoadEmpty();
 	void ShowColorPickerWindow();
 
+	void OnLoadSceneByIndex(int sceneIndex);
+
+	void OnSetRendererModeLegacy();
+	void OnSetRendererModeComputeShader();
+	void OnSetRendererModeGame();
+
 	friend class UIManager;
 
 	bool isLoadObjOpen = false;
@@ -54,9 +64,14 @@ private:
 	bool isColorPickerOpen = false;
 	bool isOpen = false;
 	bool isSaveSceneAsOpen = false;
+	bool isSaveLayoutOpen = false;
+	bool isLoadLayoutOpen = false;
+	bool isScreenshotMenuOpen = false;
 
 	bool openSceneSelected = false;
 	bool isLoading = false;
+
+	char screenshotName[128] = "screenshot";
 
 	// ImGui::FileBrowser* saveSceneDialog;
 	// ImGui::FileBrowser* openSceneDialog;

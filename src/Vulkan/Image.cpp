@@ -68,6 +68,31 @@ Image::Image(const class Device& device, VkExtent2D extent, VkFormat format, VkI
 	}
 }
 
+Image::Image(const class Device& device, VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, uint32_t arrayLayers, VkImageCreateFlags createFlags, uint32_t mipLevels)
+	: device_(device), extent_(extent), format_(format), imageLayout_(VK_IMAGE_LAYOUT_UNDEFINED)
+{
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType     = VK_IMAGE_TYPE_2D;
+	imageInfo.extent.width  = extent.width;
+	imageInfo.extent.height = extent.height;
+	imageInfo.extent.depth  = 1;
+	imageInfo.mipLevels     = mipLevels;
+	imageInfo.arrayLayers   = arrayLayers;
+	imageInfo.format        = format;
+	imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageInfo.usage         = usage;
+	imageInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.flags         = createFlags;
+
+	if (vkCreateImage(device.Handle(), &imageInfo, nullptr, &image_) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create image (with mip levels).");
+	}
+}
+
 Image::Image(Image&& other) noexcept :
 	device_(other.device_),
 	extent_(other.extent_),

@@ -14,18 +14,25 @@ file(GLOB shader_files
     shaders/*.rahit 
     shaders/*.rint 
     shaders/*.rmiss
+    shaders/*.comp
+)
+# Re-run CMake configure automatically when new shader files are added/removed
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
 )
 
 file(GLOB texture_files 
 	textures/*.jpg 
 	textures/*.png 
 	textures*.PNG
+	textures/UI/Icons/*.png
 	textures/*.txt)
 
 file(GLOB shader_extra_files shaders/*.glsl)
 set_source_files_properties(${shader_extra_files} PROPERTIES HEADER_FILE_ONLY TRUE)
 
 # Shader compilation
+# Track all .glsl include files so any change to them triggers a full shader recompile
 foreach(shader ${shader_files})
 	#message("SHADER: ${shader}")
 	get_filename_component(file_name ${shader} NAME)
@@ -35,12 +42,12 @@ foreach(shader ${shader_files})
 	set(compiled_shaders ${compiled_shaders} ${output_file})
 	set(compiled_shaders ${compiled_shaders} PARENT_SCOPE)
 	set_source_files_properties(${shader} PROPERTIES HEADER_FILE_ONLY TRUE)
-        add_custom_command(
-            OUTPUT ${output_file}
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${output_dir}
-            COMMAND ${Vulkan_GLSLANG_VALIDATOR} --target-env vulkan1.2 -V ${full_path} -o ${output_file}
-            DEPENDS ${full_path}
-        )
+		add_custom_command(
+			OUTPUT ${output_file}
+			COMMAND ${CMAKE_COMMAND} -E make_directory ${output_dir}
+			COMMAND ${Vulkan_GLSLANG_VALIDATOR} --target-env vulkan1.2 -V ${full_path} -o ${output_file}
+			DEPENDS ${full_path} ${shader_extra_files}
+		)
 endforeach()
 
 macro(copy_assets asset_files dir_name copied_files)

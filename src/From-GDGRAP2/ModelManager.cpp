@@ -1,13 +1,19 @@
 #include "ModelManager.h"
 
-#include <iostream>
-#include <glm/gtx/euler_angles.hpp>
-
 #include "Debug.h"
 #include "Utilities/FileUtils.h"
-
+#include "HotkeySystem/HotkeySystem.hpp"
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
+#include "Vulkan/CommandPool.hpp"
+#include "Vulkan/BufferUtil.hpp"
+#include "Engine/CameraSystem/CameraManager.h"
+#include "Engine/CameraSystem/Camera.h"
+#include <glm/gtc/type_ptr.hpp>
 
 ModelManager* ModelManager::sharedInstance = nullptr;
+
 ModelManager* ModelManager::getInstance()
 {
 	return sharedInstance;
@@ -20,70 +26,247 @@ void ModelManager::initialize()
 
 void ModelManager::destroy()
 {
-	sharedInstance->gameObjectMap.clear();
-	sharedInstance->gameObjectList.clear();
+	sharedInstance->sceneGraph.clear();
 	sharedInstance->lightList.clear();
+
 	delete sharedInstance;
 }
 
-std::shared_ptr<GameObject> ModelManager::findObjectByName(String name)
+ModelManager::ModelManager()
 {
-	if (this->gameObjectMap[name] != nullptr) {
-		return this->gameObjectMap[name];
-	}
-	else {
-		return nullptr;
-	}
+	HotkeySystem::getInstance()->addListener(this);
 }
 
-std::shared_ptr<Light> ModelManager::findLightObjectByName(String name)
+ModelManager::~ModelManager()
 {
-	if (this->lightTable[name] != nullptr) {
-		return this->lightTable[name];
-	}
-	else {
-		return nullptr;
-	}
+	HotkeySystem::getInstance()->removeListener(this);
 }
 
-ModelManager::List ModelManager::getAllObjects() const
+std::vector<GameObject*> ModelManager::getObjectList() const
 {
-	ModelManager::List objectList;
-	for (int i = 0; i < this->gameObjectList.size(); i++)
-	{
-		objectList.push_back(this->gameObjectList[i]);
-	}
+	std::vector<GameObject*> objectList;
 
-	for (int i = 0; i < this->objectGroupList.size(); i++)
+	for (const auto& gameObject : this->sceneGraph)
 	{
-		objectList.push_back(this->objectGroupList[i]);
+		if (gameObject->getModel() != nullptr)
+		{
+			objectList.push_back(gameObject.get());
+		}
+
+		auto descendants = gameObject->getChildrenRecursive();
+
+		for (auto* child : descendants)
+		{
+			if (child->getModel() != nullptr)
+			{
+				objectList.push_back(child);
+			}
+		}
 	}
 
 	return objectList;
 }
 
-/**
- * \brief Returns associated model representations of objects added.
- * \return
- */
-ModelManager::ModelList ModelManager::getAllObjectModels() const
+std::vector<GameObject*> ModelManager::getAllActiveObjects() const
 {
-	ModelList models;
-	for (int i = 0; i < this->gameObjectList.size(); i++)
-	{
-		if (this->gameObjectList[i]->getModel())
-			models.push_back(*this->gameObjectList[i]->getModel());
-	}
+	std::vector<GameObject*> objectList;
 
-	for (int i = 0; i < this->objectGroupList.size(); i++)
+	for (const auto& gameObject : this->sceneGraph)
 	{
-		for (int j = 0; j < this->objectGroupList[i]->getSize(); j++)
+		if (!gameObject->isActive()) continue;
+
+		objectList.push_back(gameObject.get());
+
+		auto descendants = gameObject->getChildrenRecursive();
+
+		for(auto descendant : descendants)
 		{
-			models.push_back(*this->objectGroupList[i]->getModelAt(j));
+			if (descendant->isActive())
+				objectList.push_back(descendant);
 		}
 	}
 
-	return models;
+	return objectList;
+}
+
+std::vector<GameObject*> ModelManager::getSceneGraph() const
+{
+	std::vector<GameObject*> objectList;
+
+	for (const auto& gameObject : this->sceneGraph)
+	{
+		objectList.push_back(gameObject.get());
+	}
+
+	return objectList;
+}
+
+int ModelManager::activeObjectsCount() const
+{
+	auto activeObjects = this->getAllActiveObjects();
+
+	return static_cast<int>(activeObjects.size());
+}
+
+void ModelManager::addObject(ModelManager::GameObjectPtr gameObject)
+{
+	std::string message = "Added game object to root: " + gameObject->getName();
+	Debug::Log(message);
+
+	this->sceneGraph.push_back(std::move(gameObject));
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void ModelManager::addObjectAtIndex(GameObjectPtr gameObject, int index)
+{
+	// Clamp index to valid range [0, sceneGraph.size()]
+	size_t idx = 0;
+	if (index > 0)
+		idx = static_cast<size_t>(index);
+	if (idx > this->sceneGraph.size()) idx = this->sceneGraph.size();
+
+	std::string message = "Added game object to root: " + gameObject->getName() + " at index " + std::to_string(idx);
+	Debug::Log(message);
+
+	this->sceneGraph.insert(this->sceneGraph.begin() + idx, std::move(gameObject));
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void ModelManager::registerIfLight(GameObject* obj)
+{
+	if (auto* light = dynamic_cast<Light*>(obj))
+		lightList.push_back(light);
+}
+
+void ModelManager::unregisterIfLight(GameObject* obj)
+{
+	if (auto* light = dynamic_cast<Light*>(obj))
+	{
+		auto it = std::remove(lightList.begin(), lightList.end(), light);
+		lightList.erase(it, lightList.end());
+	}
+}
+
+void ModelManager::registerSubtree(GameObject* root)
+{
+	if (!root) return;
+	registerIfLight(root);
+	for (auto& ch : root->children)
+		registerSubtree(ch.get());
+}
+
+void ModelManager::unregisterSubtree(GameObject* root)
+{
+	if (!root) return;
+	unregisterIfLight(root);
+	for (auto& ch : root->children)
+		unregisterSubtree(ch.get());
+}
+
+std::unique_ptr<GameObject> ModelManager::removeObject(GameObject* target)
+{
+	if (!target) return nullptr;
+
+	for (auto it = sceneGraph.begin(); it != sceneGraph.end(); ++it)
+	{
+		if (it->get() == target)
+		{
+			auto removed = std::move(*it);
+			sceneGraph.erase(it);
+
+			unregisterSubtree(removed.get());
+			return removed;
+		}
+
+		if (auto removed = removeInSubtree(it->get(), target))
+		{
+			unregisterSubtree(removed.get());
+			return removed;
+		}
+	}
+
+	return nullptr;
+}
+
+
+ModelManager::GameObjectPtr ModelManager::removeInSubtree(GameObject* parent, GameObject* target)
+{
+	for (auto it = parent->children.begin(); it != parent->children.end(); it++)
+	{
+		if (it->get() == target)
+		{
+			std::unique_ptr<GameObject> removed = std::move(*it);
+			parent->children.erase(it);
+			return removed;
+		}
+
+		std::unique_ptr<GameObject> result = removeInSubtree(it->get(), target);
+		if (result)	return result;
+	}
+
+	return nullptr;
+}
+
+ModelManager::GameObjectPtr ModelManager::createCopyOfObject(GameObject* original)
+{
+	auto copy = original->Clone();
+	return copy;
+}
+
+void ModelManager::addLightObject(LightPtr lightObj)
+{
+	std::string message = "Added light to root: " + lightObj->getName();
+	Debug::Log(message);
+
+	this->lightList.push_back(lightObj.get());
+	this->sceneGraph.push_back(std::move(lightObj));
+}
+
+ModelManager::LightPtr ModelManager::removeLightObject(Light* light)
+{
+	if (!light) return nullptr;
+
+	// Remove raw pointer from lightList if present
+	auto itLight = std::find(this->lightList.begin(), this->lightList.end(), light);
+	if (itLight != this->lightList.end())
+	{
+		this->lightList.erase(itLight);
+	}
+
+	// Find the owning unique_ptr in sceneGraph
+	auto it = std::find_if(this->sceneGraph.begin(), this->sceneGraph.end(),
+		[light](const GameObjectPtr& obj)
+		{
+			return obj.get() == light;
+		});
+
+	if (it == this->sceneGraph.end()) return nullptr;
+
+	// Ensure the object is a Light, then extract and return a unique_ptr<Light>
+	if (dynamic_cast<Light*>(it->get()) == nullptr) return nullptr;
+
+	GameObjectPtr ownedObj = std::move(*it);
+	this->sceneGraph.erase(it);
+
+	// Transfer ownership from unique_ptr<GameObject> to unique_ptr<Light>
+	LightPtr result(static_cast<Light*>(ownedObj.release()));
+	return result;
+}
+
+void ModelManager::setSelectedObject(GameObject* gameObject)
+{
+	this->selectedObject = gameObject;
+}
+
+GameObject* ModelManager::getSelectedObject()
+{
+	return this->selectedObject;
+}
+
+void ModelManager::clearAllObjects()
+{
+	this->sceneGraph.clear();
+	this->lightList.clear();
 }
 
 ModelManager::LightPropsList ModelManager::getAllLightProperties() const
@@ -98,64 +281,22 @@ ModelManager::LightPropsList ModelManager::getAllLightProperties() const
 	return lights;
 }
 
-int ModelManager::activeObjects() const
+int ModelManager::getObjectIndex(GameObject* gameObject) const
 {
-	return this->gameObjectList.size();
+	if(gameObject == nullptr) return -1;
+
+	for (size_t i = 0; i < this->sceneGraph.size(); i++)
+	{
+		if (this->sceneGraph[i].get() == gameObject)
+			return static_cast<int>(i);
+	}
+
+	return -1;
 }
 
-std::shared_ptr<GameObject> ModelManager::getLastObject()
+int ModelManager::getSceneGraphRootSize() const
 {
-	return this->gameObjectList[this->activeObjects() - 1];
-}
-
-void ModelManager::addLightObject(std::shared_ptr<Light> lightObj)
-{
-	this->lightList.push_back(lightObj);
-	this->lightTable[lightObj->getName()] = lightObj;
-
-	this->addObject(lightObj);
-}
-
-void ModelManager::addObject(std::shared_ptr<GameObject> gameObject)
-{
-	if (this->gameObjectMap[gameObject->getName()] != nullptr) {
-		int count = 1;
-		String revisedString = gameObject->getName() + " " + "(" + std::to_string(count) + ")";
-		while (this->gameObjectMap[revisedString] != nullptr) {
-			count++;
-			revisedString = gameObject->getName() + " " + "(" + std::to_string(count) + ")";
-		}
-		gameObject->name = revisedString;
-		this->gameObjectMap[revisedString] = gameObject;
-	}
-	else {
-		this->gameObjectMap[gameObject->getName()] = gameObject;
-	}
-	this->gameObjectList.push_back(gameObject);
-
-	std::string message = "Added game object in manager: " + gameObject->getName();
-	Debug::Log(message);
-}
-
-void ModelManager::addObject(std::shared_ptr<ObjectGroup> objectGroup)
-{
-	if (this->gameObjectMap[objectGroup->getName()] != nullptr) {
-		int count = 1;
-		String revisedString = objectGroup->getName() + " " + "(" + std::to_string(count) + ")";
-		while (this->gameObjectMap[revisedString] != nullptr) {
-			count++;
-			revisedString = objectGroup->getName() + " " + "(" + std::to_string(count) + ")";
-		}
-		objectGroup->name = revisedString;
-		this->gameObjectMap[revisedString] = objectGroup;
-	}
-	else {
-		this->gameObjectMap[objectGroup->getName()] = objectGroup;
-	}
-	this->objectGroupList.push_back(objectGroup);
-
-	std::string message = "Added object group in manager: " + objectGroup->getName();
-	Debug::Log(message);
+	return this->sceneGraph.size();
 }
 
 void ModelManager::createObject(GameObject::PrimitiveType type)
@@ -166,8 +307,8 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 	case GameObject::CUBE:
 	{
 		Assets::Model cubeModel = Assets::Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		std::shared_ptr<GameObject> cube = std::make_shared<GameObject>("Cube", GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(cubeModel));
-		addObject(cube);
+		std::unique_ptr<GameObject> cube = std::make_unique<GameObject>("Cube", GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(cubeModel));
+		addObject(std::move(cube));
 
 		break;
 	}
@@ -178,49 +319,49 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 	case GameObject::SPHERE:
 	{
 		Assets::Model sphereModel = Assets::Model::CreateSphere(vec3(0), 50, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)), false);
-		std::shared_ptr<GameObject> sphere = std::make_shared<GameObject>("Sphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(sphereModel));
-		addObject(sphere);
+		std::unique_ptr<GameObject> sphere = std::make_unique<GameObject>("Sphere", GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(sphereModel));
+		addObject(std::move(sphere));
 	}
 	break;
 	case GameObject::PLANE:
 	{
 		Assets::Model planeModel = Assets::Model::CreatePlane(vec3(0, 0, -100), vec3(100, -100, 0), *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		std::shared_ptr<GameObject> plane = std::make_shared<GameObject>("Plane", GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(planeModel));
-		addObject(plane);
+		std::unique_ptr<GameObject> plane = std::make_unique<GameObject>("Plane", GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(planeModel));
+		addObject(std::move(plane));
 	}
 	break;
 	case GameObject::CYLINDER:
 	{
 		Assets::Model cylinderModel = Assets::Model::CreateCylinder(25, 50, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		std::shared_ptr<GameObject> cylinder = std::make_shared<GameObject>("Cylinder", GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(cylinderModel));
-		addObject(cylinder);
+		std::unique_ptr<GameObject> cylinder = std::make_unique<GameObject>("Cylinder", GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(cylinderModel));
+		addObject(std::move(cylinder));
 
 	}
 	break;
 	case GameObject::CAPSULE:
 	{
 		Assets::Model capsuleModel = Assets::Model::CreateCapsule(25, 100, *Assets::Material::Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-		std::shared_ptr<GameObject> capsule = std::make_shared<GameObject>("Capsule", GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(capsuleModel));
-		addObject(capsule);
+		std::unique_ptr<GameObject> capsule = std::make_unique<GameObject>("Capsule", GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(capsuleModel));
+		addObject(std::move(capsule));
 	}
 		break;
 	case GameObject::POINT_LIGHT:
 	{
-		std::shared_ptr<Light> pl = std::make_shared<Light>("Light Source", Light::LightType::PointLight);
-		addLightObject(pl);
+		std::unique_ptr<Light> pl = std::make_unique<Light>("Light Source", Light::LightType::PointLight);
+		addLightObject(std::move(pl));
 	}
 	break;
 	case GameObject::DIRECTIONAL_LIGHT:
 	{
-		std::shared_ptr<Light> dl = std::make_shared<Light>("Light Source", Light::LightType::DirectionalLight);
-		dl->setLocalRotation(-180, 0, 0);
-		addLightObject(dl);
+		std::unique_ptr<Light> dl = std::make_unique<Light>("Light Source", Light::LightType::DirectionalLight);
+		dl->setLocalRotationEuler(-180, 0, 0);
+		addLightObject(std::move(dl));
 	}
 	break;
 	case GameObject::SPOT_LIGHT:
 	{
-		std::shared_ptr<Light> sl = std::make_shared<Light>("Light Source", Light::LightType::SpotLight);
-		addLightObject(sl);
+		std::unique_ptr<Light> sl = std::make_unique<Light>("Light Source", Light::LightType::SpotLight);
+		addLightObject(std::move(sl));
 	}
 		break;
 	case GameObject::NONE:
@@ -231,43 +372,43 @@ void ModelManager::createObject(GameObject::PrimitiveType type)
 void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position, vec3 rotation,
 	vec3 scale, std::vector<Assets::Material> mats)
 {
-	std::shared_ptr<GameObject> obj = nullptr;
+	std::unique_ptr<GameObject> obj = nullptr;
 
 	switch (type) {
 		case GameObject::CUBE:
 		{
 			Assets::Model cubeModel = Assets::Model::CreateBox(vec3(0, 0, -50), vec3(50, 50, 0), mats[0]);
-			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(cubeModel));
+			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(cubeModel));
 			break;
 		}
 		case GameObject::SPHERE:
 		{
 			Assets::Model sphereModel = Assets::Model::CreateSphere(vec3(0), 50, mats[0], false);
-			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(sphereModel));
+			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::SPHERE, std::make_shared<Assets::Model>(sphereModel));
 			break;
 		}
 		case GameObject::PLANE:
 		{
 			Assets::Model planeModel = Assets::Model::CreatePlane(vec3(0, 0, -100), vec3(100, -100, 0), mats[0]);
-			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(planeModel));
+			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::PLANE, std::make_shared<Assets::Model>(planeModel));
 			break;
 		}
 		case GameObject::CYLINDER:
 		{
 			Assets::Model cylinderModel = Assets::Model::CreateCylinder(25, 50, mats[0]);
-			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(cylinderModel));
+			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::CYLINDER, std::make_shared<Assets::Model>(cylinderModel));
 			break;
 		}
 		case GameObject::CAPSULE:
 		{
 			Assets::Model capsuleModel = Assets::Model::CreateCapsule(25, 100, mats[0]);
-			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(capsuleModel));
+			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::CAPSULE, std::make_shared<Assets::Model>(capsuleModel));
 			break;
 		}
 		case GameObject::CORNELL_BOX:
 		{
 			Assets::Model cornellBoxModel = Assets::Model::CreateCornellBox(555);
-			obj = std::make_shared<GameObject>(name, GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Assets::Model>(cornellBoxModel));
+			obj = std::make_unique<GameObject>(name, GameObject::PrimitiveType::CORNELL_BOX, std::make_shared<Assets::Model>(cornellBoxModel));
 			break;
 		}
 
@@ -276,35 +417,35 @@ void ModelManager::createPrimitiveFromScene(String name, GameObject::PrimitiveTy
 
 	if (obj)
 	{
-		addObject(obj);
 		obj->setLocalPosition(position);
-		obj->setLocalRotation(rotation);
+		obj->setLocalRotationEuler(rotation);
 		obj->setLocalScale(scale);
-		obj->setEnabled(active);
+		obj->setActive(active);
+		addObject(std::move(obj));
 	}
 }
 
 void ModelManager::createLightFromScene(String name, GameObject::PrimitiveType type, bool active, vec3 position,
 	vec3 rotation, vec3 scale, std::vector<Assets::Material> mats, Assets::LightProperties props)
 {
-	std::shared_ptr<Light> light = nullptr;
+	std::unique_ptr<Light> light = nullptr;
 
 	switch (type) {
 		case GameObject::POINT_LIGHT:
 		{
-			light = std::make_shared<Light>(name.c_str(), Light::LightType::PointLight, 
+			light = std::make_unique<Light>(name.c_str(), Light::LightType::PointLight,
 											position, props.AmbientColor, props.LightColor);
 			break;
 		}
 		case GameObject::DIRECTIONAL_LIGHT:
 		{
-			light = std::make_shared<Light>(name.c_str(), Light::LightType::DirectionalLight,
+			light = std::make_unique<Light>(name.c_str(), Light::LightType::DirectionalLight,
 											position, props.AmbientColor, props.LightColor);
 			break;
 		}
 		case GameObject::SPOT_LIGHT:
 		{
-			light = std::make_shared<Light>(name.c_str(), Light::LightType::SpotLight,
+			light = std::make_unique<Light>(name.c_str(), Light::LightType::SpotLight,
 											position, props.AmbientColor, props.LightColor);
 			break;
 		}
@@ -315,10 +456,10 @@ void ModelManager::createLightFromScene(String name, GameObject::PrimitiveType t
 	{
 		light->setName(name);
 		light->setLocalPosition(position);
-		light->setLocalRotation(rotation);
+		light->setLocalRotationEuler(rotation);
 		light->setLocalScale(scale);
-		light->setEnabled(active);
-		addLightObject(light);
+		light->setActive(active);
+		addLightObject(std::move(light));
 	}
 }
 
@@ -340,123 +481,238 @@ void ModelManager::createObjectFromFile(String name, GameObject::PrimitiveType t
 	}
 
 	auto model = Assets::Model::LoadModel(meshFilePath);
-	std::shared_ptr<GameObject> gameObject = std::make_shared<GameObject>(name, type, std::make_shared<Assets::Model>(model));
+	std::unique_ptr<GameObject> gameObject = std::make_unique<GameObject>(name, type, std::make_shared<Assets::Model>(model));
 	gameObject->setLocalPosition(position);
-	gameObject->setLocalRotation(rotation);
+	gameObject->setLocalRotationEuler(rotation);
 	gameObject->setLocalScale(scale);
-	addObject(gameObject);
+	addObject(std::move(gameObject));
 }
 
-void ModelManager::createObjectGroupFromFile(String name, GameObject::PrimitiveType type, vec3 position, vec3 rotation, vec3 scale)
+void ModelManager::OnActionPressed(Hotkey::Action action)
 {
-	std::string meshFilePath;
-	std::string fileName;
+	/* paste only needs valid copied object */
+	if (action == Hotkey::Action::GameObject_Paste)	PasteObject();
 
-	if (!FileUtils::getModelFilePath(meshFilePath, fileName))
+	if (!this->selectedObject) return; // all actions involve selected object
+
+	if (action == Hotkey::Action::GameObject_ToggleActive)
 	{
-		Debug::Log("Cancelled loading OBJ from path: " + meshFilePath);
+		auto currentState = this->selectedObject->isActive();
 
-		return;
+		CommandManager::getInstance()->executeCommand(
+			new AlterTransformCommand(
+				this->selectedObject,
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->setActive(std::get<bool>(v)); },
+				currentState,
+				!currentState
+			));
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 
-	if (!meshFilePath.empty()) {
-		Debug::Log("Loading OBJ from path: " + meshFilePath);
-	}
+	if (action == Hotkey::Action::GameObject_Delete)	DeleteSelectedObject();
+	if (action == Hotkey::Action::GameObject_Duplicate)	DuplicateSelectedObject();
+	if (action == Hotkey::Action::GameObject_Copy)		CopySelectedObject();
+	if (action == Hotkey::Action::GameObject_Cut)		CutSelectedObject();
 
-	// load all models of the group into a list
-	std::vector<Assets::Model> models = Assets::Model::LoadModelGroup(meshFilePath);
-	
-	//create a game object for each model
-	for (int i = 0; i < models.size(); i++) 
+	if (action == Hotkey::Action::GameObject_SetAsFirstSibling)
 	{
-		std::shared_ptr<GameObject> gameObject = std::make_shared<GameObject>(name + "_1", type, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(position);
-		gameObject->setLocalRotation(rotation);
-		gameObject->setLocalScale(scale);
-		addObject(gameObject);
+		auto parent = this->selectedObject->getParent();
+
+		CommandManager::getInstance()->executeCommand(
+			new ReparentCommand(
+				this->selectedObject,
+				parent,
+				parent ? parent->getChildIndex(this->selectedObject) : this->getObjectIndex(this->selectedObject),
+				parent,
+				0
+			)
+		);
 	}
 
-}
-
-void ModelManager::createSponza()
-{
-	std::vector<Assets::Model> models = Assets::Model::LoadModelGroup(FileUtils::getAssetsFolderPath().generic_string() + "/models/sponza.obj");
-
-	//create a game object for each model
-	for (int i = 0; i < models.size(); i++)
+	if (action == Hotkey::Action::GameObject_SetAsLastSibling)
 	{
-		std::shared_ptr<GameObject> gameObject = std::make_shared<GameObject>("Sponza " + i, GameObject::PrimitiveType::CUBE, std::make_shared<Assets::Model>(models[i]));
-		gameObject->setLocalPosition(0,0,0);
-		gameObject->setLocalRotation(0,0,0);
-		gameObject->setLocalScale(1,1,1);
-		addObject(gameObject);
-	}
-}
+		auto parent = this->selectedObject->getParent();
 
-void ModelManager::deleteObject(std::shared_ptr<GameObject> gameObject)
-{
-	if (gameObject->getType() == GameObject::POINT_LIGHT || gameObject->getType() == GameObject::DIRECTIONAL_LIGHT || gameObject->getType() == GameObject::SPOT_LIGHT)
-		this->lightTable.erase(gameObject->getName());
-
-	this->gameObjectMap.erase(gameObject->getName());
-
-	int index = -1;
-	for (int i = 0; i < this->gameObjectList.size(); i++) {
-		if (this->gameObjectList[i] == gameObject) {
-			index = i;
-			break;
-		}
+		CommandManager::getInstance()->executeCommand(
+			new ReparentCommand(
+				this->selectedObject,
+				parent,
+				parent ? parent->getChildIndex(this->selectedObject) : this->getObjectIndex(this->selectedObject),
+				parent,
+				parent ? parent->getChildren().size() : this->getSceneGraphRootSize()
+			)
+		);
 	}
 
-	if (index != -1) {
-		this->gameObjectList.erase(this->gameObjectList.begin() + index);
-	}
-
-	index = -1;
-	for (int i = 0; i < this->lightList.size(); i++) {
-		if (this->lightList[i] == gameObject) {
-			index = i;
-			break;
-		}
-	}
-
-	if (index != -1) {
-		this->lightList.erase(this->lightList.begin() + index);
-	}
-}
-
-void ModelManager::deleteObjectByName(String name)
-{
-	std::shared_ptr<GameObject> object = this->findObjectByName(name);
-
-	if (object != nullptr)
+	if (action == Hotkey::Action::GameObject_TogglePickabilityWithDescendants)
 	{
-		this->deleteObject(object);
+		auto currentState = this->selectedObject->isPickable();
+
+		CommandManager::getInstance()->executeCommand(
+			new AlterTransformCommand(
+				this->selectedObject,
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->setPickable(std::get<bool>(v)); },
+				currentState,
+				!currentState
+			));
+	}
+
+	if (action == Hotkey::Action::GameObject_ToggleVisibilityWithDescendants)
+	{
+		auto currentState = this->selectedObject->isVisible();
+
+		CommandManager::getInstance()->executeCommand(
+			new AlterTransformCommand(
+				this->selectedObject,
+				[](GameObject* g, AlterTransformCommand::Variant v) { g->setVisible(std::get<bool>(v)); },
+				currentState,
+				!currentState
+			));
+
+		EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
 	}
 }
 
-void ModelManager::setSelectedObject(String name)
+void ModelManager::CutSelectedObject()
 {
-	if (this->gameObjectMap[name] != nullptr) {
-		this->setSelectedObject(this->gameObjectMap[name]);
+	this->copiedObject = ModelManager::getInstance()->createCopyOfObject(this->selectedObject);
+	CommandManager::getInstance()->executeCommand(
+		new DeleteObjectCommand(this->selectedObject)
+	);
+	this->selectedObject = nullptr;
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void ModelManager::CopySelectedObject()
+{
+	this->copiedObject = ModelManager::getInstance()->createCopyOfObject(this->selectedObject);
+}
+
+void ModelManager::DuplicateSelectedObject()
+{
+	auto duplicate = ModelManager::getInstance()->createCopyOfObject(this->selectedObject);
+
+	glm::vec3 offset = { 10.0f, 10.0f, 10.0 }; //offset spawn
+	duplicate->setLocalPosition(this->selectedObject->getLocalPosition() + offset);
+
+	CommandManager::getInstance()->executeCommand(
+		new AddObjectCommand(std::move(duplicate))
+	);
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void ModelManager::DeleteSelectedObject()
+{
+	CommandManager::getInstance()->executeCommand(
+		new DeleteObjectCommand(this->selectedObject)
+	);
+	this->selectedObject = nullptr;
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); //AnitoTracer Specific
+}
+
+GameObject* ModelManager::findObjectByID(uint32_t id) const
+{
+	auto it = this->tlasInstanceMap.find(id);
+
+	return (it != this->tlasInstanceMap.end()) ? it->second.obj : nullptr;
+}
+
+/* Where the object is spawned needs to be decided  (world origin vs infront of camera vs beside copy) */
+void ModelManager::PasteObject()
+{
+	if (!this->copiedObject) return;
+	       
+	auto sceneCamera = CameraManager::getInstance()->getActiveCamera();
+
+	glm::vec3 offset = { 10.0f, 10.0f, 10.0 }; //offset spawn
+	this->copiedObject->setLocalPosition(this->selectedObject->getLocalPosition() + offset);
+
+	CommandManager::getInstance()->executeCommand(
+		new AddObjectCommand(std::move(this->copiedObject))
+	);
+
+	this->copiedObject = nullptr;
+
+	EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY);
+}
+
+void ModelManager::ClearTLASInstances()
+{
+	this->tlasInstanceMap.clear();
+}
+
+void ModelManager::RegisterTLASInstance(uint32_t objectId, GameObject* obj, VkAccelerationStructureInstanceKHR instance)
+{
+	InstancePair pair{
+		obj,
+		instance
+	};
+
+	auto it = this->tlasInstanceMap.find(objectId);
+
+	if (it != this->tlasInstanceMap.end())
+	{
+		Debug::Log("Warning: TLAS Instance for GameObject with ID " + std::to_string(objectId) + " is already registered in ModelManager TLAS map. Overwriting");
 	}
+
+	this->tlasInstanceMap[objectId] = pair;
 }
 
-void ModelManager::setSelectedObject(std::shared_ptr<GameObject> gameObject)
+std::vector<VkAccelerationStructureInstanceKHR> ModelManager::GetTLASInstances(Vulkan::CommandPool& commandPool)
 {
-	this->selectedObject = gameObject;
+	//std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
+	//this->dirtyInstanceIds.clear();
+	//tlasInstances.reserve(this->tlasInstanceMap.size());
+
+	//for (const auto& [id, pair] : this->tlasInstanceMap)
+	//{
+	//	VkAccelerationStructureInstanceKHR updatedInstance = pair.instance;
+	//	if (pair.obj->wasDirty())
+	//	{
+	//		dirtyInstanceIds.push_back(id);
+	//		const glm::mat4& worldMat = pair.obj->getWorldMatrix();
+	//		pair.obj->clearDirtyFlag();
+
+	//		// Direct memory copy of transposed matrix
+	//		float* dst = &updatedInstance.transform.matrix[0][0];
+	//		const float* src = glm::value_ptr(worldMat);
+
+	//		// Manual transpose during copy
+	//		for (int col = 0; col < 3; ++col) {
+	//			for (int row = 0; row < 4; ++row) {
+	//				dst[col * 4 + row] = src[row * 4 + col];
+	//			}
+	//		}
+	//	}
+	//	tlasInstances.push_back(updatedInstance);
+	//}
+
+	//std::vector<uint32_t> dirtyBufferData;
+	//dirtyBufferData.reserve(dirtyInstanceIds.size() + 1);
+	//dirtyBufferData.push_back(static_cast<uint32_t>(dirtyInstanceIds.size()));
+	//dirtyBufferData.insert(dirtyBufferData.end(),
+	//	dirtyInstanceIds.begin(),
+	//	dirtyInstanceIds.end());
+
+	//std::vector<uint32_t> dirtyCountData = { static_cast<uint32_t>(dirtyInstanceIds.size()) };
+
+	//Vulkan::BufferUtil::UpdateDeviceBuffer(
+	//	commandPool,
+	//	dirtyBufferData,
+	//	this->dirtyInstancesBuffer
+	//);
+
+	return std::vector<VkAccelerationStructureInstanceKHR>{};
 }
 
-std::shared_ptr<GameObject> ModelManager::getSelectedObject()
+VkBuffer ModelManager::GetDirtyInstancesBuffer() const
 {
-	return this->selectedObject;
+	return dirtyInstancesBuffer->Handle();
 }
 
-void ModelManager::clearAllObjects()
-{
-	this->gameObjectList.clear();
-	this->gameObjectMap.clear();
-	this->objectGroupList.clear();
-	this->lightList.clear();
-	this->lightTable.clear();
-}
+
+
+

@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "Utilities/Glm.hpp"
+#include "From-GDGRAP2/EventBroadcaster.h"
 
 namespace Assets
 {
@@ -63,8 +64,30 @@ namespace Assets
 
 		// Which material are we dealing with
 		Enum MaterialModel;
+		
+		void SetAlbedoColor(glm::vec4 color) 
+		{ 
+			this->Diffuse = color; 
 
-		//const char* Name = "Material";
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MATERIAL_UPDATED);
+		}
+
+		void SetAlbedoTexture(int textureId)
+		{
+			this->DiffuseTextureId = textureId;
+			// Texture swaps don't require expensive AS rebuild — just update descriptor sets
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MATERIAL_UPDATED);
+		}
+
+		void SetFuzziness(float value)
+		{
+			this->Fuzziness = value;
+		}
+
+		void SetRefractionIndex(float value)
+		{
+			this->RefractionIndex = value;
+		}
 	};
 
 }

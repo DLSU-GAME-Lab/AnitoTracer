@@ -6,8 +6,11 @@
 #include "UserSettings.hpp"
 
 #include "From-GDGRAP2/Debug.h"
+#include "From-GDGRAP2/EventBroadcaster.h"
+#include "From-GDGRAP2/EventNames.h"
 #include "Vulkan/BufferUtil.hpp"
 #include "Vulkan/SingleTimeCommands.hpp"
+#include <iostream>
 
 using namespace glm;
 namespace Assets {
@@ -47,10 +50,11 @@ namespace Assets {
 	void RayScene::Update(Vulkan::CommandPool& commandPool)
 	{
 		uint32_t numRays = GetRayCounter(commandPool);
-	
+
 		if (numRays == maxRays_ && rays_.size() != maxRays_ && !hasRenderedRays_)
 		{
-			// Hard coded amount :>
+			// Broadcast RAYS_START_RENDER event
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::RAYS_START_RENDER);
 			const auto contentSize = sizeof(RayVertex) * 512;
 	
 			auto stagingBuffer = std::make_unique<Vulkan::Buffer>(commandPool.Device(), contentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
@@ -91,27 +95,35 @@ namespace Assets {
 				rays_.push_back(new Ray(commandPool, vertices));
 			}
 			hasRenderedRays_ = true;
-	
+
+			std::cout << "Rays rendered desu " << std::endl;
+
 			delete[] rayInfos;
+
+			// Broadcast RAYS_END_RENDER event
+			EventBroadcaster::getInstance()->broadcastEvent(EventNames::RAYS_END_RENDER);
 		}
 	}
 
 	uint32_t RayScene::GetRayCounter(Vulkan::CommandPool& commandPool)
 	{
+		// Wait for device to complete all pending operations before reading counter
+		vkDeviceWaitIdle(commandPool.Device().Handle());
+
 		const auto contentSize = sizeof(uint32_t);
-	
+
 		auto stagingBuffer = std::make_unique<Vulkan::Buffer>(commandPool.Device(), contentSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 		auto stagingBufferMemory = stagingBuffer->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	
+
 		stagingBuffer->CopyFrom(commandPool, *rayCounterBuffer_, contentSize);
-	
+
 		uint32_t numRays;
 		const auto data = stagingBufferMemory.Map(0, contentSize);
 		std::memcpy(&numRays, data, contentSize);
 		stagingBufferMemory.Unmap();
-	
+
 		stagingBuffer.reset();
-	
+
 		return numRays;
 	}
 }

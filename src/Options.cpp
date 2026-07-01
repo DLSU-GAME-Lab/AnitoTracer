@@ -1,13 +1,14 @@
 #include "Options.hpp"
 #include "SceneList.hpp"
 #include "Utilities/Exception.hpp"
+#include "Utilities/HardwareCheck.hpp"
 #include <boost/program_options.hpp>
 #include <iostream>
 #include "From-GDGRAP2/RTConfig.h"
 
 using namespace boost::program_options;
 
-Options::Options(const int argc, const char* argv[])
+Options::Options(const int argc, const char* argv[], VkPhysicalDevice physicalDevice)
 {
 	const int lineLength = 120;
 	
@@ -19,7 +20,11 @@ Options::Options(const int argc, const char* argv[])
 
 	options_description renderer("Renderer options", lineLength);
 	renderer.add_options()
-		("samples", value<uint32_t>(&Samples)->default_value(2), "The number of ray samples per pixel.")
+		("samples", value<uint32_t>(&Samples)->default_value(
+			physicalDevice != VK_NULL_HANDLE 
+				? HardwareCheck::GetRecommendedSampleCount(physicalDevice)
+				: 2),
+			"The number of ray samples per pixel.")
 		("bounces", value<uint32_t>(&Bounces)->default_value(4), "The maximum number of bounces per ray.")
 		("max-samples", value<uint32_t>(&MaxSamples)->default_value(2048 * 64), "The maximum number of accumulated ray samples per pixel.")
 		;
@@ -73,6 +78,14 @@ Options::Options(const int argc, const char* argv[])
 	if (PresentMode > 3)
 	{
 		Throw(std::out_of_range("invalid present mode"));
+	}
+}
+
+void Options::RecalibrateSamplesForDevice(VkPhysicalDevice physicalDevice)
+{
+	if (physicalDevice != VK_NULL_HANDLE)
+	{
+		Samples = HardwareCheck::GetRecommendedSampleCount(physicalDevice);
 	}
 }
 

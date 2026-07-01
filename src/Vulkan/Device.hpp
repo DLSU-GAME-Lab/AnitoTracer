@@ -17,7 +17,7 @@ namespace Vulkan
 		Device(
 			VkPhysicalDevice physicalDevice, 
 			const Surface& surface, 
-			const std::vector<const char*>& requiredExtensionsconst,
+			const std::vector<const char*>& requiredExtensions,
 			const VkPhysicalDeviceFeatures& deviceFeatures,
 			const void* nextDeviceFeatures);
 		bool IsMemoryBudgetSupported(VkPhysicalDevice physicalDevice);

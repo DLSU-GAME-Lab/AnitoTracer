@@ -1,9 +1,10 @@
-#include "UIManager.h"
+﻿#include "UIManager.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
 #include "AssetExplorerScreen.h"
 #include "ConsoleScreen.h"
+#include "ExportAnimationScreen.h"
 #include "From-GDGRAP2/RTConfig.h"
 #include "MenuScreen.h"
 #include "From-GDGRAP2/Debug.h"
@@ -14,6 +15,7 @@
 #include "ProfilerScreen.h"
 #include "RayTracer.hpp"
 #include "SettingsScreen.h"
+#include "ProjectScreen.h"
 #include "From-GDGRAP2/TransformHistory.h"
 #include "ViewportScreen.h"
 #include "Engine/CameraSystem/CameraManager.h"
@@ -33,6 +35,27 @@
 #include "Vulkan/Surface.hpp"
 #include "Vulkan/SwapChain.hpp"
 #include "Vulkan/Window.hpp"
+#include "IconsMaterialDesign.h"
+#include "EditorTheme.hpp"
+#include "Utilities/DragAndDrop/DragAndDropUtils.h"
+
+// For DragDrop from Windows
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <windows.h>
+#include <shellapi.h> // Required for DragAcceptFiles
+#include "StateManagement/CommandManager.hpp"
+#include "StateManagement/ConcreteCommands/InspectorCommands.hpp"
+#include "HotkeySystem/HotkeySystem.hpp"
+#include "StateManagement/ConcreteCommands/GUICommands.hpp"
+#include "StateManagement/ConcreteCommands/HierarchyCommands.hpp"
+#include "IBLDebugScreen.h"
+
+#include "glm/fwd.hpp"
+#include "Assets/Model.hpp"
+#include "From-GDGRAP2/MaterialLibrary.h"
+#include <glm/gtx/matrix_decompose.hpp>
+
 
 bool UIManager::isStartup = true;
 bool UIManager::isHidingUI = false;
@@ -40,8 +63,10 @@ bool UIManager::isHidingUI = false;
 UIManager* UIManager::sharedInstance = nullptr;
 
 TransformState UIManager::gizmoBeforeState = {};
-bool UIManager::wasUsingGizmoLastFrame = false;
-bool UIManager::gizmoWasManipulated = false;
+
+// For WndProc subclassing
+LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+WNDPROC imguiWndproc;
 
 namespace
 {
@@ -56,11 +81,14 @@ namespace
 
 UIManager::UIManager()
 {
-
+	HotkeySystem::getInstance()->addListener(this);
 }
 
 UIManager::~UIManager()
 {
+	uiConfig->currentGizmoOperation = m_currentGizmoOperation;
+	HotkeySystem::getInstance()->removeListener(this);
+
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
@@ -72,7 +100,7 @@ UIManager* UIManager::getInstance()
 }
 
 void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapChain* swapChain,
-	const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings)
+	const Vulkan::DepthBuffer* depthBuffer, UserSettings* userSettings, UIConfig* uiConfig)
 {
 
 	sharedInstance = new UIManager();
@@ -83,13 +111,17 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	sharedInstance->userSettings = userSettings;
 	sharedInstance->swapChain = swapChain;
 	sharedInstance->commandPool = commandPool;
+	sharedInstance->uiConfig = uiConfig;
+	sharedInstance->m_currentGizmoOperation = uiConfig->currentGizmoOperation;
 
 	// Initialise descriptor pool and render pass for ImGui.
+	// Budget: 64 combined-image-sampler slots — enough for fonts, IBL debug
+	// panel (14 textures), and future UI texture users with room to spare.
 	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
 	{
 		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
 	};
-	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 64));
 	sharedInstance->renderPass.reset(
 		new Vulkan::RenderPass(
 			*swapChain,
@@ -107,6 +139,11 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 		Throw(std::runtime_error("failed to initialise ImGui GLFW adapter"));
 	}
 
+	HWND hWnd = glfwGetWin32Window(window.Handle());
+	imguiWndproc = (WNDPROC)GetWindowLongPtr(hWnd, GWLP_WNDPROC);
+	SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)DragDropWndProc);
+	DragAcceptFiles(hWnd, TRUE);
+
 	// Initialise ImGui Vulkan adapter
 	ImGui_ImplVulkan_InitInfo vulkanInit = {};
 	vulkanInit.Instance = device.Surface().Instance().Handle();
@@ -115,7 +152,7 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	vulkanInit.QueueFamily = device.GraphicsFamilyIndex();
 	vulkanInit.Queue = device.GraphicsQueue();
 	vulkanInit.PipelineCache = nullptr;
-	vulkanInit.RenderPass = sharedInstance->renderPass->Handle();
+	vulkanInit.PipelineInfoMain.RenderPass = sharedInstance->renderPass->Handle();
 	vulkanInit.DescriptorPool = sharedInstance->descriptorPool->Handle();
 	vulkanInit.MinImageCount = swapChain->MinImageCount();
 	vulkanInit.ImageCount = static_cast<uint32_t>(swapChain->Images().size());
@@ -127,13 +164,14 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 		Throw(std::runtime_error("failed to initialise ImGui vulkan adapter"));
 	}
 
+	sharedInstance->currentLayoutPath = ApplicationConfig::IMGUI_INI_PATH;
 	auto& io = ImGui::GetIO();
 
-	io.IniFilename = "../../../src/imgui.ini";
+	io.IniFilename = sharedInstance->currentLayoutPath.c_str();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
 	// Loads Default UI Layout (from imgui_default_layout.ini)
 	//ImGui::LoadIniSettingsFromDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
@@ -146,23 +184,58 @@ void UIManager::initialize(Vulkan::CommandPool* commandPool, const Vulkan::SwapC
 	ImGui::GetStyle().ScaleAllSizes(scaleFactor);
 
 	// Upload ImGui fonts (use ImGuiFreeType for better font rendering, see https://github.com/ocornut/imgui/tree/master/misc/freetype).
-	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+	io.Fonts->SetFontLoader(ImGuiFreeType::GetFontLoader());
+
 	if (!io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/Cousine-Regular.ttf").data(), 13 * scaleFactor))
 	{
-		Throw(std::runtime_error("failed to load ImGui font"));
+		Throw(std::runtime_error("failed to load Cousine font"));
 	}
+
+	/* 1 */
+	auto defaultFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.EDITOR_FONT).data(), 15 * scaleFactor);
+	if (!defaultFont)
+	{
+		Throw(std::runtime_error("failed to load Inter font"));
+	}
+
+	io.FontDefault = defaultFont;
+
+	/* 2 */
+	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.EDITOR_FONT).data(), 14 * scaleFactor);
+
+	static const ImWchar iconRanges[] = { ICON_MIN_MD, ICON_MAX_16_MD, 0 };
+
+	ImFontConfig* iconFontConfig = new ImFontConfig();
+	iconFontConfig->MergeMode = false;
+	iconFontConfig->PixelSnapH = true;
+	iconFontConfig->GlyphOffset =ImVec2(1.0f, 0.0f);
+
+	/* 3 */
+	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 16 * scaleFactor, iconFontConfig, iconRanges);
+
+	ImFontConfig* iconFontConfig2 = new ImFontConfig();
+	iconFontConfig2->MergeMode = false;
+	iconFontConfig2->PixelSnapH = true;
+	iconFontConfig2->GlyphOffset = ImVec2(1.0f, 3.0f);
+
+	/* 4 */
+	io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 14 * scaleFactor, iconFontConfig2, iconRanges);
+
+	ImFontConfig* iconFontConfig3 = new ImFontConfig();
+	iconFontConfig3->MergeMode = false;
+	iconFontConfig3->PixelSnapH = true;
+	iconFontConfig3->GlyphOffset = ImVec2(0.0f, 0.0f);
+
+	/* 5 */
+	sharedInstance->iconFont = io.Fonts->AddFontFromFileTTF(FileUtils::getAssetsFolderPath().generic_string().append("/fonts/" + DarkTheme.ICON_FONT).data(), 14 * scaleFactor, iconFontConfig3, iconRanges);
 
 	Vulkan::SingleTimeCommands::Submit(*commandPool, [](VkCommandBuffer commandBuffer)
 		{
-			if (!ImGui_ImplVulkan_CreateFontsTexture())
-			{
-				Throw(std::runtime_error("failed to create ImGui font textures"));
-			}
+			// IMGUI_IMPL_VULKAN NOW SUPPORTS DYNAMIC FONTS OUT OF BOX 
 		});
 
-	//ImGui_ImplVulkan_DestroyFontUploadObjects();
-
-	sharedInstance->initializeUI();
+	// Don't call initializeUI() here - it will be called after a proper ImGui frame is set up
+	// This prevents duplicate widget IDs from being registered in the same frame
 
 }
 
@@ -178,20 +251,46 @@ void UIManager::initializeUI()
 
 	const std::shared_ptr<HierarchyScreen> hierarchyScreen = std::make_shared<HierarchyScreen>();
 	this->uiTable[UINames::HIERARCHY_SCREEN] = hierarchyScreen;
+	hierarchyScreen->setEnabled(this->uiConfig->isHierarchyEnabled);
 	this->uiList.push_back(hierarchyScreen);
+
+	//PROJECTS/FILE EXPLORER WINDOW
+	//=============================================================================================
+	/*
+	const std::shared_ptr<> menuScreen = std::make_shared<MenuScreen>();
+	this->uiTable[UINames::MENU_SCREEN] = menuScreen;
+	this->uiList.push_back(menuScreen);
+	*/
+	//=============================================================================================
 
 	const std::shared_ptr<InspectorScreen> inspectorScreen = std::make_shared<InspectorScreen>();
 	this->uiTable[UINames::INSPECTOR_SCREEN] = inspectorScreen;
+	inspectorScreen->setEnabled(this->uiConfig->isInspectorEnabled);
+	inspectorScreen->setUniformScalingEnabled(this->uiConfig->inspectorUniformScaling);
 	this->uiList.push_back(inspectorScreen);
+
+	const std::shared_ptr<ProjectScreen> projectScreen = std::make_shared<ProjectScreen>();
+	this->uiTable[UINames::PROJECT_SCREEN] = projectScreen;
+	projectScreen->setEnabled(this->uiConfig->isProjectEnabled);
+	this->uiList.push_back(projectScreen);
 
 	const std::shared_ptr<ConsoleScreen> consoleScreen = std::make_shared<ConsoleScreen>();
 	this->uiTable[UINames::CONSOLE_SCREEN] = consoleScreen;
+	consoleScreen->setEnabled(this->uiConfig->isConsoleEnabled);
+	consoleScreen->setText(this->uiConfig->consoleTextLog, this->uiConfig->consoleLogCount);
 	this->uiList.push_back(consoleScreen);
 	Debug::assignConsole(consoleScreen);
 
 	const std::shared_ptr<ProfilerScreen> profilerScreen = std::make_shared<ProfilerScreen>();
 	this->uiTable[UINames::PROFILER_SCREEN] = profilerScreen;
 	this->uiList.push_back(profilerScreen);
+	profilerScreen->setEnabled(this->uiConfig->isProfilerEnabled);
+	sharedInstance->profilerActive = this->uiConfig->isProfilerEnabled;
+
+	const std::shared_ptr<ExportAnimationScreen> exportAnimationScreen = std::make_shared<ExportAnimationScreen>();
+	this->uiTable[UINames::EXPORT_ANIMATION_SCREEN] = exportAnimationScreen;
+	this->uiList.push_back(exportAnimationScreen);
+	exportAnimationScreen->setEnabled(false);
 
 	//std::shared_ptr<gdeng03::PlaybackScreen> playbackScreen = std::make_shared<gdeng03::PlaybackScreen>();
 	//this->uiTable[uiNames.PLAYBACK_SCREEN] = playbackScreen;
@@ -200,11 +299,20 @@ void UIManager::initializeUI()
 	// nawt working yet lol!
 	const std::shared_ptr<gdeng03::MaterialEditorScreen> materialEditorScreen = std::make_shared<gdeng03::MaterialEditorScreen>();
 	this->uiTable[UINames::MATERIAL_EDITOR_SCREEN] = materialEditorScreen;
+	materialEditorScreen->setEnabled(this->uiConfig->isMaterialEditorEnabled);
 	this->uiList.push_back(materialEditorScreen);
 
 	const std::shared_ptr<SettingsScreen> settingsScreen = std::make_shared<SettingsScreen>();
 	this->uiTable[UINames::SETTINGS_SCREEN] = settingsScreen;
 	this->uiList.push_back(settingsScreen);
+	settingsScreen->setEnabled(this->uiConfig->isSettingsEnabled);
+	sharedInstance->settingsActive = this->uiConfig->isSettingsEnabled;
+
+const std::shared_ptr<IBLDebugScreen> iblDebugScreen = std::make_shared<IBLDebugScreen>();
+this->uiTable[UINames::IBL_DEBUG_SCREEN] = iblDebugScreen;
+this->uiList.push_back(iblDebugScreen);
+iblDebugScreen->setEnabled(false);   // off by default; toggle via menu or F2
+iblDebugScreen->RegisterDescriptors();
 
 	// std::shared_ptr<AssetExplorerScreen> assetExplorerScreen = std::make_shared<AssetExplorerScreen>();
 	// this->uiTable[uiNames.ASSET_EXPLORER_SCREEN] = assetExplorerScreen;
@@ -220,12 +328,35 @@ void UIManager::initializeUI()
 	// this->uiList.push_back(materialScreen);
 	// materialScreen->SetEnabled(false);
 
+	// Initialize Animation System
+	Camera* sceneCamera = CameraManager::getInstance()->getActiveCamera();
+	if (sceneCamera != nullptr)
+	{
+		// Initialize the animation singleton with the scene camera's duration
+		Animation::getInstance()->Initialize(30, sceneCamera->getDuration());
+
+		// Set camera for ExportAnimationScreen
+		auto exportAnimationScreen = std::dynamic_pointer_cast<ExportAnimationScreen>(
+			sharedInstance->uiTable[UINames::EXPORT_ANIMATION_SCREEN]);
+		if (exportAnimationScreen)
+		{
+			exportAnimationScreen->SetCamera(sceneCamera);
+		}
+	}
+
 	// save and load the current layout to avoid resetting randomly
 
 	for (const auto& i : this->uiList)
 	{
 		if (i->name != UINames::MENU_SCREEN)
 			i->setEnabled(!isHidingUI);
+
+		if (i->name == UINames::SETTINGS_SCREEN)
+			i->setEnabled(settingsActive);
+
+		if (i->name == UINames::PROFILER_SCREEN)
+			i->setEnabled(profilerActive);
+
 	}
 
 	// Debug::Log("Startup is " + (isStartup ? std::string("true") : std::string("false")));
@@ -233,6 +364,8 @@ void UIManager::initializeUI()
 	if (isStartup)
 	{
 		// 	Debug::Log("UI first startup");
+		String filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + "Default.ini";
+		sharedInstance->currentLayoutPath = filename;
 		loadLayout();
 	}
 	else
@@ -244,6 +377,15 @@ void UIManager::initializeUI()
 void UIManager::saveLayout()
 {
 	ImGui::SaveIniSettingsToDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+}
+
+void UIManager::saveLayout(String name)
+{
+	String filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + name + ".ini";
+
+	//COMMENTED FOR NOW WHILE SETTING UP PRESETS
+	//if (name != "Default" || name != "Tall" || name != "Wide")
+	ImGui::SaveIniSettingsToDisk(filename.c_str());
 }
 
 void UIManager::saveDefaultLayout()
@@ -267,6 +409,37 @@ void UIManager::loadLayout()
 	isLoadingLayout = true;
 }
 
+void UIManager::loadLayoutFromFile()
+{
+	String filename;
+	FileUtils::getLayoutFilePath(sharedInstance->currentLayoutPath, filename);
+	isLoadingLayout = true;
+}
+
+void UIManager::loadPresetLayout(int index)
+{
+	String filename;
+	switch (index) {
+		case 0:
+			filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + "Default.ini";
+			sharedInstance->currentLayoutPath = filename;
+			isLoadingLayout = true;
+			break;
+		case 1:
+			filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + "Tall.ini";
+			sharedInstance->currentLayoutPath = filename;
+			isLoadingLayout = true;
+			break;
+		case 2:
+			filename = ApplicationConfig::IMGUI_INI_SAVE_PATH + "Wide.ini";
+			sharedInstance->currentLayoutPath = filename;
+			isLoadingLayout = true;
+			break;
+		default:
+			break;
+	}
+}
+
 void UIManager::resetLayout()
 {
 	isResettingLayout = true;
@@ -277,7 +450,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 {
 	if (isLoadingLayout)
 	{
-		ImGui::LoadIniSettingsFromDisk(ApplicationConfig::IMGUI_INI_PATH.c_str());
+		ImGui::LoadIniSettingsFromDisk(sharedInstance->currentLayoutPath.c_str());
 		isLoadingLayout = false;
 		isStartup = false;
 	}
@@ -297,26 +470,32 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	ImGui_ImplVulkan_NewFrame();
 	ImGui::NewFrame();
 
+	//ImGui::ShowMetricsWindow();
+	//ImGui::ShowDemoWindow();
+
+	//Allow docking inside the main viewport 
+	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+	
 	// Draw the rest of your UI first.
 	//UIManager::getInstance()->drawAllUI();
 	drawAllUI();
 	//DrawSettings();
 	drawOverlay(statistics);
 
+	DragAndDropUtils::attachModelInstantiateTargetToViewport(ImGui::GetMainViewport());
+
 	//Start ImGuizmo frame.
 	if (ModelManager::getInstance()->getSelectedObject() != nullptr)
 	{
-		static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
-
-		if (!ImGui::IsMouseDown(ImGuiMouseButton_Right))
-		{
-			if (ImGui::IsKeyPressed(ImGuiKey_W)) mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-			if (ImGui::IsKeyPressed(ImGuiKey_E)) mCurrentGizmoOperation = ImGuizmo::ROTATE;
-			if (ImGui::IsKeyPressed(ImGuiKey_R)) mCurrentGizmoOperation = ImGuizmo::SCALE;
-		}
+		if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) isCTRLHeld = true;
 
 		auto selectedObject = ModelManager::getInstance()->getSelectedObject();
 		bool isUsingGizmoNow = ImGuizmo::IsUsing();
+
+		if (!wasUsingGizmoLastFrame) // set gizmo origin
+		{
+			this->gizmoModelMatrix = selectedObject->getWorldMatrix();
+		}
 
 		// Store the 'before' state when manipulation starts
 		if (isUsingGizmoNow && !wasUsingGizmoLastFrame)
@@ -325,7 +504,7 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 
 			gizmoBeforeState = {
 				selectedObject->getLocalPosition(),
-				selectedObject->getLocalRotation(),
+				selectedObject->getLocalRotationEuler(),
 				selectedObject->getLocalScale()
 			};
 		}
@@ -337,69 +516,94 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 		glm::mat4 projMatrix = CameraManager::getInstance()->getActiveCamera()->GetProjection();
 
 		if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
-			mCurrentGizmoOperation, ImGuizmo::WORLD, glm::value_ptr(selectedObject->getObjectMatrix())))
+			m_currentGizmoOperation, ImGuizmo::WORLD, glm::value_ptr(gizmoModelMatrix)))
 		{
 			gizmoWasManipulated = true;
 
-			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(selectedObject->getObjectMatrix()), translation, rotation, scale);
+			ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(gizmoModelMatrix), translation, rotation, scale);
 
-			if (auto* parent = selectedObject->getParent())
+			auto inspector = dynamic_pointer_cast<InspectorScreen>(sharedInstance->findUIByName(UINames::INSPECTOR_SCREEN));
+
+			// Uniform Scaling
+			// Check from InspectorWindow if uniform scaling is enabled
+			if (inspector->IsUniformScalingEnabled() || (m_currentGizmoOperation == ImGuizmo::SCALE && isCTRLHeld))
 			{
-				glm::vec3 parentWorldPos = parent->getWorldPosition();
-				translation[0] -= parentWorldPos.x;
-				translation[1] -= parentWorldPos.y;
-				translation[2] -= parentWorldPos.z;
+				if (scale[0] != gizmoBeforeState.scale.x) // check which value was manipulated
+				{
+					float ratio = scale[0] / gizmoBeforeState.scale.x; //New / Old scale
+					scale[1] = gizmoBeforeState.scale.y * ratio;
+					scale[2] = gizmoBeforeState.scale.z * ratio;
+				}
 
-				glm::quat parentRot = glm::quat(glm::radians(parent->getWorldRotation()));
-				glm::quat localRot = glm::inverse(parentRot) * glm::quat(glm::radians(glm::vec3(rotation[0], rotation[1], rotation[2])));
-				glm::vec3 eulerLocal = glm::degrees(glm::eulerAngles(localRot));
-				rotation[0] = eulerLocal.x;
-				rotation[1] = eulerLocal.y;
-				rotation[2] = eulerLocal.z;
+				else if (scale[1] != gizmoBeforeState.scale.y)
+				{
+					float ratio = scale[1] / gizmoBeforeState.scale.y; 
+					scale[0] = gizmoBeforeState.scale.x * ratio;
+					scale[2] = gizmoBeforeState.scale.z * ratio;
+				}
 
-				glm::vec3 parentScale = parent->getWorldScale();
-				scale[0] /= parentScale.x;
-				scale[1] /= parentScale.y;
-				scale[2] /= parentScale.z;
+				else if (scale[2] != gizmoBeforeState.scale.z)
+				{
+					float ratio = scale[2] / gizmoBeforeState.scale.z;
+					scale[0] = gizmoBeforeState.scale.x * ratio;
+					scale[1] = gizmoBeforeState.scale.y * ratio;
+				}
 			}
 
-			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced)
+			if (!RayTracer::getInstance()->getUserSettings().IsRayTraced) // For Rasterized Mode
 			{
 				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
-				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
+				selectedObject->setLocalRotationEuler(rotation[0], rotation[1], rotation[2]);
 				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
 			}
 		}
 
-		if (!isUsingGizmoNow && wasUsingGizmoLastFrame)
+		if (!isUsingGizmoNow && wasUsingGizmoLastFrame) // Stop Manipulate
 		{
 			if (RayTracer::getInstance()->getUserSettings().IsRayTraced)
 			{
-				selectedObject->setLocalPosition(translation[0], translation[1], translation[2]);
-				selectedObject->setLocalRotation(rotation[0], rotation[1], rotation[2]);
-				selectedObject->setLocalScale(scale[0], scale[1], scale[2]);
-			}
-			if (gizmoWasManipulated &&
-				!TransformHistory::getInstance().isUndoOrRedoInProgress() &&
-				!TransformHistory::getInstance().isUndoOrRedoFinished())
-			{
+				glm::mat4 newLocalMatrix;
+
+				if (selectedObject->getParent())
+				{
+					glm::mat4 parentWorldInverse = glm::inverse(selectedObject->getParent()->getWorldMatrix()); 
+					newLocalMatrix = parentWorldInverse * gizmoModelMatrix; // gizmo is in new world space
+				}
+				else
+				{
+					newLocalMatrix = gizmoModelMatrix;
+				}
+
+				// Decompose to update local position, rotation, scale
+				glm::vec3 skew;
+				glm::vec4 perspective;
+				glm::quat rotationQuat;
+				glm::vec3 newLocalScale;
+				glm::vec3 newLocalPosition;
+				glm::vec3 newLocalRotation;
+				glm::decompose(newLocalMatrix, newLocalScale, rotationQuat,newLocalPosition, skew, perspective);
+				newLocalRotation = glm::degrees(glm::eulerAngles(rotationQuat));
+
 				TransformState afterState = {
-					selectedObject->getLocalPosition(),
-					selectedObject->getLocalRotation(),
-					selectedObject->getLocalScale()
+				newLocalPosition,
+				newLocalRotation,
+				newLocalScale
 				};
 
-				if (TransformHistory::isDifferent(gizmoBeforeState, afterState))
+				if (gizmoBeforeState != afterState)
 				{
-					TransformHistory::getInstance().recordChange(selectedObject.get(), gizmoBeforeState, afterState);
+					/* Also Records Actions */
+					CommandManager::getInstance()->executeCommand(new TransformObjectCommand(
+						selectedObject, 
+						gizmoBeforeState.position, gizmoBeforeState.rotation, gizmoBeforeState.scale,
+						afterState.position, afterState.rotation, afterState.scale
+					));
 				}
 			}
 		}
 
 		wasUsingGizmoLastFrame = isUsingGizmoNow;
 	}
-
-
 
 	ImGui::Render();
 
@@ -428,6 +632,11 @@ void UIManager::render(VkCommandBuffer commandBuffer, const Vulkan::FrameBuffer&
 	//ImGui::RenderPlatformWindowsDefault();
 
 	TransformHistory::getInstance().resetUndoRedoFlag();
+
+	this->detectAndRecordLayoutChanges(); // detect layout changes for recording after docking is set
+
+	// FONTS ARE IN SAME DESC_POOL, SO DOING THIS REMOVES FONTS
+	//vkResetDescriptorPool(sharedInstance->swapChain->Device().Handle(), sharedInstance->descriptorPool->Handle(), 0);
 }
 
 void UIManager::drawOverlay(const Statistics& statistics) const
@@ -455,6 +664,111 @@ void UIManager::reset()
 	saveDynamicLayout();
 	//ImGui::SaveIniSettingsToDisk(ApplicationConfig::DEFAULT_UI_LAYOUT_PATH.c_str());
 	delete sharedInstance;
+}
+
+void UIManager::ReinitializeBackends(const Vulkan::SwapChain* swapChain, const Vulkan::DepthBuffer* depthBuffer)
+{
+	// This method shuts down and reinitializes the ImGui GLFW and Vulkan backends
+	// after a swap chain recreation, updating all stale resource references.
+	if (!sharedInstance || !swapChain || !depthBuffer)
+		return;
+
+	// Get the new device before updating the swapchain pointer
+	// Validate that the device is accessible and has a valid handle
+	try
+	{
+		const auto& device = swapChain->Device();
+		// Quick validation: try to access a method on device to ensure it's valid
+		if (device.Handle() == VK_NULL_HANDLE)
+		{
+			Debug::Log("WARNING: SwapChain device handle is null during ReinitializeBackends");
+			return;
+		}
+	}
+	catch (const std::exception& e)
+	{
+		Debug::Log("ERROR: Failed to access device from swapchain: " + std::string(e.what()));
+		return;
+	}
+
+	const auto& device = swapChain->Device();
+	const auto& window = device.Surface().Instance().Window();
+
+	// Shutdown ImGui Vulkan backend - this is the critical step
+	// The cb_state nullptr error happens if the Vulkan backend was never properly initialized
+	// or if we're trying to shutdown twice
+	ImGuiIO& io = ImGui::GetIO();
+
+	// Only shutdown the Vulkan backend if it has actually been initialized
+	if (io.BackendRendererUserData != nullptr)
+	{
+		ImGui_ImplVulkan_Shutdown();
+	}
+
+	// Only shutdown GLFW backend if it's been initialized
+	if (io.BackendPlatformUserData != nullptr)
+	{
+		ImGui_ImplGlfw_Shutdown();
+	}
+
+	// Destroy old resources while the old device is still valid (if any)
+	// This must happen before updating swapChain pointer to ensure destructors can access the old device
+	sharedInstance->renderPass.reset();
+	sharedInstance->descriptorPool.reset();
+
+	// Update the swapChain pointer to the new one
+	sharedInstance->swapChain = swapChain;
+
+	// Recreate the descriptor pool with the new device.
+	// Keep the same 64-slot budget as the initial pool.
+	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
+	{
+		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
+	};
+	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 64));
+
+	// Recreate the render pass with the new swapchain and depth buffer
+	sharedInstance->renderPass.reset(
+		new Vulkan::RenderPass(
+			*sharedInstance->swapChain,
+			*depthBuffer,
+			VK_ATTACHMENT_LOAD_OP_LOAD,
+			VK_ATTACHMENT_LOAD_OP_LOAD));
+
+	// Reinitialize ImGui Vulkan backend with new resources
+	ImGui_ImplVulkan_InitInfo vulkanInit = {};
+
+	// Validate device handle before using it
+	VkDevice deviceHandle = device.Handle();
+	if (deviceHandle == VK_NULL_HANDLE)
+	{
+		Debug::Log("ERROR: Device handle is null, cannot reinitialize ImGui Vulkan backend");
+		return;
+	}
+
+	vulkanInit.Instance = device.Surface().Instance().Handle();
+	vulkanInit.PhysicalDevice = device.PhysicalDevice();
+	vulkanInit.Device = deviceHandle;
+	vulkanInit.QueueFamily = device.GraphicsFamilyIndex();
+	vulkanInit.Queue = device.GraphicsQueue();
+	vulkanInit.PipelineCache = nullptr;
+	vulkanInit.PipelineInfoMain.RenderPass = sharedInstance->renderPass->Handle();
+	vulkanInit.DescriptorPool = sharedInstance->descriptorPool->Handle();
+	vulkanInit.MinImageCount = sharedInstance->swapChain->MinImageCount();
+	vulkanInit.ImageCount = static_cast<uint32_t>(sharedInstance->swapChain->Images().size());
+	vulkanInit.Allocator = nullptr;
+	vulkanInit.CheckVkResultFn = CheckVulkanResultCallback;
+
+	if (!ImGui_ImplVulkan_Init(&vulkanInit))
+	{
+		Throw(std::runtime_error("failed to reinitialise ImGui vulkan adapter"));
+	}
+
+	// Reinitialize the GLFW backend
+	if (!ImGui_ImplGlfw_InitForVulkan(window.Handle(), true))
+	{
+		Throw(std::runtime_error("failed to reinitialise ImGui GLFW adapter"));
+	}
 }
 
 void UIManager::drawAllUI() const
@@ -504,6 +818,7 @@ void UIManager::toggleEnabled(const String& uiName)
 	if (this->uiTable[uiName] != nullptr)
 	{
 		this->uiTable[uiName]->toggleEnabled();
+		this->m_windowWasToggled = true;
 	}
 }
 
@@ -549,15 +864,17 @@ void UIManager::showAllUI() const
 
 void UIManager::FreeDescriptor(VkDescriptorSet& descriptorset)
 {
-	const auto& device = swapChain->Device();
-
-	// Initialise descriptor pool and render pass for ImGui.
-	const std::vector<Vulkan::DescriptorBinding> descriptorBindings =
+	// Free the individual descriptor set back into the pool.
+	// The pool was created with VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+	// so individual sets can be freed without resetting the whole pool.
+	if (descriptorset != VK_NULL_HANDLE && sharedInstance && sharedInstance->descriptorPool)
 	{
-		{0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0},
-	};
-	sharedInstance->descriptorPool.reset(new Vulkan::DescriptorPool(device, descriptorBindings, 10));
-
+		vkFreeDescriptorSets(
+			sharedInstance->descriptorPool->Device().Handle(),
+			sharedInstance->descriptorPool->Handle(),
+			1, &descriptorset);
+		descriptorset = VK_NULL_HANDLE;
+	}
 }
 
 bool UIManager::wantsToCaptureKeyboard()
@@ -570,6 +887,114 @@ bool UIManager::wantsToCaptureMouse()
 	return ImGui::GetIO().WantCaptureMouse;
 }
 
+ImFont* UIManager::GetIconFont()
+{
+	return this->iconFont;
+}
+
+void UIManager::OnActionPressed(Hotkey::Action action)
+{
+	if (ModelManager::getInstance()->getSelectedObject() == nullptr) return;
+	if (CameraManager::getInstance()->getActiveCamera()->getCurrentMoveMode() != Camera::CameraMoveMode::NONE) return;
+
+	using Action = Hotkey::Action;
+
+	if (action == Action::SceneTool_Move) m_currentGizmoOperation = ImGuizmo::TRANSLATE;
+	if (action == Action::SceneTool_Rotate) m_currentGizmoOperation = ImGuizmo::ROTATE;
+	if (action == Action::SceneTool_Scale) m_currentGizmoOperation = ImGuizmo::SCALE;
+	if (action == Action::SceneTool_Transform) m_currentGizmoOperation = ImGuizmo::UNIVERSAL;
+	if (action == Action::SceneTool_Cycle)
+	{
+		switch (m_currentGizmoOperation)
+		{
+		case ImGuizmo::TRANSLATE: m_currentGizmoOperation = ImGuizmo::ROTATE; break;
+		case ImGuizmo::ROTATE: m_currentGizmoOperation = ImGuizmo::SCALE; break;
+		case ImGuizmo::SCALE: m_currentGizmoOperation = ImGuizmo::UNIVERSAL; break;
+		case ImGuizmo::UNIVERSAL:
+		default: m_currentGizmoOperation = ImGuizmo::TRANSLATE; break;
+		}
+	}
+}
+
+void UIManager::detectAndRecordLayoutChanges()
+{
+	/* we do this so we don't record layout changes due to other docking spaces stretch */
+	if (m_windowWasToggled)
+	{
+		this->m_windowWasToggled = false;
+		this->m_scheduleRecording = false;
+		return;
+	}
+
+	if (this->m_scheduleNextFrame) // need to record next frame to save docking changes
+	{
+		this->m_scheduleNextFrame = false;
+		return;
+	}
+
+	if (this->m_scheduleRecording)
+	{
+		this->m_currentLayoutSnapshot = GetIniDump();
+		if (this->compareStrippedIni(this->m_currentLayoutSnapshot))
+		{
+			CommandManager::getInstance()->executeCommand(new ModifyLayoutCommand(this->m_lastLayoutSnapshot, this->m_currentLayoutSnapshot));
+		}
+		this->m_scheduleRecording = false;
+	}
+}
+
+void UIManager::onLMBPressed()
+{
+	this->m_lastLayoutSnapshot = GetIniDump();
+}
+
+void UIManager::onLMBReleased()
+{
+	this->m_scheduleRecording = this->m_scheduleNextFrame = true;
+}
+
+std::string UIManager::GetIniDump() const
+{
+	size_t size = 0;
+	const char* data = ImGui::SaveIniSettingsToMemory(&size);
+	return std::string(data, size);
+}
+
+std::string UIManager::stripIni(std::string iniString)
+{
+	std::string filtered;
+	filtered.reserve(iniString.size());
+
+	size_t start = 0;
+
+	for (size_t i = 0; i <= iniString.size(); i++)
+	{
+		if (i == iniString.size() || iniString[i] == '\n')
+		{
+			size_t len = i - start;
+			std::string line = iniString.substr(start, len);
+
+			// skip collapsed line
+			if (line.find("Collapsed=") == std::string::npos)
+			{
+				filtered += line + "\n";
+			}
+
+			start = i + 1;
+		}
+	}
+
+	return filtered;
+}
+
+bool UIManager::compareStrippedIni(std::string currentIniState)
+{
+	auto newState = this->stripIni(currentIniState);
+	auto oldState = this->stripIni(this->m_lastLayoutSnapshot);
+
+	return oldState != newState;
+}
+
 void UIManager::setupImGuiStyle()
 {
 	// Tokyo Night Storm style from ImThemes
@@ -578,7 +1003,7 @@ void UIManager::setupImGuiStyle()
 	style.Alpha = 1.0f;
 	style.DisabledAlpha = 0.6000000238418579f;
 	style.WindowPadding = ImVec2(15.0f, 10.10000038146973f);
-	style.WindowRounding = 10.0f;
+	style.WindowRounding = 0.0f;
 	style.WindowBorderSize = 1.0f;
 	style.WindowMinSize = ImVec2(32.0f, 32.0f);
 	style.WindowTitleAlign = ImVec2(0.0f, 0.5f);
@@ -605,59 +1030,122 @@ void UIManager::setupImGuiStyle()
 	style.ColorButtonPosition = ImGuiDir_Left;
 	style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
 	style.SelectableTextAlign = ImVec2(0.0f, 0.0f);
+	style.WindowMenuButtonPosition = ImGuiDir_None;
 
-	style.Colors[ImGuiCol_Text] = ImVec4(0.7529411911964417f, 0.7921568751335144f, 0.9607843160629272f, 1.0f);
-	style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.2549019753932953f, 0.2823529541492462f, 0.407843142747879f, 1.0f);
-	style.Colors[ImGuiCol_WindowBg] = ImVec4(0.1411764770746231f, 0.1568627506494522f, 0.2313725501298904f, 1.0f);
-	style.Colors[ImGuiCol_ChildBg] = ImVec4(0.1415455490350723f, 0.1563405692577362f, 0.2313725501298904f, 0.7058823704719543f);
-	style.Colors[ImGuiCol_PopupBg] = ImVec4(0.1415455490350723f, 0.1563405692577362f, 0.2313725501298904f, 0.7058823704719543f);
-	style.Colors[ImGuiCol_Border] = ImVec4(0.6614994406700134f, 0.6949518918991089f, 0.8392156958580017f, 0.501960813999176f);
-	style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.2543022036552429f, 0.2832040190696716f, 0.407843142747879f, 0.501960813999176f);
-	style.Colors[ImGuiCol_FrameBg] = ImVec4(0.2549019753932953f, 0.2823529541492462f, 0.407843142747879f, 1.0f);
-	style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.4786158800125122f, 0.6400314569473267f, 0.9686274528503418f, 0.4000000059604645f);
-	style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.4786158800125122f, 0.6400314569473267f, 0.9686274528503418f, 0.6705882549285889f);
-	style.Colors[ImGuiCol_TitleBg] = ImVec4(0.1411764770746231f, 0.1568627506494522f, 0.2313725501298904f, 1.0f);
-	style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.2549019753932953f, 0.2823529541492462f, 0.407843142747879f, 1.0f);
-	style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.0f, 0.0f, 0.0f, 0.5099999904632568f);
-	style.Colors[ImGuiCol_MenuBarBg] = ImVec4(0.1372549086809158f, 0.1372549086809158f, 0.1372549086809158f, 1.0f);
-	style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.01960784383118153f, 0.01960784383118153f, 0.01960784383118153f, 0.5299999713897705f);
-	style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.3098039329051971f, 0.3098039329051971f, 0.3098039329051971f, 1.0f);
-	style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.407843142747879f, 0.407843142747879f, 0.407843142747879f, 1.0f);
-	style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.5098039507865906f, 0.5098039507865906f, 0.5098039507865906f, 1.0f);
-	style.Colors[ImGuiCol_CheckMark] = ImVec4(0.7333333492279053f, 0.6039215922355652f, 0.9686274528503418f, 1.0f);
-	style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.7333333492279053f, 0.6039215922355652f, 0.9686274528503418f, 1.0f);
-	style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.7942906618118286f, 0.6929580569267273f, 0.9785407781600952f, 1.0f);
-	style.Colors[ImGuiCol_Button] = ImVec4(0.2549019753932953f, 0.2823529541492462f, 0.407843142747879f, 1.0f);
-	style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.47843137383461f, 0.6392157077789307f, 0.9686274528503418f, 0.5137255191802979f);
-	style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.47843137383461f, 0.6352941393852234f, 0.9686274528503418f, 0.6980392336845398f);
-	style.Colors[ImGuiCol_Header] = ImVec4(0.2549019753932953f, 0.2823529541492462f, 0.407843142747879f, 1.0f);
-	style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.47843137383461f, 0.6392157077789307f, 0.9686274528503418f, 0.5137255191802979f);
-	style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.47843137383461f, 0.6352941393852234f, 0.9686274528503418f, 0.6980392336845398f);
-	style.Colors[ImGuiCol_Separator] = ImVec4(0.4274509847164154f, 0.4274509847164154f, 0.4980392158031464f, 0.5f);
-	style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(0.09803921729326248f, 0.4000000059604645f, 0.7490196228027344f, 0.7799999713897705f);
-	style.Colors[ImGuiCol_SeparatorActive] = ImVec4(0.09803921729326248f, 0.4000000059604645f, 0.7490196228027344f, 1.0f);
-	style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.2588235437870026f, 0.5882353186607361f, 0.9764705896377563f, 0.2000000029802322f);
-	style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.2588235437870026f, 0.5882353186607361f, 0.9764705896377563f, 0.6700000166893005f);
-	style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(0.2588235437870026f, 0.5882353186607361f, 0.9764705896377563f, 0.949999988079071f);
-	style.Colors[ImGuiCol_Tab] = ImVec4(0.2549019753932953f, 0.2823529541492462f, 0.407843142747879f, 1.0f);
-	style.Colors[ImGuiCol_TabHovered] = ImVec4(0.47843137383461f, 0.6352941393852234f, 0.9686274528503418f, 0.7682403326034546f);
-	style.Colors[ImGuiCol_TabActive] = ImVec4(0.47843137383461f, 0.6352941393852234f, 0.9686274528503418f, 0.6995707750320435f);
-	style.Colors[ImGuiCol_TabUnfocused] = ImVec4(0.1411764770746231f, 0.1568627506494522f, 0.2313725501298904f, 1.0f);
-	style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.2549019753932953f, 0.2823529541492462f, 0.407843142747879f, 1.0f);
-	style.Colors[ImGuiCol_PlotLines] = ImVec4(1.0f, 0.6196078658103943f, 0.3921568691730499f, 1.0f);
-	style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.9686274528503418f, 0.4627451002597809f, 0.5568627715110779f, 1.0f);
-	style.Colors[ImGuiCol_PlotHistogram] = ImVec4(0.8784313797950745f, 0.686274528503418f, 0.407843142747879f, 1.0f);
-	style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.0f, 0.6196078658103943f, 0.3921568691730499f, 1.0f);
-	style.Colors[ImGuiCol_TableHeaderBg] = ImVec4(0.1019607856869698f, 0.105882354080677f, 0.1490196138620377f, 1.0f);
-	style.Colors[ImGuiCol_TableBorderStrong] = ImVec4(0.3098039329051971f, 0.3098039329051971f, 0.3490196168422699f, 1.0f);
-	style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.2274509817361832f, 0.2274509817361832f, 0.2470588237047195f, 1.0f);
-	style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-	style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.0f, 1.0f, 1.0f, 0.05999999865889549f);
-	style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.2588235437870026f, 0.5882353186607361f, 0.9764705896377563f, 0.3499999940395355f);
-	style.Colors[ImGuiCol_DragDropTarget] = ImVec4(1.0f, 1.0f, 0.0f, 0.8999999761581421f);
-	style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.2588235437870026f, 0.5882353186607361f, 0.9764705896377563f, 1.0f);
-	style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.699999988079071f);
-	style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.2000000029802322f);
-	style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.3499999940395355f);
+	style.Colors[ImGuiCol_Text] = DarkTheme.TEXT;
+	style.Colors[ImGuiCol_TextDisabled] = DarkTheme.TEXT_DISABLED;
+	
+	style.Colors[ImGuiCol_WindowBg] = DarkTheme.WINDOW_BG;
+	style.Colors[ImGuiCol_ChildBg] = DarkTheme.CHILD_BG;
+	style.Colors[ImGuiCol_PopupBg] = DarkTheme.POPUP_BG;
+	
+	style.Colors[ImGuiCol_Border] = DarkTheme.BORDER;
+	style.Colors[ImGuiCol_BorderShadow] = DarkTheme.BORDER_SHADOW;
+
+	style.Colors[ImGuiCol_FrameBg] = DarkTheme.FRAME_BG;
+	style.Colors[ImGuiCol_FrameBgHovered] = DarkTheme.FRAME_BG_HOVERED;
+	style.Colors[ImGuiCol_FrameBgActive] = DarkTheme.FRAME_BG_ACTIVE;
+	
+	style.Colors[ImGuiCol_TitleBg] = DarkTheme.TITLE_BG;
+	style.Colors[ImGuiCol_TitleBgActive] = DarkTheme.TITLE_BG_ACTIVE;
+	style.Colors[ImGuiCol_TitleBgCollapsed] = DarkTheme.TITLE_BG_COLLAPSED;
+	
+	style.Colors[ImGuiCol_MenuBarBg] = DarkTheme.MENU_BAR_BG;
+	
+	style.Colors[ImGuiCol_ScrollbarBg] = DarkTheme.SCROLLBAR_BG;
+	style.Colors[ImGuiCol_ScrollbarGrab] = DarkTheme.SCROLLBAR_GRAB;
+	style.Colors[ImGuiCol_ScrollbarGrabHovered] = DarkTheme.SCROLLBAR_GRAB_HOVERED;
+	style.Colors[ImGuiCol_ScrollbarGrabActive] = DarkTheme.SCROLLBAR_GRAB_ACTIVE;
+	
+	style.Colors[ImGuiCol_CheckMark] = DarkTheme.CHECKMARK;
+	
+	style.Colors[ImGuiCol_SliderGrab] = DarkTheme.SLIDER_GRAB;
+	style.Colors[ImGuiCol_SliderGrabActive] = DarkTheme.SLIDER_GRAB_ACTIVE;
+	
+	style.Colors[ImGuiCol_Button] = DarkTheme.BUTTON;
+	style.Colors[ImGuiCol_ButtonHovered] = DarkTheme.BUTTON_HOVERED;
+	style.Colors[ImGuiCol_ButtonActive] = DarkTheme.BUTTON_ACTIVE;
+	
+	style.Colors[ImGuiCol_Header] = DarkTheme.HEADER;
+	style.Colors[ImGuiCol_HeaderHovered] = DarkTheme.HEADER_HOVERED;
+	style.Colors[ImGuiCol_HeaderActive] = DarkTheme.HEADER_ACTIVE;
+	
+	style.Colors[ImGuiCol_Separator] = DarkTheme.SEPARATOR;
+	style.Colors[ImGuiCol_SeparatorHovered] = DarkTheme.SEPARATOR_HOVERED;
+	style.Colors[ImGuiCol_SeparatorActive] = DarkTheme.SEPARATOR_ACTIVE;
+
+	style.Colors[ImGuiCol_ResizeGrip] = DarkTheme.RESIZE_GRIP;
+	style.Colors[ImGuiCol_ResizeGripHovered] = DarkTheme.RESIZE_GRIP_HOVERED;
+	style.Colors[ImGuiCol_ResizeGripActive] = DarkTheme.RESIZE_GRIP_ACTIVE;
+	
+	style.Colors[ImGuiCol_Tab] = DarkTheme.TAB;
+	style.Colors[ImGuiCol_TabHovered] = DarkTheme.TAB_HOVERED;
+	style.Colors[ImGuiCol_TabActive] = DarkTheme.TAB_ACTIVE;
+	style.Colors[ImGuiCol_TabUnfocused] = DarkTheme.TAB_UNFOCUSED;
+	style.Colors[ImGuiCol_TabUnfocusedActive] = DarkTheme.TAB_UNFOCUSED_ACTIVE;
+	
+	style.Colors[ImGuiCol_PlotLines] = DarkTheme.PLOT_LINES;
+	style.Colors[ImGuiCol_PlotLinesHovered] = DarkTheme.PLOT_LINES_HOVERED;
+	style.Colors[ImGuiCol_PlotHistogram] = DarkTheme.PLOT_HISTOGRAM;
+	style.Colors[ImGuiCol_PlotHistogramHovered] = DarkTheme.PLOT_HISTOGRAM_HOVERED;
+	
+	style.Colors[ImGuiCol_TableHeaderBg] = DarkTheme.TABLE_HEADER_BG;
+	style.Colors[ImGuiCol_TableBorderStrong] = DarkTheme.TABLE_BORDER_STRONG;
+	style.Colors[ImGuiCol_TableBorderLight] = DarkTheme.TABLE_BORDER_LIGHT;
+	style.Colors[ImGuiCol_TableRowBg] = DarkTheme.TABLE_ROW_BG;
+	style.Colors[ImGuiCol_TableRowBgAlt] = DarkTheme.TABLE_ROW_BG_ALT;
+	
+	style.Colors[ImGuiCol_TextSelectedBg] = DarkTheme.TEXT_SELECTED_BG;
+	style.Colors[ImGuiCol_DragDropTarget] = DarkTheme.DRAG_DROP_TARGET;
+	
+	style.Colors[ImGuiCol_NavHighlight] = DarkTheme.NAV_HIGHLIGHT;
+	style.Colors[ImGuiCol_NavWindowingHighlight] = DarkTheme.NAV_WINDOWING_HIGHLIGHT;
+	style.Colors[ImGuiCol_NavWindowingDimBg] = DarkTheme.NAV_WINDOWING_DIM_BG;
+	style.Colors[ImGuiCol_ModalWindowDimBg] = DarkTheme.MODAL_WINDOW_DIM_BG;
 }
 
+LRESULT CALLBACK DragDropWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+	switch (message) {
+		case WM_DROPFILES: {
+			HDROP hDrop = (HDROP)wParam; // Cast wParam to HDROP handle
+			UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, NULL, 0); // Get number of dropped files
+
+			std::vector<std::wstring> files;
+			for (UINT i = 0; i < fileCount; ++i) {
+				// Determine the required buffer size for the file path
+				UINT bufferSize = DragQueryFile(hDrop, i, NULL, 0) + 1;
+				std::wstring filePath(bufferSize, L'\0');
+
+				// Get the actual file path
+				DragQueryFile(hDrop, i, &filePath[0], bufferSize);
+				filePath.pop_back(); // Remove the extra null terminator
+				files.push_back(filePath);
+			}
+
+			if (!files.empty()) {
+				std::wstring listedFilenames = L"";
+				for (std::wstring importedFile : files) {
+					std::wstring sourcePathW(importedFile.c_str());
+					listedFilenames += sourcePathW + L"\n";
+				}
+
+				std::wstring importPromptMessage(L"Import the following:\n" + listedFilenames + L"to project?");
+				int response = MessageBox(hWnd, importPromptMessage.c_str(), L"Dropped File", MB_YESNO | MB_ICONQUESTION);
+
+				if (response == IDYES) {
+					for (std::wstring importedFile : files) {
+						std::wstring sourcePathW(importedFile.c_str());
+						std::string sourcePath(sourcePathW.begin(), sourcePathW.end());
+						DragAndDropUtils::copyFileToAssetsRoot(sourcePath);
+					}
+				}
+			}
+
+			DragFinish(hDrop); // Free the memory allocated for the dropped files
+
+			return true;
+		}
+	}
+
+	return CallWindowProc(imguiWndproc, hWnd, message, wParam, lParam);
+}

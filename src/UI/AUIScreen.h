@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <imgui.h>
 #include <string>
@@ -20,6 +20,9 @@ public:
 	static constexpr char MATERIAL_EDITOR_SCREEN[] = "MATERIAL_EDITOR_SCREEN";
 	static constexpr char ASSET_EXPLORER_SCREEN[] = "ASSET_EXPLORER_SCREEN";
 	static constexpr char SETTINGS_SCREEN[] = "SETTINGS_SCREEN";
+	static constexpr char PROJECT_SCREEN[] = "PROJECT_SCREEN";
+	static constexpr char EXPORT_ANIMATION_SCREEN[] = "EXPORT_ANIMATION_SCREEN";
+	static constexpr char IBL_DEBUG_SCREEN[] = "IBL_DEBUG_SCREEN";
 };
 
 class UISettings
@@ -29,6 +32,10 @@ public:
 		ImGuiWindowFlags_NoCollapse |
 		ImGuiWindowFlags_NoFocusOnAppearing 
 	;
+	static constexpr int MainWindowFlags = 
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoBackground;
 };
 
 class AUIScreen

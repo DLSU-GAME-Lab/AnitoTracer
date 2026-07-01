@@ -2,6 +2,7 @@
 
 #include "Vulkan/Application.hpp"
 #include "RayTracingProperties.hpp"
+#include "TopLevelAccelerationStructure.hpp"
 
 namespace Vulkan
 {
@@ -17,6 +18,13 @@ namespace Vulkan::RayTracing
 	class Application : public Vulkan::Application
 	{
 	public:
+		struct color 
+		{
+			uint8_t r;
+			uint8_t g;
+			uint8_t b;
+			uint8_t a;
+		};
 
 		VULKAN_NON_COPIABLE(Application);
 
@@ -66,9 +74,17 @@ namespace Vulkan::RayTracing
 		std::unique_ptr<Image> outputImage_;
 		std::unique_ptr<DeviceMemory> outputImageMemory_;
 		std::unique_ptr<ImageView> outputImageView_;
+
+		// Pre-Swizzled RGBA
+		std::unique_ptr<Image> outputImageS_;
+		std::unique_ptr<DeviceMemory> outputImageMemoryS_;
+		std::unique_ptr<ImageView> outputImageViewS_;
 		
 		std::unique_ptr<class RayTracingPipeline> rayTracingPipeline_;
 		std::unique_ptr<class ShaderBindingTable> shaderBindingTable_;
+
+		std::unique_ptr<Buffer> hostCaptureBuffer_;
+		std::unique_ptr<DeviceMemory> hostCaptureBufferMemory_;
 	};
 
 }

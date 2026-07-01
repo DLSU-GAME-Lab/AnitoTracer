@@ -1,4 +1,4 @@
-#include "RayTracer.hpp"
+﻿#include "RayTracer.hpp"
 //#include "UserInterface.hpp"
 #include "UserSettings.hpp"
 #include "Assets/Model.hpp"
@@ -11,17 +11,21 @@
 #include "Vulkan/Device.hpp"
 #include "Vulkan/SwapChain.hpp"
 #include "Vulkan/Window.hpp"
+#include "Engine/Physics/TracerPhysics.h"
 #include <iostream>
 #include <sstream>
+#include <chrono>
 
 #include "From-GDGRAP2/Debug.h"
 #include "From-GDGRAP2/GlobalConfig.h"
 #include "From-GDGRAP2/ModelManager.h"
 #include "From-GDGRAP2/TransformHistory.h"
+#include "From-GDGRAP2/EventBroadcaster.h"
+#include "From-GDGRAP2/EventNames.h"
 #include "UI/UIManager.h"
+#include "UI/IBLDebugScreen.h"
 #include "From-GDGRAP2/MaterialLibrary.h"
 #include "From-GDGRAP2/TextureLibrary.h"
-#include "imgui_impl_vulkan.h"
 #include "Assets/Ray.hpp"
 
 #include "Engine/CameraSystem/CameraManager.h"
@@ -31,6 +35,55 @@
 #include "Vulkan/Buffer.hpp"
 #include "Vulkan/RenderPass.hpp"
 #include "Vulkan/PipelineLayout.hpp"
+#include "Vulkan/ImageMemoryBarrier.hpp"
+#include "Vulkan/Vk_Compute/ComputeShaderRayTracer.hpp"
+#include "Vulkan/Vk_Game/GameRenderer.hpp"
+
+#include "StateManagement/CommandManager.hpp"
+#include "Assets/ModelLibrary.hpp"
+#include "Assets/GameObjectFactory.hpp"
+#include "RayPicker/RayPickerUBO.hpp"
+#include "HotkeySystem/HotkeySystem.hpp"
+#include "Utilities/Screenshot.hpp"
+
+#include "imgui_impl_glfw.h"
+
+
+// ── IBL debug panel helpers ───────────────────────────────────────────────────
+
+// Returns the IBLDebugScreen from UIManager, or nullptr if not yet initialized.
+static std::shared_ptr<IBLDebugScreen> FindIBLDebugScreen()
+{
+	auto* mgr = UIManager::getInstance();
+	if (!mgr) return nullptr;
+	return std::dynamic_pointer_cast<IBLDebugScreen>(
+		mgr->findUIByName(UINames::IBL_DEBUG_SCREEN));
+}
+
+// Called BEFORE UIManager::ReinitializeBackends() — releases ImGui descriptor
+// sets while the old Vulkan pool is still alive and can accept the free calls.
+static void ReleaseIBLDescriptors()
+{
+	if (auto screen = FindIBLDebugScreen())
+		screen->ReleaseDescriptors();
+}
+
+// Called AFTER UIManager::ReinitializeBackends() — the old pool is gone so we
+// just clear stale handles (InvalidateDescriptors), then re-register against
+// the freshly created pool.
+static void RegisterIBLDescriptors(Vulkan::Game::GameRenderer* renderer, const UserSettings* settings = nullptr)
+{
+	auto screen = FindIBLDebugScreen();
+	if (!screen) return;
+
+	// Safety: zero any stale VkDescriptorSet handles that survived the reinit.
+	screen->InvalidateDescriptors();
+	screen->SetIBL(renderer ? renderer->GetIBLPrecompute() : nullptr);
+	// Let the panel reflect the current UseColorIBL / IBLSkyColor state.
+	screen->SetUserSettings(settings);
+	screen->RegisterDescriptors();
+}
+
 
 namespace
 {
@@ -51,18 +104,31 @@ RayTracer::RayTracer(const UserSettings& userSettings, const Vulkan::WindowConfi
 
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SCENE_LOADED, this);
 	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MARK_SCENE_DIRTY, this);
+	EventBroadcaster::getInstance()->addObserver(EventNames::ON_MATERIAL_UPDATED, this);
+	EventBroadcaster::getInstance()->addObserver(EventNames::ON_SWAP_RENDERER, this);
+
+	HotkeySystem::getInstance()->addListener(this);
 
 	CameraManager::initialize();
 	TextureLibrary::initialize();
 	MaterialLibrary::initialize();
+	Assets::ModelLibrary::initialize();
+	CommandManager::initialize();
 }
 
 RayTracer::~RayTracer()
 {
+	Assets::ModelLibrary::destroy();
+	CommandManager::destroy();
+
 	scene_.reset();
 	rayScene_.reset();
+	computeShaderRenderer_.reset();
+	HotkeySystem::getInstance()->removeListener(this);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SCENE_LOADED);
 	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MARK_SCENE_DIRTY);
+	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_MATERIAL_UPDATED);
+	EventBroadcaster::getInstance()->removeObserver(EventNames::ON_SWAP_RENDERER);
 }
 
 void RayTracer::initialize(const UserSettings& userSettings, const Vulkan::WindowConfig& windowConfig,
@@ -91,20 +157,51 @@ Assets::UniformBufferObject RayTracer::GetUniformBufferObject(const VkExtent2D e
 	ubo.FocusDistance = userSettings_.FocusDistance;
 	ubo.TotalNumberOfSamples = totalNumberOfSamples_;
 	ubo.NumberOfSamples = numberOfSamples_;
+	ubo.SamplesPerInvocation = userSettings_.SamplesPerInvocation;  // Always set, used by compute shader only
 	ubo.NumberOfBounces = userSettings_.NumberOfBounces;
 	ubo.RandomSeed = 1;
 	ubo.MaxRays = userSettings_.MaxRays;
-	ubo.HasSky = init.HasSky;
+	// In Game renderer mode, IBL is gated by the EnableIBL checkbox.
+	// When disabled, HasSky is forced to 0 so the shader falls back to
+	// FallbackAmbientColor instead of sampling the IBL textures.
+	const bool gameMode = (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game);
+	ubo.HasSky = (gameMode ? (init.HasSky && userSettings_.Game.EnableIBL) : init.HasSky) ? 1u : 0u;
 	ubo.ShowHeatmap = userSettings_.ShowHeatmap;
 	ubo.HeatmapScale = userSettings_.HeatmapScale;
+
+	// Adaptive Sampling Settings
+	ubo.EnableAdaptiveSampling = userSettings_.EnableAdaptiveSampling;
+	ubo.VarianceThreshold = userSettings_.VarianceThreshold;
+	ubo.MinSamples = userSettings_.MinSamples;
+
+	// Game Renderer Settings
+	ubo.FallbackAmbientColor = userSettings_.Game.FallbackAmbientColor;
+	ubo.Exposure             = userSettings_.Game.Exposure;
+
+	// UseColorIBL is only meaningful in Game mode with IBL on.
+	// Padding fields are zero-initialised by the {} default above.
+	ubo.UseColorIBL = (gameMode && userSettings_.Game.EnableIBL && userSettings_.Game.UseColorIBL) ? 1u : 0u;
+	ubo.IBLSkyColor = userSettings_.Game.IBLSkyColor;
 
 	return ubo;
 }
 
-Assets::PushConstantModel RayTracer::GetPushConstantModel(const Assets::Model& model) const
+Assets::PushConstantModel RayTracer::GetPushConstantModel(const GameObject& gameObject) const
 {
 	Assets::PushConstantModel ubo = {};
-	ubo.WorldMatrix = model.GetWorldMatrix();
+	ubo.WorldMatrix = gameObject.getWorldMatrix();
+
+	return ubo;
+}
+
+RayPickerUBO RayTracer::GetRayPickerUBO(const VkExtent2D extent) const
+{
+	RayPickerUBO ubo = {};
+	ubo.ModelView = CameraManager::getInstance()->getActiveCamera()->ModelView();
+	ubo.Projection = CameraManager::getInstance()->getActiveCamera()->GetProjection(userSettings_, extent);
+	ubo.Projection[1][1] *= -1; // Inverting Y for Vulkan, https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
+	ubo.ModelViewInverse = glm::inverse(ubo.ModelView);
+	ubo.ProjectionInverse = glm::inverse(ubo.Projection);
 
 	return ubo;
 }
@@ -146,21 +243,76 @@ void RayTracer::OnDeviceSet()
 
 void RayTracer::CreateSwapChain()
 {
-	Application::CreateSwapChain();
+	// Call the parent RayTracing::Application::CreateSwapChain() which will:
+	// 1. Call Vulkan::Application::CreateSwapChain() to create swap chain and command buffers
+	// 2. Call CreateOutputImage() to create accumulation/output images for ray tracing
+	// 3. Create the ray tracing pipeline
+	// CRITICAL: Must use explicit scope to call RayTracing::Application, not just Vulkan::Application
+	Vulkan::RayTracing::Application::CreateSwapChain();
 
 	rayVisualizationPipeline_.reset(new class Vulkan::RayVisualizationPipeline(SwapChain(), DepthBuffer(), UniformBuffers(), GetScene()));
-	//userInterface_.reset(new UserInterface(CommandPool(), SwapChain(), DepthBuffer(), userSettings_));
-	//UIManager::reset();
-	UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_);
-	UIManager::getInstance()->SetProfiler(profiler_.get());
 
-	if (!initializedUI)
+	// Initialize compute shader renderer if in Compute Shader mode
+	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::ComputeShader)
 	{
-		UIManager::getInstance()->initializeUI();
-		// UIManager::getInstance()->device = &Device();
-		// UIManager::getInstance()->sampler = new Vulkan::Sampler(Device(), Vulkan::SamplerConfig());
-	
-		initializedUI = true;
+		computeShaderRenderer_.reset(new Vulkan::Compute::ComputeShaderRayTracer(
+			SwapChain(), 
+			topAs_[0], 
+			*accumulationImageView_, 
+			*outputImageView_, 
+			*outputImageViewS_, 
+			UniformBuffers(), 
+			GetScene(), 
+			GetRayScene()
+		));
+		Debug::Log("Compute Shader Renderer initialized");
+		computeImagesInitialized_ = false; // Reset layout initialization flag for new renderer
+	}
+
+	// Initialize game rasterization renderer if in Game mode
+	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game)
+	{
+		gameRenderer_.reset(new Vulkan::Game::GameRenderer(
+			SwapChain(),
+			DepthBuffer(),
+			UniformBuffers(),
+			GetScene(),
+			CommandPool()));
+		Debug::Log("Game Renderer initialized");
+	}
+
+	// If UIManager hasn't been initialized yet
+	if (UIManager::getInstance() == nullptr)
+	{
+		UIManager::initialize(&CommandPool(), &SwapChain(), &DepthBuffer(), &userSettings_, &uiConfig_);
+		UIManager::getInstance()->SetProfiler(profiler_.get());
+
+		if (!initializedUI)
+		{
+			UIManager::getInstance()->initializeUI();
+			initializedUI = true;
+		}
+		// Backend freshly initialized — no old pool to release from, just register.
+		RegisterIBLDescriptors(gameRenderer_.get(), &userSettings_);
+	}
+	else if (initializedUI)
+	{
+		// UIManager already exists — backend will be torn down and recreated.
+		// Release IBL descriptor sets BEFORE the old pool is destroyed, then
+		// re-register against the fresh pool AFTER reinit completes.
+		ReleaseIBLDescriptors();
+
+		try
+		{
+			UIManager::ReinitializeBackends(&SwapChain(), &DepthBuffer());
+		}
+		catch (const std::exception& e)
+		{
+			Debug::Log("WARNING: Failed to reinitialize UIManager backends: " + std::string(e.what()));
+			// Continue anyway - UI might not be critical
+		}
+		// Old pool is gone — invalidate stale handles, then register fresh ones.
+		RegisterIBLDescriptors(gameRenderer_.get(), &userSettings_);
 	}
 
 	resetAccumulation_ = true;
@@ -171,10 +323,56 @@ void RayTracer::CreateSwapChain()
 void RayTracer::DeleteSwapChain()
 {
 	//userInterface_.reset();
+	computeShaderRenderer_.reset();
+	gameRenderer_.reset();
 	rayVisualizationPipeline_.reset();
 	UIManager::reset();
 
-	Application::DeleteSwapChain();
+	// CRITICAL: Wait for all in-flight frames to complete before destroying resources
+	Device().WaitIdle();
+
+	// Call the parent RayTracing::Application::DeleteSwapChain() which will:
+	// 1. Destroy ray tracing pipeline and shader binding table
+	// 2. Destroy output/accumulation images and their memory
+	// 3. Call Vulkan::Application::DeleteSwapChain() to destroy swap chain, command buffers, etc.
+	// CRITICAL: Must use explicit scope to ensure proper parent-class cleanup
+	Vulkan::RayTracing::Application::DeleteSwapChain();
+}
+
+void RayTracer::DeleteSwapChainWithoutUI()
+{
+	//userInterface_.reset();
+	computeShaderRenderer_.reset();
+	gameRenderer_.reset();
+	rayVisualizationPipeline_.reset();
+
+	// Shutdown ImGui GLFW backend without destroying UI state/layout
+	// Check if GLFW backend is initialized before shutting it down
+	// This is necessary because CreateSwapChain() will reinitialize it
+	ImGuiIO& io = ImGui::GetIO();
+	if (io.BackendPlatformUserData != nullptr)
+	{
+		ImGui_ImplGlfw_Shutdown();
+	}
+
+	// CRITICAL: Wait for all in-flight frames to complete before destroying resources
+	// This prevents the "command buffer in use" validation error
+	Device().WaitIdle();
+
+	// Call RayTracing::Application::DeleteSwapChain() which properly cleans up
+	// ray tracing resources (rayTracingPipeline, output images, etc.) before
+	// calling Vulkan::Application::DeleteSwapChain()
+	// NOTE: This variant does NOT reset UIManager so the UI state is preserved
+	// CRITICAL: Must use explicit scope to ensure proper parent-class cleanup
+	try
+	{
+		Vulkan::RayTracing::Application::DeleteSwapChain();
+	}
+	catch (const std::exception& e)
+	{
+		Debug::Log("ERROR in DeleteSwapChainWithoutUI: " + std::string(e.what()));
+		throw;
+	}
 }
 
 void RayTracer::DrawFrame()
@@ -194,6 +392,46 @@ void RayTracer::DrawFrame()
 		//	userSettings_.NumberOfSamples = 24;
 		//}
 	}
+
+	// Check if renderer mode was switched
+	if (isRenderChanged)
+	{
+		Debug::Log("=== Starting renderer switch ===");
+		Debug::Log("Current renderer mode: " + std::to_string(static_cast<int>(userSettings_.CurrentRendererMode)));
+		isRenderChanged = false;
+		isSwappingRenderer_ = true;
+
+		try
+		{
+			Debug::Log("Waiting for device idle before swap...");
+			Device().WaitIdle();
+			Debug::Log("Device idle complete");
+
+			Debug::Log("Deleting swap chain without UI...");
+			DeleteSwapChainWithoutUI();
+			Debug::Log("Swap chain deletion complete");
+
+			Debug::Log("Creating new swap chain...");
+			CreateSwapChain();
+			Debug::Log("New swap chain created successfully");
+
+			resetAccumulation_ = true;
+			totalNumberOfSamples_ = 0;
+			lastReportedPercentage_ = 0;
+
+			Debug::Log("=== Renderer switch complete ===");
+		}
+		catch (const std::exception& e)
+		{
+			Debug::Log("CRITICAL ERROR during renderer switch at: " + std::string(e.what()));
+			isSwappingRenderer_ = false;
+			throw;
+		}
+
+		isSwappingRenderer_ = false;
+		return;
+	}
+
 	// Check if the scene has been changed by the user via select new scene
 	if (sceneIndex_ != static_cast<uint32_t>(userSettings_.SceneIndex))
 	{
@@ -204,6 +442,7 @@ void RayTracer::DrawFrame()
 		LoadScene(userSettings_.SceneIndex);
 		CreateAccelerationStructures();
 		CreateSwapChain();
+		ResetPicker();
 		this->isSceneDirty = false;
 		return;
 	}
@@ -211,14 +450,35 @@ void RayTracer::DrawFrame()
 	//If user edited a certain model
 	if (this->isSceneDirty)
 	{
-		Debug::Log("Scene dirty, reloading scene");
 		this->isSceneDirty = false;
+
+		if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game)
+		{
+			// In Game mode we don't use acceleration structures and the swap chain
+			// doesn't depend on scene geometry — just update the scene data and
+			// recreate the renderer so it picks up the new vertex/light buffers.
+			Debug::Log("Scene dirty (Game mode), reloading scene data");
+			Device().WaitIdle();
+			gameRenderer_.reset();
+			ReloadModifiedScene();
+			gameRenderer_.reset(new Vulkan::Game::GameRenderer(
+				SwapChain(), DepthBuffer(), UniformBuffers(), GetScene(), CommandPool()));
+			Debug::Log("Game Renderer reloaded");
+			// Scene dirty reload: backends were NOT reinit'd, only the GameRenderer
+			// (and its IBL images) changed. Release old, register new.
+			ReleaseIBLDescriptors();
+			RegisterIBLDescriptors(gameRenderer_.get(), &userSettings_);
+			return;
+		}
+
+		Debug::Log("Scene dirty, reloading scene");
 		Device().WaitIdle();
-		DeleteSwapChain();
+		DeleteSwapChainWithoutUI();
 		DeleteAccelerationStructures();
 		ReloadModifiedScene();
 		CreateAccelerationStructures();
 		CreateSwapChain();
+		ResetPicker();
 		return;
 	}
 
@@ -228,18 +488,74 @@ void RayTracer::DrawFrame()
 		!userSettings_.AccumulateRays)
 	{
 		totalNumberOfSamples_ = 0;
+		lastReportedPercentage_ = 0;
 		resetAccumulation_ = false;
 	}
 
 	previousSettings_ = userSettings_;
 
-	// Keep track of our sample count.
-	numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, userSettings_.NumberOfSamples);
-	totalNumberOfSamples_ += numberOfSamples_;
+	// Keep track of our sample count (ray tracing modes only).
+	// In Game mode there is no accumulation — skip this entirely.
+	if (userSettings_.CurrentRendererMode != UserSettings::RendererMode::Game)
+	{
+		const uint32_t batchSize = (userSettings_.CurrentRendererMode == UserSettings::RendererMode::ComputeShader)
+			? userSettings_.SamplesPerInvocation
+			: userSettings_.NumberOfSamples;
+		numberOfSamples_ = glm::clamp(userSettings_.MaxNumberOfSamples - totalNumberOfSamples_, 0u, batchSize);
+		totalNumberOfSamples_ += numberOfSamples_;
+
+		// Broadcast sample progress every 10%
+		BroadcastSampleProgress();
+	}
+
+	// Update physics simulation
+	{
+		const auto prevTime = physicsTime_;
+		physicsTime_ = Window().GetTime();
+		float deltaTime = static_cast<float>(physicsTime_ - prevTime);
+
+		// Prevent "spiral of death" if the window is dragged or frozen
+		if (deltaTime > 0.25f)
+			deltaTime = 0.25f;
+
+		// Only process physics if not paused
+		if (!isPhysicsPaused && deltaTime > 0.0f)
+		{
+			physicsAccumulator_ += deltaTime;
+
+			// CRUCIAL: Change 'if' to 'while' to process all accumulated time
+			while (physicsAccumulator_ >= userSettings_.PhysicsTimestep)
+			{
+				bool isGameRenderer = userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game;
+
+				// Execute a single discrete step
+				TracerPhysics::GetInstance().Step(userSettings_.PhysicsTimestep, !isGameRenderer);
+
+				physicsAccumulator_ -= userSettings_.PhysicsTimestep;
+			}
+		}
+	}
 
 	rayScene_->Update(CommandPool());
-	
+
+	ExecuteScheduledPick();
+
+	// Flush any deferred material updates BEFORE the command buffer begins.
+	// This is the only safe point — command buffers will soon be recording,
+	// and we cannot call vkQueueWaitIdle() while buffers are in flight.
+	if (scene_)
+	{
+		scene_->FlushDeferredMaterialUpdate();
+	}
+
+	// Flush any deferred shadow-settings reload BEFORE the command buffer begins.
+	// This is the only safe point — GameRenderer::Render() is already inside
+	// commandBuffers_->Begin/End, so doing it there would invalidate in-flight resources.
+	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game && gameRenderer_)
+		gameRenderer_->FlushPendingShadowReload();
+
 	Application::DrawFrame();
+
 }
 
 void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
@@ -257,10 +573,141 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 	// Check the current state of the benchmark, update it for the new frame.
 	CheckAndUpdateBenchmarkState(prevTime);
 
-	// Render the scene
-	userSettings_.IsRayTraced
-		? Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex)
-		: Vulkan::Application::Render(commandBuffer, imageIndex);
+	if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::Game && gameRenderer_)
+	{
+		// Game rasterization renderer — draws directly to the swapchain framebuffer.
+		gameRenderer_->Render(commandBuffer, imageIndex);
+	}
+	else if (userSettings_.IsRayTraced)
+	{
+		if (userSettings_.CurrentRendererMode == UserSettings::RendererMode::ComputeShader && computeShaderRenderer_)
+		{
+			// Use compute shader renderer
+			const auto extent = SwapChain().Extent();
+
+			VkImageSubresourceRange subresourceRange = {};
+			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			subresourceRange.baseMipLevel = 0;
+			subresourceRange.levelCount = 1;
+			subresourceRange.baseArrayLayer = 0;
+			subresourceRange.layerCount = 1;
+
+			// On first frame after compute renderer creation, transition from UNDEFINED to GENERAL
+			// Otherwise, keep images in GENERAL layout (they're already there from previous frame)
+			VkImageLayout accumulationCurrentLayout = computeImagesInitialized_ ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED;
+			VkImageLayout outputCurrentLayout = computeImagesInitialized_ ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED;
+
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, accumulationImage_->Handle(), subresourceRange, 0,
+				VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, accumulationCurrentLayout, VK_IMAGE_LAYOUT_GENERAL);
+
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 0,
+				VK_ACCESS_SHADER_WRITE_BIT, outputCurrentLayout, VK_IMAGE_LAYOUT_GENERAL);
+
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange, 0,
+				VK_ACCESS_SHADER_WRITE_BIT, outputCurrentLayout, VK_IMAGE_LAYOUT_GENERAL);
+
+			// Mark compute images as initialized after first layout transition
+			if (!computeImagesInitialized_)
+			{
+				computeImagesInitialized_ = true;
+			}
+
+			// Dispatch compute shader
+			computeShaderRenderer_->Dispatch(commandBuffer, imageIndex, extent);
+
+			// Memory barrier to ensure compute shader writes are complete
+			VkMemoryBarrier memBarrier = {};
+			memBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			memBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+			memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+
+			// Transition output image for transfer
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 
+				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, 0,
+				VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+			// Copy output image into swap-chain image
+			VkImageCopy copyRegion;
+			copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+			copyRegion.srcOffset = { 0, 0, 0 };
+			copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+			copyRegion.dstOffset = { 0, 0, 0 };
+			copyRegion.extent = { extent.width, extent.height, 1 };
+
+			vkCmdCopyImage(commandBuffer,
+				outputImage_->Handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				1, &copyRegion);
+
+			// Transition swap chain image to present layout
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, VK_ACCESS_TRANSFER_WRITE_BIT,
+				0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+			// Transition output image back to GENERAL for next frame
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange,
+				VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+
+			// Copy output image to host capture buffer for screenshots
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange,
+				VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+			VkBufferImageCopy region{};
+			region.bufferOffset = 0;
+			region.bufferRowLength = 0;
+			region.bufferImageHeight = 0;
+			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			region.imageSubresource.mipLevel = 0;
+			region.imageSubresource.baseArrayLayer = 0;
+			region.imageSubresource.layerCount = 1;
+			region.imageOffset = { 0, 0, 0 };
+			region.imageExtent = { extent.width, extent.height, 1 };
+
+			vkCmdCopyImageToBuffer(
+				commandBuffer,
+				outputImageS_->Handle(),
+				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				hostCaptureBuffer_->Handle(),
+				1,
+				&region
+			);
+
+			VkBufferMemoryBarrier readbackBarrier{};
+			readbackBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+			readbackBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			readbackBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+			readbackBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			readbackBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			readbackBarrier.buffer = hostCaptureBuffer_->Handle();
+			readbackBarrier.offset = 0;
+			readbackBarrier.size = VK_WHOLE_SIZE;
+
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_HOST_BIT,
+				0,
+				0, nullptr,
+				1, &readbackBarrier,
+				0, nullptr
+			);
+
+			// Transition capture image back to GENERAL for next frame
+			Vulkan::ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange,
+				VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		}
+		else
+		{
+			// Use legacy ray tracing pipeline
+			Vulkan::RayTracing::Application::Render(commandBuffer, imageIndex);
+		}
+	}
+	else
+	{
+		Vulkan::Application::Render(commandBuffer, imageIndex);
+	}
 
 	// Render ray visualization
 	if (isVisualizeRays_)
@@ -293,7 +740,7 @@ void RayTracer::Render(VkCommandBuffer commandBuffer, const uint32_t imageIndex)
 
 				vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
 				vkCmdSetLineWidth(commandBuffer, 5);
-                
+
 				vkCmdDraw(commandBuffer, rays->NumberOfVertices(), 1, 0, 0);
 			}
 		}
@@ -335,29 +782,18 @@ void RayTracer::OnKey(int key, int scancode, int action, int mods)
 		case GLFW_KEY_F4: userSettings_.IsRayTraced = !userSettings_.IsRayTraced; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 		case GLFW_KEY_F5: EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 		case GLFW_KEY_F6: isVisualizeRays_ = !isVisualizeRays_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
+		case GLFW_KEY_F8: UIManager::getInstance()->toggleEnabled(UINames::IBL_DEBUG_SCREEN); return;
+		case GLFW_KEY_SPACE: 
+			isPhysicsPaused = !isPhysicsPaused;
+			Debug::Log("Physics " + std::string(isPhysicsPaused ? "PAUSED" : "RESUMED"));
+			return;
 
 			// case GLFW_KEY_H: userSettings_.ShowHeatmap = !userSettings_.ShowHeatmap; return;
 			// case GLFW_KEY_O: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 			// case GLFW_KEY_P: isWireFrame_ = !isWireFrame_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 			//case GLFW_KEY_U: renderUI_ = !renderUI_; EventBroadcaster::getInstance()->broadcastEvent(EventNames::ON_MARK_SCENE_DIRTY); return;
 
-
 		default: break;
-		}
-	}
-
-	if (action == GLFW_PRESS)
-	{
-		if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL))
-		{
-			TransformHistory::getInstance().undo();
-			return;
-		}
-
-		if (key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL))
-		{
-			TransformHistory::getInstance().redo();
-			return;
 		}
 	}
 
@@ -395,10 +831,55 @@ void RayTracer::OnCursorPosition(const double xpos, const double ypos)
 
 void RayTracer::OnMouseButton(const int button, const int action, const int mods)
 {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+	{
+		UIManager::getInstance()->onLMBPressed();
+	}
+	
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+	{
+		UIManager::getInstance()->onLMBReleased();
+
+		double xpos, ypos;
+		glfwGetCursorPos(Window().Handle(), &xpos, &ypos);
+		SchedulePick({ static_cast<float>(xpos), static_cast<float>(ypos) });
+	}
+
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 	{
 		isMoving = true;
 		mousePressed = true;
+	}
+
+	if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS)
+	{
+		// Spawn a sphere 10 units in front of the camera
+		auto camera = CameraManager::getInstance()->getActiveCamera();
+		glm::vec3 cameraPos = camera->getLocalPosition();
+
+		// Get camera forward direction directly from the camera
+		glm::vec3 forward = camera->getForward();
+
+		// Calculate spawn position (100 units in front)
+		glm::vec3 spawnPos = cameraPos + forward * 100.0f;
+
+		// Create a sphere with unique name
+		auto sphere = GameObjectFactory::CreateSphere("SpawnedSphere_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()));
+		sphere->setLocalPosition(spawnPos);
+
+		// Get raw pointer before moving
+		GameObject* spherePtr = sphere.get();
+
+		// Add to model manager
+		ModelManager::getInstance()->addObject(std::move(sphere));
+
+		// Apply force to launch the sphere in the forward direction
+		// The physics body was already created by GameObjectFactory::CreateSphere -> AddSphere
+		TracerPhysics::GetInstance().SetBodyPosition(spherePtr, spawnPos);
+		TracerPhysics::GetInstance().ApplyForce(spherePtr, forward * 500.0f);
+
+		Debug::Log("Sphere spawned at position (" + std::to_string(spawnPos.x) + ", " 
+			+ std::to_string(spawnPos.y) + ", " + std::to_string(spawnPos.z) + ") with force");
 	}
 
 	if (!HasSwapChain() ||
@@ -437,6 +918,14 @@ void RayTracer::OnScroll(const double xoffset, const double yoffset)
 	resetAccumulation_ = prevFov != userSettings_.FieldOfView;
 }
 
+void RayTracer::OnActionPressed(Hotkey::Action action)
+{
+	if (action == Hotkey::Action::ScreenShot)
+	{
+		TakeScreenshot("screenshot");
+	}
+}
+
 void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> parameters)
 {
 	// {"Cube And Spheres", CubeAndSpheres},
@@ -458,13 +947,31 @@ void RayTracer::onTriggeredEvent(String eventName, std::shared_ptr<Parameters> p
 		GlobalConfig::getInstance()->encodeBool(ConfigKeys::DO_NOT_RESET_CAMERA, true);
 		//Debug::Log("Scene marked as dirty! \n");
 	}
+	else if (eventName == EventNames::ON_MATERIAL_UPDATED)
+	{
+		// Material properties have changed. Mark materials dirty for deferred update.
+		// The actual GPU buffer update will happen in DrawFrame() before command buffer recording,
+		// ensuring we never call vkQueueWaitIdle() while buffers are in flight.
+		if (scene_)
+		{
+			scene_->MarkMaterialsDirty();
+		}
+	}
+	else if (eventName == EventNames::ON_SWAP_RENDERER)
+	{
+		int rendererMode = parameters->getIntData("RENDERER_MODE", static_cast<int>(UserSettings::RendererMode::Legacy));
+		// Defer the renderer switch to the next frame to avoid issues with command buffer recording
+		userSettings_.CurrentRendererMode = static_cast<UserSettings::RendererMode>(rendererMode);
+		isRenderChanged = true;
+		Debug::Log("Renderer switch scheduled for next frame");
+	}
 }
 
 void RayTracer::LoadScene(const uint32_t sceneIndex)
 {
 	auto& commandPool = CommandPool();
 
-	auto [models, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
+	auto [objects, textures, lights] = std::get<1>(SceneList::AllScenes[sceneIndex])(cameraInitialSate_);
 
 	Assets::CubeMapTexture skyboxCubeMap;
 
@@ -490,7 +997,7 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
 		lights.push_back(Assets::LightProperties(glm::vec3(2600, 20, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 0.4, 0.5, 1000000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
-	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_.reset(new Assets::Scene(CommandPool(), std::move(objects), std::move(textures), std::move(lights)));
 	scene_->SetSkybox(
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
@@ -517,14 +1024,9 @@ void RayTracer::LoadScene(const uint32_t sceneIndex)
  */
 void RayTracer::ReloadModifiedScene()
 {
-	std::vector<Assets::Model> models = ModelManager::getInstance()->getAllObjectModels();
+	std::vector<GameObject*> objects = ModelManager::getInstance()->getObjectList();
 	std::vector<Assets::Texture> textures = TextureLibrary::getInstance()->getTextureLibraryList();
 	std::vector<Assets::LightProperties> lights = ModelManager::getInstance()->getAllLightProperties();
-
-	for (auto& model : models)
-	{
-		model.ResetVertices();
-	}
 
 	// If there are no texture, add a dummy one. It makes the pipeline setup a lot easier.
 	if (textures.empty())
@@ -537,7 +1039,7 @@ void RayTracer::ReloadModifiedScene()
 		lights.push_back(Assets::LightProperties(glm::vec3(1000, 500, 0), glm::vec3(0, -1, 0), glm::vec4(1.0, 1.0, 1.0, 0.02), glm::vec4(1.0, 1.0, 1.0, 1000.0f), Assets::LightProperties::Enum::PointLight));
 	}
 
-	scene_.reset(new Assets::Scene(CommandPool(), std::move(models), std::move(textures), std::move(lights)));
+	scene_.reset(new Assets::Scene(CommandPool(), std::move(objects), std::move(textures), std::move(lights)));
 	scene_->SetSkybox(
 		skyboxTextureImage_->ImageView().Handle(),
 		skyboxTextureImage_->Sampler().Handle()
@@ -620,4 +1122,136 @@ void RayTracer::CheckFramebufferSize() const
 
 		Throw(std::runtime_error(out.str()));
 	}
+}
+
+void RayTracer::ResetPicker()
+{
+	rayPicker_.reset(new class RayPicker(*deviceProcedures_, SwapChain(), CommandPool(), topAs_[0], RayPickerUniformBuffers(), GetScene(), *rayTracingProperties_));
+}
+
+void RayTracer::SchedulePick(const glm::vec2& mousePos)
+{
+	this->isPickScheduled = true;
+	this->scheduledMousePos = mousePos;
+}
+
+void RayTracer::ExecuteScheduledPick()
+{
+	if (UIManager::getInstance()->IsGizmoUsed() || //give prio to Gizmo
+		UIManager::getInstance()->wantsToCaptureMouse()) // mouse over GUI
+	{
+		this->isPickScheduled = false;
+		return;
+	}
+
+	if (this->isPickScheduled && rayPicker_)
+	{
+		this->isPickScheduled = false;
+
+		glm::vec3 rayOrigin, rayDirection;
+		ScreenToWorldRay(scheduledMousePos, rayOrigin, rayDirection);
+
+		auto result = rayPicker_->pick(*deviceProcedures_, Device(), rayOrigin, rayDirection, currentFrame_);
+
+		int pickedId = result.objectID;
+		auto gameObject = ModelManager::getInstance()->findObjectByID(pickedId);
+
+		if (gameObject)	ModelManager::getInstance()->setSelectedObject(gameObject);
+		else ModelManager::getInstance()->setSelectedObject(nullptr);
+	}
+}
+
+void RayTracer::TakeScreenshot(std::string name)
+{
+	// Wait for all GPU operations to complete
+	Device().WaitIdle();
+
+	// Check if accumulation is complete
+	if (totalNumberOfSamples_ < userSettings_.MaxNumberOfSamples)
+	{
+		Debug::Log("WARNING: Screenshot taken with incomplete samples (" 
+			+ std::to_string(totalNumberOfSamples_) + "/" 
+			+ std::to_string(userSettings_.MaxNumberOfSamples) + ")");
+	}
+
+	auto extent = SwapChain().Extent();
+
+	const uint32_t width = extent.width;
+	const uint32_t height = extent.height;
+	const uint32_t bytesPerPixel = 4; // RGBA8
+
+	const VkDeviceSize byteSize = VkDeviceSize(width) * height * bytesPerPixel;
+
+	void* mapped = hostCaptureBufferMemory_->Map(0, byteSize);
+
+	Export::SavePNG(name, width, height, bytesPerPixel, mapped);
+
+	hostCaptureBufferMemory_->Unmap();
+
+	Debug::Log("Screenshot saved: " + name + " (Samples: " + std::to_string(totalNumberOfSamples_) + ")");
+}
+
+void RayTracer::BroadcastSampleProgress()
+{
+	if (userSettings_.MaxNumberOfSamples == 0)
+		return;
+
+	// Calculate current percentage (0-100)
+	uint32_t currentPercentage = (totalNumberOfSamples_ * 100) / userSettings_.MaxNumberOfSamples;
+
+	/*
+	Debug::Log("Current sample progress: " + std::to_string(currentPercentage) + "% (" 
+		+ std::to_string(totalNumberOfSamples_) + "/" 
+		+ std::to_string(userSettings_.MaxNumberOfSamples) + ")");
+	*/
+
+	// Round down to nearest interval threshold
+	uint32_t currentMilestone = (currentPercentage / sampleProgressInterval_) * sampleProgressInterval_;
+
+	// Check if we've crossed a new interval threshold
+	if (currentMilestone > lastReportedPercentage_ && currentMilestone <= 100)
+	{
+		lastReportedPercentage_ = currentMilestone;
+
+		// Create parameters with progress data
+		auto params = std::make_shared<Parameters>(EventNames::ON_SAMPLE_PROGRESS);
+		params->encodeInt("percentage", currentMilestone);
+		params->encodeInt("currentSamples", totalNumberOfSamples_);
+		params->encodeInt("maxSamples", userSettings_.MaxNumberOfSamples);
+		params->encodeBool("isComplete", totalNumberOfSamples_ >= userSettings_.MaxNumberOfSamples);
+
+		// Broadcast the event
+		EventBroadcaster::getInstance()->broadcastEventWithParams(EventNames::ON_SAMPLE_PROGRESS, params);
+
+		Debug::Log("Sample Progress: " + std::to_string(currentMilestone) + "% (" 
+			+ std::to_string(totalNumberOfSamples_) + "/" 
+			+ std::to_string(userSettings_.MaxNumberOfSamples) + ")");
+	}
+}
+
+void RayTracer::ScreenToWorldRay(const glm::vec2& mousePos,
+	glm::vec3& outOrigin,
+	glm::vec3& outDirection)
+{
+	VkExtent2D windowSize = Window().WindowSize();
+	float viewportWidth = static_cast<float>(windowSize.width);
+	float viewportHeight = static_cast<float>(windowSize.height);
+
+	float x = (2.0f * mousePos.x) / viewportWidth - 1.0f;
+	float y = 1.0f - (2.0f * mousePos.y) / viewportHeight;
+
+	glm::vec4 rayClip = glm::vec4(x, y, -1.0f, 1.0f);
+
+	auto camera = CameraManager::getInstance()->getActiveCamera();
+
+	glm::mat4 invProjection = glm::inverse(camera->GetProjection());
+	glm::mat4 invView = glm::inverse(camera->GetView());
+
+	glm::vec4 rayEye = invProjection * rayClip;
+	rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0f, 0.0f);
+
+	glm::vec4 rayWorld = invView * rayEye;
+	outDirection = glm::normalize(glm::vec3(rayWorld));
+
+	outOrigin = camera->getLocalPosition();
 }

@@ -54,6 +54,11 @@ void Parameters::encodeFloat(const String keyName, float item)
 	this->floatTable[keyName] = item;
 }
 
+void Parameters::encodeHandle(const String keyName, void* item)
+{
+	this->handleTable[keyName] = item;
+}
+
 bool Parameters::getBoolData(const String keyName, bool defaultValue)
 {
 	if (this->boolTable.contains(keyName))
@@ -88,6 +93,11 @@ float Parameters::getFloatData(const String keyName, float defaultValue)
 		Debug::Log(msg);
 		return defaultValue;
 	}
+}
+
+void* Parameters::getHandleData(const String keyName, void* defaultValue)
+{
+	return this->handleTable.contains(keyName) ? this->handleTable[keyName] : defaultValue;
 }
 
 void EventBroadcaster::addObserver(String name, Observer* observer)

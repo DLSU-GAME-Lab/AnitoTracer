@@ -21,9 +21,5 @@ public:
 private:
 	typedef std::vector<std::shared_ptr<Assets::Model>> ModelList;
 	ModelList modelList;
-
-	void performModelTransform() override;
-	void performModelRotate() override;
-	void performModelScale() override;
 };
 

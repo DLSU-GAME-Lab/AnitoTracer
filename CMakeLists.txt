@@ -19,6 +19,9 @@ set (CMAKE_CXX_STANDARD 20)
 if (WIN32)
 	add_definitions(-DUNICODE -D_UNICODE)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
+	# For FFMPEG
+    set(FFMPEG_DEPENDENCY_ncrypt_RELEASE "ncrypt.lib" CACHE FILEPATH "")
+    set(FFMPEG_DEPENDENCY_ncrypt_DEBUG "ncrypt.lib" CACHE FILEPATH "")
 endif ()
 
 if (MSVC)
@@ -29,6 +32,7 @@ if (MSVC)
 	endforeach()
 	
 	add_compile_options("/MP")
+	add_compile_options("/utf-8")
 endif()
 
 if (UNIX)
@@ -36,6 +40,7 @@ if (UNIX)
 	add_definitions(-DUNIX)
 	add_compile_options("-Wall")
 	add_compile_options("-fvisibility=hidden")
+	add_compile_options("-finput-charset=UTF-8 -fexec-charset=UTF-8")
 	
 	find_package(Backtrace REQUIRED)
 
@@ -52,19 +57,36 @@ SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "build/vcpkg.windows/installed/x64-
 SET(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "build/vcpkg.windows/installed/x64-windows-static/share")
 # Stb is weird idk why!!!
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/build/vcpkg.windows/installed/x64-windows-static/share/stb")
+# Needs to set manually for FFMPEG -..-
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/vcpkg.windows/installed/x64-windows-static/share/ffmpeg")
 
 add_compile_definitions(GLM_ENABLE_EXPERIMENTAL)
 
 find_package(Boost REQUIRED COMPONENTS exception program_options) 
+find_package(ZLIB CONFIG REQUIRED)
+# Alias ZLIB::ZLIBSTATIC to ZLIB::ZLIB so downstream packages (e.g. PNG) resolve correctly
+if(TARGET ZLIB::ZLIBSTATIC AND NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB ALIAS ZLIB::ZLIBSTATIC)
+endif()
+# Ensure legacy FindZLIB variables are set for packages that rely on them
+set(_VCPKG_STATIC "${CMAKE_SOURCE_DIR}/build/vcpkg.windows/installed/x64-windows-static")
+set(ZLIB_INCLUDE_DIR "${_VCPKG_STATIC}/include" CACHE PATH "" FORCE)
+set(ZLIB_LIBRARY_RELEASE "${_VCPKG_STATIC}/lib/zs.lib" CACHE FILEPATH "" FORCE)
+set(ZLIB_LIBRARY_DEBUG "${_VCPKG_STATIC}/debug/lib/zsd.lib" CACHE FILEPATH "" FORCE)
+set(ZLIB_LIBRARY "${ZLIB_LIBRARY_RELEASE}" CACHE FILEPATH "" FORCE)
+
+find_package(BZip2 REQUIRED)
+find_package(PNG REQUIRED)
 find_package(freetype CONFIG REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
-find_package(imguizmo CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 find_package(Assimp REQUIRED)
 find_package(Vulkan REQUIRED)
+find_package(FFMPEG REQUIRED)
+find_package(Jolt CONFIG REQUIRED)
+
 
 # add_definitions(-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 

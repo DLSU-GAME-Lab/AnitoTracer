@@ -63,7 +63,7 @@ void AssetExplorerScreen::drawUI()
         // Left
         static int selected = 0;
         {
-            ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX);
+            ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_ResizeX);
             for (int i = 0; i < 100; i++)
             {
                 // FIXME: Good candidate to use ImGuiSelectableFlags_SelectOnNav

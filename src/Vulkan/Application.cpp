@@ -26,6 +26,8 @@
 #include "From-GDGRAP2/ModelManager.h"
 
 #include "Engine/Scene/SceneIO.hpp"
+#include "HotkeySystem/HotkeySystem.hpp"
+#include "RayPicker/RayPickerUBO.hpp"
 
 namespace Vulkan {
 
@@ -46,9 +48,13 @@ Application::Application(const WindowConfig& windowConfig, const VkPresentModeKH
 	//initialize libs
 	Debug::initialize();
 	GlobalConfig::initialize();
+	HotkeySystem::initialize();
 	EventBroadcaster::initialize();
 	ModelManager::initialize();
 	SceneIO::initialize();
+
+
+	inputAdapter_ = new GLFWInputAdapter(Application::Window().Handle());
 }
 
 Application::~Application()
@@ -63,6 +69,7 @@ Application::~Application()
 	window_.reset();
 
 	ModelManager::destroy();
+	HotkeySystem::destroy();
 	EventBroadcaster::destroy();
 	GlobalConfig::destroy();
 	Debug::destroy();
@@ -117,9 +124,9 @@ void Application::Run()
 	currentFrame_ = 0;
 
 	window_->DrawFrame = [this]() { DrawFrame(); };
-	window_->OnKey = [this](const int key, const int scancode, const int action, const int mods) { OnKey(key, scancode, action, mods); };
+	window_->OnKey = [this](const int key, const int scancode, const int action, const int mods) { OnKey(key, scancode, action, mods); inputAdapter_->keyCallback(Application::Window().Handle(), key, scancode, action, mods);  };
 	window_->OnCursorPosition = [this](const double xpos, const double ypos) { OnCursorPosition(xpos, ypos); };
-	window_->OnMouseButton = [this](const int button, const int action, const int mods) { OnMouseButton(button, action, mods); };
+	window_->OnMouseButton = [this](const int button, const int action, const int mods) { OnMouseButton(button, action, mods); inputAdapter_->mouseButtonCallback(Application::Window().Handle(), button, action, mods); };
 	window_->OnScroll = [this](const double xoffset, const double yoffset) { OnScroll(xoffset, yoffset); };
 	window_->Run();
 	device_->WaitIdle();
@@ -158,6 +165,7 @@ void Application::CreateSwapChain()
 		renderFinishedSemaphores_.emplace_back(*device_);
 		inFlightFences_.emplace_back(*device_, true);
 		uniformBuffers_.emplace_back(*device_, sizeof(Assets::UniformBufferObject));
+		rayPickerUniformBuffers.emplace_back(*device_, sizeof(RayPickerUBO));
 	}
 
 	graphicsPipeline_.reset(new class GraphicsPipeline(*swapChain_, *depthBuffer_, uniformBuffers_, GetScene(), isWireFrame_));
@@ -327,14 +335,14 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 		uint32_t vertexOffset = 0;
 		uint32_t indexOffset = 0;
 
-		for (const auto& model : ModelManager::getInstance()->getAllObjectModels())
+		for (GameObject* gameObject : ModelManager::getInstance()->getObjectList())
 		{
-			auto pushConstantModel = GetPushConstantModel(model);
+			Assets::PushConstantModel pushConstantModel = GetPushConstantModel(*gameObject);
 			vkCmdPushConstants(commandBuffer, graphicsPipeline_->PipelineLayout().Handle(),
 				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantModel), &pushConstantModel);
 
-			uint32_t vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-			uint32_t indexCount = static_cast<uint32_t>(model.NumberOfIndices());
+			uint32_t vertexCount = static_cast<uint32_t>(gameObject->getModel()->NumberOfVertices());
+			uint32_t indexCount = static_cast<uint32_t>(gameObject->getModel()->NumberOfIndices());
 
 			vkCmdDrawIndexed(commandBuffer, indexCount, 1, indexOffset, vertexOffset, 0);
 
@@ -349,6 +357,7 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 void Application::UpdateUniformBuffer(const uint32_t imageIndex)
 {
 	uniformBuffers_[imageIndex].SetValue(GetUniformBufferObject(swapChain_->Extent()));
+	rayPickerUniformBuffers[imageIndex].SetValue(GetRayPickerUBO(swapChain_->Extent()));
 }
 
 void Application::RecreateSwapChain()

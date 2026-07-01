@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include "Engine/Profiler/Profiler.h"
+#include "HotkeySystem/GLFWInputAdapter.hpp"
 
 namespace Assets
 {
@@ -15,6 +16,10 @@ namespace Assets
 	class UniformBuffer;
 	class Model;
 }
+
+class RayPickerUBO;
+class RayPickerUniformBuffer;
+class GameObject;
 
 namespace Vulkan 
 {
@@ -47,13 +52,15 @@ namespace Vulkan
 		class CommandPool& CommandPool() { return *commandPool_; }
 		const class DepthBuffer& DepthBuffer() const { return *depthBuffer_; }
 		const std::vector<Assets::UniformBuffer>& UniformBuffers() const { return uniformBuffers_; }
+		const std::vector<RayPickerUniformBuffer>& RayPickerUniformBuffers() const { return rayPickerUniformBuffers; }
 		const class GraphicsPipeline& GraphicsPipeline() const { return *graphicsPipeline_; }
 		const class FrameBuffer& SwapChainFrameBuffer(const size_t i) const { return swapChainFramebuffers_[i]; }
 		
 		virtual const Assets::Scene& GetScene() const = 0;
 		virtual const Assets::RayScene& GetRayScene() const = 0;
 		virtual Assets::UniformBufferObject GetUniformBufferObject(VkExtent2D extent) const = 0;
-		virtual Assets::PushConstantModel GetPushConstantModel(const Assets::Model& model) const = 0;
+		virtual Assets::PushConstantModel GetPushConstantModel(const GameObject& model) const = 0;
+		virtual RayPickerUBO GetRayPickerUBO(const VkExtent2D extent) const = 0;
 
 		virtual void SetPhysicalDevice(
 			VkPhysicalDevice physicalDevice, 
@@ -75,6 +82,7 @@ namespace Vulkan
 
 		bool isWireFrame_{};
 		std::unique_ptr<GpuCpuProfiler> profiler_;
+		size_t currentFrame_{};
 
 	private:
 
@@ -90,6 +98,7 @@ namespace Vulkan
 		std::unique_ptr<class Device> device_;
 		std::unique_ptr<class SwapChain> swapChain_;
 		std::vector<Assets::UniformBuffer> uniformBuffers_;
+		std::vector<RayPickerUniformBuffer> rayPickerUniformBuffers;
 		std::unique_ptr<class DepthBuffer> depthBuffer_;
 		std::unique_ptr<class GraphicsPipeline> graphicsPipeline_;
 		std::vector<class FrameBuffer> swapChainFramebuffers_;
@@ -98,7 +107,7 @@ namespace Vulkan
 		std::vector<class Semaphore> imageAvailableSemaphores_;
 		std::vector<class Semaphore> renderFinishedSemaphores_;
 		std::vector<class Fence> inFlightFences_;
-		size_t currentFrame_{};
+		GLFWInputAdapter* inputAdapter_;
 	};
 
 }

@@ -17,9 +17,8 @@
 #include "Vulkan/SwapChain.hpp"
 #include <chrono>
 #include <iostream>
-#include <numeric>
-
-#include "UI/UIManager.h"
+#include "From-GDGRAP2/ModelManager.h"
+#include <From-GDGRAP2/Debug.h>
 
 
 namespace Vulkan::RayTracing {
@@ -145,7 +144,7 @@ void Application::CreateSwapChain()
 
 	CreateOutputImage();
 
-	rayTracingPipeline_.reset(new RayTracingPipeline(*deviceProcedures_, SwapChain(), topAs_[0], *accumulationImageView_, *outputImageView_, UniformBuffers(), GetScene(), GetRayScene()));
+	rayTracingPipeline_.reset(new RayTracingPipeline(*deviceProcedures_, SwapChain(), topAs_[0], *accumulationImageView_, *outputImageView_, *outputImageViewS_, UniformBuffers(), GetScene(), GetRayScene()));
 
 	const std::vector<ShaderBindingTable::Entry> rayGenPrograms = { {rayTracingPipeline_->RayGenShaderIndex(), {}} };
 	const std::vector<ShaderBindingTable::Entry> missPrograms = { {rayTracingPipeline_->MissShaderIndex(), {}} };
@@ -188,6 +187,9 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	ImageMemoryBarrier::Insert(commandBuffer, outputImage_->Handle(), subresourceRange, 0,
 		VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
+	ImageMemoryBarrier::Insert(commandBuffer,outputImageS_->Handle(), subresourceRange, VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
 	// Bind ray tracing pipeline.
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rayTracingPipeline_->Handle());
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rayTracingPipeline_->PipelineLayout().Handle(), 0, 1, descriptorSets, 0, nullptr);
@@ -222,6 +224,9 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 	ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, 0,
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
+	ImageMemoryBarrier::Insert(commandBuffer, outputImageS_->Handle(), subresourceRange,
+		VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
 	// Copy output image into swap-chain image.
 	VkImageCopy copyRegion;
 	copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
@@ -235,15 +240,48 @@ void Application::Render(VkCommandBuffer commandBuffer, const uint32_t imageInde
 		SwapChain().Images()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1, &copyRegion);
 
-
 	ImageMemoryBarrier::Insert(commandBuffer, SwapChain().Images()[imageIndex], subresourceRange, VK_ACCESS_TRANSFER_WRITE_BIT,
 		0, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-	// Viewport test code
-	//UIManager::getInstance()->m_Dset = descriptorSets[0];
-	//UIManager::getInstance()->images = &SwapChain().Images();
-	//UIManager::getInstance()->imageView = outputImageView_.get();
-	//UIManager::getInstance()->image = outputImage_.get();
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+	region.imageOffset = { 0, 0, 0 };
+	region.imageExtent = { extent.width, extent.height, 1 };
+
+	vkCmdCopyImageToBuffer(
+		commandBuffer,
+		outputImageS_->Handle(),
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		hostCaptureBuffer_->Handle(),
+		1,
+		&region
+	);
+
+	VkBufferMemoryBarrier readbackBarrier{};
+	readbackBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	readbackBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	readbackBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+	readbackBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	readbackBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	readbackBarrier.buffer = hostCaptureBuffer_->Handle();
+	readbackBarrier.offset = 0;
+	readbackBarrier.size = VK_WHOLE_SIZE;
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_HOST_BIT,
+		0,
+		0, nullptr,
+		1, &readbackBarrier,
+		0, nullptr
+	);
 }
 
 void Application::CreateBottomLevelStructures(VkCommandBuffer commandBuffer)
@@ -257,13 +295,16 @@ void Application::CreateBottomLevelStructures(VkCommandBuffer commandBuffer)
 	uint32_t indexOffset = 0;
 	uint32_t aabbOffset = 0;
 
-	for (const auto& model : scene.Models())
+	for (const auto& gameObjects : scene.GameObjects())
 	{
-		const auto vertexCount = static_cast<uint32_t>(model.NumberOfVertices());
-		const auto indexCount = static_cast<uint32_t>(model.NumberOfIndices());
+		auto model = gameObjects->getModel();
+		if (!model) continue;
+
+		const auto vertexCount = static_cast<uint32_t>(model->NumberOfVertices());
+		const auto indexCount = static_cast<uint32_t>(model->NumberOfIndices());
 		BottomLevelGeometry geometries;
 		
-		model.Procedural()
+		model->Procedural()
 			? geometries.AddGeometryAabb(scene, aabbOffset, 1, true)
 			: geometries.AddGeometryTriangles(scene, vertexOffset, vertexCount, indexOffset, indexCount, true);
 
@@ -307,17 +348,25 @@ void Application::CreateTopLevelStructures(VkCommandBuffer commandBuffer)
 	const auto& scene = GetScene();
 	const auto& debugUtils = Device().DebugUtils();
 
-	// Top level acceleration structure
-	std::vector<VkAccelerationStructureInstanceKHR> instances;
-
-	// Hit group 0: triangles
-	// Hit group 1: procedurals
+	std::vector<VkAccelerationStructureInstanceKHR> instances; //temp fix
 	uint32_t instanceId = 0;
 
-	for (const auto& model : scene.Models())
+	ModelManager::getInstance()->ClearTLASInstances();
+
+	for (const auto& gameObject : scene.GameObjects())
 	{
-		instances.push_back(TopLevelAccelerationStructure::CreateInstance(
-			bottomAs_[instanceId], glm::mat4(1), instanceId, model.Procedural() ? 1 : 0));
+		if (!gameObject->getModel()) continue;
+
+		auto world = gameObject->getWorldMatrix();
+		auto instance = TopLevelAccelerationStructure::CreateInstance(
+			bottomAs_[instanceId], // TODO: Replace with blas from ModelManager/ModelLibrary
+			glm::transpose(world),
+			instanceId,
+			gameObject->getModel()->Procedural() ? 1 : 0
+		);
+
+		instances.push_back(instance);
+		ModelManager::getInstance()->RegisterTLASInstance(instanceId, gameObject, instance);
 		instanceId++;
 	}
 
@@ -358,13 +407,23 @@ void Application::CreateOutputImage()
 	const auto format = SwapChain().Format();
 	const auto tiling = VK_IMAGE_TILING_OPTIMAL;
 
+	// Accumulation image uses high precision float format
 	accumulationImage_.reset(new Image(Device(), extent, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT));
 	accumulationImageMemory_.reset(new DeviceMemory(accumulationImage_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
 	accumulationImageView_.reset(new ImageView(Device(), accumulationImage_->Handle(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT));
 
-	outputImage_.reset(new Image(Device(), extent, format, tiling, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
+	// Output and capture images use rgba8 for compatibility with both legacy ray tracer and compute shader
+	// The compute shader will handle the float->uint8 conversion with proper normalization
+	outputImage_.reset(new Image(Device(), extent, VK_FORMAT_R8G8B8A8_UNORM, tiling, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
 	outputImageMemory_.reset(new DeviceMemory(outputImage_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
-	outputImageView_.reset(new ImageView(Device(), outputImage_->Handle(), format, VK_IMAGE_ASPECT_COLOR_BIT));
+	outputImageView_.reset(new ImageView(Device(), outputImage_->Handle(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT));
+
+	outputImageS_.reset(new Image(Device(), extent, VK_FORMAT_R8G8B8A8_UNORM, tiling, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
+	outputImageMemoryS_.reset(new DeviceMemory(outputImageS_->AllocateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)));
+	outputImageViewS_.reset(new ImageView(Device(), outputImageS_->Handle(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT));
+
+	hostCaptureBuffer_.reset(new Buffer(Device(), extent.height * extent.width * sizeof(color), VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT));
+	hostCaptureBufferMemory_.reset(new DeviceMemory(hostCaptureBuffer_->AllocateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)));
 
 	const auto& debugUtils = Device().DebugUtils();
 	
