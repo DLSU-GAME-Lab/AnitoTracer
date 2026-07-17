@@ -32,3 +32,6 @@
 *.app
 .vs
 AnitoTracerRebuild/out
+out
+thirdparty
+vcpkg

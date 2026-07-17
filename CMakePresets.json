@@ -7,13 +7,16 @@
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "installDir": "${sourceDir}/out/install/${presetName}",
-          "cacheVariables": {
-            "CMAKE_C_COMPILER": "cl.exe",
-            "CMAKE_CXX_COMPILER": "cl.exe",
-            "FETCHCONTENT_QUIET": "OFF",
-            "FETCHCONTENT_FULLY_DISCONNECTED": "OFF",
-            "CMAKE_MESSAGE_LOG_LEVEL": "VERBOSE"
-          },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg",
+                "VCPKG_INSTALLED_DIR": "${sourceDir}/thirdparty",
+                "VCPKG_LIBRARY_LINKAGE": "static",
+                "VCPKG_MANIFEST_MODE": "ON",
+                "VCPKG_MANIFEST_DIR": "${sourceDir}"
+            },
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
@@ -71,7 +74,13 @@
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "installDir": "${sourceDir}/out/install/${presetName}",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg",
+                "VCPKG_INSTALLED_DIR": "${sourceDir}/thirdparty",
+                "VCPKG_LIBRARY_LINKAGE": "static",
+                "VCPKG_MANIFEST_MODE": "ON",
+                "VCPKG_MANIFEST_DIR": "${sourceDir}"
             },
             "condition": {
                 "type": "equals",
@@ -91,7 +100,13 @@
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "installDir": "${sourceDir}/out/install/${presetName}",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_ROOT": "${sourceDir}/vcpkg",
+                "VCPKG_INSTALLED_DIR": "${sourceDir}/thirdparty",
+                "VCPKG_LIBRARY_LINKAGE": "static",
+                "VCPKG_MANIFEST_MODE": "ON",
+                "VCPKG_MANIFEST_DIR": "${sourceDir}"
             },
             "condition": {
                 "type": "equals",

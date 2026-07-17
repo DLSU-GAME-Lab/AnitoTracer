@@ -1,0 +1,20 @@
+{
+  "name": "anitoracer-rebuild",
+  "version": "0.2.0",
+  "dependencies": [
+    {
+      "name": "bgfx",
+      "features": [
+        "tools"
+      ]
+    },
+    {
+      "name": "imgui",
+      "features": [
+        "glfw-binding"
+      ]
+    },
+    "glfw3",
+    "glm"
+  ]
+}
