@@ -41,7 +41,7 @@ int main()
 	// Initialize bgfx
 	bgfx::setPlatformData(pd);
 	bgfx::Init init;
-	init.type = bgfx::RendererType::Count; // Automatically choose the best backend (D3D11/D3D12/Vulkan)
+	init.type = bgfx::RendererType::Vulkan;
 	init.platformData = pd;                // Pass your GLFW window handle
 	init.resolution.width = 1280;
 	init.resolution.height = 720;

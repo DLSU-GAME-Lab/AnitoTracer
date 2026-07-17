@@ -27,9 +27,16 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET AnitoTracer_Rebuild PROPERTY CXX_STANDARD 20)
 endif()
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set_target_properties(AnitoTracer_Rebuild PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+
 target_link_libraries(AnitoTracer_Rebuild PRIVATE 
 						bgfx::bgfx
 						imgui::imgui 
 						glfw 
 						glm::glm
 )
+
+add_subdirectory(shaders)
+
+add_dependencies(AnitoTracer_Rebuild CopyShaders)
