@@ -10,6 +10,8 @@ if (POLICY CMP0141)
 endif()
 
 project ("AnitoTracer_Rebuild")
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(MSVC)
     add_compile_options(/Zc:__cplusplus /Zc:preprocessor)
@@ -19,6 +21,8 @@ find_package(bgfx CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
+
+add_subdirectory(src/Rendering)
 
 # Add source to this project's executable.
 add_executable (AnitoTracer_Rebuild "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h")
@@ -35,8 +39,8 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
 						imgui::imgui 
 						glfw 
 						glm::glm
+						Rendering
 )
 
 add_subdirectory(shaders)
-
 add_dependencies(AnitoTracer_Rebuild CopyShaders)

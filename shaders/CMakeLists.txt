@@ -1,35 +1,30 @@
 cmake_minimum_required(VERSION 3.10)
 project(AnitoTracer_Shaders)
 
-# 1. Locate the shaderc compiler executable bundled by vcpkg tools
 find_program(BGFX_SHADERC_EXE 
     NAMES shaderc 
     PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/bgfx" 
     REQUIRED
 )
 
-# 2. Determine platform specific profiles
 if(MSVC)
-    set(VS_PROFILE "spirv")  # Vulkan SPIR-V profile
-    set(FS_PROFILE "spirv")  # Vulkan SPIR-V profile
-    set(PLATFORM "windows")  # Tells shaderc to look for Windows Vulkan drivers
+    set(VS_PROFILE "spirv") 
+    set(FS_PROFILE "spirv")  
+    set(PLATFORM "windows")  
 else()
-    set(VS_PROFILE "spirv")  # Vulkan SPIR-V profile
-    set(FS_PROFILE "spirv")  # Vulkan SPIR-V profile
+    set(VS_PROFILE "spirv")  
+    set(FS_PROFILE "spirv")  
     set(PLATFORM "linux")
 endif()
 
-# 3. Setup global configuration paths
 set(VARYING_DEF "${CMAKE_CURRENT_SOURCE_DIR}/varying.def.sc")
 set(SHADER_OUT_BASE_DIR "${CMAKE_CURRENT_BINARY_DIR}/compiled")
 
-# 4. Search all nested folders recursively
 file(GLOB_RECURSE VERTEX_SHADERS "${CMAKE_CURRENT_SOURCE_DIR}/v_*.sc")
 file(GLOB_RECURSE FRAGMENT_SHADERS "${CMAKE_CURRENT_SOURCE_DIR}/f_*.sc")
 
 set(COMPILED_SHADER_BINARIES "")
 
-# 5. Process Recursive Vertex Shaders
 foreach(SHADER ${VERTEX_SHADERS})
     file(RELATIVE_PATH REL_PATH "${CMAKE_CURRENT_SOURCE_DIR}" "${SHADER}")
     get_filename_component(REL_DIR "${REL_PATH}" DIRECTORY)
@@ -47,7 +42,6 @@ foreach(SHADER ${VERTEX_SHADERS})
     list(APPEND COMPILED_SHADER_BINARIES ${OUTPUT_FILE})
 endforeach()
 
-# 6. Process Recursive Fragment Shaders
 foreach(SHADER ${FRAGMENT_SHADERS})
     file(RELATIVE_PATH REL_PATH "${CMAKE_CURRENT_SOURCE_DIR}" "${SHADER}")
     get_filename_component(REL_DIR "${REL_PATH}" DIRECTORY)
@@ -65,7 +59,6 @@ foreach(SHADER ${FRAGMENT_SHADERS})
     list(APPEND COMPILED_SHADER_BINARIES ${OUTPUT_FILE})
 endforeach()
 
-# 7. Use a standalone utility target to compile and copy files automatically
 add_custom_target(CopyShaders ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${SHADER_OUT_BASE_DIR}" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders"
     DEPENDS ${COMPILED_SHADER_BINARIES}

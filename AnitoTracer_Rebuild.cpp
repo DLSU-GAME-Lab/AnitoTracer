@@ -8,6 +8,24 @@
 #include <GLFW/glfw3native.h>     // Provides the real glfwGetWin32Window function
 #endif
 
+#include "src/Rendering/Shaders/SimpleShader.hpp"
+
+struct PosColorVertex {
+	float x, y, z;      // Position
+	float r, g, b, a;   // Color
+};
+
+// 2. Define the geometry data for a simple center triangle
+static PosColorVertex s_triangleVertices[] = {
+	{  0.0f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top Vertex (Red)
+	{  0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom Right Vertex (Green)
+	{ -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f, 1.0f }  // Bottom Left Vertex (Blue)
+};
+
+static const uint16_t s_triangleIndices[] = {
+	0, 1, 2
+};
+
 int main()
 {
 	std::cout << "Hello CMake." << std::endl;
@@ -61,6 +79,17 @@ int main()
 
 	std::cout << "bgfx and GLFW initialized successfully!" << std::endl;
 
+	SimpleShader shader;
+
+	bgfx::VertexBufferHandle vbh = bgfx::createVertexBuffer(
+		bgfx::makeRef(s_triangleVertices, sizeof(s_triangleVertices)),
+		shader.GetLayout()
+	);
+
+	bgfx::IndexBufferHandle ibh = bgfx::createIndexBuffer(
+		bgfx::makeRef(s_triangleIndices, sizeof(s_triangleIndices))
+	);
+
 	// Main loop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -68,16 +97,36 @@ int main()
 		int width, height;
 		glfwGetWindowSize(window, &width, &height);
 
-		// Reset if window was resized
-		if (width != 1280 || height != 720)
+		// Handle resize tracking dynamically
+		static int currentWidth = 1280;
+		static int currentHeight = 720;
+		if (width != currentWidth || height != currentHeight)
 		{
-			bgfx::reset(width, height, BGFX_RESET_VSYNC);
+			currentWidth = width;
+			currentHeight = height;
+			bgfx::reset(uint32_t(width), uint32_t(height), BGFX_RESET_VSYNC);
 		}
 
-		// Clear background
-		bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
+		// 1. Configure View 0 properties FIRST
 		bgfx::setViewRect(0, 0, 0, uint16_t(width), uint16_t(height));
+		bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
+
+		// 2. Touch View 0 to ensure it clears even if nothing throws drawing commands
 		bgfx::touch(0);
+
+		// 3. Bind geometry streams
+		bgfx::setVertexBuffer(0, vbh);
+		bgfx::setIndexBuffer(ibh);
+
+		// 4. Set state explicit override: Disable culling to isolate if it's a winding order issue
+		uint64_t state = BGFX_STATE_WRITE_RGB
+			| BGFX_STATE_WRITE_A
+			| BGFX_STATE_WRITE_Z
+			| BGFX_STATE_DEPTH_TEST_LESS;
+		bgfx::setState(state);
+
+		// 5. Submit primitive payload to View 0
+		shader.Submit(0);
 
 		// Debug stats and text
 		bgfx::dbgTextClear();
@@ -95,6 +144,10 @@ int main()
 			glfwSetWindowShouldClose(window, true);
 		}
 	}
+
+	bgfx::destroy(vbh);
+	bgfx::destroy(ibh);
+	shader.Unload();
 
 	// Cleanup
 	bgfx::shutdown();
