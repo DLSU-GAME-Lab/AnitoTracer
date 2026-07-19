@@ -15,16 +15,16 @@
 // Diligent Platform Abstraction
 #if PLATFORM_WIN32
 #    include <windows.h>
-#    include "Platforms/Win32/interface/Win32NativeWindow.h"
+#include "DiligentEngine/DiligentTools/Imgui/interface/ImGuiImplWin32.hpp"
 #elif PLATFORM_LINUX
-#    include "Platforms/Linux/interface/LinuxNativeWindow.h"
+#    include "DiligentEngine/DiligentCore/Platforms/Linux/interface/LinuxNativeWindow.h"
 #elif PLATFORM_MACOS
-#    include "Platforms/Apple/interface/MacNativeWindow.h"
+#    include "DiligentEngine/DiligentCore/Platforms/Apple/interface/MacNativeWindow.h"
 #endif
 
 // Diligent Integrated ImGui
-#include "Imgui/interface/ImGuiDiligentRenderer.hpp"
-#include "Imgui/interface/ImGuiImplDiligent.hpp"
+#include "DiligentEngine/DiligentTools/Imgui/interface/ImGuiDiligentRenderer.hpp"
+#include "DiligentEngine/DiligentTools/Imgui/interface/ImGuiImplDiligent.hpp"
 #include "imgui.h"
 
 using namespace Diligent;
@@ -216,6 +216,10 @@ int main(int argc, char** argv)
         // Create the triangle objects after initialization
         CreateTriangleResources();
 
+    // Initialize ImGui
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+
     while (g_AppRunning)
     {
 #if PLATFORM_WIN32
@@ -228,82 +232,95 @@ int main(int argc, char** argv)
 #endif
         if (!g_AppRunning) break; 
 
-            const auto& SCDesc = g_pSwapChain->GetDesc(); 
-            if (!g_pImGuiRenderer && SCDesc.Width > 0 && SCDesc.Height > 0)
-            {
-                ImGuiDiligentCreateInfo imguiCI; 
-                    imguiCI.pDevice = g_pDevice; 
-                    imguiCI.BackBufferFmt = SCDesc.ColorBufferFormat; 
-                    imguiCI.DepthBufferFmt = SCDesc.DepthBufferFormat; 
-                    g_pImGuiRenderer = std::make_unique<ImGuiImplDiligent>(imguiCI); 
-            }
+        const auto& SCDesc = g_pSwapChain->GetDesc(); 
 
-        if (g_pImGuiRenderer)
+        // Initialize ImGui renderer on first valid frame
+        if (!g_pImGuiRenderer && SCDesc.Width > 0 && SCDesc.Height > 0)
         {
-            const auto& CurrentSCDesc = g_pSwapChain->GetDesc(); 
-
-                if (!(CurrentSCDesc.Width > 0 && CurrentSCDesc.Height > 0)) continue; 
-
-                    auto transform = CurrentSCDesc.PreTransform; 
-                    if (transform == SURFACE_TRANSFORM_OPTIMAL)
-                        transform = SURFACE_TRANSFORM_IDENTITY; 
-
-                        ImGuiIO& io = ImGui::GetIO();
-                        io.DisplaySize = ImVec2(static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height));
-
-                        g_pImGuiRenderer->NewFrame(SCDesc.Width, SCDesc.Height, transform);
-
-                        // --- Render ImGui UI Elements ---
-                        if (ImGui::BeginMainMenuBar())
-                        {
-                            if (ImGui::BeginMenu("File"))
-                            {
-                                if (ImGui::MenuItem("Exit", "Alt+F4")) { g_AppRunning = false; }
-                                    ImGui::EndMenu(); 
-                            }
-                            ImGui::EndMainMenuBar(); 
-                        }
-
-            // Set up target attachments and clear color
-            auto* pRTV = g_pSwapChain->GetCurrentBackBufferRTV();
-                auto* pDSV = g_pSwapChain->GetDepthBufferDSV(); 
-                g_pImmediateContext->SetRenderTargets(1, &pRTV, pDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-                const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f }; 
-                g_pImmediateContext->ClearRenderTarget(pRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
-                g_pImmediateContext->ClearDepthStencil(pDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
-
-                // ==========================================
-                // --- STEP 5: RENDER TRIANGLE (BEFORE IMGUI)
-                // ==========================================
-                // Bind Pipeline State Object
-                g_pImmediateContext->SetPipelineState(g_pPSO);
-
-            // Bind vertex buffer
-            IBuffer* pBuffs[] = { g_pVertexBuffer };
-            g_pImmediateContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
-
-            // Execute draw command
-            DrawAttribs drawAttrs;
-            drawAttrs.NumVertices = 3;
-            drawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
-            g_pImmediateContext->Draw(drawAttrs);
-            // ==========================================
-
-            // Draw ImGui layers on top of our rendered triangle scene[cite: 7]
-            g_pImGuiRenderer->Render(g_pImmediateContext); 
-
-                g_pSwapChain->Present(1); 
+            ImGuiDiligentCreateInfo imguiCI; 
+            imguiCI.pDevice = g_pDevice; 
+            imguiCI.BackBufferFmt = SCDesc.ColorBufferFormat; 
+            imguiCI.DepthBufferFmt = SCDesc.DepthBufferFormat; 
+#if PLATFORM_WIN32
+            // Pass the window handle (HWND) so ImGui can track mouse clicks and positions
+            HWND hWnd = reinterpret_cast<HWND>(g_NativeWindow.hWnd);
+            g_pImGuiRenderer = Diligent::ImGuiImplWin32::Create(imguiCI, hWnd);
+#else
+            g_pImGuiRenderer = std::make_unique<ImGuiImplDiligent>(imguiCI);
+#endif
         }
+
+        // Skip frame if renderer not ready or swapchain invalid
+        if (!g_pImGuiRenderer || !(SCDesc.Width > 0 && SCDesc.Height > 0))
+        {
+            continue;
+        }
+
+        auto transform = SCDesc.PreTransform; 
+        if (transform == SURFACE_TRANSFORM_OPTIMAL)
+            transform = SURFACE_TRANSFORM_IDENTITY; 
+
+        ImGuiIO& io = ImGui::GetIO();
+        io.DisplaySize = ImVec2(static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height));
+
+        // Start ImGui frame and process input
+        g_pImGuiRenderer->NewFrame(SCDesc.Width, SCDesc.Height, transform);
+
+        // --- Render ImGui UI Elements ---
+        if (ImGui::BeginMainMenuBar())
+        {
+            if (ImGui::BeginMenu("File"))
+            {
+                if (ImGui::MenuItem("Exit", "Alt+F4")) { g_AppRunning = false; }
+                ImGui::EndMenu(); 
+            }
+            ImGui::EndMainMenuBar(); 
+        }
+
+        // Set up target attachments and clear color
+        auto* pRTV = g_pSwapChain->GetCurrentBackBufferRTV();
+        auto* pDSV = g_pSwapChain->GetDepthBufferDSV(); 
+        g_pImmediateContext->SetRenderTargets(1, &pRTV, pDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f }; 
+        g_pImmediateContext->ClearRenderTarget(pRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
+        g_pImmediateContext->ClearDepthStencil(pDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
+
+        // ==========================================
+        // --- RENDER TRIANGLE (BEFORE IMGUI)
+        // ==========================================
+        // Bind Pipeline State Object
+        g_pImmediateContext->SetPipelineState(g_pPSO);
+
+        // Bind vertex buffer
+        IBuffer* pBuffs[] = { g_pVertexBuffer };
+        g_pImmediateContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
+
+        // Execute draw command
+        DrawAttribs drawAttrs;
+        drawAttrs.NumVertices = 3;
+        drawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
+        g_pImmediateContext->Draw(drawAttrs);
+        // ==========================================
+
+        g_pImGuiRenderer->Render(g_pImmediateContext); 
+
+        g_pSwapChain->Present(1);
     }
+
+    if (g_pImmediateContext) g_pImmediateContext->Flush();
+    if (g_pDevice) g_pDevice->IdleGPU();
 
     // Clean up pipeline and buffers alongside context objects[cite: 7]
     g_pPSO.Release();
     g_pVertexBuffer.Release();
-    g_pImGuiRenderer.reset(); 
-        g_pSwapChain.Release(); 
-        g_pImmediateContext.Release(); 
-        g_pDevice.Release(); 
 
-        return 0;
+    g_pImGuiRenderer.reset();
+    ImGui::DestroyContext();
+
+    g_pSwapChain.Release(); 
+    g_pImmediateContext.Release(); 
+    g_pDevice.Release(); 
+
+    return 0;
 }
