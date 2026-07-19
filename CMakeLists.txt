@@ -11,6 +11,9 @@ endif()
 
 project ("AnitoTracer_Rebuild")
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 set(FETCHCONTENT_QUIET OFF)
 include(FetchContent)
 
@@ -72,6 +75,8 @@ find_package(Vulkan REQUIRED)
 
 add_compile_definitions(PLATFORM_WIN32=1)
 
+add_subdirectory(src/UI)
+add_subdirectory(src/Objects)
 
 # Add source to this project's executable.
 add_executable (AnitoTracer_Rebuild WIN32 "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h")
@@ -101,6 +106,8 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
 				Vulkan::Vulkan
 				Diligent-GraphicsEngineVk-shared
 				Diligent-Imgui
+                UI
+                Objects
 )
 
 copy_required_dlls(AnitoTracer_Rebuild)

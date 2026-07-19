@@ -27,13 +27,15 @@
 #include "DiligentEngine/DiligentTools/Imgui/interface/ImGuiImplDiligent.hpp"
 #include "imgui.h"
 
+#include "src/UI/GUIManager.hpp"
+#include "src/Objects/CameraObj.hpp"
+
 using namespace Diligent;
 
 // Global application state wrappers
 RefCntAutoPtr<IRenderDevice>  g_pDevice;
 RefCntAutoPtr<IDeviceContext> g_pImmediateContext;
 RefCntAutoPtr<ISwapChain>     g_pSwapChain;
-std::unique_ptr<ImGuiImplDiligent> g_pImGuiRenderer;
 
 // Pipeline and geometry resources for the triangle
 RefCntAutoPtr<IPipelineState> g_pPSO;
@@ -216,9 +218,11 @@ int main(int argc, char** argv)
         // Create the triangle objects after initialization
         CreateTriangleResources();
 
-    // Initialize ImGui
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
+        GUIManager& imguiManager = GUIManager::GetInstance();
+
+        CameraObj camera;
+
+        imguiManager.SetCamera(&camera);
 
     while (g_AppRunning)
     {
@@ -235,23 +239,13 @@ int main(int argc, char** argv)
         const auto& SCDesc = g_pSwapChain->GetDesc(); 
 
         // Initialize ImGui renderer on first valid frame
-        if (!g_pImGuiRenderer && SCDesc.Width > 0 && SCDesc.Height > 0)
+        if (!imguiManager.IsInitialized() && SCDesc.Width > 0 && SCDesc.Height > 0)
         {
-            ImGuiDiligentCreateInfo imguiCI; 
-            imguiCI.pDevice = g_pDevice; 
-            imguiCI.BackBufferFmt = SCDesc.ColorBufferFormat; 
-            imguiCI.DepthBufferFmt = SCDesc.DepthBufferFormat; 
-#if PLATFORM_WIN32
-            // Pass the window handle (HWND) so ImGui can track mouse clicks and positions
-            HWND hWnd = reinterpret_cast<HWND>(g_NativeWindow.hWnd);
-            g_pImGuiRenderer = Diligent::ImGuiImplWin32::Create(imguiCI, hWnd);
-#else
-            g_pImGuiRenderer = std::make_unique<ImGuiImplDiligent>(imguiCI);
-#endif
+            imguiManager.Initialize(g_pDevice, SCDesc, g_NativeWindow);
         }
 
         // Skip frame if renderer not ready or swapchain invalid
-        if (!g_pImGuiRenderer || !(SCDesc.Width > 0 && SCDesc.Height > 0))
+        if (!imguiManager.IsInitialized() || !(SCDesc.Width > 0 && SCDesc.Height > 0))
         {
             continue;
         }
@@ -263,19 +257,11 @@ int main(int argc, char** argv)
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height));
 
-        // Start ImGui frame and process input
-        g_pImGuiRenderer->NewFrame(SCDesc.Width, SCDesc.Height, transform);
+        // Start ImGui frame
+        imguiManager.NewFrame(SCDesc.Width, SCDesc.Height, transform);
 
         // --- Render ImGui UI Elements ---
-        if (ImGui::BeginMainMenuBar())
-        {
-            if (ImGui::BeginMenu("File"))
-            {
-                if (ImGui::MenuItem("Exit", "Alt+F4")) { g_AppRunning = false; }
-                ImGui::EndMenu(); 
-            }
-            ImGui::EndMainMenuBar(); 
-        }
+        imguiManager.DrawUI(g_AppRunning);
 
         // Set up target attachments and clear color
         auto* pRTV = g_pSwapChain->GetCurrentBackBufferRTV();
@@ -302,8 +288,8 @@ int main(int argc, char** argv)
         drawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
         g_pImmediateContext->Draw(drawAttrs);
         // ==========================================
-
-        g_pImGuiRenderer->Render(g_pImmediateContext); 
+        // Render ImGui over the triangle
+        imguiManager.Render(g_pImmediateContext);
 
         g_pSwapChain->Present(1);
     }
@@ -315,8 +301,8 @@ int main(int argc, char** argv)
     g_pPSO.Release();
     g_pVertexBuffer.Release();
 
-    g_pImGuiRenderer.reset();
-    ImGui::DestroyContext();
+    // Clean up ImGui through the Singleton
+    imguiManager.Shutdown();
 
     g_pSwapChain.Release(); 
     g_pImmediateContext.Release(); 
