@@ -1,106 +1,221 @@
-﻿// AnitoTracer_Rebuild.cpp : Defines the entry point for the application.
-//
+﻿#include <memory>
+#include <iostream>
 
-#include "AnitoTracer_Rebuild.h"
+// Ensure Unicode Windows API
+#define UNICODE
+#define _UNICODE
 
-#if BX_PLATFORM_WINDOWS
-#define GLFW_EXPOSE_NATIVE_WIN32  // Exposes Windows-specific API features
-#include <GLFW/glfw3native.h>     // Provides the real glfwGetWin32Window function
+// Diligent Engine Core
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/EngineFactory.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
+
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+//#include "GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+
+//#include "GraphicsEngine/interface/EngineFactory.h"
+//#include "GraphicsEngine/interface/RenderDevice.h"
+//#include "GraphicsEngine/interface/DeviceContext.h"
+//#include "GraphicsEngine/interface/SwapChain.h"
+
+// Diligent Platform Abstraction (Handles Windows/Linux/Mac windows natively)
+#if PLATFORM_WIN32
+#    include <windows.h>
+#    include "Platforms/Win32/interface/Win32NativeWindow.h"
+#elif PLATFORM_LINUX
+#    include "Platforms/Linux/interface/LinuxNativeWindow.h"
+#elif PLATFORM_MACOS
+#    include "Platforms/Apple/interface/MacNativeWindow.h"
 #endif
 
-int main()
+// Diligent Integrated ImGui
+#include "Imgui/interface/ImGuiDiligentRenderer.hpp"
+#include "Imgui/interface/ImGuiImplDiligent.hpp"
+#include "imgui.h"
+
+using namespace Diligent;
+
+// Global application state wrappers
+RefCntAutoPtr<IRenderDevice>  g_pDevice;
+RefCntAutoPtr<IDeviceContext> g_pImmediateContext;
+RefCntAutoPtr<ISwapChain>     g_pSwapChain;
+std::unique_ptr<ImGuiImplDiligent> g_pImGuiRenderer;
+
+// Cross-platform native window handle tracker
+NativeWindow g_NativeWindow;
+bool g_AppRunning = true;
+
+#if PLATFORM_WIN32
+// Win32 Window message handling callback loop
+LRESULT CALLBACK EngineWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	std::cout << "Hello CMake." << std::endl;
-	// Initialize GLFW
-	if (!glfwInit())
-	{
-		std::cerr << "Failed to initialize GLFW" << std::endl;
-		return -1;
-	}
+    // Pass events directly to ImGui's internal Win32 handler if initialized
+    if (ImGui::GetCurrentContext() != nullptr)
+    {
+        extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+        if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+            return true;
+    }
 
-	// Configure GLFW for bgfx
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-	// Create window
-	GLFWwindow* window = glfwCreateWindow(1280, 720, "AnitoTracer - bgfx + GLFW", nullptr, nullptr);
-	if (!window)
-	{
-		std::cerr << "Failed to create GLFW window" << std::endl;
-		glfwTerminate();
-		return -1;
-	}
-
-	// Get native window handle for bgfx
-	bgfx::PlatformData pd;
-	memset(&pd, 0, sizeof(pd));
-
-#if BX_PLATFORM_WINDOWS
-	pd.nwh = glfwGetWin32Window(window);
+    switch (message)
+    {
+    case WM_SIZE:
+        if (g_pSwapChain)
+        {
+            short width = LOWORD(lParam);
+            short height = HIWORD(lParam);
+            g_pSwapChain->Resize(width, height);
+        }
+        return 0;
+    case WM_DESTROY:
+        g_AppRunning = false;
+        PostQuitMessage(0);
+        return 0;
+    }
+    return DefWindowProc(hWnd, message, wParam, lParam);
+}
 #endif
 
-	// Initialize bgfx
-	bgfx::setPlatformData(pd);
-	bgfx::Init init;
-	init.type = bgfx::RendererType::Count; // Automatically choose the best backend (D3D11/D3D12/Vulkan)
-	init.platformData = pd;                // Pass your GLFW window handle
-	init.resolution.width = 1280;
-	init.resolution.height = 720;
-	init.resolution.reset = BGFX_RESET_VSYNC;
+// Main entry point logic
+#if PLATFORM_WIN32
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+#else
+int main(int argc, char** argv)
+#endif
+{
+    Uint32 windowWidth = 1280;
+    Uint32 windowHeight = 720;
 
-	// Initialize bgfx with settings
-	if (!bgfx::init(init))
-	{
-		std::cerr << "Failed to initialize bgfx engine" << std::endl;
-		glfwDestroyWindow(window);
-		glfwTerminate();
-		return -1;
-	}
+#if PLATFORM_WIN32
+    // 1. Create native OS Window manually on Win32 without GLFW
+    WNDCLASSEXW wcex = { sizeof(WNDCLASSEXW) };
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc = EngineWindowProc;
+    wcex.hInstance = hInstance;
+    wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wcex.lpszClassName = L"DiligentVulkanImGuiWindow";
+    RegisterClassExW(&wcex);
 
-	// Enable debug text
-	bgfx::setDebug(BGFX_DEBUG_TEXT);
+    HWND hWnd = CreateWindowW(L"DiligentVulkanImGuiWindow", L"AnitoTracer - Diligent Vulkan + ImGui",
+        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+        (int)windowWidth, (int)windowHeight, nullptr, nullptr, hInstance, nullptr);
+    ShowWindow(hWnd, nCmdShow);
 
-	std::cout << "bgfx and GLFW initialized successfully!" << std::endl;
+    g_NativeWindow.hWnd = hWnd;
+#else
+#error Platform window creation logic must be declared for non-Windows builds.
+#endif
 
-	// Main loop
-	while (!glfwWindowShouldClose(window))
-	{
-		// Get window size
-		int width, height;
-		glfwGetWindowSize(window, &width, &height);
+    // 2. Initialize Diligent Engine Vulkan Factory
+    IEngineFactoryVk* pFactoryVk = Diligent::LoadAndGetEngineFactoryVk();
 
-		// Reset if window was resized
-		if (width != 1280 || height != 720)
-		{
-			bgfx::reset(width, height, BGFX_RESET_VSYNC);
-		}
+    EngineVkCreateInfo engineCI;
+    SwapChainDesc swapChainDesc;
+    swapChainDesc.Width = windowWidth;
+    swapChainDesc.Height = windowHeight;
 
-		// Clear background
-		bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
-		bgfx::setViewRect(0, 0, 0, uint16_t(width), uint16_t(height));
-		bgfx::touch(0);
+    // Create device and contexts first
+    pFactoryVk->CreateDeviceAndContextsVk(engineCI, &g_pDevice, &g_pImmediateContext);
 
-		// Debug stats and text
-		bgfx::dbgTextClear();
-		bgfx::dbgTextPrintf(0, 0, 0x4f, "AnitoTracer - bgfx Renderer");
-		bgfx::dbgTextPrintf(0, 1, 0x0f, "Resolution: %d x %d", width, height);
-		bgfx::dbgTextPrintf(0, 2, 0x0f, "Press ESC to exit");
+    // Create swap chain
+    pFactoryVk->CreateSwapChainVk(g_pDevice, g_pImmediateContext, swapChainDesc, g_NativeWindow, &g_pSwapChain);
 
-		// Frame submission
-		bgfx::frame();
+    // 3. Initialize Diligent's ImGui Subsystem
+    ImGuiDiligentCreateInfo imguiCI;
+    imguiCI.pDevice = g_pDevice;
+    imguiCI.BackBufferFmt = g_pSwapChain->GetDesc().ColorBufferFormat;
+    imguiCI.DepthBufferFmt = g_pSwapChain->GetDesc().DepthBufferFormat;
 
-		// Process input
-		glfwPollEvents();
-		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-		{
-			glfwSetWindowShouldClose(window, true);
-		}
-	}
+    // Create modern ImGui interface handle
+    g_pImGuiRenderer = std::make_unique<ImGuiImplDiligent>(imguiCI);
 
-	// Cleanup
-	bgfx::shutdown();
-	glfwDestroyWindow(window);
-	glfwTerminate();
+    // 4. Main Runtime Loop
+    while (g_AppRunning)
+    {
+#if PLATFORM_WIN32
+        MSG msg;
+        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+#endif
+        if (!g_AppRunning) break;
 
-	std::cout << "Cleanup complete. Exiting." << std::endl;
-	return 0;
+        const auto& SCDesc = g_pSwapChain->GetDesc();
+        if (!g_pImGuiRenderer && SCDesc.Width > 0 && SCDesc.Height > 0)
+        {
+            ImGuiDiligentCreateInfo imguiCI;
+            imguiCI.pDevice = g_pDevice;
+            imguiCI.BackBufferFmt = SCDesc.ColorBufferFormat;
+            imguiCI.DepthBufferFmt = SCDesc.DepthBufferFormat;
+            g_pImGuiRenderer = std::make_unique<ImGuiImplDiligent>(imguiCI);
+        }
+
+        if (g_pImGuiRenderer) {
+            const auto& CurrentSCDesc = g_pSwapChain->GetDesc();
+
+            if (!(CurrentSCDesc.Width > 0 && CurrentSCDesc.Height > 0)) continue;
+
+            auto transform = CurrentSCDesc.PreTransform;
+            if (transform == SURFACE_TRANSFORM_OPTIMAL)
+                transform = SURFACE_TRANSFORM_IDENTITY;
+
+            ImGuiIO& io = ImGui::GetIO();
+            io.DisplaySize = ImVec2(static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height));
+
+            g_pImGuiRenderer->NewFrame(SCDesc.Width, SCDesc.Height, transform);
+
+            // --- Render ImGui Top Menu Bar ---
+            if (ImGui::BeginMainMenuBar())
+            {
+                if (ImGui::BeginMenu("File"))
+                {
+                    if (ImGui::MenuItem("New Project", "Ctrl+N")) {}
+                    if (ImGui::MenuItem("Open...", "Ctrl+O")) {}
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("Exit", "Alt+F4")) { g_AppRunning = false; }
+                    ImGui::EndMenu();
+                }
+                if (ImGui::BeginMenu("Edit"))
+                {
+                    if (ImGui::MenuItem("Undo", "Ctrl+Z")) {}
+                    if (ImGui::MenuItem("Redo", "Ctrl+Y")) {}
+                    ImGui::EndMenu();
+                }
+                if (ImGui::BeginMenu("Help"))
+                {
+                    if (ImGui::MenuItem("About AnitoTracer")) {}
+                    ImGui::EndMenu();
+                }
+                ImGui::EndMainMenuBar();
+            }
+
+            // Clear the Vulkan backbuffer surface color
+            auto* pRTV = g_pSwapChain->GetCurrentBackBufferRTV();
+            auto* pDSV = g_pSwapChain->GetDepthBufferDSV();
+            g_pImmediateContext->SetRenderTargets(1, &pRTV, pDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+            const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
+            g_pImmediateContext->ClearRenderTarget(pRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            g_pImmediateContext->ClearDepthStencil(pDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+            // Draw ImGui layers to the graphics command list context
+            g_pImGuiRenderer->Render(g_pImmediateContext);
+
+            // Swap the screen surface buffers
+            g_pSwapChain->Present(1);
+        }
+
+        
+    }
+
+    // Clean up allocated ImGui resources before releasing Vulkan instances
+    g_pImGuiRenderer.reset();
+    g_pSwapChain.Release();
+    g_pImmediateContext.Release();
+    g_pDevice.Release();
+
+    return 0;
 }
