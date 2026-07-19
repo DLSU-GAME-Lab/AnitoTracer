@@ -77,6 +77,7 @@ add_compile_definitions(PLATFORM_WIN32=1)
 
 add_subdirectory(src/UI)
 add_subdirectory(src/Objects)
+add_subdirectory(src/Rendering)
 
 # Add source to this project's executable.
 add_executable (AnitoTracer_Rebuild WIN32 "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h")
@@ -108,6 +109,18 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
 				Diligent-Imgui
                 UI
                 Objects
+                Rendering
+)
+
+set(SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Shaders")
+set(SHADER_DST_DIR "${CMAKE_CURRENT_BINARY_DIR}/Shaders")
+
+add_custom_command(
+    TARGET AnitoTracer_Rebuild POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${SHADER_SRC_DIR}"
+    "${SHADER_DST_DIR}"
+    COMMENT "Copying Shaders to build directory..."
 )
 
 copy_required_dlls(AnitoTracer_Rebuild)

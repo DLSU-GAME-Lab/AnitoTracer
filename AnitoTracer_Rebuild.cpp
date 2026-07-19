@@ -29,6 +29,7 @@
 
 #include "src/UI/GUIManager.hpp"
 #include "src/Objects/CameraObj.hpp"
+#include "src/Rendering/Shaders/ShaderManager.hpp"
 
 using namespace Diligent;
 
@@ -51,34 +52,6 @@ struct Vertex
     float pos[3];
     float color[4];
 };
-
-// Inline HLSL shader source
-const char* ShaderSource = R"(
-struct VSInput
-{
-    float3 Pos   : ATTRIB0;
-    float4 Color : ATTRIB1;
-};
-
-struct PSInput
-{
-    float4 Pos   : SV_POSITION;
-    float4 Color : COLOR;
-};
-
-void main_VS(in  VSInput VSIn,
-             out PSInput PSIn)
-{
-    PSIn.Pos   = float4(VSIn.Pos, 1.0);
-    PSIn.Color = VSIn.Color;
-}
-
-void main_PS(in  PSInput PSIn,
-             out float4  Color : SV_TARGET)
-{
-    Color = PSIn.Color;
-}
-)";
 
 #if PLATFORM_WIN32
 // Win32 Window message handling callback loop
@@ -140,30 +113,13 @@ void CreateTriangleResources()
     // Configure render target parameters to match the swapchain
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = g_pSwapChain->GetDesc().ColorBufferFormat;
-        PSOCreateInfo.GraphicsPipeline.DSVFormat = g_pSwapChain->GetDesc().DepthBufferFormat; 
-        PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    PSOCreateInfo.GraphicsPipeline.DSVFormat = g_pSwapChain->GetDesc().DepthBufferFormat; 
+    PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = False;
 
-    // 3. Compile Shaders from String
-    ShaderCreateInfo ShaderCI;
-    ShaderCI.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-    ShaderCI.Source = ShaderSource;
-
-    RefCntAutoPtr<IShader> pVS;
-    ShaderCI.Desc.ShaderType = SHADER_TYPE_VERTEX;
-    ShaderCI.EntryPoint = "main_VS";
-    ShaderCI.Desc.Name = "Triangle VS";
-    g_pDevice->CreateShader(ShaderCI, &pVS);
-
-    RefCntAutoPtr<IShader> pPS;
-    ShaderCI.Desc.ShaderType = SHADER_TYPE_PIXEL;
-    ShaderCI.EntryPoint = "main_PS";
-    ShaderCI.Desc.Name = "Triangle PS";
-    g_pDevice->CreateShader(ShaderCI, &pPS);
-
-    PSOCreateInfo.pVS = pVS;
-    PSOCreateInfo.pPS = pPS;
+    PSOCreateInfo.pVS = Diligent::ShaderManager::GetInstance().GetShader("sample.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_VS");
+    PSOCreateInfo.pPS = Diligent::ShaderManager::GetInstance().GetShader("sample.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_PS");
 
     // 4. Define Vertex Input Layout (Matches our struct Vertex)
     LayoutElement LayoutElems[] =
@@ -216,6 +172,9 @@ int main(int argc, char** argv)
         pFactoryVk->CreateSwapChainVk(g_pDevice, g_pImmediateContext, swapChainDesc, g_NativeWindow, &g_pSwapChain);
 
         // Create the triangle objects after initialization
+
+        Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
+
         CreateTriangleResources();
 
         GUIManager& imguiManager = GUIManager::GetInstance();
@@ -301,6 +260,7 @@ int main(int argc, char** argv)
     g_pPSO.Release();
     g_pVertexBuffer.Release();
 
+    Diligent::ShaderManager::GetInstance().Shutdown();
     // Clean up ImGui through the Singleton
     imguiManager.Shutdown();
 
