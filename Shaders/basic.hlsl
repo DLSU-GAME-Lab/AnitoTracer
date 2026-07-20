@@ -1,13 +1,9 @@
+#include "common_struct.hlsli"
+
 cbuffer CameraConstants
 {
     // The combined World * View * Projection matrix
     float4x4 g_WorldViewProj;
-};
-
-struct VSInput
-{
-    float3 Pos : ATTRIBUTE0;
-    float4 Color : ATTRIBUTE1; 
 };
 
 struct PSInput

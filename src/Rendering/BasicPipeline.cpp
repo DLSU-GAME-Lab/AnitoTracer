@@ -62,7 +62,6 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     // 6. Create the Shader Resource Binding (SRB) and bind the buffer
     m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
 
-    // 3. Safely look up and bind the variable
     if (auto* pCameraConstantsVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants"))
     {
         pCameraConstantsVar->Set(m_pCameraCB);
@@ -70,9 +69,6 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     else
     {
         std::cout << "Variable not found" << std::endl;
-        // If you hit this, the variable was either spelled wrong in C++, 
-        // mapped to the wrong shader stage, or optimized out by the HLSL compiler.
-        // Log a warning here so you don't crash!
     }
 }
 
