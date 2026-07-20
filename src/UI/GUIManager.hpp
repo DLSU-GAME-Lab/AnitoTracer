@@ -65,4 +65,4 @@ private:
     bool m_ShowConsoleWindow = true;
 };
 
-} // namespace Diligent
+}

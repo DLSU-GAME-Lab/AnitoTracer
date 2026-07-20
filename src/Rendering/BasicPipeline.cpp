@@ -81,13 +81,11 @@ void Diligent::BasicPipeline::StartFrameRender(IDeviceContext* pContext, CameraO
     glm::mat4 transmat = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
     transmat = glm::scale(transmat, glm::vec3(10.f, 10.f, 10.f));
 
-    auto rawPos = camera.GetPosition();
-    glm::vec3 cameraPos = glm::vec3(rawPos.x, rawPos.y, rawPos.z);
+    camera.UpdateViewMatrix();
+    camera.UpdateProjectionMatrix();
 
-    glm::mat4 view = glm::lookAt(cameraPos, glm::vec3(0), glm::vec3(0, 1, 0));
-
-    float aspectRatio = static_cast<float>(pSwapChain->GetDesc().Width) / pSwapChain->GetDesc().Height;
-    glm::mat4 proj = glm::perspective(glm::radians(45.f), aspectRatio, 0.1f, 100.0f);
+    glm::mat4 view = camera.GetViewMatrix();
+    glm::mat4 proj = camera.GetProjectionMatrix();
 
     glm::mat4 mvp = proj * view * transmat;
     glm::mat4 mvp_t = glm::transpose(mvp);

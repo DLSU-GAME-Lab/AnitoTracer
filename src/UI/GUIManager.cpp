@@ -71,29 +71,29 @@ void Diligent::GUIManager::DrawUI(bool& appRunning)
             ImGui::Separator();
 
             // Position
-            Diligent::float3 position = m_pCamera->GetPosition();
+            glm::vec3 position = m_pCamera->GetPosition();
             float posArray[3] = { position.x, position.y, position.z };
             if (ImGui::DragFloat3("Position##camera", posArray, 0.1f))
             {
-                m_pCamera->SetPosition(Diligent::float3(posArray[0], posArray[1], posArray[2]));
+                m_pCamera->SetPosition(glm::vec3(posArray[0], posArray[1], posArray[2]));
                 m_pCamera->UpdateViewMatrix();
             }
 
             // Target
-            Diligent::float3 target = m_pCamera->GetTarget();
+            glm::vec3 target = m_pCamera->GetTarget();
             float targetArray[3] = { target.x, target.y, target.z };
             if (ImGui::DragFloat3("Target##camera", targetArray, 0.1f))
             {
-                m_pCamera->SetTarget(Diligent::float3(targetArray[0], targetArray[1], targetArray[2]));
+                m_pCamera->SetTarget(glm::vec3(targetArray[0], targetArray[1], targetArray[2]));
                 m_pCamera->UpdateViewMatrix();
             }
 
             // Up Vector
-            Diligent::float3 up = m_pCamera->GetUp();
+            glm::vec3 up = m_pCamera->GetUp();
             float upArray[3] = { up.x, up.y, up.z };
             if (ImGui::DragFloat3("Up##camera", upArray, 0.01f))
             {
-                m_pCamera->SetUp(Diligent::float3(upArray[0], upArray[1], upArray[2]));
+                m_pCamera->SetUp(glm::vec3(upArray[0], upArray[1], upArray[2]));
                 m_pCamera->UpdateViewMatrix();
             }
 
