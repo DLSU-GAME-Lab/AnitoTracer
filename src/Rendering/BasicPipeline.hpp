@@ -8,6 +8,7 @@
 #include "Common/interface/BasicMath.hpp"
 #include "../Objects/CameraObj.hpp"
 #include "Shaders/ShaderManager.hpp"
+#include "../Objects/Models/ModelManager.hpp"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Matches Vulkan/D3D depth range [0, 1]
 #define GLM_FORCE_LEFT_HANDED       // Matches Diligent's default coordinate system
@@ -28,6 +29,8 @@ class BasicPipeline{
 		void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain);
 
 		void StartFrameRender(IDeviceContext* pContext, CameraObj camera);
+
+		void RenderModel(IDeviceContext* pContext, Model* model);
 
 	private:
 		//Pipeline Binding

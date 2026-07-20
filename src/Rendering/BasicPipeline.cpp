@@ -98,3 +98,29 @@ void Diligent::BasicPipeline::StartFrameRender(IDeviceContext* pContext, CameraO
     pContext->SetPipelineState(m_pPSO);
     pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
+
+void Diligent::BasicPipeline::RenderModel(IDeviceContext* pContext, Model* model)
+{
+    // Bind vertex buffer
+    IBuffer* pBuffs[] = { model->pVertexBuffer };
+    pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
+    pContext->SetIndexBuffer(model->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    for (const auto& submesh : model->SubMeshes) {
+        // --- Draw Call ---
+        DrawIndexedAttribs DrawAttrs;
+
+        // We used std::vector<Uint32> for indices during Assimp parsing
+        DrawAttrs.IndexType = VT_UINT32;
+
+        // Map the offsets from our SubMesh struct to the Draw Call attributes
+        DrawAttrs.NumIndices = submesh.IndexCount;
+        DrawAttrs.FirstIndexLocation = submesh.IndexOffset;
+        DrawAttrs.BaseVertex = submesh.BaseVertex;
+
+        // DRAW_FLAG_VERIFY_ALL enables debug validation in development builds
+        DrawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
+
+        pContext->DrawIndexed(DrawAttrs);
+    }
+}

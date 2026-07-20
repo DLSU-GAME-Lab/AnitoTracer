@@ -104,28 +104,28 @@ int main(int argc, char** argv)
 
     IEngineFactoryVk* pFactoryVk = Diligent::LoadAndGetEngineFactoryVk(); 
 
-        EngineVkCreateInfo engineCI;
+    EngineVkCreateInfo engineCI;
     SwapChainDesc swapChainDesc;
     swapChainDesc.Width = windowWidth;
     swapChainDesc.Height = windowHeight;
 
     pFactoryVk->CreateDeviceAndContextsVk(engineCI, &g_pDevice, &g_pImmediateContext); 
-        pFactoryVk->CreateSwapChainVk(g_pDevice, g_pImmediateContext, swapChainDesc, g_NativeWindow, &g_pSwapChain);
+    pFactoryVk->CreateSwapChainVk(g_pDevice, g_pImmediateContext, swapChainDesc, g_NativeWindow, &g_pSwapChain);
 
-        // Create the triangle objects after initialization
+    // Create the triangle objects after initialization
 
-        Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
+    Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
 
-        GUIManager& imguiManager = GUIManager::GetInstance();
+    GUIManager& imguiManager = GUIManager::GetInstance();
 
-        CameraObj camera;
+    CameraObj camera;
 
-        imguiManager.SetCamera(&camera);
+    imguiManager.SetCamera(&camera);
 
-        auto bPipeline = BasicPipeline();
+    auto bPipeline = BasicPipeline();
 
-        ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
-        Model* pMyModel = ModelManager::GetInstance().LoadModel("sphere.obj");
+    ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
+    Model* pMyModel = ModelManager::GetInstance().LoadModel("sphere.obj");
         
     while (g_AppRunning)
     {
@@ -180,30 +180,9 @@ int main(int argc, char** argv)
         // ==========================================
         // --- RENDER (BEFORE IMGUI)
         // ==========================================
+
         bPipeline.StartFrameRender(g_pImmediateContext, camera);
-
-        // Bind vertex buffer
-        IBuffer* pBuffs[] = { pMyModel->pVertexBuffer };
-        g_pImmediateContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
-        g_pImmediateContext->SetIndexBuffer(pMyModel->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        for (const auto& submesh : pMyModel->SubMeshes) {
-            // --- Draw Call ---
-            DrawIndexedAttribs DrawAttrs;
-
-            // We used std::vector<Uint32> for indices during Assimp parsing
-            DrawAttrs.IndexType = VT_UINT32;
-
-            // Map the offsets from our SubMesh struct to the Draw Call attributes
-            DrawAttrs.NumIndices = submesh.IndexCount;
-            DrawAttrs.FirstIndexLocation = submesh.IndexOffset;
-            DrawAttrs.BaseVertex = submesh.BaseVertex;
-
-            // DRAW_FLAG_VERIFY_ALL enables debug validation in development builds
-            DrawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
-
-            g_pImmediateContext->DrawIndexed(DrawAttrs);
-        }
+        bPipeline.RenderModel(g_pImmediateContext, pMyModel);
 
         // ==========================================
         // Render ImGui over the Render
