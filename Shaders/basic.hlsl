@@ -12,14 +12,14 @@ struct PSInput
     float4 Color : COLOR0;
 };
 
-void main_vs(in VSInput In,
+void main_vs(in VertexInput In,
           out PSInput Out)
 {
     // Diligent's math library (by default) uses row-major matrices, 
     // so we multiply the vector by the matrix (Vector * Matrix).
     Out.Pos = mul(float4(In.Pos, 1.0), g_WorldViewProj);
     
-    Out.Color = In.Color;
+    Out.Color = float4(1.0, 0.0, 0.0, 1.0);
 }
 
 void main_ps(in PSInput In,

@@ -130,6 +130,15 @@ add_custom_target(CopyShadersTarget
 
 add_dependencies(AnitoTracer_Rebuild CopyShadersTarget)
 
+# Copy Assets folder to build output directory
+add_custom_command(TARGET AnitoTracer_Rebuild POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy_directory
+	${CMAKE_CURRENT_SOURCE_DIR}/Assets
+	${CMAKE_CURRENT_BINARY_DIR}/Assets
+	COMMENT "Copying Assets folder to build directory"
+)
+
+
 
 copy_required_dlls(AnitoTracer_Rebuild)
 #add_custom_command(

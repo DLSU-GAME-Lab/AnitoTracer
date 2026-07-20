@@ -24,8 +24,10 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     {
         // Attribute 0: float3 Pos
         LayoutElement{0, 0, 3, VT_FLOAT32, False},
-        // Attribute 1: float4 Color
-        LayoutElement{1, 0, 4, VT_FLOAT32, False}
+        // Attribute 0: float3 Norm
+        LayoutElement{1, 0, 3, VT_FLOAT32, False},
+        // Attribute 0: float3 UV
+        LayoutElement{2, 0, 2, VT_FLOAT32, False}
     };
     GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
     GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
@@ -75,7 +77,8 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
 void Diligent::BasicPipeline::StartFrameRender(IDeviceContext* pContext, CameraObj camera)
 {
     glm::mat4 transmat = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
-    transmat = glm::scale(transmat, glm::vec3(10.f, 10.f, 10.f));
+    float sc = 4.f;
+    transmat = glm::scale(transmat, glm::vec3(sc, sc, sc));
 
     camera.UpdateViewMatrix();
     camera.UpdateProjectionMatrix();

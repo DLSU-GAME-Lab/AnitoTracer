@@ -31,6 +31,7 @@
 #include "src/Objects/CameraObj.hpp"
 #include "src/Rendering/Shaders/ShaderManager.hpp"
 #include "src/Rendering/BasicPipeline.hpp"
+#include "src/Objects/Models/ModelManager.hpp"
 
 using namespace Diligent;
 
@@ -39,19 +40,9 @@ RefCntAutoPtr<IRenderDevice>  g_pDevice;
 RefCntAutoPtr<IDeviceContext> g_pImmediateContext;
 RefCntAutoPtr<ISwapChain>     g_pSwapChain;
 
-// Pipeline and geometry resources for the triangle
-RefCntAutoPtr<IBuffer>        g_pVertexBuffer;
-
 // Cross-platform native window handle tracker
 NativeWindow g_NativeWindow;
 bool g_AppRunning = true;
-
-// Simple Vertex structure
-struct Vertex
-{
-    float pos[3];
-    float color[4];
-};
 
 #if PLATFORM_WIN32
 // Win32 Window message handling callback loop
@@ -82,29 +73,6 @@ LRESULT CALLBACK EngineWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
 #endif
-
-// Helper function to build the pipeline and vertex data
-void CreateTriangleResources()
-{
-    // 1. Define the Triangle Geometry (NDC coordinates: X, Y, Z, then R, G, B, A)
-    Vertex TriangleVertices[] =
-    {
-        { { 0.0f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f} }, // Top (Red)
-        { { 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f} }, // Bottom Right (Green)
-        { {-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f} }  // Bottom Left (Blue)
-    };
-
-    BufferDesc VertBuffDesc;
-    VertBuffDesc.Name = "Triangle vertex buffer";
-    VertBuffDesc.Usage = USAGE_IMMUTABLE;
-    VertBuffDesc.BindFlags = BIND_VERTEX_BUFFER;
-    VertBuffDesc.Size = sizeof(TriangleVertices);
-
-    BufferData VBData;
-    VBData.pData = TriangleVertices;
-    VBData.DataSize = sizeof(TriangleVertices);
-    g_pDevice->CreateBuffer(VertBuffDesc, &VBData, &g_pVertexBuffer);
-}
 
 #if PLATFORM_WIN32
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
@@ -148,8 +116,6 @@ int main(int argc, char** argv)
 
         Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
 
-        CreateTriangleResources();
-
         GUIManager& imguiManager = GUIManager::GetInstance();
 
         CameraObj camera;
@@ -157,6 +123,9 @@ int main(int argc, char** argv)
         imguiManager.SetCamera(&camera);
 
         auto bPipeline = BasicPipeline();
+
+        ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
+        Model* pMyModel = ModelManager::GetInstance().LoadModel("sphere.obj");
         
     while (g_AppRunning)
     {
@@ -209,24 +178,35 @@ int main(int argc, char** argv)
         g_pImmediateContext->ClearDepthStencil(pDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
 
         // ==========================================
-        // --- RENDER TRIANGLE (BEFORE IMGUI)
+        // --- RENDER (BEFORE IMGUI)
         // ==========================================
-        // Bind Pipeline State Object
-        //g_pImmediateContext->SetPipelineState(g_pPSO);
-
         bPipeline.StartFrameRender(g_pImmediateContext, camera);
 
         // Bind vertex buffer
-        IBuffer* pBuffs[] = { g_pVertexBuffer };
+        IBuffer* pBuffs[] = { pMyModel->pVertexBuffer };
         g_pImmediateContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
+        g_pImmediateContext->SetIndexBuffer(pMyModel->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        // Execute draw command
-        DrawAttribs drawAttrs;
-        drawAttrs.NumVertices = 3;
-        drawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
-        g_pImmediateContext->Draw(drawAttrs);
+        for (const auto& submesh : pMyModel->SubMeshes) {
+            // --- Draw Call ---
+            DrawIndexedAttribs DrawAttrs;
+
+            // We used std::vector<Uint32> for indices during Assimp parsing
+            DrawAttrs.IndexType = VT_UINT32;
+
+            // Map the offsets from our SubMesh struct to the Draw Call attributes
+            DrawAttrs.NumIndices = submesh.IndexCount;
+            DrawAttrs.FirstIndexLocation = submesh.IndexOffset;
+            DrawAttrs.BaseVertex = submesh.BaseVertex;
+
+            // DRAW_FLAG_VERIFY_ALL enables debug validation in development builds
+            DrawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
+
+            g_pImmediateContext->DrawIndexed(DrawAttrs);
+        }
+
         // ==========================================
-        // Render ImGui over the triangle
+        // Render ImGui over the Render
         imguiManager.Render(g_pImmediateContext);
 
         g_pSwapChain->Present(1);
@@ -234,9 +214,6 @@ int main(int argc, char** argv)
 
     if (g_pImmediateContext) g_pImmediateContext->Flush();
     if (g_pDevice) g_pDevice->IdleGPU();
-
-    // Clean up pipeline and buffers alongside context objects[cite: 7]
-    g_pVertexBuffer.Release();
 
     Diligent::ShaderManager::GetInstance().Shutdown();
     // Clean up ImGui through the Singleton

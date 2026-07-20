@@ -1,4 +1,7 @@
 set(OBJ_SRC
+	Models/ModelManager.hpp
+	Models/ModelManager.cpp
+
 	CameraObj.cpp
 	CameraObj.hpp
 )
@@ -8,9 +11,11 @@ add_library(Objects STATIC ${OBJ_SRC})
 target_link_libraries(Objects
 			PUBLIC
 			glm::glm
+			assimp::assimp
 			Diligent-Common
 			Diligent-GraphicsEngineVk-shared
 			Diligent-Imgui
+			Diligent-TextureLoader
 )
 
 target_include_directories(Objects
