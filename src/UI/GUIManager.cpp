@@ -5,15 +5,6 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
 {
     if (m_pImGuiRenderer) return; // Already initialized
 
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-
-    ImGuiIO& io = ImGui::GetIO();
-    // Enable Keyboard Controls (optional but recommended)
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-
-    ImGui::StyleColorsDark();
-
     ImGuiDiligentCreateInfo imguiCI;
     imguiCI.pDevice = pDevice;
     imguiCI.BackBufferFmt = SCDesc.ColorBufferFormat;
@@ -25,6 +16,13 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
 #else
     m_pImGuiRenderer = std::make_unique<ImGuiImplDiligent>(imguiCI);
 #endif
+
+    // ImGuiImplDiligent constructor creates the context and initializes it
+    ImGuiIO& io = ImGui::GetIO();
+    // Enable Keyboard Controls (optional but recommended)
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+    ImGui::StyleColorsDark();
 }
 
 // Begin a new ImGui frame
@@ -158,6 +156,9 @@ void Diligent::GUIManager::Render(IDeviceContext* pContext)
 // Cleanup resources
 void Diligent::GUIManager::Shutdown()
 {
+    // ImGuiImplDiligent and ImGuiImplWin32 destructors handle:
+    // - Win32 backend shutdown (ImGui_ImplWin32_Shutdown)
+    // - Renderer device objects cleanup
+    // - ImGui context destruction
     m_pImGuiRenderer.reset();
-    ImGui::DestroyContext();
 }
