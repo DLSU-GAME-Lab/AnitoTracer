@@ -1,11 +1,5 @@
 #include "common_struct.hlsli"
 
-cbuffer CameraConstants
-{
-    // The combined World * View * Projection matrix
-    float4x4 g_WorldViewProj;
-};
-
 struct PSInput
 {
     float4 Pos : SV_POSITION; 

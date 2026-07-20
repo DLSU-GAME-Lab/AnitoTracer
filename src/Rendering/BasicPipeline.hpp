@@ -11,8 +11,11 @@
 #include "../Objects/Models/ModelManager.hpp"
 #include "Shaders/VertexLayouts.hpp"
 
+
+
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Matches Vulkan/D3D depth range [0, 1]
 #define GLM_FORCE_LEFT_HANDED       // Matches Diligent's default coordinate system
+
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>

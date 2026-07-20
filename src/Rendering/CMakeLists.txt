@@ -6,6 +6,9 @@ set(Rendering_SRC
 
 	BasicPipeline.hpp
 	BasicPipeline.cpp
+
+	TexturedPipeline.hpp
+	TexturedPipeline.cpp
 )
 
 add_library(Rendering STATIC ${Rendering_SRC})

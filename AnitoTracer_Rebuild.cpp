@@ -1,4 +1,6 @@
-﻿#include <memory>
+﻿#include "AnitoTracer_Rebuild.h"
+
+#include <memory>
 #include <iostream>
 
 // Ensure Unicode Windows API
@@ -31,6 +33,7 @@
 #include "src/Objects/CameraObj.hpp"
 #include "src/Rendering/Shaders/ShaderManager.hpp"
 #include "src/Rendering/BasicPipeline.hpp"
+#include "src/Rendering/TexturedPipeline.hpp"
 #include "src/Objects/Models/ModelManager.hpp"
 
 using namespace Diligent;
@@ -123,6 +126,7 @@ int main(int argc, char** argv)
     imguiManager.SetCamera(&camera);
 
     auto bPipeline = BasicPipeline();
+    auto tPipeline = TexturedPipeline();
 
     ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
     Model* pMyModel = ModelManager::GetInstance().LoadModel("helmet/DamagedHelmet.gltf");
@@ -146,7 +150,8 @@ int main(int argc, char** argv)
         {
             imguiManager.Initialize(g_pDevice, SCDesc, g_NativeWindow);
 
-            bPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
+            //bPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
+            tPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
         }
 
         // Skip frame if renderer not ready or swapchain invalid
@@ -176,13 +181,13 @@ int main(int argc, char** argv)
         const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f }; 
         g_pImmediateContext->ClearRenderTarget(pRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
         g_pImmediateContext->ClearDepthStencil(pDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
-
+ 
         // ==========================================
         // --- RENDER (BEFORE IMGUI)
         // ==========================================
 
-        bPipeline.StartFrameRender(g_pImmediateContext, camera);
-        bPipeline.RenderModel(g_pImmediateContext, pMyModel);
+        tPipeline.StartFrameRender(g_pImmediateContext, camera);
+        tPipeline.RenderModel(g_pImmediateContext, pMyModel);
 
         // ==========================================
         // Render ImGui over the Render

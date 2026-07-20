@@ -31,7 +31,8 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     ShaderResourceVariableDesc Variables[] =
     {
         // DYNAMIC type allows us to update the buffer every frame or per-object
-        {SHADER_TYPE_VERTEX, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+        {SHADER_TYPE_VERTEX, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "MaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
     PSODesc.ResourceLayout.Variables = Variables;
     PSODesc.ResourceLayout.NumVariables = _countof(Variables);

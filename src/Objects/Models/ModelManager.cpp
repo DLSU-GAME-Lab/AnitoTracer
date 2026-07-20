@@ -3,6 +3,30 @@
 void ModelManager::Initialize(IRenderDevice* pDevice, const std::string& assetBasePath) {
     m_pDevice = pDevice;
     m_AssetBasePath = assetBasePath;
+
+    LoadDefaultWhite();
+}
+
+/// <summary>
+/// Create a 1x1 Default white tex
+/// </summary>
+void ModelManager::LoadDefaultWhite() {
+    TextureDesc TexDesc;
+    TexDesc.Name = "Default White Texture";
+    TexDesc.Type = RESOURCE_DIM_TEX_2D;
+    TexDesc.Width = 1;
+    TexDesc.Height = 1;
+    TexDesc.Format = TEX_FORMAT_RGBA8_UNORM_SRGB;
+    TexDesc.BindFlags = BIND_SHADER_RESOURCE;
+    TexDesc.Usage = USAGE_IMMUTABLE;
+
+    Uint32 WhitePixel = 0xFFFFFFFF; // Pure white RGBA
+    TextureSubResData SubresData[] = { {&WhitePixel, 4} };
+    TextureData InitData(SubresData, 1);
+
+    RefCntAutoPtr<ITexture> pDefaultTex;
+    m_pDevice->CreateTexture(TexDesc, &InitData, &pDefaultTex);
+    m_pDefaultTextureView = pDefaultTex->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 }
 
 ITextureView* ModelManager::LoadTexture(const std::string& filepath) {
@@ -16,7 +40,7 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath) {
     RefCntAutoPtr<ITexture> pTexture;
     TextureLoadInfo loadInfo;
     loadInfo.IsSRGB = true; // Typically true for diffuse textures
-    loadInfo.GenerateMips = false;
+    loadInfo.GenerateMips = true;
     loadInfo.Format = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
 
     std::string fullPath = m_AssetBasePath + filepath;
@@ -70,21 +94,37 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
 
     // 1. Process Materials & Textures
     pModel->Materials.resize(pScene->mNumMaterials);
+    pModel->MaterialColors.resize(pScene->mNumMaterials, float4(1.0f, 1.0f, 1.0f, 1.0f));
+
     for (unsigned int i = 0; i < pScene->mNumMaterials; i++) {
         aiMaterial* material = pScene->mMaterials[i];
-        if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
-            aiString texPath;
-            material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath);
+        aiString texPath;
 
+        aiColor4D color(1.0f, 1.0f, 1.0f, 1.0f);
+        material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
+        pModel->MaterialColors[i] = float4(color.r, color.g, color.b, color.a);
+
+        if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
+            material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath);
+        }
+        else if (material->GetTextureCount(aiTextureType_BASE_COLOR) > 0) {
+            material->GetTexture(aiTextureType_BASE_COLOR, 0, &texPath);
+        }
+
+        if (texPath.length > 0) {
             std::string rawPath = texPath.C_Str();
             std::string finalTexPath = modelDir + rawPath;
 
             // Assuming texture path is relative to the asset folder
             pModel->Materials[i] = LoadTexture(finalTexPath);
         }
+
+        //If no tex- apply the white
+        if (!pModel->Materials[i]) {
+            pModel->Materials[i] = m_pDefaultTextureView;
+        }
     }
 
-    // 2. Process Meshes
     for (unsigned int i = 0; i < pScene->mNumMeshes; i++) {
         aiMesh* mesh = pScene->mMeshes[i];
         SubMesh submesh;

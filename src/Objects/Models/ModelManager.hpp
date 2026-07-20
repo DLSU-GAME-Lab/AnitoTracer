@@ -42,6 +42,9 @@ struct Model {
 
     std::vector<SubMesh> SubMeshes;
     std::vector<RefCntAutoPtr<ITextureView>> Materials; // Diffuse SRVs mapped to SubMeshes
+
+    //Solid colors and possibly fallbacks
+    std::vector<float4> MaterialColors;
 };
 
 class ModelManager {
@@ -69,9 +72,14 @@ private:
     ModelManager(const ModelManager&) = delete;
     ModelManager& operator=(const ModelManager&) = delete;
 
+    void LoadDefaultWhite();
+
     IRenderDevice* m_pDevice = nullptr;
     std::string m_AssetBasePath;
 
     std::unordered_map<std::string, std::unique_ptr<Model>> m_ModelCache;
     std::unordered_map<std::string, RefCntAutoPtr<ITextureView>> m_TextureCache;
+
+    //Default white tex
+    RefCntAutoPtr<ITextureView> m_pDefaultTextureView;
 };
