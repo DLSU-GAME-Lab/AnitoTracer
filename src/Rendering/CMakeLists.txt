@@ -1,6 +1,9 @@
 set(Rendering_SRC
 	Shaders/ShaderManager.hpp
 	Shaders/ShaderManager.cpp
+
+	BasicPipeline.hpp
+	BasicPipeline.cpp
 )
 
 add_library(Rendering STATIC ${Rendering_SRC})

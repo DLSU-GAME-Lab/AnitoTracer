@@ -30,6 +30,7 @@
 #include "src/UI/GUIManager.hpp"
 #include "src/Objects/CameraObj.hpp"
 #include "src/Rendering/Shaders/ShaderManager.hpp"
+#include "src/Rendering/BasicPipeline.hpp"
 
 using namespace Diligent;
 
@@ -39,7 +40,6 @@ RefCntAutoPtr<IDeviceContext> g_pImmediateContext;
 RefCntAutoPtr<ISwapChain>     g_pSwapChain;
 
 // Pipeline and geometry resources for the triangle
-RefCntAutoPtr<IPipelineState> g_pPSO;
 RefCntAutoPtr<IBuffer>        g_pVertexBuffer;
 
 // Cross-platform native window handle tracker
@@ -104,33 +104,6 @@ void CreateTriangleResources()
     VBData.pData = TriangleVertices;
     VBData.DataSize = sizeof(TriangleVertices);
     g_pDevice->CreateBuffer(VertBuffDesc, &VBData, &g_pVertexBuffer);
-
-    // 2. Setup the Pipeline State Object (PSO)
-    GraphicsPipelineStateCreateInfo PSOCreateInfo;
-    PSOCreateInfo.PSODesc.Name = "Triangle PSO";
-    PSOCreateInfo.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
-
-    // Configure render target parameters to match the swapchain
-    PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-    PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = g_pSwapChain->GetDesc().ColorBufferFormat;
-    PSOCreateInfo.GraphicsPipeline.DSVFormat = g_pSwapChain->GetDesc().DepthBufferFormat; 
-    PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = False;
-
-    PSOCreateInfo.pVS = Diligent::ShaderManager::GetInstance().GetShader("sample.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_VS");
-    PSOCreateInfo.pPS = Diligent::ShaderManager::GetInstance().GetShader("sample.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_PS");
-
-    // 4. Define Vertex Input Layout (Matches our struct Vertex)
-    LayoutElement LayoutElems[] =
-    {
-        LayoutElement{0, 0, 3, VT_FLOAT32, False}, // Attribute 0: Position
-        LayoutElement{1, 0, 4, VT_FLOAT32, False}  // Attribute 1: Color
-    };
-    PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
-    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
-
-    g_pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &g_pPSO);
 }
 
 #if PLATFORM_WIN32
@@ -183,6 +156,8 @@ int main(int argc, char** argv)
 
         imguiManager.SetCamera(&camera);
 
+        auto bPipeline = BasicPipeline();
+        
     while (g_AppRunning)
     {
 #if PLATFORM_WIN32
@@ -201,6 +176,8 @@ int main(int argc, char** argv)
         if (!imguiManager.IsInitialized() && SCDesc.Width > 0 && SCDesc.Height > 0)
         {
             imguiManager.Initialize(g_pDevice, SCDesc, g_NativeWindow);
+
+            bPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
         }
 
         // Skip frame if renderer not ready or swapchain invalid
@@ -235,7 +212,9 @@ int main(int argc, char** argv)
         // --- RENDER TRIANGLE (BEFORE IMGUI)
         // ==========================================
         // Bind Pipeline State Object
-        g_pImmediateContext->SetPipelineState(g_pPSO);
+        //g_pImmediateContext->SetPipelineState(g_pPSO);
+
+        bPipeline.StartFrameRender(g_pImmediateContext, camera);
 
         // Bind vertex buffer
         IBuffer* pBuffs[] = { g_pVertexBuffer };
@@ -257,7 +236,6 @@ int main(int argc, char** argv)
     if (g_pDevice) g_pDevice->IdleGPU();
 
     // Clean up pipeline and buffers alongside context objects[cite: 7]
-    g_pPSO.Release();
     g_pVertexBuffer.Release();
 
     Diligent::ShaderManager::GetInstance().Shutdown();
