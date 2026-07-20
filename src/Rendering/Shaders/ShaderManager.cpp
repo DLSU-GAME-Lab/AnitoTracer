@@ -63,5 +63,4 @@ namespace Diligent {
         m_pShaderSourceFactory.Release();
         m_pDevice.Release();
     }
-
 }

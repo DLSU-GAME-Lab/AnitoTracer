@@ -8,7 +8,6 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     PipelineStateDesc& PSODesc = PSOCreateInfo.PSODesc;
     GraphicsPipelineDesc& GraphicsPipeline = PSOCreateInfo.GraphicsPipeline;
 
-    // 1. Basic Pipeline properties
     PSODesc.Name = "Basic Rendering PSO";
     PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
 
@@ -19,27 +18,16 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_BACK;
     GraphicsPipeline.DepthStencilDesc.DepthEnable = True;
 
-    // 2. Input Layout (Must match your VSInput struct exactly)
-    LayoutElement LayoutElems[] =
-    {
-        // Attribute 0: float3 Pos
-        LayoutElement{0, 0, 3, VT_FLOAT32, False},
-        // Attribute 0: float3 Norm
-        LayoutElement{1, 0, 3, VT_FLOAT32, False},
-        // Attribute 0: float3 UV
-        LayoutElement{2, 0, 2, VT_FLOAT32, False}
-    };
-    GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
-    GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
+    std::vector< LayoutElement> std_layout = VertexLayouts::GetStandardLayout();
+    GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
+    GraphicsPipeline.InputLayout.NumElements = static_cast<Uint32>(std_layout.size());
 
     auto pVS = ShaderManager::GetInstance().GetShader("basic.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_vs");
     auto pPS = ShaderManager::GetInstance().GetShader("basic.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_ps");
 
-    // 3. Assign Shaders
     PSOCreateInfo.pVS = pVS;
     PSOCreateInfo.pPS = pPS;
 
-    // 4. Define Resource Layout (Telling the pipeline about the constant buffer)
     ShaderResourceVariableDesc Variables[] =
     {
         // DYNAMIC type allows us to update the buffer every frame or per-object
@@ -51,7 +39,6 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     // Create the Pipeline State
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
 
-    // 5. Create the Constant Buffer for the camera
     BufferDesc CBDesc;
     CBDesc.Name = "Camera Constant Buffer";
     CBDesc.Size = sizeof(float4x4);
@@ -61,7 +48,6 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
 
     pDevice->CreateBuffer(CBDesc, nullptr, &m_pCameraCB);
 
-    // 6. Create the Shader Resource Binding (SRB) and bind the buffer
     m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
 
     if (auto* pCameraConstantsVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants"))
@@ -89,7 +75,7 @@ void Diligent::BasicPipeline::StartFrameRender(IDeviceContext* pContext, CameraO
     glm::mat4 mvp = proj * view * transmat;
     glm::mat4 mvp_t = glm::transpose(mvp);
 
-    // 6. Update the Constant Buffer
+    //Forces outofscope cleanup
     {
         MapHelper<glm::mat4> CBData(pContext, m_pCameraCB, MAP_WRITE, MAP_FLAG_DISCARD);
         *CBData = mvp_t;

@@ -16,6 +16,7 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <iostream>
+#include <filesystem> // Add this at the top of your cpp file
 
 using namespace Diligent;
 

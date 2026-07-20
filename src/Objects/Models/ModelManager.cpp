@@ -16,6 +16,8 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath) {
     RefCntAutoPtr<ITexture> pTexture;
     TextureLoadInfo loadInfo;
     loadInfo.IsSRGB = true; // Typically true for diffuse textures
+    loadInfo.GenerateMips = false;
+    loadInfo.Format = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
 
     std::string fullPath = m_AssetBasePath + filepath;
     CreateTextureFromFile(fullPath.c_str(), loadInfo, m_pDevice, &pTexture);
@@ -58,6 +60,14 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     std::vector<Vertex> vertices;
     std::vector<Uint32> indices;
 
+    //Assets are already preappended due to init
+    std::filesystem::path modelFilePath(filepath);
+    std::string modelDir = modelFilePath.parent_path().string();
+
+    if (!modelDir.empty()) {
+        modelDir += "/";
+    }
+
     // 1. Process Materials & Textures
     pModel->Materials.resize(pScene->mNumMaterials);
     for (unsigned int i = 0; i < pScene->mNumMaterials; i++) {
@@ -65,8 +75,12 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
         if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
             aiString texPath;
             material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath);
+
+            std::string rawPath = texPath.C_Str();
+            std::string finalTexPath = modelDir + rawPath;
+
             // Assuming texture path is relative to the asset folder
-            pModel->Materials[i] = LoadTexture(texPath.C_Str());
+            pModel->Materials[i] = LoadTexture(finalTexPath);
         }
     }
 

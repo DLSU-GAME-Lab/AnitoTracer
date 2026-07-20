@@ -125,7 +125,7 @@ int main(int argc, char** argv)
     auto bPipeline = BasicPipeline();
 
     ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
-    Model* pMyModel = ModelManager::GetInstance().LoadModel("sphere.obj");
+    Model* pMyModel = ModelManager::GetInstance().LoadModel("helmet/DamagedHelmet.gltf");
         
     while (g_AppRunning)
     {

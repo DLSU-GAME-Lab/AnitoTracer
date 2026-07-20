@@ -9,6 +9,7 @@
 #include "../Objects/CameraObj.hpp"
 #include "Shaders/ShaderManager.hpp"
 #include "../Objects/Models/ModelManager.hpp"
+#include "Shaders/VertexLayouts.hpp"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Matches Vulkan/D3D depth range [0, 1]
 #define GLM_FORCE_LEFT_HANDED       // Matches Diligent's default coordinate system

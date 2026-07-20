@@ -1,6 +1,8 @@
 set(Rendering_SRC
 	Shaders/ShaderManager.hpp
 	Shaders/ShaderManager.cpp
+	Shaders/VertexLayouts.hpp
+	Shaders/VertexLayouts.cpp
 
 	BasicPipeline.hpp
 	BasicPipeline.cpp
