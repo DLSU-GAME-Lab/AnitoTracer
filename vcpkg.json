@@ -4,6 +4,7 @@
   "dependencies": [
     "glm",
     "vulkan",
-    "vulkan-headers"
+    "vulkan-headers",
+    "assimp"
   ]
 }

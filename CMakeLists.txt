@@ -72,6 +72,7 @@ endif()
 
 find_package(glm CONFIG REQUIRED)
 find_package(Vulkan REQUIRED)
+find_package(assimp CONFIG REQUIRED)
 
 add_compile_definitions(PLATFORM_WIN32=1)
 
@@ -105,6 +106,7 @@ target_compile_definitions(AnitoTracer_Rebuild PRIVATE UNICODE)
 target_link_libraries(AnitoTracer_Rebuild PRIVATE 
 				glm::glm
 				Vulkan::Vulkan
+                assimp::assimp
 				Diligent-GraphicsEngineVk-shared
 				Diligent-Imgui
                 UI
@@ -115,12 +117,26 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
 set(SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Shaders")
 set(SHADER_DST_DIR "${CMAKE_CURRENT_BINARY_DIR}/Shaders")
 
-add_custom_command(
-    TARGET AnitoTracer_Rebuild POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${SHADER_SRC_DIR}"
-    "${SHADER_DST_DIR}"
-    COMMENT "Copying Shaders to build directory..."
+file(GLOB_RECURSE SHADER_FILES 
+     CONFIGURE_DEPENDS 
+     "${SHADER_SRC_DIR}/*"
 )
 
+add_custom_target(CopyShadersTarget
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${SHADER_SRC_DIR}" "${SHADER_DST_DIR}"
+    DEPENDS ${SHADER_FILES}
+    COMMENT "Syncing shaders: checking for edits, additions, or deletions..."
+)
+
+add_dependencies(AnitoTracer_Rebuild CopyShadersTarget)
+
+
 copy_required_dlls(AnitoTracer_Rebuild)
+#add_custom_command(
+#    TARGET AnitoTracer_Rebuild POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy_directory
+#    "${SHADER_SRC_DIR}"
+#    "${SHADER_DST_DIR}"
+#    COMMENT "Copying Shaders to build directory..."
+#)
+
