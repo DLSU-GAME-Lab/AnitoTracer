@@ -36,6 +36,8 @@
 #include "src/Rendering/Pipelines/TexturedPipeline.hpp"
 #include "src/Objects/Models/ModelManager.hpp"
 
+#include "src/Objects/HierarchyManager.hpp"
+
 using namespace Diligent;
 
 // Global application state wrappers
@@ -118,6 +120,8 @@ int main(int argc, char** argv)
     // Create the triangle objects after initialization
 
     Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
+    HierarchyManager& hManager = HierarchyManager::GetInstance();
+    hManager.CreateRootObjectWithTransform("Desu");
 
     GUIManager& imguiManager = GUIManager::GetInstance();
 

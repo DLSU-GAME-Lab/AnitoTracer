@@ -45,4 +45,6 @@ private:
     std::vector<std::unique_ptr<HierarchyObject>> m_children;
 
     std::vector<std::unique_ptr<ComponentBase>> m_components;
+
+    friend class HierarchyManager;
 };

@@ -1,0 +1,54 @@
+#pragma once
+
+#include <vector>
+#include <memory>
+#include <string>
+
+#include "HierarchyObject.hpp"
+#include "Components/ComponentBase.hpp"
+#include "Components/Transform.hpp"
+#include "Components/Camera.hpp"
+
+class HierarchyManager {
+public:
+    // Retrieves the singleton instance of the manager.
+    static HierarchyManager& GetInstance() {
+        static HierarchyManager instance;
+        return instance;
+    }
+
+    // Delete copy/move constructors and assignment operators to enforce the singleton pattern.
+    HierarchyManager(const HierarchyManager&) = delete;
+    HierarchyManager& operator=(const HierarchyManager&) = delete;
+    HierarchyManager(HierarchyManager&&) = delete;
+    HierarchyManager& operator=(HierarchyManager&&) = delete;
+
+    // Instantiates and adds a root object directly by name.
+    HierarchyObject* CreateRootObject(const std::string& name);
+
+    // Adds an existing root object and takes ownership.
+    HierarchyObject* AddRootObject(std::unique_ptr<HierarchyObject> rootObj);
+
+    // Removes a root object by its exact pointer address and transfers ownership back to the caller.
+    std::unique_ptr<HierarchyObject> RemoveRootObject(HierarchyObject* rootToRemove);
+
+    // Retrieves all active root nodes in the hierarchy tree.
+    const std::vector<std::unique_ptr<HierarchyObject>>& GetRootObjects() const {
+        return m_rootNodes;
+    }
+
+    // Adds a component to a specific HierarchyObject.
+    // Note: Requires HierarchyManager to be a friend class of HierarchyObject.
+    void AddComponentToObject(HierarchyObject* object, std::unique_ptr<ComponentBase> component);
+
+    // Removes a component from a specific HierarchyObject and returns ownership.
+    std::unique_ptr<ComponentBase> RemoveComponentFromObject(HierarchyObject* object, ComponentBase* componentToRemove);
+
+    HierarchyObject* CreateRootObjectWithTransform(const std::string& name);
+
+private:
+    HierarchyManager() = default;
+    ~HierarchyManager() = default;
+
+    std::vector<std::unique_ptr<HierarchyObject>> m_rootNodes;
+};

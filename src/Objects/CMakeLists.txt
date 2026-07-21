@@ -12,6 +12,9 @@ set(OBJ_SRC
 	HierarchyObject.hpp
 	HierarchyObject.cpp
 
+	HierarchyManager.hpp
+	HierarchyManager.cpp
+
 	CameraObj.cpp
 	CameraObj.hpp
 )
