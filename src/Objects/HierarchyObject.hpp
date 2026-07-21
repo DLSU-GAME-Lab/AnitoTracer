@@ -38,6 +38,7 @@ public:
     const std::string& GetName() const { return m_name; }
     HierarchyObject* GetParent() const { return m_parent; }
     const std::vector<std::unique_ptr<HierarchyObject>>& GetChildren() const { return m_children; }
+    const std::vector<std::unique_ptr<ComponentBase>>& GetComponents() const { return m_components; }
 
 private:
     std::string m_name;

@@ -41,8 +41,20 @@ namespace Diligent {
             flags |= ImGuiTreeNodeFlags_Leaf;
         }
 
+        // Highlight the node if it is the currently selected object
+        if (m_SelectedObject == node)
+        {
+            flags |= ImGuiTreeNodeFlags_Selected;
+        }
+
         // Render the node using the object's memory address as a unique ID
         bool nodeOpen = ImGui::TreeNodeEx((void*)node, flags, "%s", node->GetName().c_str());
+
+        // Update the selected object when clicked
+        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+        {
+            m_SelectedObject = node;
+        }
 
         // If the tree node is expanded by the user, recursively draw its children
         if (nodeOpen)

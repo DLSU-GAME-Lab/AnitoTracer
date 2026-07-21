@@ -4,6 +4,13 @@ set(UI_SRC
 	Panels/PropertiesPanel.cpp
 	Panels/PropertiesPanel.hpp
 
+	Panels/InspectorPanel/InspectorRegistry.cpp
+	Panels/InspectorPanel/InspectorRegistry.hpp
+	Panels/InspectorPanel/InspectorPanel.cpp
+	Panels/InspectorPanel/InspectorPanel.hpp
+	Panels/InspectorPanel/Components/IComponentUI.hpp
+	Panels/InspectorPanel/Components/TransformUI.hpp
+
 	Panels/HierarchyPanel.cpp
 	Panels/HierarchyPanel.hpp
 
