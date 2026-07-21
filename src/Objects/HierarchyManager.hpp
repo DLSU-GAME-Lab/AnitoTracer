@@ -45,6 +45,7 @@ public:
     std::unique_ptr<ComponentBase> RemoveComponentFromObject(HierarchyObject* object, ComponentBase* componentToRemove);
 
     HierarchyObject* CreateRootObjectWithTransform(const std::string& name);
+    HierarchyObject* CreateRootCameraObject(const std::string& name);
 
 private:
     HierarchyManager() = default;

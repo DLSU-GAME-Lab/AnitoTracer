@@ -84,4 +84,5 @@ void Diligent::GUIManager::InitializeDefaultPanels()
 void Diligent::GUIManager::InitializeComponentDrawers()
 {
     InspectorRegistry::GetInstance().RegisterUI<Transform, TransformUI>();
+    InspectorRegistry::GetInstance().RegisterUI<CameraComponent, CameraUI>();
 }

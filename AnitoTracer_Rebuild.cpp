@@ -123,6 +123,7 @@ int main(int argc, char** argv)
     Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
     HierarchyManager& hManager = HierarchyManager::GetInstance();
     hManager.CreateRootObjectWithTransform("Desu");
+    hManager.CreateRootCameraObject("Camera Nano");
 
     GUIManager& imguiManager = GUIManager::GetInstance();
 

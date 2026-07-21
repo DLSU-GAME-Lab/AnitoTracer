@@ -65,3 +65,18 @@ HierarchyObject* HierarchyManager::CreateRootObjectWithTransform(const std::stri
 
     return newObject;
 }
+
+HierarchyObject* HierarchyManager::CreateRootCameraObject(const std::string& name)
+{
+    HierarchyObject* newObject = CreateRootObject(name);
+
+    auto transform = std::make_unique<Transform>();
+
+    // Fix: Use .get() to extract the raw pointer from the unique_ptr for the constructor
+    auto camera = std::make_unique<CameraComponent>(transform.get(), newObject);
+
+    AddComponentToObject(newObject, std::move(camera));
+    AddComponentToObject(newObject, std::move(transform));
+
+    return newObject;
+}
