@@ -3,7 +3,7 @@
 #include <string>
 #include <iostream>
 
-// Forward declaration to avoid circular includes.
+// Forward declaration to avoid circular dependency
 class HierarchyObject;
 
 class ComponentBase {

@@ -12,14 +12,19 @@ set(OBJ_SRC
 	Components/ModelComponent.cpp
 	Components/ModelComponent.hpp
 
+	Components/Lights/LightBase.cpp
+	Components/Lights/LightBase.hpp
+	Components/Lights/DirectionLight.cpp
+	Components/Lights/DirectionLight.hpp
+
 	HierarchyObject.hpp
 	HierarchyObject.cpp
 
 	HierarchyManager.hpp
 	HierarchyManager.cpp
 
-	CameraObj.cpp
-	CameraObj.hpp
+	ObjectFactory.hpp
+	ObjectFactory.cpp
 )
 
 add_library(Objects STATIC ${OBJ_SRC})

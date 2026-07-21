@@ -30,13 +30,13 @@
 #include "imgui.h"
 
 #include "src/UI/GUIManager.hpp"
-#include "src/Objects/CameraObj.hpp"
 #include "src/Rendering/Shaders/ShaderManager.hpp"
 #include "src/Rendering/Pipelines/BasicPipeline.hpp"
 #include "src/Rendering/Pipelines/TexturedPipeline.hpp"
 #include "src/Objects/Models/ModelManager.hpp"
 
 #include "src/Objects/HierarchyManager.hpp"
+#include "src/Objects/ObjectFactory.hpp"
 
 using namespace Diligent;
 
@@ -124,21 +124,18 @@ int main(int argc, char** argv)
     // IMPORTANT: Initialize ModelManager BEFORE loading any models
     ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
 
-    HierarchyManager& hManager = HierarchyManager::GetInstance();
-    hManager.CreateRootObjectWithTransform("Desu");
-
-    auto mainCam = hManager.CreateRootCameraObject("Camera Nano");
-    mainCam->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
-
     GUIManager& imguiManager = GUIManager::GetInstance();
 
     auto bPipeline = BasicPipeline();
     auto tPipeline = TexturedPipeline();
 
-    auto loadedModelObj = hManager.CreateModelObject("Helmet", "helmet/DamagedHelmet.gltf");
+    ObjectFactory& objFactory = ObjectFactory::GetInstance();
+    objFactory.CreateRootObjectWithTransform("Desu wa");
 
-    auto modelComp = loadedModelObj ? loadedModelObj->GetComponent<ModelComponent>() : nullptr;
-    Model* pMyModel = modelComp ? modelComp->GetModel() : nullptr;
+    auto MainCam = objFactory.CreateRootCameraObject("Camera nana");
+    MainCam->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
+
+    objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
 
     while (g_AppRunning)
     {

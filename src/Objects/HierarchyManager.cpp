@@ -1,11 +1,5 @@
 #include "HierarchyManager.hpp"
 
-HierarchyObject* HierarchyManager::CreateRootObject(const std::string& name) {
-    auto root = std::make_unique<HierarchyObject>(name);
-    m_rootNodes.push_back(std::move(root));
-    return m_rootNodes.back().get();
-}
-
 HierarchyObject* HierarchyManager::AddRootObject(std::unique_ptr<HierarchyObject> rootObj) {
     if (!rootObj) return nullptr;
 
@@ -51,41 +45,6 @@ std::unique_ptr<ComponentBase> HierarchyManager::RemoveComponentFromObject(Hiera
     return nullptr;
 }
 
-HierarchyObject* HierarchyManager::CreateRootObjectWithTransform(const std::string& name)
-{
-    // First, create the root object using the existing helper method.
-    HierarchyObject* newObject = CreateRootObject(name);
-
-    // Instantiate the Transform component using the correct default constructor.
-    // The constructor defaults to a nullptr owner and sets the name internally.
-    auto transform = std::make_unique<Transform>();
-
-    // Finally, attach the component to the newly created object.
-    AddComponentToObject(newObject, std::move(transform));
-
-    return newObject;
-}
-
-HierarchyObject* HierarchyManager::CreateRootCameraObject(const std::string& name)
-{
-    HierarchyObject* newObject = CreateRootObject(name);
-
-    auto transform = std::make_unique<Transform>();
-
-    // Fix: Use .get() to extract the raw pointer from the unique_ptr for the constructor
-    auto camera = std::make_unique<CameraComponent>(transform.get(), newObject);
-
-    if (m_mainCamera == nullptr)
-    {
-        m_mainCamera = camera.get();
-    }
-
-    AddComponentToObject(newObject, std::move(camera));
-    AddComponentToObject(newObject, std::move(transform));
-
-    return newObject;
-}
-
 bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix) {
     if (m_mainCamera != nullptr)
     {
@@ -102,21 +61,6 @@ bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4
 
     // Return false if no main camera has been assigned
     return false;
-}
-
-HierarchyObject* HierarchyManager::CreateModelObject(const std::string& name, const std::string& filepath) {
-    Model* pModel = ModelManager::GetInstance().LoadModel(filepath); //
-
-    HierarchyObject* newObject = CreateRootObject(name); //
-
-    auto transform = std::make_unique<Transform>(); //
-    auto modelComp = std::make_unique<ModelComponent>(pModel); 
-
-    // 4. Attach components to the new object
-    AddComponentToObject(newObject, std::move(transform)); 
-    AddComponentToObject(newObject, std::move(modelComp)); 
-
-    return newObject;
 }
 
 static void GatherModelsRecursive(HierarchyObject* obj, const glm::mat4& parentMatrix, std::vector<ModelRenderInstance>& outModels) {

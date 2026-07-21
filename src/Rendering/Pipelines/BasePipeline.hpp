@@ -7,7 +7,6 @@
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Common/interface/BasicMath.hpp"
-#include "../Objects/CameraObj.hpp"
 #include "Shaders/ShaderManager.hpp"
 #include "../Objects/Models/ModelManager.hpp"
 #include "Shaders/VertexLayouts.hpp"

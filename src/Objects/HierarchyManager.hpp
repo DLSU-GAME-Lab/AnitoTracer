@@ -27,9 +27,6 @@ public:
     HierarchyManager(HierarchyManager&&) = delete;
     HierarchyManager& operator=(HierarchyManager&&) = delete;
 
-    // Instantiates and adds a root object directly by name.
-    HierarchyObject* CreateRootObject(const std::string& name);
-
     // Adds an existing root object and takes ownership.
     HierarchyObject* AddRootObject(std::unique_ptr<HierarchyObject> rootObj);
 
@@ -48,9 +45,6 @@ public:
     // Removes a component from a specific HierarchyObject and returns ownership.
     std::unique_ptr<ComponentBase> RemoveComponentFromObject(HierarchyObject* object, ComponentBase* componentToRemove);
 
-    HierarchyObject* CreateRootObjectWithTransform(const std::string& name);
-    HierarchyObject* CreateRootCameraObject(const std::string& name);
-
     // Sets the main camera used for rendering.
     void SetMainCamera(CameraComponent* camera) { m_mainCamera = camera; }
 
@@ -58,8 +52,6 @@ public:
     CameraComponent* GetMainCamera() const { return m_mainCamera; }
 
     bool GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
-
-    HierarchyObject* CreateModelObject(const std::string& name, const std::string& filepath);
 
     // Gathers all Models and their evaluated world transforms
     void GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const;
