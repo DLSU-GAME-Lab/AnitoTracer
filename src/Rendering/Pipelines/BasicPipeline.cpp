@@ -13,7 +13,7 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
 
     SetupDefaultGraphicsPipeline(GraphicsPipeline);
 
-    std::vector< LayoutElement> std_layout = VertexLayouts::GetStandardLayout();
+    std::vector<LayoutElement> std_layout = VertexLayouts::GetStandardLayout();
     GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
     GraphicsPipeline.InputLayout.NumElements = static_cast<Uint32>(std_layout.size());
 
@@ -25,17 +25,17 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
 
     ShaderResourceVariableDesc Variables[] =
     {
-        // DYNAMIC type allows us to update the buffer every frame or per-object
         {SHADER_TYPE_VERTEX, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_VERTEX, "ModelConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}, 
         {SHADER_TYPE_PIXEL, "MaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
     PSODesc.ResourceLayout.Variables = Variables;
     PSODesc.ResourceLayout.NumVariables = _countof(Variables);
 
-    // Create the Pipeline State
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
 
     CreateCameraConstantBuffer(pDevice);
+    CreateModelConstantBuffer(pDevice); 
 
     m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
 
@@ -43,9 +43,10 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     {
         pCameraConstantsVar->Set(m_pCameraCB);
     }
-    else
+
+    if (auto* pModelConstantsVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "ModelConstants"))
     {
-        std::cout << "Variable not found" << std::endl;
+        pModelConstantsVar->Set(m_pModelCB);
     }
 }
 
@@ -56,26 +57,26 @@ void Diligent::BasicPipeline::StartFrameRender(IDeviceContext* pContext, RenderD
     pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-void Diligent::BasicPipeline::RenderModel(IDeviceContext* pContext, Model* model)
+void Diligent::BasicPipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance model)
 {
-    // Bind vertex buffer
-    IBuffer* pBuffs[] = { model->pVertexBuffer };
-    pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
-    pContext->SetIndexBuffer(model->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    // Update the Model Constant Buffer with the current model's transform
+    {
+        MapHelper<glm::mat4> CBData(pContext, m_pModelCB, MAP_WRITE, MAP_FLAG_DISCARD);
+        *CBData = glm::transpose(model.WorldTransform);
+    }
 
-    for (const auto& submesh : model->SubMeshes) {
-        // --- Draw Call ---
+    // Bind vertex buffer
+    IBuffer* pBuffs[] = { model.ModelData->pVertexBuffer };
+    pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
+    pContext->SetIndexBuffer(model.ModelData->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    for (const auto& submesh : model.ModelData->SubMeshes) {
         DrawIndexedAttribs DrawAttrs;
 
-        // We used std::vector<Uint32> for indices during Assimp parsing
         DrawAttrs.IndexType = VT_UINT32;
-
-        // Map the offsets from our SubMesh struct to the Draw Call attributes
         DrawAttrs.NumIndices = submesh.IndexCount;
         DrawAttrs.FirstIndexLocation = submesh.IndexOffset;
         DrawAttrs.BaseVertex = submesh.BaseVertex;
-
-        // DRAW_FLAG_VERIFY_ALL enables debug validation in development builds
         DrawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
 
         pContext->DrawIndexed(DrawAttrs);

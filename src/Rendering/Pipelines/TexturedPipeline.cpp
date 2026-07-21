@@ -8,7 +8,6 @@ void Diligent::TexturedPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
     PipelineStateDesc& PSODesc = PSOCreateInfo.PSODesc;
     GraphicsPipelineDesc& GraphicsPipeline = PSOCreateInfo.GraphicsPipeline;
 
-    // Pipeline properties
     PSODesc.Name = "Textured Rendering PSO";
     PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
 
@@ -18,17 +17,15 @@ void Diligent::TexturedPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
     GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
     GraphicsPipeline.InputLayout.NumElements = static_cast<Uint32>(std_layout.size());
 
-    // Assign Shaders
     auto pVS = ShaderManager::GetInstance().GetShader("texturedBasic.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_vs");
     auto pPS = ShaderManager::GetInstance().GetShader("texturedBasic.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_ps");
     PSOCreateInfo.pVS = pVS;
     PSOCreateInfo.pPS = pPS;
 
-    // Define Resource Layout with Texture Support
     ShaderResourceVariableDesc Variables[] =
     {
         {SHADER_TYPE_VERTEX, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        // Add dynamic texture variable for the pixel shader
+        {SHADER_TYPE_VERTEX, "ModelConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}, // Added Model buffer
         {SHADER_TYPE_PIXEL, "g_Texture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "MaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
@@ -37,7 +34,6 @@ void Diligent::TexturedPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
 
     SamplerDesc SamLinearWrapDesc = GetLinearWrapSamplerDesc();
 
-    // Define a static sampler for the texture
     ImmutableSamplerDesc ImtblSamplers[] =
     {
         {SHADER_TYPE_PIXEL, "g_Texture_sampler", SamLinearWrapDesc}
@@ -48,6 +44,7 @@ void Diligent::TexturedPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
 
     CreateCameraConstantBuffer(pDevice);
+    CreateModelConstantBuffer(pDevice); // Initialize the new Model buffer
 
     BufferDesc MatCBDesc;
     MatCBDesc.Name = "Material Constant Buffer";
@@ -57,10 +54,13 @@ void Diligent::TexturedPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
     MatCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
     pDevice->CreateBuffer(MatCBDesc, nullptr, &m_pMaterialCB);
 
-    // Create Shader Resource Binding
     m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
     if (auto* pCameraConstantsVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants")) {
         pCameraConstantsVar->Set(m_pCameraCB);
+    }
+
+    if (auto* pModelConstantsVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "ModelConstants")) {
+        pModelConstantsVar->Set(m_pModelCB);
     }
 
     if (auto* pMatConstantsVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "MaterialConstants")) {
@@ -68,8 +68,16 @@ void Diligent::TexturedPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
     }
 }
 
-void Diligent::TexturedPipeline::RenderModel(IDeviceContext* pContext, Model* model)
+void Diligent::TexturedPipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData)
 {
+    Model* model = modelData.ModelData;
+
+    // Update the Model Constant Buffer with the current model's transform
+    {
+        MapHelper<glm::mat4> CBData(pContext, m_pModelCB, MAP_WRITE, MAP_FLAG_DISCARD);
+        *CBData = glm::transpose(modelData.WorldTransform);
+    }
+
     // Bind vertex and index buffers
     IBuffer* pBuffs[] = { model->pVertexBuffer };
     pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);

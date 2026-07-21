@@ -1,7 +1,14 @@
 cbuffer CameraConstants
 {
-    // The combined World * View * Projection matrix
-    float4x4 g_WorldViewProj;
+    // The separate View and Projection matrices
+    float4x4 g_View;
+    float4x4 g_Proj;
+};
+
+// New constant buffer for model properties
+cbuffer ModelConstants
+{
+    float4x4 g_Model;
 };
 
 cbuffer MaterialConstants

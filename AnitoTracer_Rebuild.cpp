@@ -201,7 +201,7 @@ int main(int argc, char** argv)
         HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
 
         tPipeline.StartFrameRender(g_pImmediateContext, renderData);
-        tPipeline.RenderModel(g_pImmediateContext, pMyModel);
+        tPipeline.RenderModels(g_pImmediateContext, renderData);
 
         // ==========================================
         // Render ImGui over the Render

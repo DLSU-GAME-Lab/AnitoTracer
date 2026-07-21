@@ -12,12 +12,14 @@ struct PSInput
 
 void main_vs(in VertexInput In, out PSInput Out)
 {
-    // Apply matrix transformation[cite: 3]
-    Out.Pos = mul(float4(In.Pos, 1.0), g_WorldViewProj);
+    // Apply matrix transformations sequentially 
+    float4 worldPos = mul(float4(In.Pos, 1.0), g_Model);
+    float4 viewPos = mul(worldPos, g_View);
+    Out.Pos = mul(viewPos, g_Proj);
     
     Out.Pos.z = (Out.Pos.z + Out.Pos.w) * 0.5;
     
-    // Pass the UV coordinates from the vertex input[cite: 4]
+    // Pass the UV coordinates from the vertex input
     Out.UV = In.uv;
 }
 

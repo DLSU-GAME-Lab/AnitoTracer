@@ -2,37 +2,65 @@
 
 void Diligent::BasePipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
 {
-    glm::mat4 transmat = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
-    float sc = 4.f;
-    transmat = glm::scale(transmat, glm::vec3(sc, sc, sc));
+    //OLD IMPLEM FOR REF
+    //glm::mat4 transmat = renderData.Models[0].WorldTransform;
 
-    transmat = renderData.Models[0].WorldTransform;
+    //glm::mat4 view = renderData.ViewMatrix;
+    //glm::mat4 proj = renderData.ProjectionMatrix;
+
+    //glm::mat4 mvp = proj * view * transmat;
+    //glm::mat4 mvp_t = glm::transpose(mvp);
+
+    //// Forces out of scope cleanup
+    //{
+    //    MapHelper<glm::mat4> CBData(pContext, m_pCameraCB, MAP_WRITE, MAP_FLAG_DISCARD);
+    //    *CBData = mvp_t;
+    //}
+
+    //pContext->SetPipelineState(m_pPSO);
 
     glm::mat4 view = renderData.ViewMatrix;
     glm::mat4 proj = renderData.ProjectionMatrix;
 
-    glm::mat4 mvp = proj * view * transmat;
-    glm::mat4 mvp_t = glm::transpose(mvp);
-
     // Forces out of scope cleanup
     {
-        MapHelper<glm::mat4> CBData(pContext, m_pCameraCB, MAP_WRITE, MAP_FLAG_DISCARD);
-        *CBData = mvp_t;
+        MapHelper<CameraConstants> CBData(pContext, m_pCameraCB, MAP_WRITE, MAP_FLAG_DISCARD);
+        CBData->View = glm::transpose(view);
+        CBData->Proj = glm::transpose(proj);
     }
 
     pContext->SetPipelineState(m_pPSO);
+}
+
+void Diligent::BasePipeline::RenderModels(IDeviceContext* pContext, RenderData renderData)
+{
+    for (int i = 0; i < renderData.Models.size(); i++) {
+        RenderModel(pContext, renderData.Models[i]);
+    }
 }
 
 void Diligent::BasePipeline::CreateCameraConstantBuffer(IRenderDevice* pDevice)
 {
     BufferDesc CBDesc;
     CBDesc.Name = "Camera Constant Buffer";
-    CBDesc.Size = sizeof(float4x4);
-    CBDesc.Usage = USAGE_DYNAMIC;            // Fast CPU writes
+    CBDesc.Size = sizeof(float4x4) * 2; // Updated to hold View and Proj matrices
+    CBDesc.Usage = USAGE_DYNAMIC;
     CBDesc.BindFlags = BIND_UNIFORM_BUFFER;
     CBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
 
     pDevice->CreateBuffer(CBDesc, nullptr, &m_pCameraCB);
+}
+
+void Diligent::BasePipeline::CreateModelConstantBuffer(IRenderDevice* pDevice)
+{
+    BufferDesc CBDesc;
+    CBDesc.Name = "Model Constant Buffer";
+    CBDesc.Size = sizeof(float4x4); // Size of the model matrix
+    CBDesc.Usage = USAGE_DYNAMIC;
+    CBDesc.BindFlags = BIND_UNIFORM_BUFFER;
+    CBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+
+    pDevice->CreateBuffer(CBDesc, nullptr, &m_pModelCB);
 }
 
 void Diligent::BasePipeline::SetupDefaultGraphicsPipeline(GraphicsPipelineDesc& GraphicsPipeline)
