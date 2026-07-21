@@ -38,9 +38,6 @@
 
 #include "src/Objects/HierarchyManager.hpp"
 #include "src/UI/Panels/PropertiesPanel.hpp"
-#include "src/UI/Panels/HierarchyPanel.hpp"
-#include "src/UI/Panels/InspectorPanel/InspectorPanel.hpp"
-#include "src/UI/Panels/InspectorPanel/Components/TransformUI.hpp"
 
 using namespace Diligent;
 
@@ -133,15 +130,7 @@ int main(int argc, char** argv)
 
     auto propertiesPanel = std::make_unique<Diligent::PropertiesPanel>();
     propertiesPanel->SetCamera(camera);
-
-    auto hierarchyPanel = std::make_unique<Diligent::HierarchyPanel>("Hierarchy");
-    Diligent::HierarchyPanel* hierarchyPtr = hierarchyPanel.get();
-
-    Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::InspectorPanel>(hierarchyPtr, "Inspector"));
-    Diligent::GUIManager::GetInstance().AddPanel(std::move(hierarchyPanel));
     
-    InspectorRegistry::GetInstance().RegisterUI<Transform, TransformUI>();
-
     Diligent::GUIManager::GetInstance().AddPanel(std::move(propertiesPanel));
 
     auto bPipeline = BasicPipeline();

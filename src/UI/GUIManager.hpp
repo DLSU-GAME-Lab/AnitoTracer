@@ -20,6 +20,11 @@
 #include "Panels/BasePanel.hpp" 
 #include "MenuBar.hpp" // Added include for our new class
 
+#include "Panels/HierarchyPanel.hpp"
+#include "Panels/InspectorPanel/InspectorPanel.hpp"
+
+#include "Panels/InspectorPanel/Components/TransformUI.hpp"
+
 namespace Diligent {
 
     class GUIManager
@@ -36,6 +41,9 @@ namespace Diligent {
         void DrawUI(bool& appRunning);
         void Render(IDeviceContext* pContext);
         void Shutdown();
+
+        void InitializeDefaultPanels();
+        void InitializeComponentDrawers();
 
         // Register a new panel to the manager
         void AddPanel(std::unique_ptr<BasePanel> panel)

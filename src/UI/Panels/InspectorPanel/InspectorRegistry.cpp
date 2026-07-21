@@ -10,6 +10,7 @@ void InspectorRegistry::DrawComponent(ComponentBase* component) {
     }
     else {
         // TODO: Draw Fallback
-        ImGui::Text(component->GetName().c_str());
+        std::string fallBackTxt = "No UI for " + component->GetName();
+        ImGui::Text(fallBackTxt.c_str());
     }
 }

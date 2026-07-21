@@ -26,6 +26,9 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
     io.IniFilename = "imgui.ini";
 
     ImGui::StyleColorsDark();
+
+    InitializeDefaultPanels();
+    InitializeComponentDrawers();
 }
 
 // Begin a new ImGui frame
@@ -67,4 +70,18 @@ void Diligent::GUIManager::Shutdown()
     // - Renderer device objects cleanup
     // - ImGui context destruction
     m_pImGuiRenderer.reset();
+}
+
+void Diligent::GUIManager::InitializeDefaultPanels()
+{
+    auto hierarchyPanel = std::make_unique<Diligent::HierarchyPanel>("Hierarchy");
+    Diligent::HierarchyPanel* hierarchyPtr = hierarchyPanel.get();
+
+    Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::InspectorPanel>(hierarchyPtr, "Inspector"));
+    Diligent::GUIManager::GetInstance().AddPanel(std::move(hierarchyPanel));
+}
+
+void Diligent::GUIManager::InitializeComponentDrawers()
+{
+    InspectorRegistry::GetInstance().RegisterUI<Transform, TransformUI>();
 }
