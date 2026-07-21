@@ -105,19 +105,54 @@ bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4
 }
 
 HierarchyObject* HierarchyManager::CreateModelObject(const std::string& name, const std::string& filepath) {
-    // 1. Load the model resource using the ModelManager singleton instance[cite: 2, 6]
     Model* pModel = ModelManager::GetInstance().LoadModel(filepath); //
 
-    // 2. Create the base HierarchyObject root node[cite: 3, 4]
     HierarchyObject* newObject = CreateRootObject(name); //
 
-    // 3. Instantiate the Transform and ModelComponent instances[cite: 6, 8]
     auto transform = std::make_unique<Transform>(); //
-    auto modelComp = std::make_unique<ModelComponent>(pModel); //[cite: 6]
+    auto modelComp = std::make_unique<ModelComponent>(pModel); 
 
     // 4. Attach components to the new object
-    AddComponentToObject(newObject, std::move(transform)); //[cite: 3]
-    AddComponentToObject(newObject, std::move(modelComp)); //[cite: 3]
+    AddComponentToObject(newObject, std::move(transform)); 
+    AddComponentToObject(newObject, std::move(modelComp)); 
 
-    return newObject; //[cite: 3]
+    return newObject;
+}
+
+static void GatherModelsRecursive(HierarchyObject* obj, const glm::mat4& parentMatrix, std::vector<ModelRenderInstance>& outModels) {
+    if (!obj) return;
+
+    glm::mat4 currentWorldMatrix = parentMatrix;
+
+    // If the object has a Transform component, multiply the parent matrix by the local matrix
+    if (Transform* transform = obj->GetComponent<Transform>()) {
+        currentWorldMatrix *= transform->GetLocalMatrix();
+    }
+
+    // If the object has a ModelComponent, extract the internal Model struct
+    if (ModelComponent* modelComp = obj->GetComponent<ModelComponent>()) {
+        // Retrieve the underlying Model struct pointer
+        if (Model* pModel = modelComp->GetModel()) {
+            outModels.push_back({ pModel, currentWorldMatrix });
+        }
+    }
+
+    // Recursively process children to maintain hierarchical transforms
+    for (const auto& child : obj->GetChildren()) {
+        GatherModelsRecursive(child.get(), currentWorldMatrix, outModels);
+    }
+}
+
+void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const
+{
+    // Clear any leftover data from the previous frame
+    outModels.clear();
+
+    // Start with an identity matrix for root-level objects
+    glm::mat4 rootMatrix(1.0f);
+
+    // Iterate through all root nodes managed by HierarchyManager
+    for (const auto& rootNode : m_rootNodes) {
+        GatherModelsRecursive(rootNode.get(), rootMatrix, outModels);
+    }
 }

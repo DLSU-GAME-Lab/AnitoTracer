@@ -1,4 +1,5 @@
 set(OBJ_SRC
+	Models/ModelStructs.hpp
 	Models/ModelManager.hpp
 	Models/ModelManager.cpp
 

@@ -5,7 +5,14 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "../Objects/Models/ModelStructs.hpp"
+
 namespace Diligent {
+
+    struct ModelRenderInstance {
+        Model* ModelData = nullptr;
+        glm::mat4 WorldTransform{ 1.0f };
+    };
 
     class RenderData {
         public:
@@ -14,6 +21,8 @@ namespace Diligent {
             glm::mat4 ViewProjectionMatrix{ 1.0f };
             glm::vec3 CameraPosition{ 0.0f };
             bool IsValid = false;
+
+            std::vector<ModelRenderInstance> Models;
 
             RenderData() = default;
     };

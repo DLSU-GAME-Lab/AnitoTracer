@@ -198,6 +198,7 @@ int main(int argc, char** argv)
         RenderData renderData;
 
         HierarchyManager::GetInstance().GetMainCameraMatrices(renderData.ViewMatrix, renderData.ProjectionMatrix);
+        HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
 
         tPipeline.StartFrameRender(g_pImmediateContext, renderData);
         tPipeline.RenderModel(g_pImmediateContext, pMyModel);

@@ -6,6 +6,8 @@ void Diligent::BasePipeline::StartFrameRender(IDeviceContext* pContext, RenderDa
     float sc = 4.f;
     transmat = glm::scale(transmat, glm::vec3(sc, sc, sc));
 
+    transmat = renderData.Models[0].WorldTransform;
+
     glm::mat4 view = renderData.ViewMatrix;
     glm::mat4 proj = renderData.ProjectionMatrix;
 

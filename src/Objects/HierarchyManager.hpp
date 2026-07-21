@@ -9,6 +9,9 @@
 #include "Components/Transform.hpp"
 #include "Components/Camera.hpp"
 #include "Components/ModelComponent.hpp"
+#include "Models/ModelStructs.hpp"
+
+#include "../Rendering/RenderData.hpp"
 
 class HierarchyManager {
 public:
@@ -57,6 +60,9 @@ public:
     bool GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
 
     HierarchyObject* CreateModelObject(const std::string& name, const std::string& filepath);
+
+    // Gathers all Models and their evaluated world transforms
+    void GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const;
 
 private:
     HierarchyManager() = default;
