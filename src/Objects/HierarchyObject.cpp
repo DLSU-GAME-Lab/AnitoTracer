@@ -29,3 +29,13 @@ std::unique_ptr<HierarchyObject> HierarchyObject::RemoveChild(HierarchyObject* c
     }
     return nullptr;
 }
+
+// Shortcut implementation returning a modifiable pointer to Transform
+Transform* HierarchyObject::GetTransform() {
+    return GetComponent<Transform>();
+}
+
+// Const shortcut implementation
+const Transform* HierarchyObject::GetTransform() const {
+    return GetComponent<Transform>();
+}

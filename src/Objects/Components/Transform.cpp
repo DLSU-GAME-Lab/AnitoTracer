@@ -3,21 +3,21 @@
 
 // Converts the current quaternion rotation to Euler angles in degrees for UI display.
 glm::vec3 Transform::GetEulerAnglesDegrees() const {
-    // glm::eulerAngles returns radians, so we convert them to degrees for the UI.
-    return glm::degrees(glm::eulerAngles(m_rotation));
+    return m_eulerAnglesDegrees;
 }
 
-// Sets the quaternion rotation from Euler angles provided in degrees from the UI.
+// Update both the cached Euler angles (for the UI) and the quaternion (for math).
 void Transform::SetEulerAnglesDegrees(const glm::vec3& eulerDegrees) {
+    // Store the continuous values so ImGui dragging doesn't snap
+    m_eulerAnglesDegrees = eulerDegrees;
+
     // glm::quat constructor from euler angles expects radians.
     m_rotation = glm::quat(glm::radians(eulerDegrees));
 }
 
-// Computes and returns the local transformation matrix using glm math.
 glm::mat4 Transform::GetLocalMatrix() const {
     glm::mat4 model = glm::mat4(1.0f);
 
-    // Apply Translation, Rotation, then Scale.
     model = glm::translate(model, m_position);
     model *= glm::mat4_cast(m_rotation);
     model = glm::scale(model, m_scale);

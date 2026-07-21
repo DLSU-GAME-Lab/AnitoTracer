@@ -11,6 +11,7 @@
 #include "Shaders/ShaderManager.hpp"
 #include "../Objects/Models/ModelManager.hpp"
 #include "Shaders/VertexLayouts.hpp"
+#include "../RenderData.hpp"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Matches Vulkan/D3D depth range [0, 1]
 #define GLM_FORCE_LEFT_HANDED       // Matches Diligent's default coordinate system
@@ -28,7 +29,7 @@ namespace Diligent {
         virtual void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) = 0;
 
         // Virtual so BasicPipeline can override it to commit resources
-        virtual void StartFrameRender(IDeviceContext* pContext, CameraObj camera);
+        virtual void StartFrameRender(IDeviceContext* pContext, RenderData renderData);
 
         virtual void RenderModel(IDeviceContext* pContext, Model* model) = 0;
 

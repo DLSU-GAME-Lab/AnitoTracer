@@ -49,9 +49,9 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     }
 }
 
-void Diligent::BasicPipeline::StartFrameRender(IDeviceContext* pContext, CameraObj camera)
+void Diligent::BasicPipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
 {
-    BasePipeline::StartFrameRender(pContext, camera);
+    BasePipeline::StartFrameRender(pContext, renderData);
 
     pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }

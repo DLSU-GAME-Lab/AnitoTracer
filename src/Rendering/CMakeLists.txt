@@ -1,4 +1,7 @@
 set(Rendering_SRC
+	RenderData.hpp
+	RenderData.cpp
+
 	Shaders/ShaderManager.hpp
 	Shaders/ShaderManager.cpp
 	Shaders/VertexLayouts.hpp

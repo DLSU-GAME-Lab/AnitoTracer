@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "Components/ComponentBase.hpp"
+#include "Components/Transform.hpp"
 
 class HierarchyObject {
 public:
@@ -39,6 +40,34 @@ public:
     HierarchyObject* GetParent() const { return m_parent; }
     const std::vector<std::unique_ptr<HierarchyObject>>& GetChildren() const { return m_children; }
     const std::vector<std::unique_ptr<ComponentBase>>& GetComponents() const { return m_components; }
+
+    /**
+     * @brief Generic method to search for and return an attached component of type T.
+     * @return Pointer to component of type T if attached; nullptr otherwise.
+     */
+    template <typename T>
+    T* GetComponent() {
+        for (auto& component : m_components) {
+            if (T* casted = dynamic_cast<T*>(component.get())) {
+                return casted;
+            }
+        }
+        return nullptr;
+    }
+
+    // Const overload for non-modifiable access when working with const HierarchyObjects
+    template <typename T>
+    const T* GetComponent() const {
+        for (auto& component : m_components) {
+            if (const T* casted = dynamic_cast<const T*>(component.get())) {
+                return casted;
+            }
+        }
+        return nullptr;
+    }
+
+    Transform* GetTransform();
+    const Transform* GetTransform() const;
 
 private:
     std::string m_name;

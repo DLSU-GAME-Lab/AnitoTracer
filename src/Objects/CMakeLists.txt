@@ -8,6 +8,8 @@ set(OBJ_SRC
 	Components/Transform.hpp
 	Components/Camera.cpp
 	Components/Camera.hpp
+	Components/ModelComponent.cpp
+	Components/ModelComponent.hpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp

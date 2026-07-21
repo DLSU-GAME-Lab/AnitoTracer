@@ -7,8 +7,8 @@
 
 #include "RenderDevice.h"
 #include "DeviceContext.h"
-#include "RefCntAutoPtr.hpp"
-#include "BasicMath.hpp"
+#include "Common/interface/RefCntAutoPtr.hpp"
+#include "Common/interface/BasicMath.hpp"
 #include "TextureLoader/interface/TextureUtilities.h"
 #include "Graphics/GraphicsEngine/interface/TextureView.h"
 

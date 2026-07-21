@@ -75,8 +75,49 @@ HierarchyObject* HierarchyManager::CreateRootCameraObject(const std::string& nam
     // Fix: Use .get() to extract the raw pointer from the unique_ptr for the constructor
     auto camera = std::make_unique<CameraComponent>(transform.get(), newObject);
 
+    if (m_mainCamera == nullptr)
+    {
+        m_mainCamera = camera.get();
+    }
+
     AddComponentToObject(newObject, std::move(camera));
     AddComponentToObject(newObject, std::move(transform));
 
     return newObject;
+}
+
+bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix) {
+    if (m_mainCamera != nullptr)
+    {
+        // Ensure the matrices are up-to-date with the current Transform data
+        m_mainCamera->UpdateViewMatrix();
+        m_mainCamera->UpdateProjectionMatrix();
+
+        // Extract the required matrices for the rendering pipeline
+        outViewMatrix = m_mainCamera->GetViewMatrix();
+        outProjectionMatrix = m_mainCamera->GetProjectionMatrix();
+
+        return true;
+    }
+
+    // Return false if no main camera has been assigned
+    return false;
+}
+
+HierarchyObject* HierarchyManager::CreateModelObject(const std::string& name, const std::string& filepath) {
+    // 1. Load the model resource using the ModelManager singleton instance[cite: 2, 6]
+    Model* pModel = ModelManager::GetInstance().LoadModel(filepath); //
+
+    // 2. Create the base HierarchyObject root node[cite: 3, 4]
+    HierarchyObject* newObject = CreateRootObject(name); //
+
+    // 3. Instantiate the Transform and ModelComponent instances[cite: 6, 8]
+    auto transform = std::make_unique<Transform>(); //
+    auto modelComp = std::make_unique<ModelComponent>(pModel); //[cite: 6]
+
+    // 4. Attach components to the new object
+    AddComponentToObject(newObject, std::move(transform)); //[cite: 3]
+    AddComponentToObject(newObject, std::move(modelComp)); //[cite: 3]
+
+    return newObject; //[cite: 3]
 }

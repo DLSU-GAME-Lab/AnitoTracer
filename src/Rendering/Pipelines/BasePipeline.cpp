@@ -1,16 +1,13 @@
 #include "BasePipeline.hpp"
 
-void Diligent::BasePipeline::StartFrameRender(IDeviceContext* pContext, CameraObj camera)
+void Diligent::BasePipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
 {
     glm::mat4 transmat = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
     float sc = 4.f;
     transmat = glm::scale(transmat, glm::vec3(sc, sc, sc));
 
-    camera.UpdateViewMatrix();
-    camera.UpdateProjectionMatrix();
-
-    glm::mat4 view = camera.GetViewMatrix();
-    glm::mat4 proj = camera.GetProjectionMatrix();
+    glm::mat4 view = renderData.ViewMatrix;
+    glm::mat4 proj = renderData.ProjectionMatrix;
 
     glm::mat4 mvp = proj * view * transmat;
     glm::mat4 mvp_t = glm::transpose(mvp);

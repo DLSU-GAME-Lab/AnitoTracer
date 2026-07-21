@@ -1,8 +1,6 @@
 set(UI_SRC
 	Panels/BasePanel.cpp
 	Panels/BasePanel.hpp
-	Panels/PropertiesPanel.cpp
-	Panels/PropertiesPanel.hpp
 
 	Panels/InspectorPanel/InspectorRegistry.cpp
 	Panels/InspectorPanel/InspectorRegistry.hpp

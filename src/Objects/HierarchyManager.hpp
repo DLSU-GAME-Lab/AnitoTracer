@@ -8,6 +8,7 @@
 #include "Components/ComponentBase.hpp"
 #include "Components/Transform.hpp"
 #include "Components/Camera.hpp"
+#include "Components/ModelComponent.hpp"
 
 class HierarchyManager {
 public:
@@ -47,9 +48,21 @@ public:
     HierarchyObject* CreateRootObjectWithTransform(const std::string& name);
     HierarchyObject* CreateRootCameraObject(const std::string& name);
 
+    // Sets the main camera used for rendering.
+    void SetMainCamera(CameraComponent* camera) { m_mainCamera = camera; }
+
+    // Retrieves the current main camera.
+    CameraComponent* GetMainCamera() const { return m_mainCamera; }
+
+    bool GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
+
+    HierarchyObject* CreateModelObject(const std::string& name, const std::string& filepath);
+
 private:
     HierarchyManager() = default;
     ~HierarchyManager() = default;
 
     std::vector<std::unique_ptr<HierarchyObject>> m_rootNodes;
+
+    CameraComponent* m_mainCamera = nullptr;
 };

@@ -11,7 +11,7 @@ namespace Diligent {
     class BasicPipeline : public BasePipeline {
     public:
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* _pSwapChain) override;
-        void StartFrameRender(IDeviceContext* pContext, CameraObj camera) override;
+        void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
         void RenderModel(IDeviceContext* pContext, Model* model) override;
     };
 

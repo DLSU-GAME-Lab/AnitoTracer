@@ -37,7 +37,6 @@
 #include "src/Objects/Models/ModelManager.hpp"
 
 #include "src/Objects/HierarchyManager.hpp"
-#include "src/UI/Panels/PropertiesPanel.hpp"
 
 using namespace Diligent;
 
@@ -121,25 +120,26 @@ int main(int argc, char** argv)
     // Create the triangle objects after initialization
 
     Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
+
+    // IMPORTANT: Initialize ModelManager BEFORE loading any models
+    ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
+
     HierarchyManager& hManager = HierarchyManager::GetInstance();
     hManager.CreateRootObjectWithTransform("Desu");
-    hManager.CreateRootCameraObject("Camera Nano");
+
+    auto mainCam = hManager.CreateRootCameraObject("Camera Nano");
+    mainCam->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 
     GUIManager& imguiManager = GUIManager::GetInstance();
-
-    CameraObj* camera = new CameraObj();
-
-    auto propertiesPanel = std::make_unique<Diligent::PropertiesPanel>();
-    propertiesPanel->SetCamera(camera);
-    
-    Diligent::GUIManager::GetInstance().AddPanel(std::move(propertiesPanel));
 
     auto bPipeline = BasicPipeline();
     auto tPipeline = TexturedPipeline();
 
-    ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
-    Model* pMyModel = ModelManager::GetInstance().LoadModel("helmet/DamagedHelmet.gltf");
-        
+    auto loadedModelObj = hManager.CreateModelObject("Helmet", "helmet/DamagedHelmet.gltf");
+
+    auto modelComp = loadedModelObj ? loadedModelObj->GetComponent<ModelComponent>() : nullptr;
+    Model* pMyModel = modelComp ? modelComp->GetModel() : nullptr;
+
     while (g_AppRunning)
     {
 #if PLATFORM_WIN32
@@ -195,7 +195,11 @@ int main(int argc, char** argv)
         // --- RENDER (BEFORE IMGUI)
         // ==========================================
 
-        tPipeline.StartFrameRender(g_pImmediateContext, *camera);
+        RenderData renderData;
+
+        HierarchyManager::GetInstance().GetMainCameraMatrices(renderData.ViewMatrix, renderData.ProjectionMatrix);
+
+        tPipeline.StartFrameRender(g_pImmediateContext, renderData);
         tPipeline.RenderModel(g_pImmediateContext, pMyModel);
 
         // ==========================================
