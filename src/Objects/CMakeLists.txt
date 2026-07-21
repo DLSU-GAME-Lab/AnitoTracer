@@ -2,6 +2,16 @@ set(OBJ_SRC
 	Models/ModelManager.hpp
 	Models/ModelManager.cpp
 
+	Components/ComponentBase.cpp
+	Components/ComponentBase.hpp
+	Components/Transform.cpp
+	Components/Transform.hpp
+	Components/Camera.cpp
+	Components/Camera.hpp
+
+	HierarchyObject.hpp
+	HierarchyObject.cpp
+
 	CameraObj.cpp
 	CameraObj.hpp
 )

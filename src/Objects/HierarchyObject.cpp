@@ -1,0 +1,31 @@
+#include "HierarchyObject.hpp"
+
+// Adds an existing child object and takes ownership.
+// Returns a raw pointer to the added child for immediate access.
+HierarchyObject* HierarchyObject::AddChild(std::unique_ptr<HierarchyObject> child) {
+    if (!child) return nullptr;
+
+    child->m_parent = this;
+    m_children.push_back(std::move(child));
+    return m_children.back().get();
+}
+
+// Helper method to instantiate and add a child directly by name.
+HierarchyObject* HierarchyObject::CreateChild(const std::string& childName) {
+    auto child = std::make_unique<HierarchyObject>(childName);
+    return AddChild(std::move(child));
+}
+
+// Removes a child by its exact pointer address.
+// Returns the unique_ptr, transferring ownership back to the caller.
+std::unique_ptr<HierarchyObject> HierarchyObject::RemoveChild(HierarchyObject* childToRemove) {
+    for (auto it = m_children.begin(); it != m_children.end(); ++it) {
+        if (it->get() == childToRemove) {
+            std::unique_ptr<HierarchyObject> detachedChild = std::move(*it);
+            detachedChild->m_parent = nullptr;
+            m_children.erase(it);
+            return detachedChild;
+        }
+    }
+    return nullptr;
+}
