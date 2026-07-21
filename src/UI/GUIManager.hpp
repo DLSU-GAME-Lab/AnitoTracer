@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <vector>
+#include <string>
 
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
@@ -15,54 +17,48 @@
 #include "Imgui/interface/ImGuiDiligentRenderer.hpp"
 #include "Imgui/interface/ImGuiImplDiligent.hpp"
 
-#include "../Objects/CameraObj.hpp"
+#include "Panels/BasePanel.hpp" 
+#include "MenuBar.hpp" // Added include for our new class
 
 namespace Diligent {
 
-class GUIManager
-{
-public:
-    // Meyers Singleton access
-    static GUIManager& GetInstance()
+    class GUIManager
     {
-        static GUIManager instance;
-        return instance;
-    }
+    public:
+        static GUIManager& GetInstance()
+        {
+            static GUIManager instance;
+            return instance;
+        }
 
-    // Initialize ImGui context and Diligent renderer
-    void Initialize(IRenderDevice* pDevice, const SwapChainDesc& SCDesc, NativeWindow nativeWindow);
+        void Initialize(IRenderDevice* pDevice, const SwapChainDesc& SCDesc, NativeWindow nativeWindow);
+        void NewFrame(Uint32 width, Uint32 height, SURFACE_TRANSFORM transform);
+        void DrawUI(bool& appRunning);
+        void Render(IDeviceContext* pContext);
+        void Shutdown();
 
-    // Begin a new ImGui frame
-    void NewFrame(Uint32 width, Uint32 height, SURFACE_TRANSFORM transform);
+        // Register a new panel to the manager
+        void AddPanel(std::unique_ptr<BasePanel> panel)
+        {
+            m_Panels.push_back(std::move(panel));
+        }
 
-    // Draw the main layout (Menu bar and Dockspace)
-    void DrawUI(bool& appRunning);
+        bool IsInitialized() const { return m_pImGuiRenderer != nullptr; }
 
-    // Render ImGui draw data to the Diligent context
-    void Render(IDeviceContext* pContext);
+    private:
+        GUIManager() = default;
+        ~GUIManager() = default;
 
-    // Cleanup resources
-    void Shutdown();
+        GUIManager(const GUIManager&) = delete;
+        GUIManager& operator=(const GUIManager&) = delete;
 
-    // Set the camera object for properties editing
-    void SetCamera(CameraObj* pCamera) { m_pCamera = pCamera; }
+        std::unique_ptr<ImGuiImplDiligent> m_pImGuiRenderer;
 
-    bool IsInitialized() const { return m_pImGuiRenderer != nullptr; }
+        // Manage all UI windows dynamically
+        std::vector<std::unique_ptr<BasePanel>> m_Panels;
 
-private:
-    GUIManager() = default;
-    ~GUIManager() = default;
-
-    // Disable copy/move
-    GUIManager(const GUIManager&) = delete;
-    GUIManager& operator=(const GUIManager&) = delete;
-
-    std::unique_ptr<ImGuiImplDiligent> m_pImGuiRenderer;
-    CameraObj* m_pCamera = nullptr;
-
-    // Window states
-    bool m_ShowPropertiesWindow = true;
-    bool m_ShowConsoleWindow = true;
-};
+        // The dedicated menu bar instance
+        MenuBar m_MenuBar;
+    };
 
 }

@@ -37,6 +37,7 @@
 #include "src/Objects/Models/ModelManager.hpp"
 
 #include "src/Objects/HierarchyManager.hpp"
+#include "src/UI/Panels/PropertiesPanel.hpp"
 
 using namespace Diligent;
 
@@ -125,9 +126,12 @@ int main(int argc, char** argv)
 
     GUIManager& imguiManager = GUIManager::GetInstance();
 
-    CameraObj camera;
+    CameraObj* camera = new CameraObj();
 
-    imguiManager.SetCamera(&camera);
+    auto propertiesPanel = std::make_unique<Diligent::PropertiesPanel>();
+    propertiesPanel->SetCamera(camera);
+
+    Diligent::GUIManager::GetInstance().AddPanel(std::move(propertiesPanel));
 
     auto bPipeline = BasicPipeline();
     auto tPipeline = TexturedPipeline();
@@ -190,7 +194,7 @@ int main(int argc, char** argv)
         // --- RENDER (BEFORE IMGUI)
         // ==========================================
 
-        tPipeline.StartFrameRender(g_pImmediateContext, camera);
+        tPipeline.StartFrameRender(g_pImmediateContext, *camera);
         tPipeline.RenderModel(g_pImmediateContext, pMyModel);
 
         // ==========================================

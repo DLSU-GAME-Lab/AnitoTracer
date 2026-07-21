@@ -1,4 +1,12 @@
 set(UI_SRC
+	Panels/BasePanel.cpp
+	Panels/BasePanel.hpp
+	Panels/PropertiesPanel.cpp
+	Panels/PropertiesPanel.hpp
+
+	MenuBar.hpp
+	MenuBar.cpp
+
 	GUIManager.cpp
 	GUIManager.hpp
 )
