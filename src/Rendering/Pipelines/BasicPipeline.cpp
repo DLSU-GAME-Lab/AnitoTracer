@@ -11,12 +11,7 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     PSODesc.Name = "Basic Rendering PSO";
     PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
 
-    GraphicsPipeline.NumRenderTargets = 1;
-    GraphicsPipeline.RTVFormats[0] = pSwapChain->GetDesc().ColorBufferFormat;
-    GraphicsPipeline.DSVFormat = pSwapChain->GetDesc().DepthBufferFormat;
-    GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_BACK;
-    GraphicsPipeline.DepthStencilDesc.DepthEnable = True;
+    SetupDefaultGraphicsPipeline(GraphicsPipeline);
 
     std::vector< LayoutElement> std_layout = VertexLayouts::GetStandardLayout();
     GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
@@ -40,14 +35,7 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
     // Create the Pipeline State
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
 
-    BufferDesc CBDesc;
-    CBDesc.Name = "Camera Constant Buffer";
-    CBDesc.Size = sizeof(float4x4);
-    CBDesc.Usage = USAGE_DYNAMIC;            // Fast CPU writes
-    CBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-
-    pDevice->CreateBuffer(CBDesc, nullptr, &m_pCameraCB);
+    CreateCameraConstantBuffer(pDevice);
 
     m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
 
@@ -63,26 +51,8 @@ void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapCh
 
 void Diligent::BasicPipeline::StartFrameRender(IDeviceContext* pContext, CameraObj camera)
 {
-    glm::mat4 transmat = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
-    float sc = 4.f;
-    transmat = glm::scale(transmat, glm::vec3(sc, sc, sc));
+    BasePipeline::StartFrameRender(pContext, camera);
 
-    camera.UpdateViewMatrix();
-    camera.UpdateProjectionMatrix();
-
-    glm::mat4 view = camera.GetViewMatrix();
-    glm::mat4 proj = camera.GetProjectionMatrix();
-
-    glm::mat4 mvp = proj * view * transmat;
-    glm::mat4 mvp_t = glm::transpose(mvp);
-
-    //Forces outofscope cleanup
-    {
-        MapHelper<glm::mat4> CBData(pContext, m_pCameraCB, MAP_WRITE, MAP_FLAG_DISCARD);
-        *CBData = mvp_t;
-    }
-
-    pContext->SetPipelineState(m_pPSO);
     pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 

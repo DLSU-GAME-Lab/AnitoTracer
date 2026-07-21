@@ -32,8 +32,8 @@
 #include "src/UI/GUIManager.hpp"
 #include "src/Objects/CameraObj.hpp"
 #include "src/Rendering/Shaders/ShaderManager.hpp"
-#include "src/Rendering/BasicPipeline.hpp"
-#include "src/Rendering/TexturedPipeline.hpp"
+#include "src/Rendering/Pipelines/BasicPipeline.hpp"
+#include "src/Rendering/Pipelines/TexturedPipeline.hpp"
 #include "src/Objects/Models/ModelManager.hpp"
 
 using namespace Diligent;
