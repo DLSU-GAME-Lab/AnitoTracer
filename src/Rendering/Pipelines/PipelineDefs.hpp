@@ -16,6 +16,7 @@ namespace Diligent {
         glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };      // rgb: color, a: intensity
         float Range = 10.0f;
         glm::vec3 Padding{ 0.0f };
+        glm::vec4 ExtraPadding{ 0.0f };  // Additional padding for HLSL std140 alignment (8 lights × 16 bytes = 128 byte difference)
     };
 
     struct LightConstants {
