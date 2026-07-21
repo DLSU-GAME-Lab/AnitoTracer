@@ -46,6 +46,11 @@ RefCntAutoPtr<IRenderDevice>  g_pDevice;
 RefCntAutoPtr<IDeviceContext> g_pImmediateContext;
 RefCntAutoPtr<ISwapChain>     g_pSwapChain;
 
+RefCntAutoPtr<ITexture>     g_pMSAATarget;
+RefCntAutoPtr<ITexture>     g_pMSAADepth;
+RefCntAutoPtr<ITextureView> g_pMSAARTV;
+RefCntAutoPtr<ITextureView> g_pMSAADSV;
+
 // Cross-platform native window handle tracker
 NativeWindow g_NativeWindow;
 bool g_AppRunning = true;
@@ -118,6 +123,35 @@ int main(int argc, char** argv)
     pFactoryVk->CreateDeviceAndContextsVk(engineCI, &g_pDevice, &g_pImmediateContext); 
     pFactoryVk->CreateSwapChainVk(g_pDevice, g_pImmediateContext, swapChainDesc, g_NativeWindow, &g_pSwapChain);
 
+    auto CreateMSAABuffers = [&]() {
+        const auto& SCDesc = g_pSwapChain->GetDesc();
+
+        TextureDesc ColorDesc;
+        ColorDesc.Name = "MSAA Color Target";
+        ColorDesc.Type = RESOURCE_DIM_TEX_2D;
+        ColorDesc.Width = SCDesc.Width;
+        ColorDesc.Height = SCDesc.Height;
+        ColorDesc.BindFlags = BIND_RENDER_TARGET;
+        ColorDesc.Format = SCDesc.ColorBufferFormat;
+        ColorDesc.SampleCount = 4; // Must match the PSO!
+
+        g_pMSAATarget.Release();
+        g_pDevice->CreateTexture(ColorDesc, nullptr, &g_pMSAATarget);
+        g_pMSAARTV = g_pMSAATarget->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+
+        TextureDesc DepthDesc = ColorDesc;
+        DepthDesc.Name = "MSAA Depth Buffer";
+        DepthDesc.BindFlags = BIND_DEPTH_STENCIL;
+        DepthDesc.Format = SCDesc.DepthBufferFormat;
+
+        g_pMSAADepth.Release();
+        g_pDevice->CreateTexture(DepthDesc, nullptr, &g_pMSAADepth);
+        g_pMSAADSV = g_pMSAADepth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
+        };
+
+    // Initialize them for the first time
+    CreateMSAABuffers();
+
     // Create the triangle objects after initialization
 
     Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
@@ -132,12 +166,12 @@ int main(int argc, char** argv)
     auto bLitPipeline = LitPipeline();
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
-    objFactory.CreateRootObjectWithTransform("Desu wa");
 
-    auto MainCam = objFactory.CreateRootCameraObject("Camera nana");
+    auto MainCam = objFactory.CreateRootCameraObject("Camera Main");
     MainCam->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 
-    objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
+    //objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
+    objFactory.CreateModelObject("SP", "Sponza/sponza.obj");
 
     while (g_AppRunning)
     {
@@ -182,14 +216,27 @@ int main(int argc, char** argv)
         // --- Render ImGui UI Elements ---
         imguiManager.DrawUI(g_AppRunning);
 
-        // Set up target attachments and clear color
-        auto* pRTV = g_pSwapChain->GetCurrentBackBufferRTV();
-        auto* pDSV = g_pSwapChain->GetDepthBufferDSV(); 
-        g_pImmediateContext->SetRenderTargets(1, &pRTV, pDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        // Resize MSAA buffers dynamically if the window size changed
+        if (g_pMSAATarget->GetDesc().Width != SCDesc.Width ||
+            g_pMSAATarget->GetDesc().Height != SCDesc.Height)
+        {
+            CreateMSAABuffers();
+        }
 
-        const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f }; 
-        g_pImmediateContext->ClearRenderTarget(pRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
-        g_pImmediateContext->ClearDepthStencil(pDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
+        const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
+
+        ITextureView* pRTVs[] = { g_pMSAARTV };
+        g_pImmediateContext->SetRenderTargets(1, pRTVs, g_pMSAADSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        g_pImmediateContext->ClearRenderTarget(g_pMSAARTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        g_pImmediateContext->ClearDepthStencil(g_pMSAADSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        // Set up target attachments and clear color
+        //auto* pRTV = g_pSwapChain->GetCurrentBackBufferRTV();
+        //auto* pDSV = g_pSwapChain->GetDepthBufferDSV(); 
+        //g_pImmediateContext->SetRenderTargets(1, &pRTV, pDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        //g_pImmediateContext->ClearRenderTarget(pRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
+        //g_pImmediateContext->ClearDepthStencil(pDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
  
         // ==========================================
         // --- RENDER (BEFORE IMGUI)
@@ -204,6 +251,26 @@ int main(int argc, char** argv)
         bLitPipeline.StartFrameRender(g_pImmediateContext, renderData);
         bLitPipeline.UpdateLights(g_pImmediateContext, renderData.Lights);
         bLitPipeline.RenderModels(g_pImmediateContext, renderData);
+
+        // ==========================================
+        // --- RESOLVE MSAA AND RENDER IMGUI
+        // ==========================================
+
+        auto* pBackBufferRTV = g_pSwapChain->GetCurrentBackBufferRTV();
+
+        // Resolve the multi-sampled texture into the swap chain back buffer
+        ResolveTextureSubresourceAttribs ResolveAttribs;
+        ResolveAttribs.SrcTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+        ResolveAttribs.DstTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+
+        g_pImmediateContext->ResolveTextureSubresource(
+            g_pMSAATarget,
+            pBackBufferRTV->GetTexture(),
+            ResolveAttribs
+        );
+        //Bind the back buffer
+        auto* pDefaultDSV = g_pSwapChain->GetDepthBufferDSV();
+        g_pImmediateContext->SetRenderTargets(1, &pBackBufferRTV, pDefaultDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         // ==========================================
         // Render ImGui over the Render

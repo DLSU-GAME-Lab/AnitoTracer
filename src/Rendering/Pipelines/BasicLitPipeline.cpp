@@ -14,6 +14,9 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
 
     SetupDefaultGraphicsPipeline(GraphicsPipeline);
 
+    // Add this line to enable 4x MSAA for this pipeline
+    GraphicsPipeline.SmplDesc.Count = 4;
+
     std::vector<LayoutElement> std_layout = VertexLayouts::GetStandardLayout();
     GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
     GraphicsPipeline.InputLayout.NumElements = static_cast<Uint32>(std_layout.size());
