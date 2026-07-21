@@ -22,6 +22,9 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
     // Enable Keyboard Controls (optional but recommended)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
+    // Enable saving of window layout (positions and sizes)
+    io.IniFilename = "imgui.ini";
+
     ImGui::StyleColorsDark();
 }
 

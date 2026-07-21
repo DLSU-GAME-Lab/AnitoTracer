@@ -38,6 +38,7 @@
 
 #include "src/Objects/HierarchyManager.hpp"
 #include "src/UI/Panels/PropertiesPanel.hpp"
+#include "src/UI/Panels/HierarchyPanel.hpp"
 
 using namespace Diligent;
 
@@ -130,6 +131,8 @@ int main(int argc, char** argv)
 
     auto propertiesPanel = std::make_unique<Diligent::PropertiesPanel>();
     propertiesPanel->SetCamera(camera);
+
+    Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::HierarchyPanel>("Scene Hierarchy"));
 
     Diligent::GUIManager::GetInstance().AddPanel(std::move(propertiesPanel));
 

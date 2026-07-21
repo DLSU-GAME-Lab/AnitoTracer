@@ -4,6 +4,9 @@ set(UI_SRC
 	Panels/PropertiesPanel.cpp
 	Panels/PropertiesPanel.hpp
 
+	Panels/HierarchyPanel.cpp
+	Panels/HierarchyPanel.hpp
+
 	MenuBar.hpp
 	MenuBar.cpp
 
