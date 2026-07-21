@@ -8,6 +8,9 @@
 #include "../Objects/Models/ModelStructs.hpp"
 #include "Pipelines/PipelineDefs.hpp"
 
+#include "Graphics/GraphicsEngine/interface/TopLevelAS.h" 
+#include "Graphics/GraphicsEngine/interface/Buffer.h"    
+
 namespace Diligent {
 
     struct ModelRenderInstance {
@@ -25,6 +28,10 @@ namespace Diligent {
 
             std::vector<ModelRenderInstance> Models;
             LightConstants Lights;
+
+            //RT Data
+            RefCntAutoPtr<ITopLevelAS> pTLAS;
+            RefCntAutoPtr<IBuffer> pTLASScratchBuffer;
 
             RenderData() = default;
     };

@@ -116,6 +116,9 @@ int main(int argc, char** argv)
     IEngineFactoryVk* pFactoryVk = Diligent::LoadAndGetEngineFactoryVk(); 
 
     EngineVkCreateInfo engineCI;
+
+    engineCI.Features.RayTracing = Diligent::DEVICE_FEATURE_STATE_ENABLED;
+
     SwapChainDesc swapChainDesc;
     swapChainDesc.Width = windowWidth;
     swapChainDesc.Height = windowHeight;
@@ -157,7 +160,7 @@ int main(int argc, char** argv)
     Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
 
     // IMPORTANT: Initialize ModelManager BEFORE loading any models
-    ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
+    ModelManager::GetInstance().Initialize(g_pDevice, g_pImmediateContext, "Assets/");
 
     GUIManager& imguiManager = GUIManager::GetInstance();
 
@@ -170,8 +173,8 @@ int main(int argc, char** argv)
     auto MainCam = objFactory.CreateRootCameraObject("Camera Main");
     MainCam->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 
-    //objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
-    objFactory.CreateModelObject("SP", "Sponza/sponza.obj");
+    objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
+    //objFactory.CreateModelObject("SP", "Sponza/sponza.obj");
 
     while (g_AppRunning)
     {

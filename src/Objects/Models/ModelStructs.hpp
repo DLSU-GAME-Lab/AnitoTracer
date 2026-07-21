@@ -11,6 +11,7 @@
 #include "Common/interface/BasicMath.hpp"
 #include "TextureLoader/interface/TextureUtilities.h"
 #include "Graphics/GraphicsEngine/interface/TextureView.h"
+#include "Graphics/GraphicsEngine/interface/BottomLevelAS.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -53,6 +54,8 @@ struct PBRMaterial {
 struct Model {
     RefCntAutoPtr<IBuffer> pVertexBuffer;
     RefCntAutoPtr<IBuffer> pIndexBuffer;
+
+    RefCntAutoPtr<IBottomLevelAS> pBLAS;
 
     std::vector<SubMesh> SubMeshes;
     std::vector<RefCntAutoPtr<ITextureView>> Materials; // Diffuse SRVs mapped to SubMeshes
