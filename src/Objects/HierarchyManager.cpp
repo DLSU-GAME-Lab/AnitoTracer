@@ -158,12 +158,9 @@ void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) cons
     outLights.NumPointLights = 0;
 
     // Pass the camera position to the light constants for specular calculations
-    if (m_mainCamera != nullptr) {
-        if (HierarchyObject* camOwner = m_mainCamera->GetOwner()) {
-            if (Transform* camTransform = camOwner->GetComponent<Transform>()) {
-                outLights.CameraPos = glm::vec4(camTransform->GetPosition(), 1.0f);
-            }
-        }
+    glm::vec3 cameraPos;
+    if (GetMainCameraPosition(cameraPos)) {
+        outLights.CameraPos = glm::vec4(cameraPos, 1.0f);
     }
 
     glm::mat4 rootMatrix(1.0f);
@@ -172,4 +169,17 @@ void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) cons
     for (const auto& rootNode : m_rootNodes) {
         GatherLightsRecursive(rootNode.get(), rootMatrix, outLights);
     }
+}
+
+bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
+    if (m_mainCamera != nullptr) {
+        if (HierarchyObject* camOwner = m_mainCamera->GetOwner()) {
+            if (Transform* camTransform = camOwner->GetComponent<Transform>()) {
+                outPosition = camTransform->GetPosition();
+                return true;
+            }
+        }
+    }
+
+    return false;
 }

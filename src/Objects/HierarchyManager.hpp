@@ -60,6 +60,8 @@ public:
     // Gathers all active lights in the hierarchy and processes their world transforms
     void GatherLightData(Diligent::LightConstants& outLights) const;
 
+    bool GetMainCameraPosition(glm::vec3& outPosition) const;
+
 private:
     HierarchyManager() = default;
     ~HierarchyManager() = default;

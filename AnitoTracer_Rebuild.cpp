@@ -202,7 +202,6 @@ int main(int argc, char** argv)
         HierarchyManager::GetInstance().GatherLightData(renderData.Lights);
 
         bLitPipeline.StartFrameRender(g_pImmediateContext, renderData);
-        renderData.Lights.CameraPos = glm::vec4(0, 0, -10.f,  1.f);
         bLitPipeline.UpdateLights(g_pImmediateContext, renderData.Lights);
         bLitPipeline.RenderModels(g_pImmediateContext, renderData);
 
