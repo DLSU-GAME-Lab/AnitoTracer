@@ -9,6 +9,7 @@
 #include "Components/Transform.hpp"
 #include "Components/Camera.hpp"
 #include "Components/ModelComponent.hpp"
+#include "Components/Lights/DirectionLight.hpp"
 
 class ObjectFactory {
 public:
@@ -26,6 +27,8 @@ public:
     HierarchyObject* CreateRootObjectWithTransform(const std::string& name);
     HierarchyObject* CreateRootCameraObject(const std::string& name);
     HierarchyObject* CreateModelObject(const std::string& name, const std::string& filepath);
+
+    HierarchyObject* CreateDirectionalLightObject(const std::string& name);
 
 private:
     ObjectFactory() = default;

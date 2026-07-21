@@ -25,6 +25,7 @@
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"
 #include "Panels/InspectorPanel/Components/CameraUI.hpp"
+#include "Panels/InspectorPanel/Components/DirectionalLightUI.hpp"
 
 namespace Diligent {
 

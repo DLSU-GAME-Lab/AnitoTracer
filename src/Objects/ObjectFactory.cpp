@@ -54,3 +54,16 @@ HierarchyObject* ObjectFactory::CreateModelObject(const std::string& name, const
 
     return newObject;
 }
+
+HierarchyObject* ObjectFactory::CreateDirectionalLightObject(const std::string& name) {
+    // Leverage the existing method to create the root object and attach the Transform component
+    HierarchyObject* newObject = CreateRootObjectWithTransform(name);
+
+    // Instantiate the DirectionalLight component, passing the owner object
+    auto dirLight = std::make_unique<DirectionalLight>(newObject);
+
+    // Attach the light component to the newly created object
+    HierarchyManager::GetInstance().AddComponentToObject(newObject, std::move(dirLight));
+
+    return newObject;
+}

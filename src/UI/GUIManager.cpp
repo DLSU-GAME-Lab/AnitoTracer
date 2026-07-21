@@ -85,4 +85,5 @@ void Diligent::GUIManager::InitializeComponentDrawers()
 {
     InspectorRegistry::GetInstance().RegisterUI<Transform, TransformUI>();
     InspectorRegistry::GetInstance().RegisterUI<CameraComponent, CameraUI>();
+    InspectorRegistry::GetInstance().RegisterUI<DirectionalLight, DirectionalLightUI>();
 }

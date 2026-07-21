@@ -15,6 +15,23 @@ namespace Diligent {
                 ImGui::EndMenu();
             }
 
+            if (ImGui::BeginMenu("Assets"))
+            {
+                if (ImGui::MenuItem("Add Empty Object"))
+                {
+                    ObjectFactory::GetInstance().CreateRootObjectWithTransform("Empty Object");
+                }
+                if (ImGui::MenuItem("Add Direction Light"))
+                {
+                    ObjectFactory::GetInstance().CreateDirectionalLightObject("Direction Light");
+                }
+                if (ImGui::MenuItem("Load Model"))
+                {
+                    // Placeholder for now
+                }
+                ImGui::EndMenu();
+            }
+
             // Dynamically populate the Windows menu based on registered panels
             if (ImGui::BeginMenu("Windows"))
             {
