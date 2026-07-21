@@ -4,7 +4,7 @@
 #include <unordered_map>
 
 #include "RenderDevice.h"
-#include "RefCntAutoPtr.hpp"
+#include "Common/interface/RefCntAutoPtr.hpp"
 
 namespace Diligent {
 

@@ -12,6 +12,7 @@
 #include "Models/ModelStructs.hpp"
 
 #include "../Rendering/RenderData.hpp"
+#include "Components/Lights/DirectionLight.hpp"
 
 class HierarchyManager {
 public:
@@ -55,6 +56,9 @@ public:
 
     // Gathers all Models and their evaluated world transforms
     void GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const;
+
+    // Gathers all active lights in the hierarchy and processes their world transforms
+    void GatherLightData(Diligent::LightConstants& outLights) const;
 
 private:
     HierarchyManager() = default;

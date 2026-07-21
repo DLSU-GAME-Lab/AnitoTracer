@@ -1,4 +1,5 @@
 #include "BasicPipeline.hpp"
+#include "../RenderData.hpp"
 
 void Diligent::BasicPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* _pSwapChain)
 {

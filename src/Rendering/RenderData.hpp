@@ -6,6 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "../Objects/Models/ModelStructs.hpp"
+#include "Pipelines/PipelineDefs.hpp"
 
 namespace Diligent {
 
@@ -23,6 +24,7 @@ namespace Diligent {
             bool IsValid = false;
 
             std::vector<ModelRenderInstance> Models;
+            LightConstants Lights;
 
             RenderData() = default;
     };

@@ -100,3 +100,76 @@ void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outM
         GatherModelsRecursive(rootNode.get(), rootMatrix, outModels);
     }
 }
+
+static void GatherLightsRecursive(HierarchyObject* obj, const glm::mat4& parentMatrix, Diligent::LightConstants& outLights) {
+    if (!obj) return;
+
+    glm::mat4 currentWorldMatrix = parentMatrix;
+
+    // Apply local transform to the accumulated matrix
+    if (Transform* transform = obj->GetComponent<Transform>()) {
+        currentWorldMatrix *= transform->GetLocalMatrix();
+    }
+
+    // Process Directional Lights using Master's custom component!
+    if (DirectionalLight* dirLight = obj->GetComponent<DirectionalLight>()) {
+        if (outLights.NumDirLights < Diligent::MAX_DIR_LIGHTS) {
+            // Retrieve the direction already calculated with the Transform's quaternion rotation
+            glm::vec3 worldDir = dirLight->GetDirection();
+
+            Diligent::DirectionalLightData& lightData = outLights.DirLights[outLights.NumDirLights];
+            lightData.Direction = glm::vec4(worldDir, 0.0f);
+
+            // Pack color and intensity using Getters from LightBase
+            lightData.Color = glm::vec4(dirLight->GetColor(), dirLight->GetIntensity());
+
+            outLights.NumDirLights++;
+        }
+    }
+
+    // Process Point Lights (Assuming you make a PointLight class inheriting LightBase next!)
+    /*
+    if (PointLight* pointLight = obj->GetComponent<PointLight>()) {
+        if (outLights.NumPointLights < Diligent::MAX_POINT_LIGHTS) {
+            // Extract the absolute world position from the 4th column of the world matrix
+            glm::vec3 worldPos = glm::vec3(currentWorldMatrix[3]);
+
+            Diligent::PointLightData& lightData = outLights.PointLights[outLights.NumPointLights];
+            lightData.Position = glm::vec4(worldPos, 1.0f);
+
+            // Reusing LightBase getters
+            lightData.Color = glm::vec4(pointLight->GetColor(), pointLight->GetIntensity());
+            lightData.Range = pointLight->GetRange();
+
+            outLights.NumPointLights++;
+        }
+    }
+    */
+
+    // Recursively process children
+    for (const auto& child : obj->GetChildren()) {
+        GatherLightsRecursive(child.get(), currentWorldMatrix, outLights);
+    }
+}
+
+void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) const {
+    // Reset light counts for the current frame
+    outLights.NumDirLights = 0;
+    outLights.NumPointLights = 0;
+
+    // Pass the camera position to the light constants for specular calculations
+    if (m_mainCamera != nullptr) {
+        if (HierarchyObject* camOwner = m_mainCamera->GetOwner()) {
+            if (Transform* camTransform = camOwner->GetComponent<Transform>()) {
+                outLights.CameraPos = glm::vec4(camTransform->GetPosition(), 1.0f);
+            }
+        }
+    }
+
+    glm::mat4 rootMatrix(1.0f);
+
+    // Iterate through all root nodes managed by HierarchyManager
+    for (const auto& rootNode : m_rootNodes) {
+        GatherLightsRecursive(rootNode.get(), rootMatrix, outLights);
+    }
+}

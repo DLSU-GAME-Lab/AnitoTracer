@@ -10,7 +10,6 @@
 #include "Shaders/ShaderManager.hpp"
 #include "../Objects/Models/ModelManager.hpp"
 #include "Shaders/VertexLayouts.hpp"
-#include "../RenderData.hpp"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE 
 #define GLM_FORCE_LEFT_HANDED       
@@ -20,6 +19,9 @@
 #include <glm/gtc/type_ptr.hpp>
 
 namespace Diligent {
+
+    class RenderData;  // Forward declaration
+    struct ModelRenderInstance;  // Forward declaration
 
     struct CameraConstants {
         glm::mat4 View;

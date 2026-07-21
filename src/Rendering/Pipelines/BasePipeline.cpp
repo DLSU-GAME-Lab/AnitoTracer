@@ -1,4 +1,5 @@
 #include "BasePipeline.hpp"
+#include "../RenderData.hpp"
 
 void Diligent::BasePipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
 {

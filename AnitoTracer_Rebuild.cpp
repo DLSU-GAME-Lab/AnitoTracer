@@ -33,6 +33,7 @@
 #include "src/Rendering/Shaders/ShaderManager.hpp"
 #include "src/Rendering/Pipelines/BasicPipeline.hpp"
 #include "src/Rendering/Pipelines/TexturedPipeline.hpp"
+#include "src/Rendering/Pipelines/BasicLitPipeline.hpp"
 #include "src/Objects/Models/ModelManager.hpp"
 
 #include "src/Objects/HierarchyManager.hpp"
@@ -128,6 +129,7 @@ int main(int argc, char** argv)
 
     auto bPipeline = BasicPipeline();
     auto tPipeline = TexturedPipeline();
+    auto bLitPipeline = LitPipeline();
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
     objFactory.CreateRootObjectWithTransform("Desu wa");
@@ -157,7 +159,8 @@ int main(int argc, char** argv)
             imguiManager.Initialize(g_pDevice, SCDesc, g_NativeWindow);
 
             //bPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
-            tPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
+            //tPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
+            bLitPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
         }
 
         // Skip frame if renderer not ready or swapchain invalid
@@ -196,9 +199,12 @@ int main(int argc, char** argv)
 
         HierarchyManager::GetInstance().GetMainCameraMatrices(renderData.ViewMatrix, renderData.ProjectionMatrix);
         HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
+        HierarchyManager::GetInstance().GatherLightData(renderData.Lights);
 
-        tPipeline.StartFrameRender(g_pImmediateContext, renderData);
-        tPipeline.RenderModels(g_pImmediateContext, renderData);
+        bLitPipeline.StartFrameRender(g_pImmediateContext, renderData);
+        renderData.Lights.CameraPos = glm::vec4(0, 0, -10.f,  1.f);
+        bLitPipeline.UpdateLights(g_pImmediateContext, renderData.Lights);
+        bLitPipeline.RenderModels(g_pImmediateContext, renderData);
 
         // ==========================================
         // Render ImGui over the Render

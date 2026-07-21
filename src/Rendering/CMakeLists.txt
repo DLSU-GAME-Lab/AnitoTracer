@@ -7,6 +7,8 @@ set(Rendering_SRC
 	Shaders/VertexLayouts.hpp
 	Shaders/VertexLayouts.cpp
 
+	Pipelines/PipelineDefs.hpp
+
 	Pipelines/BasePipeline.hpp
 	Pipelines/BasePipeline.cpp
 
@@ -15,6 +17,9 @@ set(Rendering_SRC
 
 	Pipelines/TexturedPipeline.hpp
 	Pipelines/TexturedPipeline.cpp
+
+	Pipelines/BasicLitPipeline.cpp
+	Pipelines/BasicLitPipeline.hpp
 )
 
 add_library(Rendering STATIC ${Rendering_SRC})
