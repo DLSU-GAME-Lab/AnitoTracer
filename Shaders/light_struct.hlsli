@@ -9,7 +9,13 @@ struct PointLight
     float4 Position; // xyz: Position, w: Unused padding
     float4 Color; // rgb: Color, a: Intensity
     float Range; // Max attenuation distance
-    float3 Padding; // Alignment padding to 16 bytes
+    
+    //Just VK things
+    // Split the float3 into a float and float2 to satisfy std140 alignment rules!
+    float Padding1; // 4 bytes
+    float2 Padding2; // 8 bytes (Starts on an 8-byte boundary, which is legal)
+    
+    float4 ExtraPadding;
 };
 
 cbuffer LightConstants
