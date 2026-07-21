@@ -35,6 +35,20 @@ struct SubMesh {
     Uint32 MaterialIndex = 0;
 };
 
+//Holds PBR properties
+struct PBRMaterial {
+    RefCntAutoPtr<ITextureView> BaseColor;
+    RefCntAutoPtr<ITextureView> MetallicRoughness;
+    RefCntAutoPtr<ITextureView> Normal;
+    RefCntAutoPtr<ITextureView> AO;
+    RefCntAutoPtr<ITextureView> Emissive;
+
+    // PBR Factors (Defaults)
+    float4 BaseColorFactor = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    float MetallicFactor = 0.0f;
+    float RoughnessFactor = 1.0f;
+};
+
 // Holds the loaded GPU resources for a complete model
 struct Model {
     RefCntAutoPtr<IBuffer> pVertexBuffer;
@@ -43,8 +57,14 @@ struct Model {
     std::vector<SubMesh> SubMeshes;
     std::vector<RefCntAutoPtr<ITextureView>> Materials; // Diffuse SRVs mapped to SubMeshes
 
+    //PBR Mats
+    std::vector<PBRMaterial> PBRMaterials;
+
     //Solid colors and possibly fallbacks
     std::vector<float4> MaterialColors;
+
+    //EZ flag
+    bool HasPBRProperties = false;
 };
 
 class ModelManager {
@@ -73,6 +93,8 @@ private:
     ModelManager& operator=(const ModelManager&) = delete;
 
     void LoadDefaultWhite();
+
+    ITextureView* LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty);
 
     IRenderDevice* m_pDevice = nullptr;
     std::string m_AssetBasePath;

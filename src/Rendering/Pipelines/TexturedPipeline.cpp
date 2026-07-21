@@ -78,8 +78,8 @@ void Diligent::TexturedPipeline::RenderModel(IDeviceContext* pContext, Model* mo
     for (const auto& submesh : model->SubMeshes) {
 
         // Bind the specific material texture for this submesh
-        if (submesh.MaterialIndex < model->Materials.size()) {
-            if (auto pTextureView = model->Materials[submesh.MaterialIndex]) {
+        if (submesh.MaterialIndex < model->PBRMaterials.size()) {
+            if (auto pTextureView = model->PBRMaterials[submesh.MaterialIndex].BaseColor) {
                 m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_Texture")->Set(pTextureView);
             }
 

@@ -57,6 +57,18 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath) {
     return pSRV;
 }
 
+ITextureView* ModelManager::LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty) {
+    aiString texPath;
+    if (material->GetTextureCount(type) > 0) {
+        if (material->GetTexture(type, 0, &texPath) == AI_SUCCESS && texPath.length > 0) {
+            outHasProperty = true;
+            std::string finalTexPath = modelDir + texPath.C_Str();
+            return LoadTexture(finalTexPath);
+        }
+    }
+    return nullptr;
+}
+
 Model* ModelManager::LoadModel(const std::string& filepath) {
     if (!m_pDevice) {
         std::cerr << "ModelManager not initialized with RenderDevice!" << std::endl;
@@ -95,35 +107,67 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     // 1. Process Materials & Textures
     pModel->Materials.resize(pScene->mNumMaterials);
     pModel->MaterialColors.resize(pScene->mNumMaterials, float4(1.0f, 1.0f, 1.0f, 1.0f));
+    pModel->PBRMaterials.resize(pScene->mNumMaterials);
+    bool modelHasAnyPBR = false;
 
     for (unsigned int i = 0; i < pScene->mNumMaterials; i++) {
         aiMaterial* material = pScene->mMaterials[i];
-        aiString texPath;
+        PBRMaterial& pbrMat = pModel->PBRMaterials[i];
+        bool currentMatHasPBR = false;
 
         aiColor4D color(1.0f, 1.0f, 1.0f, 1.0f);
-        material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
-        pModel->MaterialColors[i] = float4(color.r, color.g, color.b, color.a);
-
-        if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
-            material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath);
-        }
-        else if (material->GetTextureCount(aiTextureType_BASE_COLOR) > 0) {
-            material->GetTexture(aiTextureType_BASE_COLOR, 0, &texPath);
+        if (material->Get(AI_MATKEY_BASE_COLOR, color) == AI_SUCCESS ||
+            material->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS) {
+            pbrMat.BaseColorFactor = float4(color.r, color.g, color.b, color.a);
         }
 
-        if (texPath.length > 0) {
-            std::string rawPath = texPath.C_Str();
-            std::string finalTexPath = modelDir + rawPath;
-
-            // Assuming texture path is relative to the asset folder
-            pModel->Materials[i] = LoadTexture(finalTexPath);
+        // Metallic / Roughness Factors
+        float metallic = 0.0f;
+        if (material->Get(AI_MATKEY_METALLIC_FACTOR, metallic) == AI_SUCCESS) {
+            pbrMat.MetallicFactor = metallic;
+            currentMatHasPBR = true;
         }
 
-        //If no tex- apply the white
-        if (!pModel->Materials[i]) {
-            pModel->Materials[i] = m_pDefaultTextureView;
+        float roughness = 1.0f;
+        if (material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS) {
+            pbrMat.RoughnessFactor = roughness;
+            currentMatHasPBR = true;
+        }
+
+        // Load Textures using our class member helper function
+        pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_BASE_COLOR, modelDir, currentMatHasPBR);
+        if (!pbrMat.BaseColor) {
+            pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_DIFFUSE, modelDir, currentMatHasPBR);
+        }
+
+        pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_METALNESS, modelDir, currentMatHasPBR);
+        if (!pbrMat.MetallicRoughness) {
+            pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_DIFFUSE_ROUGHNESS, modelDir, currentMatHasPBR);
+        }
+
+        pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_NORMALS, modelDir, currentMatHasPBR);
+        if (!pbrMat.Normal) {
+            pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_HEIGHT, modelDir, currentMatHasPBR);
+        }
+
+        pbrMat.AO = LoadMaterialTexture(material, aiTextureType_AMBIENT_OCCLUSION, modelDir, currentMatHasPBR);
+        if (!pbrMat.AO) {
+            pbrMat.AO = LoadMaterialTexture(material, aiTextureType_LIGHTMAP, modelDir, currentMatHasPBR);
+        }
+
+        pbrMat.Emissive = LoadMaterialTexture(material, aiTextureType_EMISSIVE, modelDir, currentMatHasPBR);
+
+        // Fallback to default white if no base color texture was found
+        if (!pbrMat.BaseColor) {
+            pbrMat.BaseColor = m_pDefaultTextureView;
+        }
+
+        if (currentMatHasPBR) {
+            modelHasAnyPBR = true;
         }
     }
+
+    pModel->HasPBRProperties = modelHasAnyPBR;
 
     for (unsigned int i = 0; i < pScene->mNumMeshes; i++) {
         aiMesh* mesh = pScene->mMeshes[i];
