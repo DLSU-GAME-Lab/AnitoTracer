@@ -5,6 +5,7 @@
     "glm",
     "vulkan",
     "vulkan-headers",
-    "assimp"
+    "assimp",
+    "directx-dxc"
   ]
 }
