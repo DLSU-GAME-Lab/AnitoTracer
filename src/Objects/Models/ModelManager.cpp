@@ -197,7 +197,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
         for (unsigned int j = 0; j < mesh->mNumFaces; j++) {
             aiFace face = mesh->mFaces[j];
             for (unsigned int k = 0; k < face.mNumIndices; k++) {
-                indices.push_back(face.mIndices[k]);
+                indices.push_back(face.mIndices[k] + submesh.BaseVertex);
             }
         }
 
@@ -235,7 +235,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     TriangleDesc.GeometryName = "ModelGeometry";
     TriangleDesc.MaxVertexCount = static_cast<Uint32>(vertices.size());
     TriangleDesc.VertexValueType = VT_FLOAT32;
-    TriangleDesc.VertexComponentCount = 3; // float3 pos
+    TriangleDesc.VertexComponentCount = 3;
     TriangleDesc.MaxPrimitiveCount = static_cast<Uint32>(indices.size()) / 3;
     TriangleDesc.IndexType = VT_UINT32;
 
@@ -277,7 +277,12 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     BuildAttribs.pBLAS = pModel->pBLAS;
     BuildAttribs.pTriangleData = &TriData;
     BuildAttribs.TriangleDataCount = 1;
-    BuildAttribs.pScratchBuffer = pScratchBuffer; // Set the scratch buffer pointer
+    BuildAttribs.pScratchBuffer = pScratchBuffer;
+
+    // Transition the buffers so Vulkan can safely read/write during the BLAS build
+    BuildAttribs.BLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    BuildAttribs.GeometryTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    BuildAttribs.ScratchBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
 
     pContext->BuildBLAS(BuildAttribs);
 

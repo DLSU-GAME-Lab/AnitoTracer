@@ -6,6 +6,8 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     pSwapChain = _pSwapChain;
     m_pDevice  = pDevice;
 
+    InitializeTLAS(pDevice);
+
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
     PipelineStateDesc& PSODesc = PSOCreateInfo.PSODesc;
     GraphicsPipelineDesc& GraphicsPipeline = PSOCreateInfo.GraphicsPipeline;
@@ -22,8 +24,8 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
     GraphicsPipeline.InputLayout.NumElements = static_cast<Uint32>(std_layout.size());
 
-    auto pVS = ShaderManager::GetInstance().GetShader("litTextured.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_vs");
-    auto pPS = ShaderManager::GetInstance().GetShader("litTextured.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_ps");
+    auto pVS = ShaderManager::GetInstance().GetShader("litTextured_vs.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_vs");
+    auto pPS = ShaderManager::GetInstance().GetShader("litTextured_ps.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_ps");
     PSOCreateInfo.pVS = pVS;
     PSOCreateInfo.pPS = pPS;
 
@@ -35,7 +37,8 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
         {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "ModelConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "LightConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "g_Texture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "MaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+        {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "MaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_TLAS", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
     PSODesc.ResourceLayout.Variables = Variables;
     PSODesc.ResourceLayout.NumVariables = _countof(Variables);
@@ -86,8 +89,9 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     if (auto* pMatVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "MaterialConstants")) {
         pMatVar->Set(m_pMaterialCB);
     }
-
-    InitializeTLAS(pDevice);
+    if (auto* pTLASVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_TLAS")) {
+        pTLASVar->Set(m_pTLAS);
+    }
 }
 
 void Diligent::LitPipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
@@ -136,7 +140,7 @@ void Diligent::LitPipeline::RenderModel(IDeviceContext* pContext, const ModelRen
         DrawAttrs.IndexType = VT_UINT32;
         DrawAttrs.NumIndices = submesh.IndexCount;
         DrawAttrs.FirstIndexLocation = submesh.IndexOffset;
-        DrawAttrs.BaseVertex = submesh.BaseVertex;
+        DrawAttrs.BaseVertex = 0;
         DrawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
 
         pContext->DrawIndexed(DrawAttrs);
@@ -177,7 +181,7 @@ void Diligent::LitPipeline::BuildSceneTLAS(IDeviceContext* pContext, const Rende
         if (!modelInstance.ModelData->pBLAS) continue;
 
         TLASBuildInstanceData tlasInst{};
-        tlasInst.InstanceName = "ModelInstance";
+        tlasInst.InstanceName = "ModelInstance " + i;
         tlasInst.pBLAS = modelInstance.ModelData->pBLAS;
         tlasInst.CustomId = static_cast<Uint32>(i);
         tlasInst.Flags = RAYTRACING_INSTANCE_NONE;
@@ -206,10 +210,11 @@ void Diligent::LitPipeline::BuildSceneTLAS(IDeviceContext* pContext, const Rende
     if (!m_pTLASInstanceBuffer || m_pTLASInstanceBuffer->GetDesc().Size < requiredInstanceBufferSize) {
         BufferDesc InstBuffDesc;
         InstBuffDesc.Name = "TLAS Instance Buffer";
-        InstBuffDesc.Size = requiredInstanceBufferSize * 2; // Allocate extra headroom to avoid frequent reallocations
-        InstBuffDesc.Usage = USAGE_DYNAMIC;
+        InstBuffDesc.Size = requiredInstanceBufferSize * 2;
+
+        InstBuffDesc.Usage = USAGE_DEFAULT;
         InstBuffDesc.BindFlags = BIND_RAY_TRACING;
-        InstBuffDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        InstBuffDesc.CPUAccessFlags = CPU_ACCESS_NONE;
 
         m_pDevice->CreateBuffer(InstBuffDesc, nullptr, &m_pTLASInstanceBuffer);
     }
@@ -227,6 +232,10 @@ void Diligent::LitPipeline::BuildSceneTLAS(IDeviceContext* pContext, const Rende
 
     BuildAttribs.TLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
     BuildAttribs.BLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+
+    //Add transition states so Vulkan safely waits for the buffer uploads!
+    BuildAttribs.InstanceBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    BuildAttribs.ScratchBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
 
     pContext->BuildTLAS(BuildAttribs);
 }

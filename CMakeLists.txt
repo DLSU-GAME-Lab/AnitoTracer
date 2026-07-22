@@ -21,22 +21,22 @@ FetchContent_Declare(
     DiligentCore
     GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentCore.git
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentCore"
-    GIT_TAG 7cd667b06703516ac210779cd1919bd174afd0b9
-    GIT_SHALLOW ON
+    GIT_TAG fa060f50549238578e1701b5d362d7cff2bf48c7
+    GIT_SHALLOW OFF
 )
 FetchContent_Declare(
     DiligentTools
     GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentTools.git
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentTools"
     GIT_TAG a65fe94e0f12e680c81ea86fe2ebe0de6b867b4b
-    GIT_SHALLOW ON
+    GIT_SHALLOW OFF
 )
 FetchContent_Declare(
     DiligentFX
     GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentFX.git
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentFX"
     GIT_TAG eb616a8e30efa5193baba71ff1edae85bc6230a1
-    GIT_SHALLOW ON
+    GIT_SHALLOW OFF
 )
 
 # FORCE DILIGENT ENGINE TO USE DYNAMIC CRT
@@ -122,6 +122,12 @@ file(GLOB_RECURSE SHADER_FILES
      "${SHADER_SRC_DIR}/*"
 )
 
+set_source_files_properties(${SHADER_FILES} PROPERTIES 
+    HEADER_FILE_ONLY TRUE
+    VS_TOOL_OVERRIDE "None"
+    LANGUAGE ""
+)
+
 add_custom_target(CopyShadersTarget
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${SHADER_SRC_DIR}" "${SHADER_DST_DIR}"
     DEPENDS ${SHADER_FILES}
@@ -140,7 +146,7 @@ add_custom_command(TARGET AnitoTracer_Rebuild POST_BUILD
 
 
 
-copy_required_dlls(AnitoTracer_Rebuild)
+copy_required_dlls(AnitoTracer_Rebuild DXC_REQUIRED YES)
 #add_custom_command(
 #    TARGET AnitoTracer_Rebuild POST_BUILD
 #    COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -148,4 +154,5 @@ copy_required_dlls(AnitoTracer_Rebuild)
 #    "${SHADER_DST_DIR}"
 #    COMMENT "Copying Shaders to build directory..."
 #)
+
 

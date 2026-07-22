@@ -95,6 +95,18 @@ int main(int argc, char** argv)
     Uint32 windowHeight = 720;
 
 #if PLATFORM_WIN32
+    HMODULE hDXC = LoadLibraryW(L"spv_dxcompiler.dll");
+    if (!hDXC) {
+        DWORD err = GetLastError();
+        std::cout << "Failed to load spv_dxcompiler.dll. Error Code: " << err << std::endl;
+    }
+    else {
+        std::cout << "Successfully loaded spv_dxcompiler.dll!" << std::endl;
+        FreeLibrary(hDXC);
+    }
+#endif
+
+#if PLATFORM_WIN32
     WNDCLASSEXW wcex = { sizeof(WNDCLASSEXW) };
     wcex.style = CS_HREDRAW | CS_VREDRAW;
     wcex.lpfnWndProc = EngineWindowProc;
@@ -174,7 +186,7 @@ int main(int argc, char** argv)
     MainCam->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 
     objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
-    //objFactory.CreateModelObject("SP", "Sponza/sponza.obj");
+    objFactory.CreateModelObject("SP", "Sponza/sponza.obj");
 
     while (g_AppRunning)
     {
