@@ -186,7 +186,7 @@ int main(int argc, char** argv)
     auto MainCam = objFactory.CreateRootCameraObject("Camera Main");
     MainCam->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 
-    objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
+    //objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
     objFactory.CreateModelObject("SP", "Sponza/sponza.obj");
 
     while (g_AppRunning)

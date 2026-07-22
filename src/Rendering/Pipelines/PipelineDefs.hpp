@@ -35,4 +35,17 @@ namespace Diligent {
         float Padding[2] = { 0.0f, 0.0f }; // Pads the struct size to 16 bytes
     };
 
+    struct alignas(16) PBRMaterialConstants {
+        glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };
+        float MetallicFactor{ 1.0f };
+        float RoughnessFactor{ 1.0f };
+        float UseBaseColorMap{ 0.0f };
+        float UseMetallicRoughnessMap{ 0.0f };
+
+        float UseNormalMap{ 0.0f };
+        float UseAOMap{ 0.0f };
+        float UseEmissiveMap{ 0.0f };
+        float PaddingMat{ 0.0f };
+    };
+
 }

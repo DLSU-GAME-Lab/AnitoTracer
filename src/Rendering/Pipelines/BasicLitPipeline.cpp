@@ -4,7 +4,7 @@
 void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* _pSwapChain)
 {
     pSwapChain = _pSwapChain;
-    m_pDevice  = pDevice;
+    m_pDevice = pDevice;
 
     InitializeTLAS(pDevice);
 
@@ -12,12 +12,11 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     PipelineStateDesc& PSODesc = PSOCreateInfo.PSODesc;
     GraphicsPipelineDesc& GraphicsPipeline = PSOCreateInfo.GraphicsPipeline;
 
-    PSODesc.Name = "Lit Rendering PSO";
+    PSODesc.Name = "PBR Rendering PSO";
     PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
 
     SetupDefaultGraphicsPipeline(GraphicsPipeline);
 
-    // Add this line to enable 4x MSAA for this pipeline
     GraphicsPipeline.SmplDesc.Count = 4;
 
     std::vector<LayoutElement> std_layout = VertexLayouts::GetStandardLayout();
@@ -29,17 +28,21 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     PSOCreateInfo.pVS = pVS;
     PSOCreateInfo.pPS = pPS;
 
-    //Added or (|) since vs and ps shaders are combined in a single file
-    //Also to get away with binding errors due to strictness
     ShaderResourceVariableDesc Variables[] =
     {
-        {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "ModelConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "LightConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "g_Texture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "MaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_VERTEX | SHADER_TYPE_PIXEL, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_VERTEX | SHADER_TYPE_PIXEL, "ModelConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "LightConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "PBRMaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "ShadowSettings", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "g_TLAS", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+        {SHADER_TYPE_PIXEL, "g_TLAS", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+
+        // Dynamic Textures for Material Submeshes
+        {SHADER_TYPE_PIXEL, "g_BaseColorMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_NormalMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_AOMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "g_EmissiveMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
     PSODesc.ResourceLayout.Variables = Variables;
     PSODesc.ResourceLayout.NumVariables = _countof(Variables);
@@ -48,20 +51,24 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
 
     ImmutableSamplerDesc ImtblSamplers[] =
     {
-        {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "g_Texture_sampler", SamLinearWrapDesc}
+        {SHADER_TYPE_PIXEL, "g_BaseColorMap_sampler", SamLinearWrapDesc},
+        {SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap_sampler", SamLinearWrapDesc},
+        {SHADER_TYPE_PIXEL, "g_NormalMap_sampler", SamLinearWrapDesc},
+        {SHADER_TYPE_PIXEL, "g_AOMap_sampler", SamLinearWrapDesc},
+        {SHADER_TYPE_PIXEL, "g_EmissiveMap_sampler", SamLinearWrapDesc}
     };
     PSODesc.ResourceLayout.ImmutableSamplers = ImtblSamplers;
     PSODesc.ResourceLayout.NumImmutableSamplers = _countof(ImtblSamplers);
 
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
 
-    // Initialize Constant Buffers
+    // Buffers
     CreateCameraConstantBuffer(pDevice);
     CreateModelConstantBuffer(pDevice);
 
     BufferDesc MatCBDesc;
-    MatCBDesc.Name = "Material Constant Buffer";
-    MatCBDesc.Size = sizeof(float4);
+    MatCBDesc.Name = "PBR Material Constant Buffer";
+    MatCBDesc.Size = sizeof(PBRMaterialConstants);
     MatCBDesc.Usage = USAGE_DYNAMIC;
     MatCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
     MatCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
@@ -75,7 +82,6 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     LightCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
     pDevice->CreateBuffer(LightCBDesc, nullptr, &m_pLightCB);
 
-    // --- Create Shadow Settings Constant Buffer ---
     BufferDesc ShadowCBDesc;
     ShadowCBDesc.Name = "Shadow Settings Constant Buffer";
     ShadowCBDesc.Size = sizeof(ShadowSettings);
@@ -84,28 +90,15 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     ShadowCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
     pDevice->CreateBuffer(ShadowCBDesc, nullptr, &m_pShadowCB);
 
-    // Bind Buffers to SRB
+    // SRB Initial Setup
     m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
 
-    if (auto* pCameraVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants")) {
-        pCameraVar->Set(m_pCameraCB);
-    }
-    if (auto* pModelVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "ModelConstants")) {
-        pModelVar->Set(m_pModelCB);
-    }
-    if (auto* pLightVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "LightConstants")) {
-        pLightVar->Set(m_pLightCB);
-    }
-    if (auto* pMatVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "MaterialConstants")) {
-        pMatVar->Set(m_pMaterialCB);
-    }
-    if (auto* pTLASVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_TLAS")) {
-        pTLASVar->Set(m_pTLAS);
-    }
-
-    if (auto* pShadowVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "ShadowSettings")) {
-        pShadowVar->Set(m_pShadowCB);
-    }
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants")) pVar->Set(m_pCameraCB);
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "ModelConstants"))  pVar->Set(m_pModelCB);
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "LightConstants"))   pVar->Set(m_pLightCB);
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "PBRMaterialConstants")) pVar->Set(m_pMaterialCB);
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "ShadowSettings"))   pVar->Set(m_pShadowCB);
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_TLAS"))           pVar->Set(m_pTLAS);
 }
 
 void Diligent::LitPipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
@@ -144,13 +137,52 @@ void Diligent::LitPipeline::RenderModel(IDeviceContext* pContext, const ModelRen
 
     for (const auto& submesh : model->SubMeshes) {
         if (submesh.MaterialIndex < model->PBRMaterials.size()) {
-            if (auto pTextureView = model->PBRMaterials[submesh.MaterialIndex].BaseColor) {
-                m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_Texture")->Set(pTextureView);
-            }
+            const PBRMaterial& mat = model->PBRMaterials[submesh.MaterialIndex];
 
+            auto colorFactor = mat.BaseColorFactor;
+            PBRMaterialConstants matCBData{};
+            matCBData.BaseColorFactor = glm::vec4(colorFactor.r, colorFactor.g, colorFactor.b, colorFactor.a);
+            matCBData.MetallicFactor = mat.MetallicFactor;
+            matCBData.RoughnessFactor = mat.RoughnessFactor;
+
+            // We know mat.BaseColor is never null (it falls back to a default white texture)
+            // We will use this as a safe "dummy" texture to stop Vulkan from crying about empty slots!
+            ITextureView* pSafeFallbackTexture = mat.BaseColor;
+
+            // Bind Base Color Map
+            if (auto* pBaseColorVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorMap")) {
+                pBaseColorVar->Set(mat.BaseColor);
+            }
+            matCBData.UseBaseColorMap = mat.BaseColor ? 1.0f : 0.0f;
+
+            // Bind Metallic-Roughness Map
+            if (auto* pMRVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap")) {
+                pMRVar->Set(mat.MetallicRoughness ? mat.MetallicRoughness : pSafeFallbackTexture);
+            }
+            matCBData.UseMetallicRoughnessMap = mat.MetallicRoughness ? 1.0f : 0.0f;
+
+            // Bind Normal Map
+            if (auto* pNormalVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalMap")) {
+                pNormalVar->Set(mat.Normal ? mat.Normal : pSafeFallbackTexture);
+            }
+            matCBData.UseNormalMap = mat.Normal ? 1.0f : 0.0f;
+
+            // Bind AO Map
+            if (auto* pAOVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_AOMap")) {
+                pAOVar->Set(mat.AO ? mat.AO : pSafeFallbackTexture);
+            }
+            matCBData.UseAOMap = mat.AO ? 1.0f : 0.0f;
+
+            // Bind Emissive Map
+            if (auto* pEmissiveVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_EmissiveMap")) {
+                pEmissiveVar->Set(mat.Emissive ? mat.Emissive : pSafeFallbackTexture);
+            }
+            matCBData.UseEmissiveMap = mat.Emissive ? 1.0f : 0.0f;
+
+            // Update Material Uniform Buffer
             {
-                MapHelper<float4> CBData(pContext, m_pMaterialCB, MAP_WRITE, MAP_FLAG_DISCARD);
-                *CBData = model->MaterialColors[submesh.MaterialIndex];
+                MapHelper<PBRMaterialConstants> CBData(pContext, m_pMaterialCB, MAP_WRITE, MAP_FLAG_DISCARD);
+                *CBData = matCBData;
             }
         }
 
