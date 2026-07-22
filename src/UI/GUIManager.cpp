@@ -78,6 +78,7 @@ void Diligent::GUIManager::InitializeDefaultPanels()
     Diligent::HierarchyPanel* hierarchyPtr = hierarchyPanel.get();
 
     Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::InspectorPanel>(hierarchyPtr, "Inspector"));
+    Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::UserSettingsPanel>());
     Diligent::GUIManager::GetInstance().AddPanel(std::move(hierarchyPanel));
 }
 

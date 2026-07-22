@@ -38,6 +38,7 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
         {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "LightConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "g_Texture", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL | SHADER_TYPE_VERTEX, "MaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "ShadowSettings", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "g_TLAS", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
     PSODesc.ResourceLayout.Variables = Variables;
@@ -74,6 +75,15 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     LightCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
     pDevice->CreateBuffer(LightCBDesc, nullptr, &m_pLightCB);
 
+    // --- Create Shadow Settings Constant Buffer ---
+    BufferDesc ShadowCBDesc;
+    ShadowCBDesc.Name = "Shadow Settings Constant Buffer";
+    ShadowCBDesc.Size = sizeof(ShadowSettings);
+    ShadowCBDesc.Usage = USAGE_DYNAMIC;
+    ShadowCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
+    ShadowCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+    pDevice->CreateBuffer(ShadowCBDesc, nullptr, &m_pShadowCB);
+
     // Bind Buffers to SRB
     m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
 
@@ -92,6 +102,10 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     if (auto* pTLASVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_TLAS")) {
         pTLASVar->Set(m_pTLAS);
     }
+
+    if (auto* pShadowVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "ShadowSettings")) {
+        pShadowVar->Set(m_pShadowCB);
+    }
 }
 
 void Diligent::LitPipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
@@ -107,6 +121,12 @@ void Diligent::LitPipeline::UpdateLights(IDeviceContext* pContext, const LightCo
 {
     MapHelper<LightConstants> CBData(pContext, m_pLightCB, MAP_WRITE, MAP_FLAG_DISCARD);
     *CBData = lights;
+}
+
+void Diligent::LitPipeline::UpdateShadowSettings(IDeviceContext* pContext, const ShadowSettings& settings)
+{
+    MapHelper<ShadowSettings> CBData(pContext, m_pShadowCB, MAP_WRITE, MAP_FLAG_DISCARD);
+    *CBData = settings;
 }
 
 void Diligent::LitPipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData)

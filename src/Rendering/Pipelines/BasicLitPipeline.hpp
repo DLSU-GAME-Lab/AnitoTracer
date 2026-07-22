@@ -12,6 +12,8 @@ namespace Diligent {
             void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
 
             void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
+            void UpdateShadowSettings(IDeviceContext* pContext, const ShadowSettings& settings);
+
             void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model) override;
 
         private:
@@ -20,6 +22,7 @@ namespace Diligent {
 
             RefCntAutoPtr<IBuffer> m_pMaterialCB;
             RefCntAutoPtr<IBuffer> m_pLightCB;
+            RefCntAutoPtr<IBuffer> m_pShadowCB;
 
             RefCntAutoPtr<ITopLevelAS> m_pTLAS;
             RefCntAutoPtr<IBuffer> m_pTLASScratchBuffer;

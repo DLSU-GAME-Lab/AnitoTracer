@@ -13,6 +13,8 @@ set(UI_SRC
 
 	Panels/HierarchyPanel.cpp
 	Panels/HierarchyPanel.hpp
+	Panels/UserSettingsPanel.cpp
+	Panels/UserSettingsPanel.hpp
 
 	MenuBar.hpp
 	MenuBar.cpp
@@ -28,6 +30,8 @@ target_link_libraries(UI
 			glm::glm
 			Diligent-GraphicsEngineVk-shared
 			Diligent-Imgui
+			Objects
+			Rendering
 )
 
 target_include_directories(UI

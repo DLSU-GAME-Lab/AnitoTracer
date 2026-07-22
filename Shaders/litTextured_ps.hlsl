@@ -21,7 +21,7 @@ struct PSInput
 float TraceShadowRay(float3 worldPos, float3 normal, float3 lightDir, float maxDist)
 {
     RayDesc ray;
-    ray.Origin = worldPos + (normal * 0.015); // Increased from 0.002
+    ray.Origin = worldPos + (normal * g_ShadowBias); // Increased from 0.002
     ray.Direction = lightDir;
     ray.TMin = 0.001;
     ray.TMax = maxDist;
@@ -113,7 +113,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
         }
     }
 
-    float3 ambient = float3(0.1, 0.1, 0.1);
+    float3 ambient = float3(0.1, 0.1, 0.1) * g_AmbientMultiplier;
     float3 finalColor = (ambient + totalDiffuse) * texColor.rgb + totalSpecular;
 
     OutColor = float4(finalColor, texColor.a);

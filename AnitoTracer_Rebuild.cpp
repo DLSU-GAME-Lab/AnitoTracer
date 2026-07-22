@@ -38,6 +38,7 @@
 
 #include "src/Objects/HierarchyManager.hpp"
 #include "src/Objects/ObjectFactory.hpp"
+#include "src/UserSettings.hpp"
 
 using namespace Diligent;
 
@@ -265,6 +266,7 @@ int main(int argc, char** argv)
 
         bLitPipeline.StartFrameRender(g_pImmediateContext, renderData);
         bLitPipeline.UpdateLights(g_pImmediateContext, renderData.Lights);
+        bLitPipeline.UpdateShadowSettings(g_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
         bLitPipeline.RenderModels(g_pImmediateContext, renderData);
 
         // ==========================================

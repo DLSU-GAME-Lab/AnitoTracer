@@ -21,6 +21,7 @@
 #include "MenuBar.hpp" // Added include for our new class
 
 #include "Panels/HierarchyPanel.hpp"
+#include "Panels/UserSettingsPanel.hpp"
 #include "Panels/InspectorPanel/InspectorPanel.hpp"
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"

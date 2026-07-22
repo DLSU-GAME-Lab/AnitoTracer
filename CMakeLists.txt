@@ -76,12 +76,12 @@ find_package(assimp CONFIG REQUIRED)
 
 add_compile_definitions(PLATFORM_WIN32=1)
 
-add_subdirectory(src/UI)
 add_subdirectory(src/Objects)
 add_subdirectory(src/Rendering)
+add_subdirectory(src/UI)
 
 # Add source to this project's executable.
-add_executable (AnitoTracer_Rebuild WIN32 "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h")
+add_executable (AnitoTracer_Rebuild WIN32 "src/UserSettings.hpp" "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h")
 set_property(TARGET AnitoTracer_Rebuild PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
