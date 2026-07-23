@@ -5,6 +5,8 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
 {
     if (m_pImGuiRenderer) return; // Already initialized
 
+    m_pDevice = pDevice;
+
     ImGuiDiligentCreateInfo imguiCI;
     imguiCI.pDevice = pDevice;
     imguiCI.BackBufferFmt = SCDesc.ColorBufferFormat;
@@ -79,6 +81,7 @@ void Diligent::GUIManager::InitializeDefaultPanels()
 
     Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::InspectorPanel>(hierarchyPtr, "Inspector"));
     Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::UserSettingsPanel>());
+    Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::ProfilerPanel>(m_pDevice));
     Diligent::GUIManager::GetInstance().AddPanel(std::move(hierarchyPanel));
 }
 

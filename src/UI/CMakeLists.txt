@@ -15,6 +15,8 @@ set(UI_SRC
 	Panels/HierarchyPanel.hpp
 	Panels/UserSettingsPanel.cpp
 	Panels/UserSettingsPanel.hpp
+	Panels/ProfilerPanel.cpp
+	Panels/ProfilerPanel.hpp
 
 	MenuBar.hpp
 	MenuBar.cpp

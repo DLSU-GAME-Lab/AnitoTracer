@@ -22,6 +22,7 @@
 
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/UserSettingsPanel.hpp"
+#include "Panels/ProfilerPanel.hpp"
 #include "Panels/InspectorPanel/InspectorPanel.hpp"
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"
@@ -67,6 +68,9 @@ namespace Diligent {
 
         // Manage all UI windows dynamically
         std::vector<std::unique_ptr<BasePanel>> m_Panels;
+
+        // Hold a reference to the engine's device
+        RefCntAutoPtr<IRenderDevice> m_pDevice;
 
         // The dedicated menu bar instance
         MenuBar m_MenuBar;
