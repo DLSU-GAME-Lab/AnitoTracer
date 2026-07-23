@@ -30,6 +30,9 @@ public:
 
     HierarchyObject* CreateDirectionalLightObject(const std::string& name);
 
+    HierarchyObject* CreateSpherePrimitive(const std::string& name);
+    HierarchyObject* CreateCubePrimitive(const std::string& name);
+
 private:
     ObjectFactory() = default;
     ~ObjectFactory() = default;

@@ -48,7 +48,6 @@ HierarchyObject* ObjectFactory::CreateModelObject(const std::string& name, const
     auto transform = std::make_unique<Transform>();
     auto modelComp = std::make_unique<ModelComponent>(pModel);
 
-    // 4. Attach components to the new object
     HierarchyManager::GetInstance().AddComponentToObject(newObject, std::move(transform));
     HierarchyManager::GetInstance().AddComponentToObject(newObject, std::move(modelComp));
 
@@ -66,4 +65,12 @@ HierarchyObject* ObjectFactory::CreateDirectionalLightObject(const std::string& 
     HierarchyManager::GetInstance().AddComponentToObject(newObject, std::move(dirLight));
 
     return newObject;
+}
+
+HierarchyObject* ObjectFactory::CreateSpherePrimitive(const std::string& name) {
+    return CreateModelObject(name, "Primitives/sphere.obj");
+}
+
+HierarchyObject* ObjectFactory::CreateCubePrimitive(const std::string& name) {
+    return CreateModelObject(name, "Primitives/cube.obj");
 }
