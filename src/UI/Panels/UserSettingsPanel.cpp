@@ -52,6 +52,11 @@ namespace Diligent {
                 }
             }
 
+            if (ImGui::CollapsingHeader("Graphics Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Checkbox("Enable MSAA (4x)", &UserSettings::GetInstance().GetEnableMSAA());
+            }
+
             // Future settings categories (e.g., Graphics, Audio) can be added here
         }
         ImGui::End();

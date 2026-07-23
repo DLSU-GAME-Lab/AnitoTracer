@@ -33,6 +33,9 @@ namespace Diligent {
         // GraphicsSettings& GetGraphicsSettings() { return m_GraphicsSettings; }
         // AudioSettings& GetAudioSettings() { return m_AudioSettings; }
 
+        bool& GetEnableMSAA() { return m_EnableMSAA; }
+        const bool& GetEnableMSAA() const { return m_EnableMSAA; }
+
     private:
         // Private constructor ensures it can only be created via GetInstance()
         UserSettings() = default;
@@ -42,6 +45,7 @@ namespace Diligent {
         // Data Storage
         // ------------------------------------------------------------------
         ShadowSettings m_ShadowSettings;
+        bool m_EnableMSAA = true; // Added MSAA toggle state
 
         // GraphicsSettings m_GraphicsSettings;
         // AudioSettings m_AudioSettings;

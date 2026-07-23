@@ -1,12 +1,18 @@
 #include "BasicLitPipeline.hpp"
 #include "../RenderData.hpp"
+#include "../../UserSettings.hpp"
 
 void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* _pSwapChain)
 {
     pSwapChain = _pSwapChain;
     m_pDevice = pDevice;
 
-    InitializeTLAS(pDevice);
+    Uint8 sampleCount = UserSettings::GetInstance().GetEnableMSAA() ? 4 : 1;
+
+    // 1. Only initialize the TLAS once! Recreating it without releasing causes memory leak assertions.
+    if (!m_pTLAS) {
+        InitializeTLAS(pDevice);
+    }
 
     GraphicsPipelineStateCreateInfo PSOCreateInfo;
     PipelineStateDesc& PSODesc = PSOCreateInfo.PSODesc;
@@ -17,7 +23,7 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
 
     SetupDefaultGraphicsPipeline(GraphicsPipeline);
 
-    GraphicsPipeline.SmplDesc.Count = 4;
+    GraphicsPipeline.SmplDesc.Count = sampleCount;
 
     std::vector<LayoutElement> std_layout = VertexLayouts::GetStandardLayout();
     GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
@@ -60,37 +66,47 @@ void Diligent::LitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChai
     PSODesc.ResourceLayout.ImmutableSamplers = ImtblSamplers;
     PSODesc.ResourceLayout.NumImmutableSamplers = _countof(ImtblSamplers);
 
+    // 2. Safely release the old Pipeline State Object before replacing it!
+    m_pPSO.Release();
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
 
-    // Buffers
-    CreateCameraConstantBuffer(pDevice);
-    CreateModelConstantBuffer(pDevice);
+    // 3. Only create Constant Buffers if they don't already exist.
+    // They don't change size when MSAA toggles, so recreating them wastes performance!
+    if (!m_pCameraCB) CreateCameraConstantBuffer(pDevice);
+    if (!m_pModelCB) CreateModelConstantBuffer(pDevice);
 
-    BufferDesc MatCBDesc;
-    MatCBDesc.Name = "PBR Material Constant Buffer";
-    MatCBDesc.Size = sizeof(PBRMaterialConstants);
-    MatCBDesc.Usage = USAGE_DYNAMIC;
-    MatCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-    MatCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-    pDevice->CreateBuffer(MatCBDesc, nullptr, &m_pMaterialCB);
+    if (!m_pMaterialCB) {
+        BufferDesc MatCBDesc;
+        MatCBDesc.Name = "PBR Material Constant Buffer";
+        MatCBDesc.Size = sizeof(PBRMaterialConstants);
+        MatCBDesc.Usage = USAGE_DYNAMIC;
+        MatCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        MatCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(MatCBDesc, nullptr, &m_pMaterialCB);
+    }
 
-    BufferDesc LightCBDesc;
-    LightCBDesc.Name = "Light Constant Buffer";
-    LightCBDesc.Size = sizeof(LightConstants);
-    LightCBDesc.Usage = USAGE_DYNAMIC;
-    LightCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-    LightCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-    pDevice->CreateBuffer(LightCBDesc, nullptr, &m_pLightCB);
+    if (!m_pLightCB) {
+        BufferDesc LightCBDesc;
+        LightCBDesc.Name = "Light Constant Buffer";
+        LightCBDesc.Size = sizeof(LightConstants);
+        LightCBDesc.Usage = USAGE_DYNAMIC;
+        LightCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        LightCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(LightCBDesc, nullptr, &m_pLightCB);
+    }
 
-    BufferDesc ShadowCBDesc;
-    ShadowCBDesc.Name = "Shadow Settings Constant Buffer";
-    ShadowCBDesc.Size = sizeof(ShadowSettings);
-    ShadowCBDesc.Usage = USAGE_DYNAMIC;
-    ShadowCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-    ShadowCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-    pDevice->CreateBuffer(ShadowCBDesc, nullptr, &m_pShadowCB);
+    if (!m_pShadowCB) {
+        BufferDesc ShadowCBDesc;
+        ShadowCBDesc.Name = "Shadow Settings Constant Buffer";
+        ShadowCBDesc.Size = sizeof(ShadowSettings);
+        ShadowCBDesc.Usage = USAGE_DYNAMIC;
+        ShadowCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        ShadowCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(ShadowCBDesc, nullptr, &m_pShadowCB);
+    }
 
-    // SRB Initial Setup
+    // 4. Safely release the old Shader Resource Binding before allocating the new one
+    m_pSRB.Release();
     m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
 
     if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants")) pVar->Set(m_pCameraCB);

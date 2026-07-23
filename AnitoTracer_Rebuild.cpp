@@ -212,6 +212,9 @@ int main(int argc, char** argv)
     auto CreateMSAABuffers = [&]() {
         const auto& SCDesc = g_pSwapChain->GetDesc();
 
+        // Dynamically set sample count based on user settings
+        Uint8 sampleCount = UserSettings::GetInstance().GetEnableMSAA() ? 4 : 1;
+
         TextureDesc ColorDesc;
         ColorDesc.Name = "MSAA Color Target";
         ColorDesc.Type = RESOURCE_DIM_TEX_2D;
@@ -219,7 +222,7 @@ int main(int argc, char** argv)
         ColorDesc.Height = SCDesc.Height;
         ColorDesc.BindFlags = BIND_RENDER_TARGET;
         ColorDesc.Format = SCDesc.ColorBufferFormat;
-        ColorDesc.SampleCount = 4; // Must match the PSO!
+        ColorDesc.SampleCount = sampleCount; // Must match the PSO!
 
         g_pMSAATarget.Release();
         g_pDevice->CreateTexture(ColorDesc, nullptr, &g_pMSAATarget);
@@ -233,7 +236,7 @@ int main(int argc, char** argv)
         g_pMSAADepth.Release();
         g_pDevice->CreateTexture(DepthDesc, nullptr, &g_pMSAADepth);
         g_pMSAADSV = g_pMSAADepth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
-        };
+    };
 
     // Initialize them for the first time
     CreateMSAABuffers();
@@ -299,22 +302,49 @@ int main(int argc, char** argv)
         // Start ImGui frame
         imguiManager.NewFrame(SCDesc.Width, SCDesc.Height, transform);
 
+        UpdateCameraControls(MainCam);
+
         // --- Render ImGui UI Elements ---
         imguiManager.DrawUI(g_AppRunning);
 
-        // Resize MSAA buffers dynamically if the window size changed
+        bool isMSAAEnabled = UserSettings::GetInstance().GetEnableMSAA();
+        static bool s_lastMSAAState = isMSAAEnabled;
+
+        // Resize MSAA buffers dynamically if the window size changed OR MSAA toggled
         if (g_pMSAATarget->GetDesc().Width != SCDesc.Width ||
-            g_pMSAATarget->GetDesc().Height != SCDesc.Height)
+            g_pMSAATarget->GetDesc().Height != SCDesc.Height ||
+            s_lastMSAAState != isMSAAEnabled)
         {
             CreateMSAABuffers();
+
+            // Re-initialize the pipeline when the toggle is changed so the PSO 
+            // complies with the new sample count (1x vs 4x).
+            if (s_lastMSAAState != isMSAAEnabled)
+            {
+                bLitPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
+                s_lastMSAAState = isMSAAEnabled;
+            }
         }
 
         const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
 
-        ITextureView* pRTVs[] = { g_pMSAARTV };
-        g_pImmediateContext->SetRenderTargets(1, pRTVs, g_pMSAADSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        g_pImmediateContext->ClearRenderTarget(g_pMSAARTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        g_pImmediateContext->ClearDepthStencil(g_pMSAADSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        ITextureView* pActiveRTV = nullptr;
+        ITextureView* pActiveDSV = nullptr;
+
+        if (isMSAAEnabled)
+        {
+            pActiveRTV = g_pMSAARTV;
+            pActiveDSV = g_pMSAADSV;
+        }
+        else
+        {
+            pActiveRTV = g_pSwapChain->GetCurrentBackBufferRTV();
+            pActiveDSV = g_pSwapChain->GetDepthBufferDSV();
+        }
+
+        g_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        g_pImmediateContext->ClearRenderTarget(pActiveRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        g_pImmediateContext->ClearDepthStencil(pActiveDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         // Set up target attachments and clear color
         //auto* pRTV = g_pSwapChain->GetCurrentBackBufferRTV();
@@ -344,19 +374,22 @@ int main(int argc, char** argv)
         // ==========================================
 
         auto* pBackBufferRTV = g_pSwapChain->GetCurrentBackBufferRTV();
-
-        // Resolve the multi-sampled texture into the swap chain back buffer
-        ResolveTextureSubresourceAttribs ResolveAttribs;
-        ResolveAttribs.SrcTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-        ResolveAttribs.DstTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-
-        g_pImmediateContext->ResolveTextureSubresource(
-            g_pMSAATarget,
-            pBackBufferRTV->GetTexture(),
-            ResolveAttribs
-        );
-        //Bind the back buffer
         auto* pDefaultDSV = g_pSwapChain->GetDepthBufferDSV();
+
+        if (isMSAAEnabled)
+        {
+            // Resolve the multi-sampled texture into the swap chain back buffer
+            ResolveTextureSubresourceAttribs ResolveAttribs;
+            ResolveAttribs.SrcTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+            ResolveAttribs.DstTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+
+            g_pImmediateContext->ResolveTextureSubresource(
+                g_pMSAATarget,
+                pBackBufferRTV->GetTexture(),
+                ResolveAttribs
+            );
+        }
+
         g_pImmediateContext->SetRenderTargets(1, &pBackBufferRTV, pDefaultDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         // ==========================================
