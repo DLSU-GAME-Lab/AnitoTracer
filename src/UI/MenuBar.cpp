@@ -32,10 +32,16 @@ namespace Diligent {
                     ImGui::EndMenu();
                 }
 
-                if (ImGui::MenuItem("Add Direction Light"))
-                {
-                    ObjectFactory::GetInstance().CreateDirectionalLightObject("Direction Light");
+                if (ImGui::BeginMenu("Lights")) {
+                    if (ImGui::MenuItem("Direction")) {
+                        ObjectFactory::GetInstance().CreateDirectionalLightObject("Direction Light");
+                    }
+                    if (ImGui::MenuItem("Point")) {
+                        ObjectFactory::GetInstance().CreatePointLightObject("Point Light");
+                    }
+                    ImGui::EndMenu();
                 }
+
                 if (ImGui::MenuItem("Load Model"))
                 {
                     // Placeholder for now

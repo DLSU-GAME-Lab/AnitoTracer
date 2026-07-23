@@ -10,6 +10,7 @@ set(UI_SRC
 	Panels/InspectorPanel/Components/TransformUI.hpp
 	Panels/InspectorPanel/Components/CameraUI.hpp
 	Panels/InspectorPanel/Components/DirectionalLightUI.hpp
+	Panels/InspectorPanel/Components/PointLightUI.hpp
 
 	Panels/HierarchyPanel.cpp
 	Panels/HierarchyPanel.hpp
