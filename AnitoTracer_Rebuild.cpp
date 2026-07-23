@@ -100,10 +100,15 @@ void UpdateCameraControls(HierarchyObject* mainCam)
     if (!io.WantCaptureKeyboard)
     {
         float mod = 1.f;
-        if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) mod = 4.f;
+        float mov_mod = 4.f;
+        if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
+        {
+            mod = 4.f;
+            mov_mod = 10.f;
+        }
 
         // Tuning variables for speed
-        float moveSpeed = 10.0f * deltaTime * mod;
+        float moveSpeed = 10.0f * deltaTime * mov_mod;
         float rotSpeed = 8.0f * deltaTime * mod;
 
         auto* camTransform = mainCam->GetTransform();
@@ -260,7 +265,9 @@ int main(int argc, char** argv)
     MainCam->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 
     //objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
-    objFactory.CreateModelObject("SP", "Sponza/sponza.obj");
+    //objFactory.CreateModelObject("SP", "Sponza/sponza.obj");
+    //objFactory.CreateModelObject("Bol", "Primitives/sphere.obj");
+    //objFactory.CreateSpherePrimitive("Boll");
 
     while (g_AppRunning)
     {
