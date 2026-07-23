@@ -86,6 +86,76 @@ LRESULT CALLBACK EngineWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 }
 #endif
 
+void UpdateCameraControls(HierarchyObject* mainCam)
+{
+    ImGuiIO& io = ImGui::GetIO();
+
+    // 1. Calculate delta time for frame-rate independent movement
+    static double s_LastTime = ImGui::GetTime();
+    double currentTime = ImGui::GetTime();
+    float deltaTime = static_cast<float>(currentTime - s_LastTime);
+    s_LastTime = currentTime;
+
+    // 2. Only process camera movement if ImGui is NOT using the keyboard (e.g., text inputs)
+    if (!io.WantCaptureKeyboard)
+    {
+        float mod = 1.f;
+        if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) mod = 4.f;
+
+        // Tuning variables for speed
+        float moveSpeed = 10.0f * deltaTime * mod;
+        float rotSpeed = 8.0f * deltaTime * mod;
+
+        auto* camTransform = mainCam->GetTransform();
+
+        // Retrieve current state
+        glm::vec3 pos = camTransform->GetPosition();
+        glm::vec3 rot = camTransform->GetEulerAnglesDegrees();
+
+        // ---------------------------------------------------------
+        // CALCULATE LOCAL DIRECTIONAL VECTORS
+        // ---------------------------------------------------------
+        // Convert degrees to radians for GLM quaternion construction
+        glm::vec3 rotRad = glm::radians(rot);
+
+        // Construct orientation quaternion (expects Pitch, Yaw, Roll order)
+        glm::quat orientation = glm::quat(rotRad);
+
+        // Calculate local axes based on the current rotation
+        // Note: We use (0,0,1) for Forward based on the previous world-space +Z movement mapping.
+        // If your Vulkan projection uses -Z as forward, change this to (0,0,-1).
+        glm::vec3 forward = orientation * glm::vec3(0.0f, 0.0f, 1.0f);
+        glm::vec3 right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
+        glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
+
+        // ---------------------------------------------------------
+        // WASD - Translation (Local Space)
+        // ---------------------------------------------------------
+        if (ImGui::IsKeyDown(ImGuiKey_W)) pos += forward * moveSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_S)) pos -= forward * moveSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_A)) pos -= right * moveSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_D)) pos += right * moveSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_Q)) pos -= up * moveSpeed; // Descend locally
+        if (ImGui::IsKeyDown(ImGuiKey_E)) pos += up * moveSpeed; // Ascend locally
+
+        // ---------------------------------------------------------
+        // IJKL - Rotation (Pitch and Yaw)
+        // ---------------------------------------------------------
+        if (ImGui::IsKeyDown(ImGuiKey_I)) rot.x -= rotSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_K)) rot.x += rotSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_J)) rot.y -= rotSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_L)) rot.y += rotSpeed;
+
+        // Optional: True airplane roll (Bank left/right) could be mapped to U and O!
+        // if (ImGui::IsKeyDown(ImGuiKey_U)) rot.z += rotSpeed;
+        // if (ImGui::IsKeyDown(ImGuiKey_O)) rot.z -= rotSpeed;
+
+        // Apply newly calculated state
+        camTransform->SetPosition(pos);
+        camTransform->SetEulerAnglesDegrees(rot);
+    }
+}
+
 #if PLATFORM_WIN32
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 #else
