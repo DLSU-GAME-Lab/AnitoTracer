@@ -17,6 +17,9 @@ set(UI_SRC
 	MenuBar.hpp
 	MenuBar.cpp
 
+	FileDialog.hpp
+	FileDialog.cpp
+
 	GUIManager.cpp
 	GUIManager.hpp
 )
