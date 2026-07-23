@@ -6,6 +6,8 @@
 #include "../Objects/ObjectFactory.hpp"
 #include "imgui.h"
 
+#include "FileDialog.hpp"
+
 namespace Diligent {
 
     class MenuBar

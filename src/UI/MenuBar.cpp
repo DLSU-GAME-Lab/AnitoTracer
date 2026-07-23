@@ -44,7 +44,14 @@ namespace Diligent {
 
                 if (ImGui::MenuItem("Load Model"))
                 {
-                    // Placeholder for now
+                    // Use the static method from the new FileDialog class
+                    std::string filepath = FileDialog::OpenModelFile();
+
+                    if (!filepath.empty())
+                    {
+                        std::cout << "Successfully selected model: " << filepath << std::endl;
+                        ObjectFactory::GetInstance().CreateModelObject("Loaded Model", filepath);
+                    }
                 }
                 ImGui::EndMenu();
             }

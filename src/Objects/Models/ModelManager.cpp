@@ -44,7 +44,9 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath) {
     loadInfo.GenerateMips = true;
     loadInfo.Format = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
 
-    std::string fullPath = m_AssetBasePath + filepath;
+    std::filesystem::path modelFilePath(filepath);
+    std::string fullPath = modelFilePath.is_absolute() ? filepath : (m_AssetBasePath + filepath);
+
     CreateTextureFromFile(fullPath.c_str(), loadInfo, m_pDevice, &pTexture);
 
     if (!pTexture) {
@@ -82,9 +84,12 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
         return it->second.get();
     }
 
+    std::filesystem::path modelFilePath(filepath);
+    std::string fullPath = modelFilePath.is_absolute() ? filepath : (m_AssetBasePath + filepath);
+
     Assimp::Importer importer;
     // Optimize for Vulkan/Modern APIs: Triangulate, Gen Normals, Flip UVs (Diligent uses Top-Left UVs)
-    const aiScene* pScene = importer.ReadFile(m_AssetBasePath + filepath,
+    const aiScene* pScene = importer.ReadFile(fullPath,
         aiProcess_Triangulate | aiProcess_GenSmoothNormals |
         aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
 
@@ -97,8 +102,6 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     std::vector<Vertex> vertices;
     std::vector<Uint32> indices;
 
-    //Assets are already preappended due to init
-    std::filesystem::path modelFilePath(filepath);
     std::string modelDir = modelFilePath.parent_path().string();
 
     if (!modelDir.empty()) {
