@@ -91,7 +91,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     // Optimize for Vulkan/Modern APIs: Triangulate, Gen Normals, Flip UVs (Diligent uses Top-Left UVs)
     const aiScene* pScene = importer.ReadFile(fullPath,
         aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-        aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+        aiProcess_ConvertToLeftHanded | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
 
     if (!pScene || pScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !pScene->mRootNode) {
         std::cerr << "Assimp error: " << importer.GetErrorString() << std::endl;

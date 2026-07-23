@@ -15,7 +15,7 @@ void main_vs(in VertexInput In, out PSInput Out)
     Out.Pos = mul(viewPos, g_Proj);
     
     // Convert NDC depth to [0, 1] for Vulkan
-    Out.Pos.z = (Out.Pos.z + Out.Pos.w) * 0.5;
+    //Out.Pos.z = (Out.Pos.z + Out.Pos.w) * 0.5;
     
     Out.WorldPos = worldPos.xyz;
     
