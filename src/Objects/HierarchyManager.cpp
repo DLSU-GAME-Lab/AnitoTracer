@@ -128,7 +128,6 @@ static void GatherLightsRecursive(HierarchyObject* obj, const glm::mat4& parentM
     }
 
     // Process Point Lights (Assuming you make a PointLight class inheriting LightBase next!)
-    /*
     if (PointLight* pointLight = obj->GetComponent<PointLight>()) {
         if (outLights.NumPointLights < Diligent::MAX_POINT_LIGHTS) {
             // Extract the absolute world position from the 4th column of the world matrix
@@ -144,8 +143,7 @@ static void GatherLightsRecursive(HierarchyObject* obj, const glm::mat4& parentM
             outLights.NumPointLights++;
         }
     }
-    */
-
+    
     // Recursively process children
     for (const auto& child : obj->GetChildren()) {
         GatherLightsRecursive(child.get(), currentWorldMatrix, outLights);

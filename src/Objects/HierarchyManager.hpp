@@ -13,6 +13,7 @@
 
 #include "../Rendering/RenderData.hpp"
 #include "Components/Lights/DirectionLight.hpp"
+#include "Components/Lights/PointLight.hpp"
 
 class HierarchyManager {
 public:

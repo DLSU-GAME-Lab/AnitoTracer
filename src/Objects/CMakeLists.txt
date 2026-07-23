@@ -16,6 +16,8 @@ set(OBJ_SRC
 	Components/Lights/LightBase.hpp
 	Components/Lights/DirectionLight.cpp
 	Components/Lights/DirectionLight.hpp
+	Components/Lights/PointLight.cpp
+	Components/Lights/PointLight.hpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp

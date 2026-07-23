@@ -10,6 +10,7 @@
 #include "Components/Camera.hpp"
 #include "Components/ModelComponent.hpp"
 #include "Components/Lights/DirectionLight.hpp"
+#include "Components/Lights/PointLight.hpp"
 
 class ObjectFactory {
 public:
@@ -29,6 +30,7 @@ public:
     HierarchyObject* CreateModelObject(const std::string& name, const std::string& filepath);
 
     HierarchyObject* CreateDirectionalLightObject(const std::string& name);
+    HierarchyObject* CreatePointLightObject(const std::string& name);
 
     HierarchyObject* CreateSpherePrimitive(const std::string& name);
     HierarchyObject* CreateCubePrimitive(const std::string& name);
