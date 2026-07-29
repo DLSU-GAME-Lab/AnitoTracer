@@ -1,5 +1,6 @@
 set(OBJ_SRC
 	Models/ModelStructs.hpp
+
 	Models/ModelManager.hpp
 	Models/ModelManager.cpp
 
@@ -37,6 +38,8 @@ target_link_libraries(Objects
 			Diligent-GraphicsEngineVk-shared
 			Diligent-Imgui
 			Diligent-TextureLoader
+
+			anito::serialization
 )
 
 target_include_directories(Objects

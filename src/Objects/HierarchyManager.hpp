@@ -14,7 +14,10 @@
 #include "../Rendering/RenderData.hpp"
 #include "Components/Lights/DirectionLight.hpp"
 
-class HierarchyManager {
+#include ANITOSERIALIZATIONINCLUDE
+#include "AnitoInstanceInitializer.hpp" //Needed for object creation setup
+
+class HierarchyManager : public gbe::ISerializable {
 public:
     // Retrieves the singleton instance of the manager.
     static HierarchyManager& GetInstance() {
@@ -67,6 +70,11 @@ private:
     ~HierarchyManager() = default;
 
     std::vector<std::unique_ptr<HierarchyObject>> m_rootNodes;
+    GBE_SERIALIZE_FIELD(m_rootNodes);
 
     CameraComponent* m_mainCamera = nullptr;
+
+    //=================//SERIALIZATION//=================//
+public:
+    
 };

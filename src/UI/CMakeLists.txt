@@ -24,7 +24,16 @@ set(UI_SRC
 	GUIManager.hpp
 )
 
+add_subdirectory(Internal/FileDialogue)
+
 add_library(UI STATIC ${UI_SRC})
+
+target_link_libraries(UI
+	PRIVATE
+	anito::serialization
+	gbe::filedialogue
+	Objects
+)
 
 target_link_libraries(UI
 			PUBLIC

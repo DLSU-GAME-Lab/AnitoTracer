@@ -48,8 +48,8 @@ private:
 
     float m_FOV = 45.0f;  
     float m_Aspect = 16.0f / 9.0f;  
-    float m_NearZ = 0.1f;  
-    float m_FarZ = 1000.0f;  
+    float m_NearZ = 0.1f;
+    float m_FarZ = 1000.0f;
 
     glm::mat4 m_ViewMatrix = glm::mat4(1.0f);  
     glm::mat4 m_ProjMatrix = glm::mat4(1.0f);  

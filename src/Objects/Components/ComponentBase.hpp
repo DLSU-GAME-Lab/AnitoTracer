@@ -3,10 +3,12 @@
 #include <string>
 #include <iostream>
 
+#include ANITOSERIALIZATIONINCLUDE
+
 // Forward declaration to avoid circular dependency
 class HierarchyObject;
 
-class ComponentBase {
+class ComponentBase : public gbe::ISerializable {
 public:
     // Initializes the component with a name and an optional owner.
     ComponentBase(const std::string& name, HierarchyObject* owner = nullptr)
@@ -33,5 +35,9 @@ public:
 
 protected:
     std::string m_name;
+    GBE_SERIALIZE_FIELD(m_name);
+
     HierarchyObject* m_owner;
+
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ComponentBase, gbe::ISerializable);
 };

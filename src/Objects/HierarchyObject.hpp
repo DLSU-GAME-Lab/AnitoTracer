@@ -1,5 +1,7 @@
 #pragma once
 
+#include ANITOSERIALIZATIONINCLUDE
+
 #include <string>
 #include <vector>
 #include <memory>
@@ -7,7 +9,7 @@
 #include "Components/ComponentBase.hpp"
 #include "Components/Transform.hpp"
 
-class HierarchyObject {
+class HierarchyObject : public gbe::ISerializable{
 public:
     // Initializes the object with a specific name.
     HierarchyObject(const std::string& name)
@@ -73,8 +75,14 @@ private:
     std::string m_name;
     HierarchyObject* m_parent;
     std::vector<std::unique_ptr<HierarchyObject>> m_children;
+    GBE_SERIALIZE_FIELD(m_children);
 
     std::vector<std::unique_ptr<ComponentBase>> m_components;
+    GBE_SERIALIZE_FIELD(m_components);
 
     friend class HierarchyManager;
+
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(HierarchyObject, gbe::ISerializable);
 };
+
+GBE_REGISTER_SERIALIZED_TYPE(HierarchyObject);
