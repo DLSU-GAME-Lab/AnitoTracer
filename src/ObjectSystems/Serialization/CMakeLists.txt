@@ -1,33 +1,26 @@
-set(SERIALIZATION_SRC
-	ObjectInitializer.hpp
+#SETUP
+set(CUR_TARGET_SUBLIBNAME serialization)
+set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
 
-	ComponentInitializer.hpp
-
+set(${CUR_TARGET_NAME}_src
+	Initializer/ObjectInitializer.hpp
+	Initializer/ComponentInitializer.hpp
 )
+add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
+add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
+target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-set(CUR_TARGET_NAME anito_serialization)
-
-add_library(${CUR_TARGET_NAME} STATIC ${SERIALIZATION_SRC})
-add_library(anito::serialization ALIAS ${CUR_TARGET_NAME})
-
-target_link_libraries(${CUR_TARGET_NAME}
-			PRIVATE
-	Objects
-)
-
-target_compile_definitions(${CUR_TARGET_NAME} PUBLIC SERIALIZATION_INCLUDES="SerializationIncludes.hpp")
-
+#PUBLIC
 target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC
 	gbe::serialization
 )
 
-
-target_include_directories(${CUR_TARGET_NAME}
-PRIVATE
-    ${diligentcore_SOURCE_DIR}
-    ${diligenttools_SOURCE_DIR}
-    ${diligentfx_SOURCE_DIR}
+#PRIVATE
+target_link_libraries(${CUR_TARGET_NAME}
+	PRIVATE
+	anito::objects
 )
 
-target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+#ADDITIONAL STUFF
+target_compile_definitions(${CUR_TARGET_NAME} PUBLIC SERIALIZATION_INCLUDES="SerializationIncludes.hpp")

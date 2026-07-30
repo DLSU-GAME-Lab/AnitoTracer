@@ -34,7 +34,7 @@
 #include "src/Rendering/Pipelines/BasicPipeline.hpp"
 #include "src/Rendering/Pipelines/TexturedPipeline.hpp"
 #include "src/Rendering/Pipelines/BasicLitPipeline.hpp"
-#include "src/Objects/Models/ModelManager.hpp"
+#include "src/Rendering/Models/ModelManager.hpp"
 
 #include "src/Objects/HierarchyManager.hpp"
 #include "src/Objects/ObjectFactory.hpp"

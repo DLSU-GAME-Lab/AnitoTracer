@@ -1,9 +1,8 @@
-set(OBJ_SRC
-	Models/ModelStructs.hpp
+#SETUP
+set(CUR_TARGET_SUBLIBNAME objects)
+set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
 
-	Models/ModelManager.hpp
-	Models/ModelManager.cpp
-
+set(${CUR_TARGET_NAME}_src
 	Components/ComponentBase.cpp
 	Components/ComponentBase.hpp
 	Components/Transform.cpp
@@ -27,28 +26,20 @@ set(OBJ_SRC
 	ObjectFactory.hpp
 	ObjectFactory.cpp
 )
+add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
+add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
+target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(Objects STATIC ${OBJ_SRC})
-
-target_link_libraries(Objects
-			PUBLIC
-			glm::glm
-			assimp::assimp
-			Diligent-Common
-			Diligent-GraphicsEngineVk-shared
-			Diligent-Imgui
-			Diligent-TextureLoader
-
-			anito::serialization
-
-			gbe::tools
+#PUBLIC
+target_link_libraries(${CUR_TARGET_NAME}
+	PUBLIC
+	glm::glm
+	anito::serialization
+	gbe::tools
 )
 
-target_include_directories(Objects
-PRIVATE
-    ${diligentcore_SOURCE_DIR}
-    ${diligenttools_SOURCE_DIR}
-    ${diligentfx_SOURCE_DIR}
+#PRIVATE
+target_link_libraries(${CUR_TARGET_NAME}
+	PRIVATE
+	anito::rendering
 )
-
-target_include_directories(Objects PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR})

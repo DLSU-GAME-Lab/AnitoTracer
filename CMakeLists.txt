@@ -17,32 +17,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(FETCHCONTENT_QUIET OFF)
 include(FetchContent)
 
-FetchContent_Declare(
-    DiligentCore
-    GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentCore.git
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentCore"
-    GIT_TAG 7cd667b06703516ac210779cd1919bd174afd0b9
-    GIT_SHALLOW OFF
-)
-FetchContent_Declare(
-    DiligentTools
-    GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentTools.git
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentTools"
-    GIT_TAG a65fe94e0f12e680c81ea86fe2ebe0de6b867b4b
-    GIT_SHALLOW OFF
-)
-FetchContent_Declare(
-    DiligentFX
-    GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentFX.git
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentFX"
-    GIT_TAG eb616a8e30efa5193baba71ff1edae85bc6230a1
-    GIT_SHALLOW OFF
-)
-
-# FORCE DILIGENT ENGINE TO USE DYNAMIC CRT
-set(DILIGENT_MSVC_CRT_LINKAGE "Dynamic" CACHE STRING "Force Diligent to use dynamic CRT" FORCE)
-FetchContent_MakeAvailable(DiligentCore DiligentTools DiligentFX)
-
 #=================#DEPENDENCIES#=================#
 include(deps.cmake)
 
@@ -81,11 +55,11 @@ add_compile_definitions(PLATFORM_WIN32=1)
 
 set(anito_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE INTERNAL "Src directory of AnitoEngine" FORCE)
 
-add_subdirectory(src/UI)
 add_subdirectory(src/Objects)
-add_subdirectory(src/Rendering)
-
 add_subdirectory(src/ObjectSystems/Serialization)
+
+add_subdirectory(src/UI)
+add_subdirectory(src/Rendering)
 
 add_subdirectory(src/Tools)
 
@@ -118,9 +92,10 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 assimp::assimp
 				Diligent-GraphicsEngineVk-shared
 				Diligent-Imgui
-                UI
-                $<LINK_LIBRARY:WHOLE_ARCHIVE,Objects>
-                Rendering
+
+                $<LINK_LIBRARY:WHOLE_ARCHIVE,anito::objects>
+                anito::rendering
+                anito::ui
 )
 
 set(SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Shaders")

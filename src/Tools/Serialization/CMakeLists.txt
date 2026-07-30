@@ -14,6 +14,11 @@ target_link_libraries(${CUR_TARGET_NAME}
 	glaze::glaze
 )
 
+target_link_libraries(${CUR_TARGET_NAME}
+			PRIVATE
+	glm::glm
+)
+
 target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(gbe::serialization ALIAS ${CUR_TARGET_NAME})

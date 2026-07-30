@@ -1,4 +1,8 @@
-set(UI_SRC
+#SETUP
+set(CUR_TARGET_SUBLIBNAME ui)
+set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
+
+set(${CUR_TARGET_NAME}_src
 	Panels/BasePanel.cpp
 	Panels/BasePanel.hpp
 
@@ -23,28 +27,23 @@ set(UI_SRC
 	GUIManager.cpp
 	GUIManager.hpp
 )
+add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
+add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
+target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(UI STATIC ${UI_SRC})
-
-target_link_libraries(UI
+#PRIVATE
+target_link_libraries(${CUR_TARGET_NAME}
 	PRIVATE
+	glm::glm
+
 	anito::serialization
 	gbe::filedialogue
-	Objects
+	gbe::tools
+	anito::rendering
+	anito::objects
+
+	Diligent-GraphicsEngineVk-shared
+	Diligent-Imgui
 )
 
-target_link_libraries(UI
-			PUBLIC
-			glm::glm
-			Diligent-GraphicsEngineVk-shared
-			Diligent-Imgui
-)
-
-target_include_directories(UI
-PRIVATE
-    ${diligentcore_SOURCE_DIR}
-    ${diligenttools_SOURCE_DIR}
-    ${diligentfx_SOURCE_DIR}
-)
-
-target_include_directories(UI PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR})
+#ADDITIONAL STUFF

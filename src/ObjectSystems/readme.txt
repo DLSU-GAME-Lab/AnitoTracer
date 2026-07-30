@@ -3,5 +3,5 @@ This folder is where things that manage objects should go.
 Examples being:
 - Serialization
 - Physics Systems
-- Rendering systems (TODO)
-	- We must move rendering systems as its own thing because transitively linking Diligent everywhere is ass.
+
+These are things that either: 1) Directly interact with objects; or 2) Need visibility of object classes.

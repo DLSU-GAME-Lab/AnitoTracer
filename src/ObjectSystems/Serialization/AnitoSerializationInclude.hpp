@@ -1,7 +1,0 @@
-#include "Meta/glm_meta.hpp"
-
-#include "ISerializable.hpp"
-#include "SerializedData.hpp"
-
-#include "AutoSerializer.hpp"
-#include "AutoVectorSerializer.hpp"

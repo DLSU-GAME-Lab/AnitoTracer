@@ -15,8 +15,8 @@
 #include "Components/Lights/DirectionLight.hpp"
 
 #include SERIALIZATION_INCLUDES
-#include "ObjectInitializer.hpp" //Needed for object creation setup
-#include "ComponentInitializer.hpp" //Needed for component creation setup
+#include "Initializer/ObjectInitializer.hpp" //Needed for object creation setup
+#include "Initializer/ComponentInitializer.hpp" //Needed for component creation setup
 
 class HierarchyManager : public gbe::ISerializable {
 public:

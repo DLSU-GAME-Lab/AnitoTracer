@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ComponentBase.hpp"
-#include "../Models/ModelManager.hpp"
+#include "Models/ModelManager.hpp"
 
 class ModelComponent : public ComponentBase {
 public:
