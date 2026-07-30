@@ -9,10 +9,12 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-class CameraComponent : public ComponentBase {
+#include "Organization/IInstanceManager.hpp"
+
+class CameraComponent : public ComponentBase, public gbe::IInstanceManager<CameraComponent> {
 public:
     // We require a Transform pointer to ensure the camera always knows where it is!
-    CameraComponent(Transform* transform, HierarchyObject* owner = nullptr);
+    CameraComponent(Transform* transform, gbe::IInstanceManager<HierarchyObject>::Ref owner = {});
 
     ~CameraComponent() override = default;
 

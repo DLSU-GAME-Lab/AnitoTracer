@@ -1,8 +1,9 @@
 set(SERIALIZATION_SRC
-	AnitoInstanceInitializer.cpp
-)
+	ObjectInitializer.hpp
 
-add_subdirectory(Internal)
+	ComponentInitializer.hpp
+
+)
 
 set(CUR_TARGET_NAME anito_serialization)
 
@@ -14,7 +15,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	Objects
 )
 
-target_compile_definitions(${CUR_TARGET_NAME} PUBLIC ANITOSERIALIZATIONINCLUDE="AnitoSerializationInclude.hpp")
+target_compile_definitions(${CUR_TARGET_NAME} PUBLIC SERIALIZATION_INCLUDES="SerializationIncludes.hpp")
 
 target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC

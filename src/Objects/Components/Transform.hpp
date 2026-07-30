@@ -12,7 +12,7 @@
 
 class Transform : public ComponentBase {
 public:
-    Transform(HierarchyObject* owner = nullptr)
+    Transform(gbe::IInstanceManager<HierarchyObject>::Ref owner = nullptr)
         : ComponentBase("Transform", owner),
         m_position(0.0f, 0.0f, 0.0f),
         m_rotation(1.0f, 0.0f, 0.0f, 0.0f),
@@ -59,4 +59,4 @@ private:
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(Transform, ComponentBase);
 };
 
-GBE_REGISTER_SERIALIZED_TYPE(Transform);
+GBE_REGISTER_SERIALIZED_TYPE(Transform, ComponentBase);

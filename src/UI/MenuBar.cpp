@@ -2,7 +2,7 @@
 
 #include "HierarchyManager.hpp"
 
-#include "Internal/FileDialogue/FileDialogue.hpp"
+#include "FileDialogue.hpp"
 
 
 namespace Diligent {

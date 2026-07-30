@@ -40,6 +40,8 @@ target_link_libraries(Objects
 			Diligent-TextureLoader
 
 			anito::serialization
+
+			gbe::tools
 )
 
 target_include_directories(Objects

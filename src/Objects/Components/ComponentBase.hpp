@@ -3,7 +3,9 @@
 #include <string>
 #include <iostream>
 
-#include ANITOSERIALIZATIONINCLUDE
+#include "Organization/IInstanceManager.hpp"
+
+#include SERIALIZATION_INCLUDES
 
 // Forward declaration to avoid circular dependency
 class HierarchyObject;
@@ -11,7 +13,7 @@ class HierarchyObject;
 class ComponentBase : public gbe::ISerializable {
 public:
     // Initializes the component with a name and an optional owner.
-    ComponentBase(const std::string& name, HierarchyObject* owner = nullptr)
+    ComponentBase(const std::string& name, gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
         : m_name(name), m_owner(owner) {}
 
     // A virtual destructor is critical for base classes to ensure 
@@ -28,16 +30,16 @@ public:
 
     // Core getters for the component data.
     const std::string& GetName() const { return m_name; }
-    HierarchyObject* GetOwner() const { return m_owner; }
+    gbe::IInstanceManager<HierarchyObject>::Ref GetOwner() const { return m_owner; }
 
     // Sets or updates the owning HierarchyObject.
-    void SetOwner(HierarchyObject* owner) { m_owner = owner; }
+    void SetOwner(gbe::IInstanceManager<HierarchyObject>::Ref owner) { m_owner = owner; }
 
 protected:
     std::string m_name;
     GBE_SERIALIZE_FIELD(m_name);
 
-    HierarchyObject* m_owner;
+    gbe::IInstanceManager<HierarchyObject>::Ref m_owner;
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ComponentBase, gbe::ISerializable);
 };

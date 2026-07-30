@@ -84,7 +84,10 @@ set(anito_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE INTERNAL "Src direc
 add_subdirectory(src/UI)
 add_subdirectory(src/Objects)
 add_subdirectory(src/Rendering)
+
 add_subdirectory(src/ObjectSystems/Serialization)
+
+add_subdirectory(src/Tools)
 
 # Add source to this project's executable.
 add_executable (AnitoTracer_Rebuild WIN32 "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h")

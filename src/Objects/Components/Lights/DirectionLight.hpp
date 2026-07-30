@@ -5,7 +5,7 @@
 
 class DirectionalLight : public LightBase {
 public:
-    DirectionalLight(HierarchyObject* owner = nullptr)
+    DirectionalLight(gbe::IInstanceManager<HierarchyObject>::Ref owner = nullptr)
         : LightBase("DirectionalLight", owner),
         m_localDirection(0.0f, -1.0f, 0.0f) {}
 

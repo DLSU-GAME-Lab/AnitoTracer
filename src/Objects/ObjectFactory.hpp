@@ -23,12 +23,12 @@ public:
     ObjectFactory(ObjectFactory&&) = delete;
     ObjectFactory& operator=(ObjectFactory&&) = delete;
 
-    HierarchyObject* CreateRootObject(const std::string& name);
-    HierarchyObject* CreateRootObjectWithTransform(const std::string& name);
-    HierarchyObject* CreateRootCameraObject(const std::string& name);
-    HierarchyObject* CreateModelObject(const std::string& name, const std::string& filepath);
+    HierarchyObject::Ref CreateRootObject(const std::string& name);
+    HierarchyObject::Ref CreateRootObjectWithTransform(const std::string& name);
+    HierarchyObject::Ref CreateRootCameraObject(const std::string& name);
+    HierarchyObject::Ref CreateModelObject(const std::string& name, const std::string& filepath);
 
-    HierarchyObject* CreateDirectionalLightObject(const std::string& name);
+    HierarchyObject::Ref CreateDirectionalLightObject(const std::string& name);
 
 private:
     ObjectFactory() = default;
