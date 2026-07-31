@@ -1,153 +1,251 @@
 #pragma once
 
-#include "../BaseAsset.h"
+#include "BaseAsset.h" // Expected to contain BaseImportData
 
 #include <iostream>
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <functional>
+#include <algorithm>
+#include <type_traits>
+
+#include "../Organization/SingletonMacro.hpp"
 
 namespace fs = std::filesystem;
 
 namespace gbe {
-    class BatchLoader {
-    private:
-        // Recursively finds all file paths within a given directory and its subdirectories.
-        inline static void GetAllFilepaths(const fs::path& directory_path, std::vector<fs::path>& filepaths) {
-            // Iterate through all entries (files and subdirectories) in the given directory.
-            for (const auto& entry : fs::directory_iterator(directory_path)) {
-                // Check if the current entry is a regular file.
-                if (fs::is_regular_file(entry.status())) {
-                    // If it's a file, add its path to our vector.
-                    filepaths.push_back(entry.path());
-                }
-                // Check if the current entry is a directory.
-                else if (fs::is_directory(entry.status())) {
-                    // If it's a directory, recursively call the function on it.
-                    GetAllFilepaths(entry.path(), filepaths);
-                }
-            }
-        }
-        inline static bool IsFileExtension(const std::string& filename, const std::string& extension) {
-            // If the filename is shorter than the extension, it can't possibly match.
-            if (filename.length() < extension.length()) {
-                return false;
-            }
 
-            // Compare the end of the filename with the extension.
-            return filename.compare(filename.length() - extension.length(), extension.length(), extension) == 0;
-        }
+    class BatchLoader {
+        SINGLETON_MACRO_DEFAULT(BatchLoader);
     public:
-        inline static void GenerateMetafiles(std::filesystem::path _directory) {
-            std::vector<fs::path> filepaths;
-            GetAllFilepaths(_directory, filepaths);
+        // Configurable meta-naming strategy options
+        enum class MetaNamingStrategy {
+            AppendToFilename,   // e.g., model.obj -> model.obj.gbe
+            ReplaceExtension    // e.g., model.obj -> model.gbe
+        };
+
+        // Category rule definition
+        struct CategoryConfig {
+            std::string name;
+            std::vector<std::string> sourceExtensions;
+            std::string metaSuffix;
+            bool isDeferred = false;
+            MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename;
+
+            // Callbacks for file operations
+            std::function<void(const fs::path& sourcePath, const fs::path& metaPath)> metaGenerator;
+            std::function<void(const fs::path& metaPath)> loader;
+        };
+
+        /**
+         * @brief Registers a project asset category with strict inheritance validation on TMeta.
+         *
+         * @tparam TMeta User-defined meta class strictly inheriting from BaseImportData.
+         * @param categoryName Descriptive name (e.g., "Texture", "Mesh").
+         * @param sourceExtensions List of supported extensions (e.g., {".png", ".jpg"}).
+         * @param metaSuffix Meta extension (e.g., ".gbe" or ".meta").
+         * @param loader Callback function executing the asset loader.
+         * @param metaInitializer Optional lambda to initialize TMeta values before serialization.
+         * @param isDeferred If true, delays loading phase (useful for Materials/Shaders).
+         * @param namingStrategy Metafile naming scheme rule.
+         */
+        template <typename TMeta>
+        static void RegisterCategory(
+            const std::string& categoryName,
+            const std::vector<std::string>& sourceExtensions,
+            const std::string& metaSuffix,
+            std::function<void(const fs::path& metaPath)> loader,
+            std::function<void(TMeta& meta, const fs::path& sourcePath)> metaInitializer = nullptr,
+            bool isDeferred = false,
+            MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename)
+        {
+            // Strict compile-time constraint: TMeta must inherit from BaseImportData
+            static_assert(std::is_base_of_v<BaseImportData, TMeta>,
+                "TMeta template argument must derive from gbe::BaseImportData");
+
+            CategoryConfig config;
+            config.name = categoryName;
+            config.sourceExtensions = sourceExtensions;
+            config.metaSuffix = metaSuffix;
+            config.loader = loader;
+            config.isDeferred = isDeferred;
+            config.namingStrategy = namingStrategy;
+
+            // Generate metafile factory using the allowed Parser::ExportClass interface
+            config.metaGenerator = [metaInitializer](const fs::path& sourcePath, const fs::path& metaPath) {
+                TMeta newdata{};
+
+                // Initialize default BaseImportData properties
+                newdata.assetId = sourcePath.stem().string();
+
+                if (metaInitializer) {
+                    metaInitializer(newdata, sourcePath);
+                }
+
+                // Internal parser dependency call
+                Parser::ExportClass(newdata, metaPath);
+                };
+
+            m_categories.push_back(config);
+        }
+
+        static void RegisterCategoryDefault(const std::string& categoryName,
+            const std::vector<std::string>& sourceExtensions,
+            const std::string& metaSuffix,
+            std::function<void(const fs::path& metaPath)> loader,
+            std::function<void(BaseImportData& meta, const fs::path& sourcePath)> metaInitializer = nullptr,
+            bool isDeferred = false,
+            MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename)
+        {
+            RegisterCategory<BaseImportData>(
+                categoryName,
+                sourceExtensions,
+                metaSuffix,
+                loader,
+                metaInitializer, 
+                isDeferred, 
+                namingStrategy
+            );
+        }
+
+        // Phase 1 & 2: Cleanup orphaned metafiles and generate missing ones
+        static void GenerateMetafiles(const fs::path& directory) {
+            if (!fs::exists(directory) || !fs::is_directory(directory)) return;
+
+            auto filepaths = GetAllFilepaths(directory);
 
             // Phase 1: Cleanup orphaned meta files
             for (const auto& filepath : filepaths) {
-                const auto& directory = filepath.parent_path();
-                const auto& filename_ext = filepath.filename().string();
-                const auto& filename_only = filepath.stem().stem().string(); // Get name before .obj.gbe or .img.gbe
+                for (const auto& cat : GetInstance().m_categories) {
+                    if (EndsWith(filepath.string(), cat.metaSuffix)) {
+                        fs::path expectedSource = GetSourcePathFromMeta(filepath, cat);
 
-                // Check for orphaned Mesh Metafiles
-                if (IsFileExtension(filename_ext, ".obj.gbe")) {
-                    // Check if corresponding .obj or .fbx exists
-                    if (!std::filesystem::exists(directory / (filename_only + ".obj")) &&
-                        !std::filesystem::exists(directory / (filename_only + ".fbx"))) {
-                        std::filesystem::remove(filepath);
-                    }
-                }
-                // Check for orphaned Texture Metafiles
-                else if (IsFileExtension(filename_ext, ".img.gbe")) {
-                    // Check if corresponding .png, .jpg, or .dds exists
-                    if (!std::filesystem::exists(directory / (filename_only + ".png")) &&
-                        !std::filesystem::exists(directory / (filename_only + ".jpg")) &&
-                        !std::filesystem::exists(directory / (filename_only + ".dds"))) {
-                        std::filesystem::remove(filepath);
+                        // If no corresponding source file exists for any valid extension, remove orphaned meta
+                        if (!fs::exists(expectedSource)) {
+                            std::cout << "[BATCHLOADER] Removing orphaned metafile: " << filepath << std::endl;
+                            fs::remove(filepath);
+                        }
                     }
                 }
             }
+
+            // Refresh list after cleanup
+            filepaths = GetAllFilepaths(directory);
 
             // Phase 2: Generate missing metafiles
-            // We can reuse the existing 'filepaths' list if it's updated, 
-            // or simply check if the metafile already exists during generation.
             for (const auto& filepath : filepaths) {
-                const auto& directory = filepath.parent_path();
-                const auto& filename_ext = filepath.filename().string();
-                const auto& filename_only = filepath.stem().string();
+                std::string ext = filepath.extension().string();
 
-                // Handle Meshes
-                if (IsFileExtension(filename_ext, ".obj") || IsFileExtension(filename_ext, ".fbx")) {
-                    auto meta_path = directory / (filename_only + ".obj.gbe");
-                    if (!std::filesystem::exists(meta_path)) {
-                        auto newdata = MeshImportData{ .path = filename_ext };
-                        Parser::ExportClass(newdata, meta_path);
-                    }
-                }
-                // Handle Textures
-                else if (IsFileExtension(filename_ext, ".png") || IsFileExtension(filename_ext, ".jpg") || IsFileExtension(filename_ext, ".dds")) {
-                    auto meta_path = directory / (filename_only + ".img.gbe");
-                    if (!std::filesystem::exists(meta_path)) {
-                        auto newdata = TextureImportData{ .path = filename_ext };
-                        Parser::ExportClass(newdata, meta_path);
+                for (const auto& cat : GetInstance().m_categories) {
+                    // Match source extension
+                    bool matchesExt = std::any_of(cat.sourceExtensions.begin(), cat.sourceExtensions.end(),
+                        [&ext](const std::string& validExt) {
+                            return EqualIgnoreCase(ext, validExt);
+                        });
+
+                    if (matchesExt) {
+                        fs::path metaPath = BuildMetaPath(filepath, cat);
+                        if (!fs::exists(metaPath) && cat.metaGenerator) {
+                            std::cout << "[BATCHLOADER] Generating metafile: " << metaPath << std::endl;
+                            cat.metaGenerator(filepath, metaPath);
+                        }
                     }
                 }
             }
         }
 
-        inline static void LoadAssetsFromDirectory(std::filesystem::path directory) {
+        // Phase 3: Load registered assets from directory
+        static void LoadAssetsFromDirectory(const fs::path& directory, std::function<bool()> isAsyncPending = nullptr) {
+            if (!fs::exists(directory) || !fs::is_directory(directory)) return;
+
+            auto filepaths = GetAllFilepaths(directory);
+            std::vector<std::pair<CategoryConfig, fs::path>> deferredLoads;
+
+            // Load primary assets first
+            for (const auto& filepath : filepaths) {
+                std::string filename = filepath.filename().string();
+
+                for (const auto& cat : GetInstance().m_categories) {
+                    if (EndsWith(filename, cat.metaSuffix)) {
+                        if (cat.isDeferred) {
+                            deferredLoads.push_back({ cat, filepath });
+                        }
+                        else {
+                            std::cout << "[BATCHLOADER] Loading " << cat.name << ": " << filepath << std::endl;
+                            if (cat.loader) cat.loader(filepath);
+                        }
+                    }
+                }
+            }
+
+            // Execute deferred assets (e.g., Materials)
+            for (const auto& [cat, filepath] : deferredLoads) {
+                std::cout << "[BATCHLOADER] Loading Deferred " << cat.name << ": " << filepath << std::endl;
+                if (cat.loader) cat.loader(filepath);
+            }
+
+            // Optional async synchronization loop
+            if (isAsyncPending) {
+                while (isAsyncPending()) {
+                    // Wait for async task execution pool completion
+                }
+            }
+        }
+
+        static void ReloadDirectory(const fs::path& directory)
+        {
+            GenerateMetafiles(directory);
+            LoadAssetsFromDirectory(directory);
+        }
+
+    private:
+        std::vector<CategoryConfig> m_categories;
+
+        static std::vector<fs::path> GetAllFilepaths(const fs::path& directory) {
             std::vector<fs::path> filepaths;
-            GetAllFilepaths(directory, filepaths);
-
-            std::vector<fs::path> filepaths_material;
-
-            for (size_t i = 0; i < filepaths.size(); i++)
-            {
-                const auto& filepath = filepaths[i];
-                const auto& filename = filepath.filename().string();
-
-                if (IsFileExtension(filename, ".obj.gbe")) {
-                    std::cout << "[BATCHLOADER] Loading Mesh: \"" << filepath << "\"" << std::endl;
-                    new Mesh(filepath);
-                }
-                else if (IsFileExtension(filename, ".shader.gbe")) {
-                    std::cout << "[BATCHLOADER] Loading Shader: \"" << filepath << "\"" << std::endl;
-                    new Shader(filepath);
-                }
-                else if (IsFileExtension(filename, ".mat.gbe")) {
-                    filepaths_material.push_back(filepath); // Defer material loading
-                }
-                else if (IsFileExtension(filename, ".img.gbe")) {
-                    std::cout << "[BATCHLOADER] Loading Texture: \"" << filepath << "\"" << std::endl;
-                    new Texture(filepath);
-                }
-                else if (IsFileExtension(filename, ".gbe")) {
-                    std::cout << "[BATCHLOADER] Unknown Asset Type in: \"" << filepath << "\"" << std::endl;
+            for (const auto& entry : fs::recursive_directory_iterator(directory)) {
+                if (entry.is_regular_file()) {
+                    filepaths.push_back(entry.path());
                 }
             }
+            return filepaths;
+        }
 
-            for (const auto& fp_mat : filepaths_material)
-            {
-                std::cout << "[BATCHLOADER] Loading Material: \"" << fp_mat << "\"" << std::endl;
-                new Material(fp_mat);
+        static fs::path BuildMetaPath(const fs::path& sourcePath, const CategoryConfig& cat) {
+            if (cat.namingStrategy == MetaNamingStrategy::AppendToFilename) {
+                return sourcePath.string() + cat.metaSuffix; // e.g., model.obj -> model.obj.gbe
             }
-
-            //Wait here for all async tasks to finish
-            bool batchload_done = false;
-            while (!batchload_done)
-            {
-                batchload_done = true;
-
-                for (const auto& lpair : gbe::allAssetLoaders)
-                {
-                    const auto& loader = lpair.second;
-
-                    if (loader->CheckAsynchrounousTasks() > 0) {
-                        batchload_done = false;
-                    }
-                }
+            else {
+                return sourcePath.parent_path() / (sourcePath.stem().string() + cat.metaSuffix); // e.g., model.obj -> model.gbe
             }
         }
 
-        static void ReloadDirectory(std::filesystem::path directory);
+        static fs::path GetSourcePathFromMeta(const fs::path& metaPath, const CategoryConfig& cat) {
+            std::string metaStr = metaPath.string();
+            if (cat.namingStrategy == MetaNamingStrategy::AppendToFilename) {
+                // Strips suffix directly (e.g., model.obj.gbe -> model.obj)
+                return metaStr.substr(0, metaStr.length() - cat.metaSuffix.length());
+            }
+            else {
+                // Tries to locate source file matching stem with registered category extensions
+                for (const auto& ext : cat.sourceExtensions) {
+                    fs::path testPath = metaPath.parent_path() / (metaPath.stem().string() + ext);
+                    if (fs::exists(testPath)) return testPath;
+                }
+                return {};
+            }
+        }
+
+        static bool EndsWith(const std::string& str, const std::string& suffix) {
+            return str.size() >= suffix.size() &&
+                str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+        }
+
+        static bool EqualIgnoreCase(std::string_view a, std::string_view b) {
+            return std::equal(a.begin(), a.end(), b.begin(), b.end(),
+                [](char c1, char c2) { return std::tolower(c1) == std::tolower(c2); });
+        }
     };
-}
+
+} // namespace gbe

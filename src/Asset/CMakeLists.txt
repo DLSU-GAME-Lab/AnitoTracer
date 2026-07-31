@@ -13,6 +13,7 @@ target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 target_link_libraries(${CUR_TARGET_NAME}
 	PRIVATE
 	anito::serialization
+	anito::rendering
 	gbe::tools
 )
 

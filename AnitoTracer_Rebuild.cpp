@@ -29,6 +29,7 @@
 #include "DiligentEngine/DiligentTools/Imgui/interface/ImGuiImplDiligent.hpp"
 #include "imgui.h"
 
+// SRC
 #include "src/UI/GUIManager.hpp"
 #include "src/Rendering/Shaders/ShaderManager.hpp"
 #include "src/Rendering/Pipelines/BasicPipeline.hpp"
@@ -38,6 +39,7 @@
 
 #include "src/Objects/HierarchyManager.hpp"
 #include "src/Objects/ObjectFactory.hpp"
+#include "src/Asset/AssetPipeline.hpp" //Needed for autoloading
 
 using namespace Diligent;
 
