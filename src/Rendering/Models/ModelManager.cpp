@@ -1,9 +1,8 @@
 #include "ModelManager.hpp"
 
-void ModelManager::Initialize(IRenderDevice* pDevice, const std::string& assetBasePath) {
+void ModelManager::Initialize(IRenderDevice* pDevice) {
     m_pDevice = pDevice;
-    m_AssetBasePath = assetBasePath;
-
+    
     LoadDefaultWhite();
 }
 
@@ -44,12 +43,11 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath) {
     loadInfo.Format = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
 
     std::filesystem::path modelFilePath(filepath);
-    std::string fullPath = modelFilePath.is_absolute() ? filepath : (m_AssetBasePath + filepath);
 
-    CreateTextureFromFile(fullPath.c_str(), loadInfo, m_pDevice, &pTexture);
+    CreateTextureFromFile(filepath.c_str(), loadInfo, m_pDevice, &pTexture);
 
     if (!pTexture) {
-        std::cerr << "Failed to load texture: " << fullPath << std::endl;
+        std::cerr << "Failed to load texture: " << filepath << std::endl;
         return nullptr;
     }
 
@@ -84,11 +82,10 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     }
 
     std::filesystem::path modelFilePath(filepath);
-    std::string fullPath = modelFilePath.is_absolute() ? filepath : (m_AssetBasePath + filepath);
 
     Assimp::Importer importer;
     // Optimize for Vulkan/Modern APIs: Triangulate, Gen Normals, Flip UVs (Diligent uses Top-Left UVs)
-    const aiScene* pScene = importer.ReadFile(fullPath,
+    const aiScene* pScene = importer.ReadFile(filepath,
         aiProcess_Triangulate | aiProcess_GenSmoothNormals |
         aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
 

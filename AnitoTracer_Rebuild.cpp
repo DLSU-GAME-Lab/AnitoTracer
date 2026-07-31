@@ -29,6 +29,7 @@
 #include "DiligentEngine/DiligentTools/Imgui/interface/ImGuiImplDiligent.hpp"
 #include "imgui.h"
 
+// SRC
 #include "src/UI/GUIManager.hpp"
 #include "src/Rendering/Shaders/ShaderManager.hpp"
 #include "src/Rendering/Pipelines/BasicPipeline.hpp"
@@ -38,6 +39,7 @@
 
 #include "src/Objects/HierarchyManager.hpp"
 #include "src/Objects/ObjectFactory.hpp"
+#include "src/Asset/AssetPipeline.hpp" //Needed for autoloading
 
 using namespace Diligent;
 
@@ -123,7 +125,8 @@ int main(int argc, char** argv)
     Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
 
     // IMPORTANT: Initialize ModelManager BEFORE loading any models
-    ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
+    // ===================== SRC MANAGERS INITIALIZING ============================//
+    ModelManager::GetInstance().Initialize(g_pDevice);
 
     GUIManager& imguiManager = GUIManager::GetInstance();
 
@@ -132,6 +135,11 @@ int main(int argc, char** argv)
     auto bLitPipeline = LitPipeline();
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
+    
+    AssetPipeline::LoadFolder("Assets");
+
+    // ===================== ACTUAL ENGINE START ============================//
+
     auto desuwa = objFactory.CreateRootObjectWithTransform("Desu wa");
 
     auto MainCam = objFactory.CreateRootCameraObject("Camera nana");

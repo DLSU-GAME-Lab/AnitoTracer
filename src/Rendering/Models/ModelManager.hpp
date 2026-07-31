@@ -1,6 +1,8 @@
 #pragma once
 #include "ModelStructs.hpp"
 
+#include "Asset/AssetLoading/AssetLoader.hpp"
+
 class ModelManager {
 public:
     static ModelManager& GetInstance() {
@@ -9,7 +11,7 @@ public:
     }
 
     // Must be called once before loading any models
-    void Initialize(IRenderDevice* pDevice, const std::string& assetBasePath = "Assets/");
+    void Initialize(IRenderDevice* pDevice);
 
     // Returns a pointer to the cached model, or loads it if not present
     Model* LoadModel(const std::string& filepath);
@@ -23,16 +25,15 @@ public:
 private:
     ModelManager() = default;
     ~ModelManager() { ClearCache(); }
-    ModelManager(const ModelManager&) = delete;
     ModelManager& operator=(const ModelManager&) = delete;
+    ModelManager(const ModelManager&) = delete;
 
     void LoadDefaultWhite();
 
     ITextureView* LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty);
 
     IRenderDevice* m_pDevice = nullptr;
-    std::string m_AssetBasePath;
-
+    
     std::unordered_map<std::string, std::unique_ptr<Model>> m_ModelCache;
     std::unordered_map<std::string, RefCntAutoPtr<ITextureView>> m_TextureCache;
 
