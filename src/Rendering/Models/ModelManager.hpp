@@ -23,8 +23,8 @@ public:
 private:
     ModelManager() = default;
     ~ModelManager() { ClearCache(); }
-    ModelManager(const ModelManager&) = delete;
     ModelManager& operator=(const ModelManager&) = delete;
+    ModelManager(const ModelManager&) = delete;
 
     void LoadDefaultWhite();
 
