@@ -1,7 +1,5 @@
 #pragma once
 
-#include "BaseAsset.hpp" // Expected to contain BaseImportData
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -11,6 +9,7 @@
 #include <type_traits>
 
 #include "../Organization/SingletonMacro.hpp"
+#include "../IAsset.hpp"
 
 namespace fs = std::filesystem;
 
@@ -41,7 +40,7 @@ namespace gbe {
         /**
          * @brief Registers a project asset category with strict inheritance validation on TMeta.
          *
-         * @tparam TMeta User-defined meta class strictly inheriting from BaseImportData.
+         * @tparam TMeta User-defined meta class strictly inheriting from IAsset.
          * @param categoryName Descriptive name (e.g., "Texture", "Mesh").
          * @param sourceExtensions List of supported extensions (e.g., {".png", ".jpg"}).
          * @param metaSuffix Meta extension (e.g., ".gbe" or ".meta").
@@ -60,9 +59,9 @@ namespace gbe {
             bool isDeferred = false,
             MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename)
         {
-            // Strict compile-time constraint: TMeta must inherit from BaseImportData
-            static_assert(std::is_base_of_v<BaseImportData, TMeta>,
-                "TMeta template argument must derive from gbe::BaseImportData");
+            // Strict compile-time constraint: TMeta must inherit from IAsset
+            static_assert(std::is_base_of_v<IAsset, TMeta>,
+                "TMeta template argument must derive from gbe::IAsset");
 
             CategoryConfig config;
             config.name = categoryName;
@@ -76,16 +75,18 @@ namespace gbe {
             config.metaGenerator = [metaInitializer, categoryName](const fs::path& sourcePath, const fs::path& metaPath) {
                 TMeta newdata{};
 
-                // Initialize default BaseImportData properties
+                // Initialize default IAsset properties
                 newdata.assetId = sourcePath.stem().string();
                 newdata.assetType = categoryName;
+                newdata.assetFilepath = sourcePath;
+                newdata.metaFilepath = metaPath;
 
                 if (metaInitializer) {
                     metaInitializer(newdata, sourcePath);
                 }
 
                 // Internal parser dependency call
-                Parser::ExportClass(newdata, metaPath);
+                //Parser::ExportClass(newdata, metaPath);
                 };
 
             GetInstance().m_categories.push_back(config);
@@ -95,11 +96,11 @@ namespace gbe {
             const std::vector<std::string>& sourceExtensions,
             const std::string& metaSuffix,
             std::function<void(const fs::path& metaPath)> loader,
-            std::function<void(BaseImportData& meta, const fs::path& sourcePath)> metaInitializer = nullptr,
+            std::function<void(IAsset& meta, const fs::path& sourcePath)> metaInitializer = nullptr,
             bool isDeferred = false,
             MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename)
         {
-            RegisterCategory<BaseImportData>(
+            RegisterCategory<IAsset>(
                 categoryName,
                 sourceExtensions,
                 metaSuffix,

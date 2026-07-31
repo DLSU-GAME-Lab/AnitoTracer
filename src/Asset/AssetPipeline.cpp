@@ -19,7 +19,7 @@ AssetPipeline::AssetPipeline() {
         [](const fs::path& path) {
             //Meta file preprocessing goes here, usually empty tho.
         },
-        [](gbe::BaseImportData& meta, const fs::path& src) { 
+        [](gbe::IAsset& meta, const fs::path& src) { 
             ModelManager::GetInstance().LoadModel(src.string()); //Connect asset system to asset loader
         },
         false,

@@ -4,12 +4,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include <string>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-#include <filesystem>
-
 // =========================================================================
 // GLAZE METADATA FOR GLM TYPES
 // Teaches Glaze how to serialize/deserialize GLM vectors, quaternions, & matrices
@@ -17,18 +11,18 @@
 namespace glz {
 
     // --- GLM Vectors (vec2, vec3, vec4) ---
-    template <typename T, glm::qualifier Q>
-    struct meta<glm::vec<2, T, Q>> {
-        using V = glm::vec<2, T, Q>;
+    template <>
+    struct meta<glm::vec2> {
+        using V = glm::vec2;
         static constexpr auto value = object(
             "x", &V::x,
             "y", &V::y
         );
     };
 
-    template <typename T, glm::qualifier Q>
-    struct meta<glm::vec<3, T, Q>> {
-        using V = glm::vec<3, T, Q>;
+    template <>
+    struct meta<glm::vec3> {
+        using V = glm::vec3;
         static constexpr auto value = object(
             "x", &V::x,
             "y", &V::y,

@@ -14,7 +14,7 @@
 #include "../Rendering/RenderData.hpp"
 #include "Components/Lights/DirectionLight.hpp"
 
-#include SERIALIZATION_INCLUDES
+#include ANITO_SERIALIZATION_INCLUDES
 #include "Initializer/ObjectInitializer.hpp" //Needed for object creation setup
 #include "Initializer/ComponentInitializer.hpp" //Needed for component creation setup
 

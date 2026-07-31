@@ -4,37 +4,34 @@
 #include <vector>
 #include <filesystem>
 
-#include "BaseImportData.hpp"
-
 #include "../Organization/DynamicEnum.hpp"
 
 namespace gbe {
 	struct AssetTypeTag {};
 	using AssetType = DynamicEnum<AssetTypeTag>;
 
-	class IAsset {
-	protected:
-		AssetType assetType;
+	/// <summary>
+	/// This class represents an actual file living in the disk.
+	/// </summary>
+	struct IAsset {
 		std::filesystem::path assetFilepath;
-		bool destroyQueued;
-		BaseImportData baseImportData;
-	public:
-		inline std::string Get_assetId() {
-			return this->baseImportData.assetId;
+		std::filesystem::path metaFilepath;
+		std::string assetType;
+		std::string assetId;
+
+		virtual ~IAsset() = default;
+
+		AssetType GetAssetType() {
+			return AssetType(assetType);
 		}
-		AssetType GetAssetType();
-		inline std::filesystem::path GetAssetFilepath(bool has_ext = true) {
-			if (has_ext)
-				return assetFilepath;
-			else {
-				auto p = assetFilepath;
+		inline std::filesystem::path GetAssetPathWithoutExt() {
+			auto p = assetFilepath;
 
-				while (p.has_extension()) {
-					p = p.stem();
-				}
-
-				return assetFilepath.parent_path() / p;
+			while (p.has_extension()) {
+				p = p.stem();
 			}
+
+			return assetFilepath.parent_path() / p;
 		}
 	};
 }

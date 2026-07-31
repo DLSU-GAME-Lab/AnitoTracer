@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AutoSerializer.hpp"
+#include "SerializedData.hpp"
 
 #include <list>
 #include <functional>

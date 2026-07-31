@@ -30,6 +30,8 @@
 #include "imgui.h"
 
 // SRC
+#include "src/ObjectSystems/Serialization/Meta/glm_meta.hpp" // Very important to include meta file first
+
 #include "src/UI/GUIManager.hpp"
 #include "src/Rendering/Shaders/ShaderManager.hpp"
 #include "src/Rendering/Pipelines/BasicPipeline.hpp"

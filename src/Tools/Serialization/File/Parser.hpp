@@ -38,8 +38,9 @@ namespace gbe {
 
 		template<class TExportData>
 		static std::string ExportClassStr(const TExportData& target) {
-			auto ec = glz::write_json(target);
-			return ec;
+			std::string out_string;
+			glz::write < glz::opts{ .error_on_unknown_keys = false } > (target, out_string);
+			return out_string;
 		}
 
 		template<class TImportData>
@@ -63,7 +64,7 @@ namespace gbe {
 			std::ofstream file(asset_path);
 
 			std::string out_string;
-			glz::write_json(target, out_string);
+			glz::write < glz::opts{ .error_on_unknown_keys = false } > (target, out_string);
 
 			file << out_string;
 
