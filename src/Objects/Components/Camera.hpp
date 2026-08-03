@@ -9,10 +9,12 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-class CameraComponent : public ComponentBase {
+#include "Organization/IInstanceManager.hpp"
+
+class CameraComponent : public ComponentBase, public gbe::IInstanceManager<CameraComponent> {
 public:
     // We require a Transform pointer to ensure the camera always knows where it is!
-    CameraComponent(Transform* transform, HierarchyObject* owner = nullptr);
+    CameraComponent(Transform* transform, gbe::IInstanceManager<HierarchyObject>::Ref owner = {});
 
     ~CameraComponent() override = default;
 
@@ -48,8 +50,8 @@ private:
 
     float m_FOV = 45.0f;  
     float m_Aspect = 16.0f / 9.0f;  
-    float m_NearZ = 0.1f;  
-    float m_FarZ = 1000.0f;  
+    float m_NearZ = 0.1f;
+    float m_FarZ = 1000.0f;
 
     glm::mat4 m_ViewMatrix = glm::mat4(1.0f);  
     glm::mat4 m_ProjMatrix = glm::mat4(1.0f);  

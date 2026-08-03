@@ -1,12 +1,12 @@
 #pragma once
 
 #include "ComponentBase.hpp"
-#include "../Models/ModelManager.hpp"
+#include "Models/ModelManager.hpp"
 
 class ModelComponent : public ComponentBase {
 public:
     // Initializes the component with an optional loaded model and owner
-    ModelComponent(Model* model = nullptr, HierarchyObject* owner = nullptr)
+    ModelComponent(Model* model = nullptr, gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
         : ComponentBase("ModelComponent", owner), m_pModel(model) {}
 
     ~ModelComponent() override = default;

@@ -30,8 +30,11 @@
 *.exe
 *.out
 *.app
+
+# Development/Cache Folders
 .vs
 AnitoTracerRebuild/out
 out
 thirdparty
 vcpkg
+DiligentEngine

@@ -5,7 +5,6 @@
 #include <memory>
 #include "Components/IComponentUI.hpp"
 #include "../../../Objects/Components/ComponentBase.hpp"
-#include "imgui.h"
 
 //This is to modularize component drawing within objects
 class InspectorRegistry {

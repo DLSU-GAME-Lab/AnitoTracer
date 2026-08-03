@@ -1,4 +1,12 @@
-set(Rendering_SRC
+#SETUP
+set(CUR_TARGET_SUBLIBNAME rendering)
+set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
+
+set(${CUR_TARGET_NAME}_src
+	Models/ModelStructs.hpp
+	Models/ModelManager.hpp
+	Models/ModelManager.cpp
+
 	RenderData.hpp
 	RenderData.cpp
 
@@ -21,21 +29,24 @@ set(Rendering_SRC
 	Pipelines/BasicLitPipeline.cpp
 	Pipelines/BasicLitPipeline.hpp
 )
+add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
+add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
+target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(Rendering STATIC ${Rendering_SRC})
-
-target_link_libraries(Rendering
-			PUBLIC
-			glm::glm
-			Diligent-Common
-			Diligent-GraphicsEngineVk-shared
+#PRIVATE
+target_link_libraries(${CUR_TARGET_NAME}
+	PUBLIC
+	glm::glm
+	Diligent-Common
+	Diligent-GraphicsEngineVk-shared
+	Diligent-TextureLoader
 )
 
-target_include_directories(Rendering
-PRIVATE
+target_include_directories(${CUR_TARGET_NAME}
+	PUBLIC
     ${diligentcore_SOURCE_DIR}
     ${diligenttools_SOURCE_DIR}
     ${diligentfx_SOURCE_DIR}
 )
 
-target_include_directories(Rendering PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR})
+#ADDITIONAL STUFF

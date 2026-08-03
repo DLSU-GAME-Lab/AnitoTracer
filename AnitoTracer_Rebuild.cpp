@@ -34,7 +34,7 @@
 #include "src/Rendering/Pipelines/BasicPipeline.hpp"
 #include "src/Rendering/Pipelines/TexturedPipeline.hpp"
 #include "src/Rendering/Pipelines/BasicLitPipeline.hpp"
-#include "src/Objects/Models/ModelManager.hpp"
+#include "src/Rendering/Models/ModelManager.hpp"
 
 #include "src/Objects/HierarchyManager.hpp"
 #include "src/Objects/ObjectFactory.hpp"
@@ -132,10 +132,10 @@ int main(int argc, char** argv)
     auto bLitPipeline = LitPipeline();
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
-    objFactory.CreateRootObjectWithTransform("Desu wa");
+    auto desuwa = objFactory.CreateRootObjectWithTransform("Desu wa");
 
     auto MainCam = objFactory.CreateRootCameraObject("Camera nana");
-    MainCam->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
+    MainCam.GetPtr()->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 
     objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
 

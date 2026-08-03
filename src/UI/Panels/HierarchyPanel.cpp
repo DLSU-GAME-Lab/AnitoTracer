@@ -26,7 +26,7 @@ namespace Diligent {
         ImGui::End();
     }
 
-    void HierarchyPanel::DrawNode(HierarchyObject* node)
+    void HierarchyPanel::DrawNode(HierarchyObject::Ref node)
     {
         if (!node) return;
 
@@ -36,7 +36,7 @@ namespace Diligent {
             ImGuiTreeNodeFlags_SpanAvailWidth;
 
         // If the object has no children, render it as a leaf node without an expand arrow
-        if (node->GetChildren().empty())
+        if (node.GetPtr()->GetChildren().empty())
         {
             flags |= ImGuiTreeNodeFlags_Leaf;
         }
@@ -48,7 +48,7 @@ namespace Diligent {
         }
 
         // Render the node using the object's memory address as a unique ID
-        bool nodeOpen = ImGui::TreeNodeEx((void*)node, flags, "%s", node->GetName().c_str());
+        bool nodeOpen = ImGui::TreeNodeEx((void*)node.GetID(), flags, "%s", node.GetPtr()->GetName().c_str());
 
         // Update the selected object when clicked
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
@@ -59,7 +59,7 @@ namespace Diligent {
         // If the tree node is expanded by the user, recursively draw its children
         if (nodeOpen)
         {
-            const auto& children = node->GetChildren();
+            const auto& children = node.GetPtr()->GetChildren();
             for (const auto& child : children)
             {
                 DrawNode(child.get());

@@ -4,19 +4,6 @@
 #include <vector>
 #include <string>
 
-#include "Graphics/GraphicsEngine/interface/RenderDevice.h"
-#include "Graphics/GraphicsEngine/interface/DeviceContext.h"
-#include "Graphics/GraphicsEngine/interface/SwapChain.h"
-#include "Platforms/interface/NativeWindow.h"
-
-#if PLATFORM_WIN32
-#include <windows.h>
-#include "Imgui/interface/ImGuiImplWin32.hpp"
-#endif
-
-#include "Imgui/interface/ImGuiDiligentRenderer.hpp"
-#include "Imgui/interface/ImGuiImplDiligent.hpp"
-
 #include "Panels/BasePanel.hpp" 
 #include "MenuBar.hpp" // Added include for our new class
 
@@ -28,6 +15,8 @@
 #include "Panels/InspectorPanel/Components/DirectionalLightUI.hpp"
 
 namespace Diligent {
+
+    class ImGuiImplDiligent;
 
     class GUIManager
     {

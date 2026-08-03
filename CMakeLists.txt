@@ -9,7 +9,7 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project ("AnitoTracer_Rebuild")
+project ("AnitoTracer_Rebuild" LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,31 +17,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(FETCHCONTENT_QUIET OFF)
 include(FetchContent)
 
-FetchContent_Declare(
-    DiligentCore
-    GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentCore.git
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentCore"
-    GIT_TAG 7cd667b06703516ac210779cd1919bd174afd0b9
-    GIT_SHALLOW ON
-)
-FetchContent_Declare(
-    DiligentTools
-    GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentTools.git
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentTools"
-    GIT_TAG a65fe94e0f12e680c81ea86fe2ebe0de6b867b4b
-    GIT_SHALLOW ON
-)
-FetchContent_Declare(
-    DiligentFX
-    GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentFX.git
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentFX"
-    GIT_TAG eb616a8e30efa5193baba71ff1edae85bc6230a1
-    GIT_SHALLOW ON
-)
-
-# FORCE DILIGENT ENGINE TO USE DYNAMIC CRT
-set(DILIGENT_MSVC_CRT_LINKAGE "Dynamic" CACHE STRING "Force Diligent to use dynamic CRT" FORCE)
-FetchContent_MakeAvailable(DiligentCore DiligentTools DiligentFX)
+#=================#DEPENDENCIES#=================#
+include(deps.cmake)
 
 if(MSVC)
     # Compiler flags for modern C++ and warnings
@@ -76,9 +53,15 @@ find_package(assimp CONFIG REQUIRED)
 
 add_compile_definitions(PLATFORM_WIN32=1)
 
-add_subdirectory(src/UI)
+set(anito_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE INTERNAL "Src directory of AnitoEngine" FORCE)
+
 add_subdirectory(src/Objects)
+add_subdirectory(src/ObjectSystems/Serialization)
+
+add_subdirectory(src/UI)
 add_subdirectory(src/Rendering)
+
+add_subdirectory(src/Tools)
 
 # Add source to this project's executable.
 add_executable (AnitoTracer_Rebuild WIN32 "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h")
@@ -109,9 +92,10 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 assimp::assimp
 				Diligent-GraphicsEngineVk-shared
 				Diligent-Imgui
-                UI
-                Objects
-                Rendering
+
+                $<LINK_LIBRARY:WHOLE_ARCHIVE,anito::objects>
+                anito::rendering
+                anito::ui
 )
 
 set(SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Shaders")
