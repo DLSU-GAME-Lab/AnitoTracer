@@ -240,7 +240,7 @@ void ModelManager::ClearCache() {
 }
 
 bool ModelManager::LoadAssetImpl(std::unique_ptr<AModel> fileAsset) {
-    auto backend_object = LoadModel(fileAsset.get()->assetFilepath.string());
+    auto backend_object = LoadModel(fileAsset.get()->GetPath().string());
 
     if (backend_object != nullptr)
         return true;

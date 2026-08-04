@@ -46,6 +46,10 @@ namespace gbe {
             m_id = it->second;
         }
 
+        explicit DynamicEnum() : DynamicEnum("") {
+
+        }
+
         // String representation recovery
         const std::string& str() const {
             return get_registry().id_to_string[m_id];

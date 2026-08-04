@@ -10,6 +10,7 @@
 
 #include "../Organization/SingletonMacro.hpp"
 #include "../IAsset.hpp"
+#include "AssetDatabase.hpp"
 
 namespace fs = std::filesystem;
 
@@ -18,13 +19,11 @@ namespace gbe {
     class BatchLoader {
         SINGLETON_MACRO_DEFAULT(BatchLoader);
     public:
-        // Configurable meta-naming strategy options
         enum class MetaNamingStrategy {
-            AppendToFilename,   // e.g., model.obj -> model.obj.gbe
-            ReplaceExtension    // e.g., model.obj -> model.gbe
+            AppendToFilename,   // model.obj -> model.obj.gbe
+            ReplaceExtension    // model.obj -> model.gbe
         };
 
-        // Category rule definition
         struct CategoryConfig {
             std::string name;
             std::vector<std::string> sourceExtensions;
@@ -32,65 +31,9 @@ namespace gbe {
             bool isDeferred = false;
             MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename;
 
-            // Callbacks for file operations
             std::function<void(const fs::path& sourcePath, const fs::path& metaPath)> metaGenerator;
             std::function<void(const fs::path& metaPath)> loader;
         };
-
-        /**
-         * @brief Registers a project asset category with strict inheritance validation on TMeta.
-         *
-         * @tparam TMeta User-defined meta class strictly inheriting from IAsset.
-         * @param categoryName Descriptive name (e.g., "Texture", "Mesh").
-         * @param sourceExtensions List of supported extensions (e.g., {".png", ".jpg"}).
-         * @param metaSuffix Meta extension (e.g., ".gbe" or ".meta").
-         * @param loader Callback function executing the asset loader.
-         * @param metaInitializer Optional lambda to initialize TMeta values before serialization.
-         * @param isDeferred If true, delays loading phase (useful for Materials/Shaders).
-         * @param namingStrategy Metafile naming scheme rule.
-         */
-        template <typename TMeta>
-        static void RegisterCategory(
-            const std::string& categoryName,
-            const std::vector<std::string>& sourceExtensions,
-            const std::string& metaSuffix,
-            std::function<void(const fs::path& metaPath)> loader,
-            std::function<void(TMeta& meta, const fs::path& sourcePath)> metaInitializer = nullptr,
-            bool isDeferred = false,
-            MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename)
-        {
-            // Strict compile-time constraint: TMeta must inherit from IAsset
-            static_assert(std::is_base_of_v<IAsset, TMeta>,
-                "TMeta template argument must derive from gbe::IAsset");
-
-            CategoryConfig config;
-            config.name = categoryName;
-            config.sourceExtensions = sourceExtensions;
-            config.metaSuffix = metaSuffix;
-            config.loader = loader;
-            config.isDeferred = isDeferred;
-            config.namingStrategy = namingStrategy;
-
-            // Generate metafile factory using the allowed Parser::ExportClass interface
-            config.metaGenerator = [metaInitializer, categoryName](const fs::path& sourcePath, const fs::path& metaPath) {
-                TMeta newdata{};
-
-                // Initialize default IAsset properties
-                newdata.assetId = sourcePath.stem().string();
-                newdata.assetType = categoryName;
-                newdata.assetFilepath = sourcePath;
-                newdata.metaFilepath = metaPath;
-
-                if (metaInitializer) {
-                    metaInitializer(newdata, sourcePath);
-                }
-
-                // Internal parser dependency call
-                //Parser::ExportClass(newdata, metaPath);
-                };
-
-            GetInstance().m_categories.push_back(config);
-        }
 
         static void RegisterCategoryDefault(const std::string& categoryName,
             const std::vector<std::string>& sourceExtensions,
@@ -105,13 +48,59 @@ namespace gbe {
                 sourceExtensions,
                 metaSuffix,
                 loader,
-                metaInitializer, 
-                isDeferred, 
+                metaInitializer,
+                isDeferred,
                 namingStrategy
             );
         }
 
-        // Phase 1 & 2: Cleanup orphaned metafiles and generate missing ones
+        template <typename TMeta>
+        static void RegisterCategory(
+            const std::string& categoryName,
+            const std::vector<std::string>& sourceExtensions,
+            const std::string& metaSuffix,
+            std::function<void(const fs::path& metaPath)> loader,
+            std::function<void(TMeta& meta, const fs::path& sourcePath)> metaInitializer = nullptr,
+            bool isDeferred = false,
+            MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename)
+        {
+            static_assert(std::is_base_of_v<IAsset, TMeta>, "TMeta template argument must derive from gbe::IAsset");
+
+            CategoryConfig config;
+            config.name = categoryName;
+            config.sourceExtensions = sourceExtensions;
+            config.metaSuffix = metaSuffix;
+            config.loader = loader;
+            config.isDeferred = isDeferred;
+            config.namingStrategy = namingStrategy;
+
+            config.metaGenerator = [metaInitializer, categoryName](const fs::path& sourcePath, const fs::path& metaPath) {
+                TMeta newdata{};
+
+                // Initial setup
+                newdata.SetPath(sourcePath);
+
+                // Check if metafile exists to parse existing GUID, or generate a fresh one
+                GUID assignedGuid = GUID::Generate();
+
+                // If parser exists: read requested GUID from meta file
+                // assignedGuid = Parser::ReadGUID(metaPath);
+
+                // Register with AssetDatabase (will automatically re-key if collision occurs)
+                assignedGuid = AssetDatabase::RegisterAsset(&newdata, assignedGuid);
+
+                if (metaInitializer) {
+                    metaInitializer(newdata, sourcePath);
+                }
+
+                // Save or overwrite meta file with resolved GUID
+                // Parser::ExportClass(newdata, metaPath);
+                };
+
+            GetInstance().m_categories.push_back(config);
+        }
+
+        // Clean orphaned metafiles and generate missing ones
         static void GenerateMetafiles(const fs::path& directory) {
             if (!fs::exists(directory) || !fs::is_directory(directory)) return;
 
@@ -122,8 +111,6 @@ namespace gbe {
                 for (const auto& cat : GetInstance().m_categories) {
                     if (EndsWith(filepath.string(), cat.metaSuffix)) {
                         fs::path expectedSource = GetSourcePathFromMeta(filepath, cat);
-
-                        // If no corresponding source file exists for any valid extension, remove orphaned meta
                         if (!fs::exists(expectedSource)) {
                             std::cout << "[BATCHLOADER] Removing orphaned metafile: " << filepath << std::endl;
                             fs::remove(filepath);
@@ -132,15 +119,12 @@ namespace gbe {
                 }
             }
 
-            // Refresh list after cleanup
+            // Phase 2: Generate missing metafiles / process GUIDs
             filepaths = GetAllFilepaths(directory);
-
-            // Phase 2: Generate missing metafiles
             for (const auto& filepath : filepaths) {
                 std::string ext = filepath.extension().string();
 
                 for (const auto& cat : GetInstance().m_categories) {
-                    // Match source extension
                     bool matchesExt = std::any_of(cat.sourceExtensions.begin(), cat.sourceExtensions.end(),
                         [&ext](const std::string& validExt) {
                             return EqualIgnoreCase(ext, validExt);
@@ -157,14 +141,13 @@ namespace gbe {
             }
         }
 
-        // Phase 3: Load registered assets from directory
+        // Phase 3: Load registered assets
         static void LoadAssetsFromDirectory(const fs::path& directory, std::function<bool()> isAsyncPending = nullptr) {
             if (!fs::exists(directory) || !fs::is_directory(directory)) return;
 
             auto filepaths = GetAllFilepaths(directory);
             std::vector<std::pair<CategoryConfig, fs::path>> deferredLoads;
 
-            // Load primary assets first
             for (const auto& filepath : filepaths) {
                 std::string filename = filepath.filename().string();
 
@@ -174,24 +157,18 @@ namespace gbe {
                             deferredLoads.push_back({ cat, filepath });
                         }
                         else {
-                            std::cout << "[BATCHLOADER] Loading " << cat.name << ": " << filepath << std::endl;
                             if (cat.loader) cat.loader(filepath);
                         }
                     }
                 }
             }
 
-            // Execute deferred assets (e.g., Materials)
             for (const auto& [cat, filepath] : deferredLoads) {
-                std::cout << "[BATCHLOADER] Loading Deferred " << cat.name << ": " << filepath << std::endl;
                 if (cat.loader) cat.loader(filepath);
             }
 
-            // Optional async synchronization loop
             if (isAsyncPending) {
-                while (isAsyncPending()) {
-                    // Wait for async task execution pool completion
-                }
+                while (isAsyncPending()) {}
             }
         }
 
@@ -216,21 +193,19 @@ namespace gbe {
 
         static fs::path BuildMetaPath(const fs::path& sourcePath, const CategoryConfig& cat) {
             if (cat.namingStrategy == MetaNamingStrategy::AppendToFilename) {
-                return sourcePath.string() + cat.metaSuffix; // e.g., model.obj -> model.obj.gbe
+                return sourcePath.string() + cat.metaSuffix;
             }
             else {
-                return sourcePath.parent_path() / (sourcePath.stem().string() + cat.metaSuffix); // e.g., model.obj -> model.gbe
+                return sourcePath.parent_path() / (sourcePath.stem().string() + cat.metaSuffix);
             }
         }
 
         static fs::path GetSourcePathFromMeta(const fs::path& metaPath, const CategoryConfig& cat) {
             std::string metaStr = metaPath.string();
             if (cat.namingStrategy == MetaNamingStrategy::AppendToFilename) {
-                // Strips suffix directly (e.g., model.obj.gbe -> model.obj)
                 return metaStr.substr(0, metaStr.length() - cat.metaSuffix.length());
             }
             else {
-                // Tries to locate source file matching stem with registered category extensions
                 for (const auto& ext : cat.sourceExtensions) {
                     fs::path testPath = metaPath.parent_path() / (metaPath.stem().string() + ext);
                     if (fs::exists(testPath)) return testPath;

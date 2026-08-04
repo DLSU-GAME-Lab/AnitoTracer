@@ -1,49 +1,20 @@
-#include "AssetLoader.h"
-#include "../BaseAsset.h"
+#include "AssetLoader.hpp"
 
-std::unordered_map<gbe::AssetType, gbe::IAssetCollection*> gbe::allAssetLoaders;
+namespace gbe {
 
-gbe::IAsset* gbe::GetBaseData(std::filesystem::path path) {
-	for (const auto& lpair : allAssetLoaders)
-	{
-		const auto& assetloader = lpair.second;
-		auto assetdata = assetloader->FindAssetByPath(path);
+    std::unordered_map<AssetType, IAssetCollection*> allAssetLoaders;
 
-		if (assetdata == nullptr)
-			continue;
+    IAsset* GetBaseData(const GUID& guid) {
+        return AssetDatabase::GetAssetByGUID(guid);
+    }
 
-		return assetdata;
-	}
+    IAsset* GetBaseDataByPath(const std::filesystem::path& path) {
+        return AssetDatabase::GetAssetByPath(path);
+    }
 
-	return nullptr;
-}
+    AssetType GetAssetType(const GUID& guid) {
+        IAsset* asset = GetBaseData(guid);
+        return asset ? asset->GetAssetType() : AssetType("");
+    }
 
-gbe::AssetType gbe::GetAssetType(std::filesystem::path path) {
-	for (const auto& lpair : allAssetLoaders)
-	{
-		const auto& assetloader = lpair.second;
-		auto assetdata = assetloader->FindAssetByPath(path);
-
-		if (assetdata == nullptr)
-			continue;
-
-		return assetdata->GetAssetType();
-	}
-
-	return AssetType("");
-}
-
-std::string gbe::GetAssetId(std::filesystem::path path) {
-	for (const auto& lpair : allAssetLoaders)
-	{
-		const auto& assetloader = lpair.second;
-		auto assetdata = assetloader->FindAssetByPath(path);
-
-		if (assetdata == nullptr)
-			continue;
-
-		return assetdata->Get_assetId();
-	}
-
-	return "";
-}
+} // namespace gbe
