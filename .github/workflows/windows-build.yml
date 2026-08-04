@@ -1,0 +1,42 @@
+name: Windows Build
+
+on:
+  push:
+    branches: [ "rebuild/dev" ]
+  pull_request:
+    branches: [ "rebuild/dev" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup vcpkg (setup.bat)
+        shell: cmd
+        run: call setup.bat < nul
+
+      - name: Install Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-query-version: latest
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Setup MSVC developer command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure CMake (x64-release preset)
+        shell: pwsh
+        run: cmake --preset x64-release
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build out/build/x64-release --config Release
