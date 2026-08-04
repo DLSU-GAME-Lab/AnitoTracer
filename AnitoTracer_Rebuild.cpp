@@ -30,6 +30,8 @@
 #include "imgui.h"
 
 // SRC
+#include "src/ObjectSystems/Serialization/Meta/glm_meta.hpp" // Very important to include meta file first
+
 #include "src/UI/GUIManager.hpp"
 #include "src/Rendering/Shaders/ShaderManager.hpp"
 #include "src/Rendering/Pipelines/BasicPipeline.hpp"
@@ -125,7 +127,8 @@ int main(int argc, char** argv)
     Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
 
     // IMPORTANT: Initialize ModelManager BEFORE loading any models
-    ModelManager::GetInstance().Initialize(g_pDevice, "Assets/");
+    // ===================== SRC MANAGERS INITIALIZING ============================//
+    ModelManager::GetInstance().Initialize(g_pDevice);
 
     GUIManager& imguiManager = GUIManager::GetInstance();
 
@@ -134,6 +137,11 @@ int main(int argc, char** argv)
     auto bLitPipeline = LitPipeline();
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
+    
+    AssetPipeline::LoadFolder("Assets");
+
+    // ===================== ACTUAL ENGINE START ============================//
+
     auto desuwa = objFactory.CreateRootObjectWithTransform("Desu wa");
 
     auto MainCam = objFactory.CreateRootCameraObject("Camera nana");

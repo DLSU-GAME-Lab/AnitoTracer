@@ -1,11 +1,12 @@
 #pragma once
 
+#include ANITO_SERIALIZATION_INCLUDES
+
 #include <string>
 #include <iostream>
 
 #include "Organization/IInstanceManager.hpp"
 
-#include SERIALIZATION_INCLUDES
 
 // Forward declaration to avoid circular dependency
 class HierarchyObject;

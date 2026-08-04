@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Types/Model.h"
+
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -50,7 +52,7 @@ struct PBRMaterial {
 };
 
 // Holds the loaded GPU resources for a complete model
-struct Model {
+struct Model : public AModel {
     RefCntAutoPtr<IBuffer> pVertexBuffer;
     RefCntAutoPtr<IBuffer> pIndexBuffer;
 
@@ -65,4 +67,6 @@ struct Model {
 
     //EZ flag
     bool HasPBRProperties = false;
+
+    virtual ~Model() = default;
 };

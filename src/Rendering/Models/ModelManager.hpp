@@ -1,7 +1,11 @@
 #pragma once
 #include "ModelStructs.hpp"
 
-class ModelManager {
+#include "AssetLoading/AssetLoader.hpp"
+
+#include "Types/Model.h"
+
+class ModelManager : gbe::AssetLoader<AModel> {
 public:
     static ModelManager& GetInstance() {
         static ModelManager instance;
@@ -9,7 +13,7 @@ public:
     }
 
     // Must be called once before loading any models
-    void Initialize(IRenderDevice* pDevice, const std::string& assetBasePath = "Assets/");
+    void Initialize(IRenderDevice* pDevice);
 
     // Returns a pointer to the cached model, or loads it if not present
     Model* LoadModel(const std::string& filepath);
@@ -31,11 +35,13 @@ private:
     ITextureView* LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty);
 
     IRenderDevice* m_pDevice = nullptr;
-    std::string m_AssetBasePath;
-
+    
     std::unordered_map<std::string, std::unique_ptr<Model>> m_ModelCache;
     std::unordered_map<std::string, RefCntAutoPtr<ITextureView>> m_TextureCache;
 
     //Default white tex
     RefCntAutoPtr<ITextureView> m_pDefaultTextureView;
+
+    //IMPLEMENTED REQUIRED ASSET MANAGER RESPONSIBILITIES
+    virtual bool LoadAssetImpl(std::unique_ptr<AModel> fileAsset);
 };

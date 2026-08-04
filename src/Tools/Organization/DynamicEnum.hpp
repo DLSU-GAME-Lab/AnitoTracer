@@ -75,13 +75,25 @@ namespace gbe {
                 DynamicEnum::register_value("");
             }
         };
+        inline static Registry instance;
 
         // Static registry isolated per unique Tag
         static Registry& get_registry() {
-            static Registry instance;
             return instance;
         }
 
         size_t m_id;
+    };
+}
+
+#include <functional> // required for std::hash
+
+namespace std {
+    template <typename Tag>
+    struct hash<gbe::DynamicEnum<Tag>> {
+        std::size_t operator()(const gbe::DynamicEnum<Tag>& e) const noexcept {
+            // e.id() returns a unique size_t for each registered string in the Tag registry
+            return std::hash<std::size_t>{}(e.id());
+        }
     };
 }

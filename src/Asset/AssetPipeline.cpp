@@ -1,9 +1,10 @@
 #include "AssetPipeline.hpp"
+#include "AssetPipeline.hpp"
 
 #define ASSETTYPE_MODEL "MODEL"
 #define ASSETTYPE_TEXTURE "TEXTURE"
 
-#include "AssetLoading/BatchLoader.h"
+#include "AssetLoading/BatchLoader.hpp"
 
 #include "Models/ModelManager.hpp"
 
@@ -12,22 +13,22 @@ AssetPipeline::AssetPipeline() {
 	gbe::AssetType::register_value(ASSETTYPE_TEXTURE);
 
     gbe::BatchLoader::RegisterCategoryDefault(
-        "Mesh",
+        ASSETTYPE_MODEL,
         { ".obj", ".fbx" },
-        ".gbe",
+        ".ani",
         [](const fs::path& path) {
-            ModelManager::GetInstance().LoadModel(path.string());
+            //Meta file preprocessing goes here, usually empty tho.
         },
-        [](gbe::BaseImportData& meta, const fs::path& src) { 
-            meta.assetId = src.filename().string();
-            meta.assetType = ASSETTYPE_MODEL;
+        [](gbe::IAsset& meta, const fs::path& src) { 
+            ModelManager::GetInstance().LoadModel(src.string()); //Connect asset system to asset loader
         },
         false,
         gbe::BatchLoader::MetaNamingStrategy::AppendToFilename
     );
 }
 
-void AssetPipeline::LoadAssetsFolder()
+void AssetPipeline::LoadFolder(std::filesystem::path folderpath)
 {
-    gbe::BatchLoader::ReloadDirectory("Assets/"); // Default Assets Auto loading
+    GetInstance();
+    gbe::BatchLoader::ReloadDirectory(folderpath);
 }
