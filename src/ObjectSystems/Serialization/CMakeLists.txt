@@ -5,6 +5,7 @@ set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
 set(${CUR_TARGET_NAME}_src
 	Initializer/ObjectInitializer.hpp
 	Initializer/ComponentInitializer.hpp
+	Initializer/ComponentInitializer.cpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
