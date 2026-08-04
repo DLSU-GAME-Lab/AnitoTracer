@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <iostream>
+#include <variant>
 
 // Ensure Unicode Windows API
 #define UNICODE
@@ -33,12 +34,14 @@
 #include "src/Rendering/Shaders/ShaderManager.hpp"
 #include "src/Rendering/Pipelines/BasicPipeline.hpp"
 #include "src/Rendering/Pipelines/TexturedPipeline.hpp"
+#include "src/Rendering/Pipelines/HybridPipeline.hpp"
 #include "src/Rendering/Pipelines/BasicLitPipeline.hpp"
 #include "src/Rendering/Models/ModelManager.hpp"
 
 #include "src/Objects/HierarchyManager.hpp"
 #include "src/Objects/ObjectFactory.hpp"
 #include "src/UserSettings.hpp"
+#include "src/UI/ObjectPicker.hpp"
 
 using namespace Diligent;
 
@@ -120,15 +123,9 @@ void UpdateCameraControls(HierarchyObject::Ref mainCam)
         // ---------------------------------------------------------
         // CALCULATE LOCAL DIRECTIONAL VECTORS
         // ---------------------------------------------------------
-        // Convert degrees to radians for GLM quaternion construction
         glm::vec3 rotRad = glm::radians(rot);
-
-        // Construct orientation quaternion (expects Pitch, Yaw, Roll order)
         glm::quat orientation = glm::quat(rotRad);
 
-        // Calculate local axes based on the current rotation
-        // Note: We use (0,0,1) for Forward based on the previous world-space +Z movement mapping.
-        // If your Vulkan projection uses -Z as forward, change this to (0,0,-1).
         glm::vec3 forward = orientation * glm::vec3(0.0f, 0.0f, 1.0f);
         glm::vec3 right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
         glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
@@ -140,8 +137,8 @@ void UpdateCameraControls(HierarchyObject::Ref mainCam)
         if (ImGui::IsKeyDown(ImGuiKey_S)) pos -= forward * moveSpeed;
         if (ImGui::IsKeyDown(ImGuiKey_A)) pos -= right * moveSpeed;
         if (ImGui::IsKeyDown(ImGuiKey_D)) pos += right * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_Q)) pos -= up * moveSpeed; // Descend locally
-        if (ImGui::IsKeyDown(ImGuiKey_E)) pos += up * moveSpeed; // Ascend locally
+        if (ImGui::IsKeyDown(ImGuiKey_Q)) pos -= up * moveSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_E)) pos += up * moveSpeed;
 
         // ---------------------------------------------------------
         // IJKL - Rotation (Pitch and Yaw)
@@ -150,10 +147,6 @@ void UpdateCameraControls(HierarchyObject::Ref mainCam)
         if (ImGui::IsKeyDown(ImGuiKey_K)) rot.x += rotSpeed;
         if (ImGui::IsKeyDown(ImGuiKey_J)) rot.y -= rotSpeed;
         if (ImGui::IsKeyDown(ImGuiKey_L)) rot.y += rotSpeed;
-
-        // Optional: True airplane roll (Bank left/right) could be mapped to U and O!
-        // if (ImGui::IsKeyDown(ImGuiKey_U)) rot.z += rotSpeed;
-        // if (ImGui::IsKeyDown(ImGuiKey_O)) rot.z -= rotSpeed;
 
         // Apply newly calculated state
         camTransform->SetPosition(pos);
@@ -201,23 +194,39 @@ int main(int argc, char** argv)
 #error Platform window creation logic must be declared for non-Windows builds.
 #endif
 
-    IEngineFactoryVk* pFactoryVk = Diligent::LoadAndGetEngineFactoryVk(); 
+    IEngineFactoryVk* pFactoryVk = Diligent::LoadAndGetEngineFactoryVk();
 
     EngineVkCreateInfo engineCI;
 
-    engineCI.Features.RayTracing = Diligent::DEVICE_FEATURE_STATE_ENABLED;
+    // Request Ray Tracing as optional so device creation succeeds on unsupported hardware
+    engineCI.Features.RayTracing = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
 
     SwapChainDesc swapChainDesc;
     swapChainDesc.Width = windowWidth;
     swapChainDesc.Height = windowHeight;
 
-    pFactoryVk->CreateDeviceAndContextsVk(engineCI, &g_pDevice, &g_pImmediateContext); 
+    pFactoryVk->CreateDeviceAndContextsVk(engineCI, &g_pDevice, &g_pImmediateContext);
     pFactoryVk->CreateSwapChainVk(g_pDevice, g_pImmediateContext, swapChainDesc, g_NativeWindow, &g_pSwapChain);
+
+    // Query hardware Ray Tracing support from the created device
+    bool bSupportsRayTracing = (g_pDevice->GetDeviceInfo().Features.RayTracing == Diligent::DEVICE_FEATURE_STATE_ENABLED);
+
+    // Dynamic container holding either HybridPipeline (Ray Traced) or BasicLitPipeline (Fallback)
+    std::variant<HybridPipeline, BasicLitPipeline> bLitPipeline;
+    if (bSupportsRayTracing)
+    {
+        bLitPipeline.emplace<HybridPipeline>();
+        std::cout << "[Info] Hardware Ray Tracing detected. Using HybridPipeline." << std::endl;
+    }
+    else
+    {
+        bLitPipeline.emplace<BasicLitPipeline>();
+        std::cout << "[Warn] Hardware Ray Tracing not available. Falling back to BasicLitPipeline." << std::endl;
+    }
 
     auto CreateMSAABuffers = [&]() {
         const auto& SCDesc = g_pSwapChain->GetDesc();
 
-        // Dynamically set sample count based on user settings
         Uint8 sampleCount = UserSettings::GetInstance().GetEnableMSAA() ? 4 : 1;
 
         TextureDesc ColorDesc;
@@ -227,7 +236,7 @@ int main(int argc, char** argv)
         ColorDesc.Height = SCDesc.Height;
         ColorDesc.BindFlags = BIND_RENDER_TARGET;
         ColorDesc.Format = SCDesc.ColorBufferFormat;
-        ColorDesc.SampleCount = sampleCount; // Must match the PSO!
+        ColorDesc.SampleCount = sampleCount;
 
         g_pMSAATarget.Release();
         g_pDevice->CreateTexture(ColorDesc, nullptr, &g_pMSAATarget);
@@ -241,34 +250,18 @@ int main(int argc, char** argv)
         g_pMSAADepth.Release();
         g_pDevice->CreateTexture(DepthDesc, nullptr, &g_pMSAADepth);
         g_pMSAADSV = g_pMSAADepth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
-    };
+        };
 
-    // Initialize them for the first time
     CreateMSAABuffers();
 
-    // Create the triangle objects after initialization
-
     Diligent::ShaderManager::GetInstance().Initialize(g_pDevice, "Shaders");
-
-    // IMPORTANT: Initialize ModelManager BEFORE loading any models
     ModelManager::GetInstance().Initialize(g_pDevice, g_pImmediateContext, "Assets/");
 
     GUIManager& imguiManager = GUIManager::GetInstance();
-
-    auto bPipeline = BasicPipeline();
-    auto tPipeline = TexturedPipeline();
-    auto bLitPipeline = LitPipeline();
-
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
-    //auto desuwa = objFactory.CreateRootObjectWithTransform("Desu wa");
 
     auto MainCam = objFactory.CreateRootCameraObject("Main Camera");
     MainCam.GetPtr()->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
-
-    //objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");
-    //objFactory.CreateModelObject("SP", "Sponza/sponza.obj");
-    //objFactory.CreateModelObject("Bol", "Primitives/sphere.obj");
-    //objFactory.CreateSpherePrimitive("Boll");
 
     while (g_AppRunning)
     {
@@ -280,56 +273,51 @@ int main(int argc, char** argv)
             DispatchMessage(&msg);
         }
 #endif
-        if (!g_AppRunning) break; 
+        if (!g_AppRunning) break;
 
-        const auto& SCDesc = g_pSwapChain->GetDesc(); 
+        const auto& SCDesc = g_pSwapChain->GetDesc();
 
-        // Initialize ImGui renderer on first valid frame
         if (!imguiManager.IsInitialized() && SCDesc.Width > 0 && SCDesc.Height > 0)
         {
             imguiManager.Initialize(g_pDevice, SCDesc, g_NativeWindow);
 
-            //bPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
-            //tPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
-            bLitPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
+            std::visit([&](auto& pipeline) {
+                pipeline.InitializePipeline(g_pDevice, g_pSwapChain);
+                }, bLitPipeline);
         }
 
-        // Skip frame if renderer not ready or swapchain invalid
         if (!imguiManager.IsInitialized() || !(SCDesc.Width > 0 && SCDesc.Height > 0))
         {
             continue;
         }
 
-        auto transform = SCDesc.PreTransform; 
+        auto transform = SCDesc.PreTransform;
         if (transform == SURFACE_TRANSFORM_OPTIMAL)
-            transform = SURFACE_TRANSFORM_IDENTITY; 
+            transform = SURFACE_TRANSFORM_IDENTITY;
 
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height));
 
-        // Start ImGui frame
         imguiManager.NewFrame(SCDesc.Width, SCDesc.Height, transform);
 
         UpdateCameraControls(MainCam);
 
-        // --- Render ImGui UI Elements ---
         imguiManager.DrawUI(g_AppRunning);
 
         bool isMSAAEnabled = UserSettings::GetInstance().GetEnableMSAA();
         static bool s_lastMSAAState = isMSAAEnabled;
 
-        // Resize MSAA buffers dynamically if the window size changed OR MSAA toggled
         if (g_pMSAATarget->GetDesc().Width != SCDesc.Width ||
             g_pMSAATarget->GetDesc().Height != SCDesc.Height ||
             s_lastMSAAState != isMSAAEnabled)
         {
             CreateMSAABuffers();
 
-            // Re-initialize the pipeline when the toggle is changed so the PSO 
-            // complies with the new sample count (1x vs 4x).
             if (s_lastMSAAState != isMSAAEnabled)
             {
-                bLitPipeline.InitializePipeline(g_pDevice, g_pSwapChain);
+                std::visit([&](auto& pipeline) {
+                    pipeline.InitializePipeline(g_pDevice, g_pSwapChain);
+                    }, bLitPipeline);
                 s_lastMSAAState = isMSAAEnabled;
             }
         }
@@ -354,14 +342,6 @@ int main(int argc, char** argv)
         g_pImmediateContext->ClearRenderTarget(pActiveRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         g_pImmediateContext->ClearDepthStencil(pActiveDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        // Set up target attachments and clear color
-        //auto* pRTV = g_pSwapChain->GetCurrentBackBufferRTV();
-        //auto* pDSV = g_pSwapChain->GetDepthBufferDSV(); 
-        //g_pImmediateContext->SetRenderTargets(1, &pRTV, pDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        //g_pImmediateContext->ClearRenderTarget(pRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
-        //g_pImmediateContext->ClearDepthStencil(pDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION); 
- 
         // ==========================================
         // --- RENDER (BEFORE IMGUI)
         // ==========================================
@@ -372,10 +352,12 @@ int main(int argc, char** argv)
         HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
         HierarchyManager::GetInstance().GatherLightData(renderData.Lights);
 
-        bLitPipeline.StartFrameRender(g_pImmediateContext, renderData);
-        bLitPipeline.UpdateLights(g_pImmediateContext, renderData.Lights);
-        bLitPipeline.UpdateShadowSettings(g_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
-        bLitPipeline.RenderModels(g_pImmediateContext, renderData);
+        std::visit([&](auto& pipeline) {
+            pipeline.StartFrameRender(g_pImmediateContext, renderData);
+            pipeline.UpdateLights(g_pImmediateContext, renderData.Lights);
+            pipeline.UpdateShadowSettings(g_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
+            pipeline.RenderModels(g_pImmediateContext, renderData);
+            }, bLitPipeline);
 
         // ==========================================
         // --- RESOLVE MSAA AND RENDER IMGUI
@@ -386,7 +368,6 @@ int main(int argc, char** argv)
 
         if (isMSAAEnabled)
         {
-            // Resolve the multi-sampled texture into the swap chain back buffer
             ResolveTextureSubresourceAttribs ResolveAttribs;
             ResolveAttribs.SrcTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
             ResolveAttribs.DstTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
@@ -400,6 +381,17 @@ int main(int argc, char** argv)
 
         g_pImmediateContext->SetRenderTargets(1, &pBackBufferRTV, pDefaultDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
+        uint32_t pickedID = ObjectPicker::ProcessObjectPicking(renderData, SCDesc.Width, SCDesc.Height);
+
+        if (pickedID != 0) {
+            HierarchyObject* selectedObj = HierarchyObject::getById(pickedID);
+
+            if (selectedObj) {
+                std::cout << "Clicked on Model owned by: " << selectedObj->GetName() << std::endl;
+                GUIManager::GetInstance().SetSelectedObject(selectedObj);
+            }
+        }
+
         // ==========================================
         // Render ImGui over the Render
         imguiManager.Render(g_pImmediateContext);
@@ -411,12 +403,11 @@ int main(int argc, char** argv)
     if (g_pDevice) g_pDevice->IdleGPU();
 
     Diligent::ShaderManager::GetInstance().Shutdown();
-    // Clean up ImGui through the Singleton
     imguiManager.Shutdown();
 
-    g_pSwapChain.Release(); 
-    g_pImmediateContext.Release(); 
-    g_pDevice.Release(); 
+    g_pSwapChain.Release();
+    g_pImmediateContext.Release();
+    g_pDevice.Release();
 
     return 0;
 }

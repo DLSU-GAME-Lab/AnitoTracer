@@ -16,6 +16,7 @@ namespace Diligent {
     struct ModelRenderInstance {
         Model* ModelData = nullptr;
         glm::mat4 WorldTransform{ 1.0f };
+        uint64_t OwnerID = 0;
     };
 
     class RenderData {

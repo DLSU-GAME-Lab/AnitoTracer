@@ -47,6 +47,9 @@ namespace Diligent {
 
         bool IsInitialized() const { return m_pImGuiRenderer != nullptr; }
 
+        //Bridge function to set the selected object
+        void SetSelectedObject(HierarchyObject::Ref obj);
+
     private:
         GUIManager() = default;
         ~GUIManager() = default;
@@ -55,6 +58,9 @@ namespace Diligent {
         GUIManager& operator=(const GUIManager&) = delete;
 
         std::unique_ptr<ImGuiImplDiligent> m_pImGuiRenderer;
+
+        //Cache ref for laters
+        HierarchyPanel* m_pHierarchyPanel = nullptr;
 
         // Manage all UI windows dynamically
         std::vector<std::unique_ptr<BasePanel>> m_Panels;

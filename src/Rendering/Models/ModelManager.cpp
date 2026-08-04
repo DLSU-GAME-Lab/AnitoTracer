@@ -184,6 +184,15 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
         for (unsigned int j = 0; j < mesh->mNumVertices; j++) {
             Vertex v;
             v.pos = float3(mesh->mVertices[j].x, mesh->mVertices[j].y, mesh->mVertices[j].z);
+
+            pModel->AABBMin.x = std::min(pModel->AABBMin.x, v.pos.x);
+            pModel->AABBMin.y = std::min(pModel->AABBMin.y, v.pos.y);
+            pModel->AABBMin.z = std::min(pModel->AABBMin.z, v.pos.z);
+
+            pModel->AABBMax.x = std::max(pModel->AABBMax.x, v.pos.x);
+            pModel->AABBMax.y = std::max(pModel->AABBMax.y, v.pos.y);
+            pModel->AABBMax.z = std::max(pModel->AABBMax.z, v.pos.z);
+
             if (mesh->HasNormals()) {
                 v.normal = float3(mesh->mNormals[j].x, mesh->mNormals[j].y, mesh->mNormals[j].z);
             }

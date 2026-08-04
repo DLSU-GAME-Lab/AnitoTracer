@@ -4,7 +4,8 @@ HierarchyObject::Ref HierarchyManager::AddRootObject(std::unique_ptr<HierarchyOb
     if (!rootObj) return nullptr;
 
     m_rootNodes.push_back(std::move(rootObj));
-    return m_rootNodes.back().get();
+
+    return  m_rootNodes.back().get();
 }
 
 std::unique_ptr<HierarchyObject> HierarchyManager::RemoveRootObject(HierarchyObject::Ref rootToRemove) {
@@ -63,7 +64,7 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
     if (ModelComponent* modelComp = obj.GetPtr()->GetComponent<ModelComponent>()) {
         // Retrieve the underlying Model struct pointer
         if (Model* pModel = modelComp->GetModel()) {
-            outModels.push_back({ pModel, currentWorldMatrix });
+            outModels.push_back({ pModel, currentWorldMatrix, obj.GetID() });
         }
     }
 

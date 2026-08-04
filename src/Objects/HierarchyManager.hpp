@@ -70,6 +70,7 @@ private:
 
     std::vector<std::unique_ptr<HierarchyObject>> m_rootNodes;
     GBE_SERIALIZE_FIELD(m_rootNodes);
+
 public:
     
 };

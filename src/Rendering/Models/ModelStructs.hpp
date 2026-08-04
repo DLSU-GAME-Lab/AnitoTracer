@@ -19,6 +19,8 @@
 #include <iostream>
 #include <filesystem> // Add this at the top of your cpp file
 
+#include <glm/glm.hpp>
+
 using namespace Diligent;
 
 // Standard vertex structure
@@ -68,4 +70,8 @@ struct Model {
 
     //EZ flag
     bool HasPBRProperties = false;
+
+    //For local raytrace obj picking
+    glm::vec3 AABBMin = glm::vec3(std::numeric_limits<float>::max());
+    glm::vec3 AABBMax = glm::vec3(std::numeric_limits<float>::lowest());
 };
