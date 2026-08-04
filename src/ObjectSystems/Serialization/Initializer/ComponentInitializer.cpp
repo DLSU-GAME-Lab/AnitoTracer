@@ -1,1 +1,1 @@
-#include "ComponentInitializer.h"
+#include "ComponentInitializer.hpp"
