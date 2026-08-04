@@ -65,9 +65,9 @@ HierarchyObject::Ref ObjectFactory::CreateDirectionalLightObject(const std::stri
 
     return newObject;
 }
-HierarchyObject* ObjectFactory::CreatePointLightObject(const std::string& name) {
+HierarchyObject::Ref ObjectFactory::CreatePointLightObject(const std::string& name) {
     // Leverage the existing method to create the root object and attach the Transform component
-    HierarchyObject* newObject = CreateRootObjectWithTransform(name);
+    HierarchyObject::Ref newObject = CreateRootObjectWithTransform(name);
 
     // Instantiate the DirectionalLight component, passing the owner object
     auto _light = std::make_unique<PointLight>(newObject);
@@ -78,10 +78,10 @@ HierarchyObject* ObjectFactory::CreatePointLightObject(const std::string& name) 
     return newObject;
 }
 
-HierarchyObject* ObjectFactory::CreateSpherePrimitive(const std::string& name) {
+HierarchyObject::Ref ObjectFactory::CreateSpherePrimitive(const std::string& name) {
     return CreateModelObject(name, "Primitives/sphere.obj");
 }
 
-HierarchyObject* ObjectFactory::CreateCubePrimitive(const std::string& name) {
+HierarchyObject::Ref ObjectFactory::CreateCubePrimitive(const std::string& name) {
     return CreateModelObject(name, "Primitives/cube.obj");
 }

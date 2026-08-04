@@ -86,7 +86,7 @@ LRESULT CALLBACK EngineWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 }
 #endif
 
-void UpdateCameraControls(HierarchyObject* mainCam)
+void UpdateCameraControls(HierarchyObject::Ref mainCam)
 {
     ImGuiIO& io = ImGui::GetIO();
 
@@ -111,7 +111,7 @@ void UpdateCameraControls(HierarchyObject* mainCam)
         float moveSpeed = 10.0f * deltaTime * mov_mod;
         float rotSpeed = 8.0f * deltaTime * mod;
 
-        auto* camTransform = mainCam->GetTransform();
+        auto* camTransform = mainCam.GetPtr()->GetTransform();
 
         // Retrieve current state
         glm::vec3 pos = camTransform->GetPosition();
@@ -260,9 +260,9 @@ int main(int argc, char** argv)
     auto bLitPipeline = LitPipeline();
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
-    auto desuwa = objFactory.CreateRootObjectWithTransform("Desu wa");
+    //auto desuwa = objFactory.CreateRootObjectWithTransform("Desu wa");
 
-    auto MainCam = objFactory.CreateRootCameraObject("Camera nana");
+    auto MainCam = objFactory.CreateRootCameraObject("Main Camera");
     MainCam.GetPtr()->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 
     //objFactory.CreateModelObject("Bonk", "helmet/DamagedHelmet.gltf");

@@ -60,7 +60,6 @@ add_subdirectory(src/ObjectSystems/Serialization)
 
 add_subdirectory(src/UI)
 add_subdirectory(src/Rendering)
-add_subdirectory(src/UI)
 
 add_subdirectory(src/Tools)
 

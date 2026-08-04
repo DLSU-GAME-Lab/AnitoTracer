@@ -6,7 +6,7 @@
 class PointLight : public LightBase {
 public:
     // Initializes the point light with a default range matching the pipeline definition
-    PointLight(HierarchyObject* owner = nullptr)
+    PointLight(gbe::IInstanceManager<HierarchyObject>::Ref owner = nullptr)
         : LightBase("PointLight", owner),
         m_range(10.0f) {} // Default range of 10.0f matches PointLightData
 
