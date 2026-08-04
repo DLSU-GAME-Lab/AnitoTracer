@@ -1,5 +1,10 @@
 #include "MenuBar.hpp"
 
+#include "HierarchyManager.hpp"
+
+#include "FileDialogue.hpp"
+
+
 namespace Diligent {
 
     void MenuBar::Draw(bool& appRunning, const std::vector<std::unique_ptr<BasePanel>>& panels)
@@ -11,6 +16,18 @@ namespace Diligent {
                 if (ImGui::MenuItem("Exit", "Alt+F4"))
                 {
                     appRunning = false;
+                }
+                if (ImGui::MenuItem("Save", "Alt+F4"))
+                {
+                    std::string outPath = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::SAVE);
+                    HierarchyManager::GetInstance().SerializeToFile(outPath);
+
+                }
+                if (ImGui::MenuItem("Load", "Alt+F4"))
+                {
+                    std::string outPath = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, "ascene");
+                    HierarchyManager::GetInstance().DeserializeFromFile(outPath);
+
                 }
                 ImGui::EndMenu();
             }

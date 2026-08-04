@@ -9,7 +9,7 @@
 class LightBase : public ComponentBase {
 public:
     // Initializes the light component with a name, an optional owner, and default light properties.
-    LightBase(const std::string& name, HierarchyObject* owner = nullptr)
+    LightBase(const std::string& name, gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
         : ComponentBase(name, owner),
         m_color(1.0f, 1.0f, 1.0f),
         m_intensity(1.0f) {}

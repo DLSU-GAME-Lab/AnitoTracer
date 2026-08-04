@@ -8,7 +8,7 @@
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Common/interface/BasicMath.hpp"
 #include "Shaders/ShaderManager.hpp"
-#include "../Objects/Models/ModelManager.hpp"
+#include "Models/ModelManager.hpp"
 #include "Shaders/VertexLayouts.hpp"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE 

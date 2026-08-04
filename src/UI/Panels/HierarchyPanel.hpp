@@ -17,13 +17,13 @@ namespace Diligent {
         // Implementation of the abstract Draw method
         void Draw() override;
 
-        HierarchyObject* GetSelectedObject() const { return m_SelectedObject; }
+        HierarchyObject::Ref GetSelectedObject() const { return m_SelectedObject; }
 
     private:
-        HierarchyObject* m_SelectedObject = nullptr;
+        HierarchyObject::Ref m_SelectedObject = nullptr;
 
         // Recursive helper function to draw tree nodes for each object
-        void DrawNode(HierarchyObject* node);
+        void DrawNode(HierarchyObject::Ref node);
     };
 
 }

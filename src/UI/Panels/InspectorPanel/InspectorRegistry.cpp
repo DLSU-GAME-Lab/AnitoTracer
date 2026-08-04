@@ -1,5 +1,7 @@
 #include "InspectorRegistry.hpp"
 
+#include "imgui.h"
+
 // Looks up the correct UI drawer for the component and executes it.
 void InspectorRegistry::DrawComponent(ComponentBase* component) {
     if (!component) return;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include SERIALIZATION_INCLUDES
+
 #include <string>
 #include <vector>
 #include <memory>
@@ -7,7 +9,9 @@
 #include "Components/ComponentBase.hpp"
 #include "Components/Transform.hpp"
 
-class HierarchyObject {
+#include "Organization/IInstanceManager.hpp"
+
+class HierarchyObject : public gbe::ISerializable, public gbe::IInstanceManager<HierarchyObject>{
 public:
     // Initializes the object with a specific name.
     HierarchyObject(const std::string& name)
@@ -26,18 +30,18 @@ public:
 
     // Adds an existing child object and takes ownership.
     // Returns a raw pointer to the added child for immediate access.
-    HierarchyObject* AddChild(std::unique_ptr<HierarchyObject> child);
+    HierarchyObject::Ref AddChild(std::unique_ptr<HierarchyObject> child);
 
     // Helper method to instantiate and add a child directly by name.
-    HierarchyObject* CreateChild(const std::string& childName);
+    HierarchyObject::Ref CreateChild(const std::string& childName);
 
     // Removes a child by its exact pointer address.
     // Returns the unique_ptr, transferring ownership back to the caller.
-    std::unique_ptr<HierarchyObject> RemoveChild(HierarchyObject* childToRemove);
+    std::unique_ptr<HierarchyObject> RemoveChild(HierarchyObject::Ref childToRemove);
 
     // Core getters for object traversal and identification.
     const std::string& GetName() const { return m_name; }
-    HierarchyObject* GetParent() const { return m_parent; }
+    HierarchyObject::Ref GetParent() const { return m_parent; }
     const std::vector<std::unique_ptr<HierarchyObject>>& GetChildren() const { return m_children; }
     const std::vector<std::unique_ptr<ComponentBase>>& GetComponents() const { return m_components; }
 
@@ -71,10 +75,18 @@ public:
 
 private:
     std::string m_name;
-    HierarchyObject* m_parent;
+    GBE_SERIALIZE_FIELD(m_name);
+    HierarchyObject::Ref m_parent;
     std::vector<std::unique_ptr<HierarchyObject>> m_children;
+    GBE_SERIALIZE_FIELD(m_children);
 
     std::vector<std::unique_ptr<ComponentBase>> m_components;
+    GBE_SERIALIZE_FIELD(m_components);
 
     friend class HierarchyManager;
+
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(HierarchyObject, gbe::ISerializable);
+    GBE_DECLARE_INSTANCE_REF(HierarchyObject);
 };
+
+GBE_REGISTER_SERIALIZED_TYPE(HierarchyObject, HierarchyObject);

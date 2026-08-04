@@ -1,6 +1,8 @@
 #include "Camera.hpp"
 
-CameraComponent::CameraComponent(Transform* transform, HierarchyObject* owner)
+#include "HierarchyObject.hpp"
+
+CameraComponent::CameraComponent(Transform* transform, gbe::IInstanceManager<HierarchyObject>::Ref owner)
     : ComponentBase("CameraComponent", owner), m_transform(transform) {
     
     if (!transform || !owner) std::cerr << "Invalid or null transform or owner pointer" << std::endl;

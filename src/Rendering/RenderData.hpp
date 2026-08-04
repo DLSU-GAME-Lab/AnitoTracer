@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "../Objects/Models/ModelStructs.hpp"
+#include "Models/ModelStructs.hpp"
 #include "Pipelines/PipelineDefs.hpp"
 
 #include "Graphics/GraphicsEngine/interface/TopLevelAS.h" 
