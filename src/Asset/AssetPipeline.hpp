@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Meta/AssetRef_meta.hpp"
 #include "Meta/IAsset_meta.hpp"
 #include "Meta/GUID_meta.hpp"
 #include "Meta/DynamicEnum_meta.hpp"

@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "Organization/IInstanceManager.hpp"
+#include "AssetPipeline.hpp"
 
 
 // Forward declaration to avoid circular dependency

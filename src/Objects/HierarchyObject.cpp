@@ -53,6 +53,13 @@ void HierarchyObject::AddComponent(std::unique_ptr<ComponentBase> component)
     m_components.push_back(std::move(component));
 }
 
+void HierarchyObject::InitializeChildren(std::vector<std::unique_ptr<ComponentBase>>& target) {
+    for (auto& newchild : target)
+    {
+        newchild.get()->SetOwner(this);
+    }
+}
+
 std::unique_ptr<ComponentBase> HierarchyObject::RemoveComponent(ComponentBase * componentToRemove)
 {
     if (!componentToRemove) return nullptr;

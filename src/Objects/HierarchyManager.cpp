@@ -63,7 +63,7 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
     // If the object has a ModelComponent, extract the internal Model struct
     if (ModelComponent* modelComp = obj.GetPtr()->GetComponent<ModelComponent>()) {
         // Retrieve the underlying Model struct pointer
-        if (Model* pModel = modelComp->GetModel()) {
+        if (Model* pModel = modelComp->GetModel().Get()) {
             outModels.push_back({ pModel, currentWorldMatrix, obj.GetID() });
         }
     }
