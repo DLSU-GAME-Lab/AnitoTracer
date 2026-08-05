@@ -24,7 +24,21 @@ FetchContent_Declare(
 )
 # FORCE DILIGENT ENGINE TO USE DYNAMIC CRT
 set(DILIGENT_MSVC_CRT_LINKAGE "Dynamic" CACHE STRING "Force Diligent to use dynamic CRT" FORCE)
-FetchContent_MakeAvailable(DiligentCore DiligentTools DiligentFX)
+
+#=====Jolt Physics=====#
+FetchContent_Declare(
+    Jolt
+    GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
+    GIT_TAG v5.6.0
+    GIT_SHALLOW OFF
+    SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/jolt-src"
+)
+
+# Jolt CMake options
+set(OVERRIDE_CXX_FLAGS ON CACHE BOOL "" FORCE)
+set(GENERATE_DEBUG_SYMBOLS ON CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(Jolt DiligentCore DiligentTools DiligentFX)
 
 #========glaze========#
 FetchContent_Declare(glaze
@@ -33,3 +47,4 @@ FetchContent_Declare(glaze
 )
 FetchContent_MakeAvailable(glaze)
 add_compile_definitions(NOMINMAX)
+
