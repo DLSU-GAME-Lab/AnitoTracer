@@ -28,6 +28,8 @@ struct Vertex {
     float3 pos;
     float3 normal;
     float2 uv;
+    float3 tangent;
+    float3 bitangent;
 };
 
 // Represents a single part of a model with a specific material

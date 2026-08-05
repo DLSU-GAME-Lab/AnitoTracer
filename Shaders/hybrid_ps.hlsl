@@ -11,6 +11,8 @@ struct PSInput
     centroid float3 WorldPos : TEXCOORD0;
     centroid float3 Normal : TEXCOORD1;
     float2 UV : TEXCOORD2;
+    float3 Tangent : TANGENT; 
+    float3 Bitangent : BITANGENT; 
 };
 
 // ------------------------------------------------------------------
@@ -66,23 +68,25 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     {
         ao = g_AOMap.Sample(g_AOMap_sampler, In.UV).r;
     }
-
-    float3 N = normalize(In.Normal);
     
+    // Geometric normal (unperturbed) - MUST be used for shadow ray origin
+    // offsetting. Using the normal-mapped shading normal instead causes the
+    // ray origin to be pushed below the true geometric surface wherever the
+    // bump map tilts the normal "inward" (e.g. brick centers), leading to
+    // self-shadowing/acne there while edges (where the perturbed normal is
+    // closer to the geometric one) stay correctly lit.
+    float3 geoN = normalize(In.Normal);
+
+    float3 N = geoN;
+    float3 T = normalize(In.Tangent);
+    float3 B = normalize(In.Bitangent);
+
+    float3x3 TBN = float3x3(T, B, N);
+
     // --- Normal Mapping Logic (Derivative TBN) ---
     // This ensures g_NormalMap is not stripped by the compiler
     if (g_UseNormalMap > 0.5)
     {
-        float3 dp1 = ddx(In.WorldPos);
-        float3 dp2 = ddy(In.WorldPos);
-        float2 duv1 = ddx(In.UV);
-        float2 duv2 = ddy(In.UV);
-
-        float3 T = normalize(dp1 * duv2.y - dp2 * duv1.y);
-        T = normalize(T - dot(T, N) * N);
-        float3 B = cross(N, T);
-        float3x3 TBN = float3x3(T, B, N);
-
         float3 tangentNormal = g_NormalMap.Sample(g_NormalMap_sampler, In.UV).xyz * 2.0 - 1.0;
         N = normalize(mul(tangentNormal, TBN));
     }
@@ -100,7 +104,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 
         if (NdotL > 0.0)
         {
-            float shadowFactor = TraceShadowRay(In.WorldPos, N, L, 1000.0);
+            float shadowFactor = TraceShadowRay(In.WorldPos, geoN, L, 1000.0);
             float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
             // Cook-Torrance BRDF
@@ -133,7 +137,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 
             if (NdotL > 0.0)
             {
-                float shadowFactor = TraceShadowRay(In.WorldPos, N, L, dist - 0.01);
+                float shadowFactor = TraceShadowRay(In.WorldPos, geoN, L, dist - 0.01);
                 
                 float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
                 attenuation *= attenuation;
@@ -166,6 +170,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     // 4. Ambient & Emissive Combined
     float3 ambient = float3(0.03, 0.03, 0.03) * albedo.rgb * ao * g_AmbientMultiplier;
     float3 color = ambient + Lo + emissive;
+    //float3 color = float3(1.0, 0.0, 1.0); // Debug: Magenta for missing textures)
 
     OutColor = float4(color, albedo.a);
 }

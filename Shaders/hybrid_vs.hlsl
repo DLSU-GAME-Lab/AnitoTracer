@@ -6,6 +6,8 @@ struct PSInput
     float3 WorldPos : TEXCOORD0;
     float3 Normal : TEXCOORD1;
     float2 UV : TEXCOORD2;
+    float3 Tangent : TANGENT; 
+    float3 Bitangent : BITANGENT; 
 };
 
 void main_vs(in VertexInput In, out PSInput Out)
@@ -20,7 +22,9 @@ void main_vs(in VertexInput In, out PSInput Out)
     Out.WorldPos = worldPos.xyz;
     
     // Transform normal to world space using the model matrix
-    Out.Normal = mul(float4(In.Norm, 0.0), g_Model).xyz;
+    Out.Normal = normalize(mul((float3x3) g_Model, In.Norm));
+    Out.Tangent = normalize(mul((float3x3) g_Model, In.Tangent));
+    Out.Bitangent = normalize(mul((float3x3) g_Model, In.Bitangent));
     
     Out.UV = In.uv;
 }

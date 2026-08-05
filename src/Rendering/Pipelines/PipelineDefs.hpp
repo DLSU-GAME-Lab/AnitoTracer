@@ -1,5 +1,11 @@
 #pragma once
-#include "BasePipeline.hpp"
+
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE 
+#define GLM_FORCE_LEFT_HANDED       
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace Diligent {
 
@@ -46,6 +52,11 @@ namespace Diligent {
         float UseAOMap{ 0.0f };
         float UseEmissiveMap{ 0.0f };
         float PaddingMat{ 0.0f };
+    };
+
+    struct CameraConstants {
+        glm::mat4 View;
+        glm::mat4 Proj;
     };
 
 }

@@ -135,8 +135,8 @@ void UpdateCameraControls(HierarchyObject::Ref mainCam)
         // ---------------------------------------------------------
         if (ImGui::IsKeyDown(ImGuiKey_W)) pos += forward * moveSpeed;
         if (ImGui::IsKeyDown(ImGuiKey_S)) pos -= forward * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_A)) pos -= right * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_D)) pos += right * moveSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_A)) pos += right * moveSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_D)) pos -= right * moveSpeed;
         if (ImGui::IsKeyDown(ImGuiKey_Q)) pos -= up * moveSpeed;
         if (ImGui::IsKeyDown(ImGuiKey_E)) pos += up * moveSpeed;
 
@@ -145,8 +145,8 @@ void UpdateCameraControls(HierarchyObject::Ref mainCam)
         // ---------------------------------------------------------
         if (ImGui::IsKeyDown(ImGuiKey_I)) rot.x -= rotSpeed;
         if (ImGui::IsKeyDown(ImGuiKey_K)) rot.x += rotSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_J)) rot.y -= rotSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_L)) rot.y += rotSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_J)) rot.y += rotSpeed;
+        if (ImGui::IsKeyDown(ImGuiKey_L)) rot.y -= rotSpeed;
 
         // Apply newly calculated state
         camTransform->SetPosition(pos);

@@ -30,9 +30,11 @@ void ModelManager::LoadDefaultWhite() {
     m_pDefaultTextureView = pDefaultTex->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 }
 
-ITextureView* ModelManager::LoadTexture(const std::string& filepath) {
-    // Check cache first
-    auto it = m_TextureCache.find(filepath);
+ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB) {
+    // Check cache first (cache key includes sRGB-ness to avoid returning a
+    // texture loaded with the wrong gamma interpretation)
+    std::string cacheKey = filepath + (isSRGB ? "|srgb" : "|linear");
+    auto it = m_TextureCache.find(cacheKey);
     if (it != m_TextureCache.end()) {
         return it->second;
     }
@@ -40,9 +42,11 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath) {
     // Load texture using Diligent's utility
     RefCntAutoPtr<ITexture> pTexture;
     TextureLoadInfo loadInfo;
-    loadInfo.IsSRGB = true; // Typically true for diffuse textures
+    loadInfo.IsSRGB = isSRGB; // Only true for color data (BaseColor/Emissive).
+                              // Normal/Metallic-Roughness/AO maps store linear
+                              // data and must NOT be gamma decoded.
     loadInfo.GenerateMips = true;
-    loadInfo.Format = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
+    loadInfo.Format = isSRGB ? Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB : Diligent::TEX_FORMAT_RGBA8_UNORM;
 
     std::filesystem::path modelFilePath(filepath);
     std::string fullPath = modelFilePath.is_absolute() ? filepath : (m_AssetBasePath + filepath);
@@ -55,18 +59,18 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath) {
     }
 
     RefCntAutoPtr<ITextureView> pSRV (pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
-    m_TextureCache[filepath] = pSRV;
+    m_TextureCache[cacheKey] = pSRV;
 
     return pSRV;
 }
 
-ITextureView* ModelManager::LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty) {
+ITextureView* ModelManager::LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty, bool isSRGB) {
     aiString texPath;
     if (material->GetTextureCount(type) > 0) {
         if (material->GetTexture(type, 0, &texPath) == AI_SUCCESS && texPath.length > 0) {
             outHasProperty = true;
             std::string finalTexPath = modelDir + texPath.C_Str();
-            return LoadTexture(finalTexPath);
+            return LoadTexture(finalTexPath, isSRGB);
         }
     }
     return nullptr;
@@ -90,8 +94,8 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     Assimp::Importer importer;
     // Optimize for Vulkan/Modern APIs: Triangulate, Gen Normals, Flip UVs (Diligent uses Top-Left UVs)
     const aiScene* pScene = importer.ReadFile(fullPath,
-        aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-        aiProcess_ConvertToLeftHanded | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+        aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace |
+        aiProcess_MakeLeftHanded | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
 
     if (!pScene || pScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !pScene->mRootNode) {
         std::cerr << "Assimp error: " << importer.GetErrorString() << std::endl;
@@ -138,28 +142,33 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
             currentMatHasPBR = true;
         }
 
-        // Load Textures using our class member helper function
-        pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_BASE_COLOR, modelDir, currentMatHasPBR);
+        // Load Textures using our class member helper function.
+        // Only BaseColor/Emissive are color data and need sRGB gamma decode.
+        // Normal, MetallicRoughness, and AO maps store linear data - loading
+        // them as sRGB distorts values (especially near the 0.5 "flat"
+        // midpoint used by normal maps), which was causing incorrect
+        // lighting/normals across flat surface regions.
+        pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_BASE_COLOR, modelDir, currentMatHasPBR, /*isSRGB=*/true);
         if (!pbrMat.BaseColor) {
-            pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_DIFFUSE, modelDir, currentMatHasPBR);
+            pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_DIFFUSE, modelDir, currentMatHasPBR, /*isSRGB=*/true);
         }
 
-        pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_METALNESS, modelDir, currentMatHasPBR);
+        pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_METALNESS, modelDir, currentMatHasPBR, /*isSRGB=*/false);
         if (!pbrMat.MetallicRoughness) {
-            pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_DIFFUSE_ROUGHNESS, modelDir, currentMatHasPBR);
+            pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_DIFFUSE_ROUGHNESS, modelDir, currentMatHasPBR, /*isSRGB=*/false);
         }
 
-        pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_NORMALS, modelDir, currentMatHasPBR);
+        pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_NORMALS, modelDir, currentMatHasPBR, /*isSRGB=*/false);
         if (!pbrMat.Normal) {
-            pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_HEIGHT, modelDir, currentMatHasPBR);
+            pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_HEIGHT, modelDir, currentMatHasPBR, /*isSRGB=*/false);
         }
 
-        pbrMat.AO = LoadMaterialTexture(material, aiTextureType_AMBIENT_OCCLUSION, modelDir, currentMatHasPBR);
+        pbrMat.AO = LoadMaterialTexture(material, aiTextureType_AMBIENT_OCCLUSION, modelDir, currentMatHasPBR, /*isSRGB=*/false);
         if (!pbrMat.AO) {
-            pbrMat.AO = LoadMaterialTexture(material, aiTextureType_LIGHTMAP, modelDir, currentMatHasPBR);
+            pbrMat.AO = LoadMaterialTexture(material, aiTextureType_LIGHTMAP, modelDir, currentMatHasPBR, /*isSRGB=*/false);
         }
 
-        pbrMat.Emissive = LoadMaterialTexture(material, aiTextureType_EMISSIVE, modelDir, currentMatHasPBR);
+        pbrMat.Emissive = LoadMaterialTexture(material, aiTextureType_EMISSIVE, modelDir, currentMatHasPBR, /*isSRGB=*/true);
 
         // Fallback to default white if no base color texture was found
         if (!pbrMat.BaseColor) {
@@ -195,6 +204,14 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
 
             if (mesh->HasNormals()) {
                 v.normal = float3(mesh->mNormals[j].x, mesh->mNormals[j].y, mesh->mNormals[j].z);
+            }
+            if (mesh->HasTangentsAndBitangents()) {
+                v.tangent = float3(mesh->mTangents[j].x, mesh->mTangents[j].y, mesh->mTangents[j].z);
+                v.bitangent = float3(mesh->mBitangents[j].x, mesh->mBitangents[j].y, mesh->mBitangents[j].z);
+            }
+            else {
+                v.tangent = float3(0.0f, 0.0f, 0.0f);
+                v.bitangent = float3(0.0f, 0.0f, 0.0f);
             }
             if (mesh->mTextureCoords[0]) {
                 v.uv = float2(mesh->mTextureCoords[0][j].x, mesh->mTextureCoords[0][j].y);

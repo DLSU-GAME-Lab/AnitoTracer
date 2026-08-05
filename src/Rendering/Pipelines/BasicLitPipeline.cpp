@@ -17,50 +17,24 @@ void Diligent::BasicLitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
     PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
 
     SetupDefaultGraphicsPipeline(GraphicsPipeline);
-
     GraphicsPipeline.SmplDesc.Count = sampleCount;
 
     std::vector<LayoutElement> std_layout = VertexLayouts::GetStandardLayout();
     GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
     GraphicsPipeline.InputLayout.NumElements = static_cast<Uint32>(std_layout.size());
 
-    // Load vertex shader and non-raytraced fallback pixel shader
     auto pVS = ShaderManager::GetInstance().GetShader("hybrid_vs.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_vs");
     auto pPS = ShaderManager::GetInstance().GetShader("fallbackLit_ps.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_ps");
     PSOCreateInfo.pVS = pVS;
     PSOCreateInfo.pPS = pPS;
 
-    // Shader layout without g_TLAS
-    ShaderResourceVariableDesc Variables[] =
-    {
-        {SHADER_TYPE_VERTEX | SHADER_TYPE_PIXEL, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_VERTEX | SHADER_TYPE_PIXEL, "ModelConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "LightConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "PBRMaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "ShadowSettings", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    std::vector<ShaderResourceVariableDesc> Variables = GetStandardShaderVariables();
+    PSODesc.ResourceLayout.Variables = Variables.data();
+    PSODesc.ResourceLayout.NumVariables = static_cast<Uint32>(Variables.size());
 
-        // Dynamic Textures for Material Submeshes
-        {SHADER_TYPE_PIXEL, "g_BaseColorMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "g_NormalMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "g_AOMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "g_EmissiveMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
-    };
-    PSODesc.ResourceLayout.Variables = Variables;
-    PSODesc.ResourceLayout.NumVariables = _countof(Variables);
-
-    SamplerDesc SamLinearWrapDesc = GetLinearWrapSamplerDesc();
-
-    ImmutableSamplerDesc ImtblSamplers[] =
-    {
-        {SHADER_TYPE_PIXEL, "g_BaseColorMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_NormalMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_AOMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_EmissiveMap_sampler", SamLinearWrapDesc}
-    };
-    PSODesc.ResourceLayout.ImmutableSamplers = ImtblSamplers;
-    PSODesc.ResourceLayout.NumImmutableSamplers = _countof(ImtblSamplers);
+    std::vector<ImmutableSamplerDesc> ImtblSamplers = GetStandardImmutableSamplers();
+    PSODesc.ResourceLayout.ImmutableSamplers = ImtblSamplers.data();
+    PSODesc.ResourceLayout.NumImmutableSamplers = static_cast<Uint32>(ImtblSamplers.size());
 
     m_pPSO.Release();
     pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
@@ -68,35 +42,8 @@ void Diligent::BasicLitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
     if (!m_pCameraCB) CreateCameraConstantBuffer(pDevice);
     if (!m_pModelCB) CreateModelConstantBuffer(pDevice);
 
-    if (!m_pMaterialCB) {
-        BufferDesc MatCBDesc;
-        MatCBDesc.Name = "PBR Material Constant Buffer";
-        MatCBDesc.Size = sizeof(PBRMaterialConstants);
-        MatCBDesc.Usage = USAGE_DYNAMIC;
-        MatCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-        MatCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-        pDevice->CreateBuffer(MatCBDesc, nullptr, &m_pMaterialCB);
-    }
-
-    if (!m_pLightCB) {
-        BufferDesc LightCBDesc;
-        LightCBDesc.Name = "Light Constant Buffer";
-        LightCBDesc.Size = sizeof(LightConstants);
-        LightCBDesc.Usage = USAGE_DYNAMIC;
-        LightCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-        LightCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-        pDevice->CreateBuffer(LightCBDesc, nullptr, &m_pLightCB);
-    }
-
-    if (!m_pShadowCB) {
-        BufferDesc ShadowCBDesc;
-        ShadowCBDesc.Name = "Shadow Settings Constant Buffer";
-        ShadowCBDesc.Size = sizeof(ShadowSettings);
-        ShadowCBDesc.Usage = USAGE_DYNAMIC;
-        ShadowCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-        ShadowCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-        pDevice->CreateBuffer(ShadowCBDesc, nullptr, &m_pShadowCB);
-    }
+    // Utilize refactored buffer helper
+    CreateCommonConstantBuffers(pDevice);
 
     m_pSRB.Release();
     m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
@@ -110,87 +57,5 @@ void Diligent::BasicLitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
 
 void Diligent::BasicLitPipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
 {
-    // Simply bind matrices and PSO without constructing TLAS
     BasePipeline::StartFrameRender(pContext, renderData);
-}
-
-void Diligent::BasicLitPipeline::UpdateLights(IDeviceContext* pContext, const LightConstants& lights)
-{
-    MapHelper<LightConstants> CBData(pContext, m_pLightCB, MAP_WRITE, MAP_FLAG_DISCARD);
-    *CBData = lights;
-}
-
-void Diligent::BasicLitPipeline::UpdateShadowSettings(IDeviceContext* pContext, const ShadowSettings& settings)
-{
-    MapHelper<ShadowSettings> CBData(pContext, m_pShadowCB, MAP_WRITE, MAP_FLAG_DISCARD);
-    *CBData = settings;
-}
-
-void Diligent::BasicLitPipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData)
-{
-    Model* model = modelData.ModelData;
-
-    {
-        MapHelper<glm::mat4> CBData(pContext, m_pModelCB, MAP_WRITE, MAP_FLAG_DISCARD);
-        *CBData = glm::transpose(modelData.WorldTransform);
-    }
-
-    IBuffer* pBuffs[] = { model->pVertexBuffer };
-    pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
-    pContext->SetIndexBuffer(model->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    for (const auto& submesh : model->SubMeshes) {
-        if (submesh.MaterialIndex < model->PBRMaterials.size()) {
-            const PBRMaterial& mat = model->PBRMaterials[submesh.MaterialIndex];
-
-            auto colorFactor = mat.BaseColorFactor;
-            PBRMaterialConstants matCBData{};
-            matCBData.BaseColorFactor = glm::vec4(colorFactor.r, colorFactor.g, colorFactor.b, colorFactor.a);
-            matCBData.MetallicFactor = mat.MetallicFactor;
-            matCBData.RoughnessFactor = mat.RoughnessFactor;
-
-            ITextureView* pSafeFallbackTexture = mat.BaseColor;
-
-            if (auto* pBaseColorVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorMap")) {
-                pBaseColorVar->Set(mat.BaseColor);
-            }
-            matCBData.UseBaseColorMap = mat.BaseColor ? 1.0f : 0.0f;
-
-            if (auto* pMRVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap")) {
-                pMRVar->Set(mat.MetallicRoughness ? mat.MetallicRoughness : pSafeFallbackTexture);
-            }
-            matCBData.UseMetallicRoughnessMap = mat.MetallicRoughness ? 1.0f : 0.0f;
-
-            if (auto* pNormalVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalMap")) {
-                pNormalVar->Set(mat.Normal ? mat.Normal : pSafeFallbackTexture);
-            }
-            matCBData.UseNormalMap = mat.Normal ? 1.0f : 0.0f;
-
-            if (auto* pAOVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_AOMap")) {
-                pAOVar->Set(mat.AO ? mat.AO : pSafeFallbackTexture);
-            }
-            matCBData.UseAOMap = mat.AO ? 1.0f : 0.0f;
-
-            if (auto* pEmissiveVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_EmissiveMap")) {
-                pEmissiveVar->Set(mat.Emissive ? mat.Emissive : pSafeFallbackTexture);
-            }
-            matCBData.UseEmissiveMap = mat.Emissive ? 1.0f : 0.0f;
-
-            {
-                MapHelper<PBRMaterialConstants> CBData(pContext, m_pMaterialCB, MAP_WRITE, MAP_FLAG_DISCARD);
-                *CBData = matCBData;
-            }
-        }
-
-        pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        DrawIndexedAttribs DrawAttrs;
-        DrawAttrs.IndexType = VT_UINT32;
-        DrawAttrs.NumIndices = submesh.IndexCount;
-        DrawAttrs.FirstIndexLocation = submesh.IndexOffset;
-        DrawAttrs.BaseVertex = 0;
-        DrawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
-
-        pContext->DrawIndexed(DrawAttrs);
-    }
 }

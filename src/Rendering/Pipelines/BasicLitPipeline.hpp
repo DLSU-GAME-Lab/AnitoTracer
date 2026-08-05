@@ -1,24 +1,10 @@
 #pragma once
-#include "PipelineDefs.hpp"
 #include "BasePipeline.hpp"
-
-#include "Graphics/GraphicsEngine/interface/TopLevelAS.h"
 
 namespace Diligent {
     class BasicLitPipeline : public BasePipeline {
-        public:
-            void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
-
-            void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
-
-            void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
-            void UpdateShadowSettings(IDeviceContext* pContext, const ShadowSettings& settings);
-
-            void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model) override;
-
-        private:
-            RefCntAutoPtr<IBuffer> m_pMaterialCB;
-            RefCntAutoPtr<IBuffer> m_pLightCB;
-            RefCntAutoPtr<IBuffer> m_pShadowCB;
+    public:
+        void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
+        void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
     };
 }
