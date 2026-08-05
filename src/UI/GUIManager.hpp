@@ -8,11 +8,14 @@
 #include "MenuBar.hpp" // Added include for our new class
 
 #include "Panels/HierarchyPanel.hpp"
+#include "Panels/UserSettingsPanel.hpp"
+#include "Panels/ProfilerPanel.hpp"
 #include "Panels/InspectorPanel/InspectorPanel.hpp"
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"
 #include "Panels/InspectorPanel/Components/CameraUI.hpp"
 #include "Panels/InspectorPanel/Components/DirectionalLightUI.hpp"
+#include "Panels/InspectorPanel/Components/PointLightUI.hpp"
 
 namespace Diligent {
 
@@ -44,6 +47,9 @@ namespace Diligent {
 
         bool IsInitialized() const { return m_pImGuiRenderer != nullptr; }
 
+        //Bridge function to set the selected object
+        void SetSelectedObject(HierarchyObject::Ref obj);
+
     private:
         GUIManager() = default;
         ~GUIManager() = default;
@@ -53,8 +59,14 @@ namespace Diligent {
 
         std::unique_ptr<ImGuiImplDiligent> m_pImGuiRenderer;
 
+        //Cache ref for laters
+        HierarchyPanel* m_pHierarchyPanel = nullptr;
+
         // Manage all UI windows dynamically
         std::vector<std::unique_ptr<BasePanel>> m_Panels;
+
+        // Hold a reference to the engine's device
+        RefCntAutoPtr<IRenderDevice> m_pDevice;
 
         // The dedicated menu bar instance
         MenuBar m_MenuBar;

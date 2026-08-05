@@ -17,7 +17,11 @@ namespace Diligent {
                 //Norm
                 LayoutElement{1, 0, 3, VT_FLOAT32, False},
                 // UV
-                LayoutElement{2, 0, 2, VT_FLOAT32, False}
+                LayoutElement{2, 0, 2, VT_FLOAT32, False},
+                // Tangent  
+                LayoutElement{3, 0, 3, VT_FLOAT32, False},
+                // Bitangent
+                LayoutElement{4, 0, 3, VT_FLOAT32, False}
             };
         }
 

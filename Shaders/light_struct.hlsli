@@ -27,3 +27,10 @@ cbuffer LightConstants
     float2 g_Padding;
     float4 g_CameraPos; // World space camera position
 };
+
+cbuffer ShadowSettings
+{
+    float g_ShadowBias;
+    float g_AmbientMultiplier;
+    float2 g_ShadowPadding;
+};

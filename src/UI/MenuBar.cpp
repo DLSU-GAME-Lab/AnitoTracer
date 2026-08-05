@@ -42,10 +42,27 @@ namespace Diligent {
                 {
                     ObjectFactory::GetInstance().CreateRootObjectWithTransform("Empty Object");
                 }
-                if (ImGui::MenuItem("Add Direction Light"))
-                {
-                    ObjectFactory::GetInstance().CreateDirectionalLightObject("Direction Light");
+
+                if (ImGui::BeginMenu("Primmitives")) {
+                    if (ImGui::MenuItem("Box")) {
+                        ObjectFactory::GetInstance().CreateCubePrimitive("Box");
+                    }
+                    if (ImGui::MenuItem("Sphere")) {
+                        ObjectFactory::GetInstance().CreateSpherePrimitive("Sphere");
+                    }
+                    ImGui::EndMenu();
                 }
+
+                if (ImGui::BeginMenu("Lights")) {
+                    if (ImGui::MenuItem("Direction")) {
+                        ObjectFactory::GetInstance().CreateDirectionalLightObject("Direction Light");
+                    }
+                    if (ImGui::MenuItem("Point")) {
+                        ObjectFactory::GetInstance().CreatePointLightObject("Point Light");
+                    }
+                    ImGui::EndMenu();
+                }
+
                 if (ImGui::MenuItem("Load Model"))
                 {
                     // Use the static method from the new FileDialog class

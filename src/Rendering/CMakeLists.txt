@@ -28,6 +28,9 @@ set(${CUR_TARGET_NAME}_src
 
 	Pipelines/BasicLitPipeline.cpp
 	Pipelines/BasicLitPipeline.hpp
+
+	Pipelines/HybridPipeline.cpp
+	Pipelines/HybridPipeline.hpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})

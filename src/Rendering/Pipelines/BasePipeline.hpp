@@ -18,15 +18,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "PipelineDefs.hpp"
+#include "../RenderData.hpp"
+
 namespace Diligent {
 
-    class RenderData;  // Forward declaration
-    struct ModelRenderInstance;  // Forward declaration
-
-    struct CameraConstants {
-        glm::mat4 View;
-        glm::mat4 Proj;
-    };
+    class RenderData;
+    struct ModelRenderInstance;
 
     class BasePipeline {
     public:
@@ -35,20 +33,34 @@ namespace Diligent {
         virtual void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) = 0;
         virtual void StartFrameRender(IDeviceContext* pContext, RenderData renderData);
 
-        virtual void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model) = 0;
+        virtual void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
+        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ShadowSettings& settings);
+
+        virtual void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model);
         virtual void RenderModels(IDeviceContext* pContext, RenderData renderData);
 
     protected:
         void CreateCameraConstantBuffer(IRenderDevice* pDevice);
         void CreateModelConstantBuffer(IRenderDevice* pDevice);
+        void CreateCommonConstantBuffers(IRenderDevice* pDevice); 
+
+        virtual std::vector<ShaderResourceVariableDesc> GetStandardShaderVariables();
+        virtual std::vector<ImmutableSamplerDesc> GetStandardImmutableSamplers();
+
         void SetupDefaultGraphicsPipeline(GraphicsPipelineDesc& GraphicsPipeline);
         SamplerDesc GetLinearWrapSamplerDesc();
 
         RefCntAutoPtr<IPipelineState> m_pPSO;
         RefCntAutoPtr<IBuffer> m_pCameraCB;
         RefCntAutoPtr<IBuffer> m_pModelCB;
+
+        RefCntAutoPtr<IBuffer> m_pMaterialCB;
+        RefCntAutoPtr<IBuffer> m_pLightCB;
+        RefCntAutoPtr<IBuffer> m_pShadowCB;
+
         RefCntAutoPtr<IShaderResourceBinding> m_pSRB;
         RefCntAutoPtr<ISwapChain> pSwapChain;
+        RefCntAutoPtr<IRenderDevice> m_pDevice;
     };
 
 }

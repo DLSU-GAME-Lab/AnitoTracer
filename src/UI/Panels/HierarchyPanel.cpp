@@ -1,4 +1,5 @@
 #include "HierarchyPanel.hpp"
+#include "HierarchyPanel.hpp"
 
 namespace Diligent {
 
@@ -24,6 +25,11 @@ namespace Diligent {
             }
         }
         ImGui::End();
+    }
+
+    void HierarchyPanel::SetSelectedObject(HierarchyObject::Ref obj)
+    {
+        m_SelectedObject = obj;
     }
 
     void HierarchyPanel::DrawNode(HierarchyObject::Ref node)
@@ -53,7 +59,7 @@ namespace Diligent {
         // Update the selected object when clicked
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
-            m_SelectedObject = node;
+            SetSelectedObject(node);
         }
 
         // If the tree node is expanded by the user, recursively draw its children

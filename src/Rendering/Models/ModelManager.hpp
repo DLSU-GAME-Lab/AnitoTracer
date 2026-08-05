@@ -1,11 +1,7 @@
 #pragma once
 #include "ModelStructs.hpp"
 
-#include "AssetPipeline.hpp"
-
-#include "Types/IModel.h"
-
-class ModelManager : gbe::AssetLoader<IModel> {
+class ModelManager {
 public:
     static ModelManager& GetInstance() {
         static ModelManager instance;
@@ -13,13 +9,18 @@ public:
     }
 
     // Must be called once before loading any models
-    void Initialize(IRenderDevice* pDevice);
+    void Initialize(IRenderDevice* pDevice, IDeviceContext* mContext, const std::string& assetBasePath = "Assets/");
 
     // Returns a pointer to the cached model, or loads it if not present
     Model* LoadModel(const std::string& filepath);
 
-    // Returns a cached texture view, or loads it
-    ITextureView* LoadTexture(const std::string& filepath);
+    // Returns a cached texture view, or loads it.
+    // isSRGB should be true only for color data (e.g. base color/emissive maps).
+    // Normal maps, metallic/roughness maps, and AO maps store linear data and
+    // must be loaded with isSRGB = false, otherwise the gamma decode curve
+    // will distort values (especially near the 0.5 "flat" midpoint used by
+    // normal maps), causing incorrect lighting/normals.
+    ITextureView* LoadTexture(const std::string& filepath, bool isSRGB = false);
 
     // Clears the cache and releases Vulkan resources
     void ClearCache();
@@ -27,21 +28,20 @@ public:
 private:
     ModelManager() = default;
     ~ModelManager() { ClearCache(); }
-    ModelManager& operator=(const ModelManager&) = delete;
     ModelManager(const ModelManager&) = delete;
+    ModelManager& operator=(const ModelManager&) = delete;
 
     void LoadDefaultWhite();
 
-    ITextureView* LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty);
+    ITextureView* LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty, bool isSRGB = false);
 
     IRenderDevice* m_pDevice = nullptr;
-    
+    IDeviceContext* pContext = nullptr;
+    std::string m_AssetBasePath;
+
     std::unordered_map<std::string, std::unique_ptr<Model>> m_ModelCache;
     std::unordered_map<std::string, RefCntAutoPtr<ITextureView>> m_TextureCache;
 
     //Default white tex
     RefCntAutoPtr<ITextureView> m_pDefaultTextureView;
-
-    //IMPLEMENTED REQUIRED ASSET MANAGER RESPONSIBILITIES
-    virtual bool LoadAssetImpl(std::unique_ptr<IModel> fileAsset);
 };

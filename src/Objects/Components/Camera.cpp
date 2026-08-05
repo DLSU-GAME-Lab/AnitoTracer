@@ -26,11 +26,11 @@ void CameraComponent::UpdateViewMatrix() {
     // The target is simply the current position plus the forward direction vector
     glm::vec3 target = position + forward;
 
-    m_ViewMatrix = glm::lookAt(position, target, up);
+    m_ViewMatrix = glm::lookAtLH(position, target, up);
 }
 
 void CameraComponent::UpdateProjectionMatrix() {
-    m_ProjMatrix = glm::perspective(glm::radians(m_FOV), m_Aspect, m_NearZ, m_FarZ);
+    m_ProjMatrix = glm::perspectiveLH(glm::radians(m_FOV), m_Aspect, m_NearZ, m_FarZ);
 }
 
 glm::mat4 CameraComponent::GetViewProjectionMatrix() const {

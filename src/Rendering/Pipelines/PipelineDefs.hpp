@@ -1,5 +1,11 @@
 #pragma once
-#include "BasePipeline.hpp"
+
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE 
+#define GLM_FORCE_LEFT_HANDED       
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace Diligent {
 
@@ -26,6 +32,31 @@ namespace Diligent {
         int NumPointLights = 0;
         glm::vec2 Padding{ 0.0f };
         glm::vec4 CameraPos{ 0.0f };
+    };
+
+    struct ShadowSettings
+    {
+        float ShadowBias = 0.015f;
+        float AmbientMultiplier = 1.0f;
+        float Padding[2] = { 0.0f, 0.0f }; // Pads the struct size to 16 bytes
+    };
+
+    struct alignas(16) PBRMaterialConstants {
+        glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };
+        float MetallicFactor{ 1.0f };
+        float RoughnessFactor{ 1.0f };
+        float UseBaseColorMap{ 0.0f };
+        float UseMetallicRoughnessMap{ 0.0f };
+
+        float UseNormalMap{ 0.0f };
+        float UseAOMap{ 0.0f };
+        float UseEmissiveMap{ 0.0f };
+        float PaddingMat{ 0.0f };
+    };
+
+    struct CameraConstants {
+        glm::mat4 View;
+        glm::mat4 Proj;
     };
 
 }

@@ -13,6 +13,7 @@
 
 #include "../Rendering/RenderData.hpp"
 #include "Components/Lights/DirectionLight.hpp"
+#include "Components/Lights/PointLight.hpp"
 
 #include ANITO_SERIALIZATION_INCLUDES
 #include "Initializer/ObjectInitializer.hpp" //Needed for object creation setup
@@ -69,6 +70,7 @@ private:
 
     std::vector<std::unique_ptr<HierarchyObject>> m_rootNodes;
     GBE_SERIALIZE_FIELD(m_rootNodes);
+
 public:
     
 };

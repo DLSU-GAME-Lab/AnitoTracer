@@ -65,7 +65,7 @@ add_subdirectory(src/Rendering)
 add_subdirectory(src/Tools)
 
 # Add source to this project's executable.
-add_executable (AnitoTracer_Rebuild WIN32 "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h")
+add_executable (AnitoTracer_Rebuild WIN32 "src/UserSettings.hpp" "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h" "src/AnitoTracer_App.hpp" "src/AnitoTracer_App.cpp")
 set_property(TARGET AnitoTracer_Rebuild PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -108,6 +108,12 @@ file(GLOB_RECURSE SHADER_FILES
      "${SHADER_SRC_DIR}/*"
 )
 
+set_source_files_properties(${SHADER_FILES} PROPERTIES 
+    HEADER_FILE_ONLY TRUE
+    VS_TOOL_OVERRIDE "None"
+    LANGUAGE ""
+)
+
 add_custom_target(CopyShadersTarget
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${SHADER_SRC_DIR}" "${SHADER_DST_DIR}"
     DEPENDS ${SHADER_FILES}
@@ -126,7 +132,7 @@ add_custom_command(TARGET AnitoTracer_Rebuild POST_BUILD
 
 
 
-copy_required_dlls(AnitoTracer_Rebuild)
+copy_required_dlls(AnitoTracer_Rebuild DXC_REQUIRED YES)
 #add_custom_command(
 #    TARGET AnitoTracer_Rebuild POST_BUILD
 #    COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -134,4 +140,5 @@ copy_required_dlls(AnitoTracer_Rebuild)
 #    "${SHADER_DST_DIR}"
 #    COMMENT "Copying Shaders to build directory..."
 #)
+
 

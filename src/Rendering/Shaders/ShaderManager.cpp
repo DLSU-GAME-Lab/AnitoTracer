@@ -36,6 +36,8 @@ namespace Diligent {
         ShaderCI.Desc.Name = filename.c_str(); // Debug name
         ShaderCI.EntryPoint = entryPoint;
         ShaderCI.FilePath = filename.c_str(); // The actual file in the Shaders folder
+        ShaderCI.ShaderCompiler = SHADER_COMPILER_DXC;
+        ShaderCI.HLSLVersion = { 6, 5 };
 
         // 3. Compile the shader
         RefCntAutoPtr<IShader> pShader;

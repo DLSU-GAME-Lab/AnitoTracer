@@ -1,6 +1,7 @@
 #include "HierarchyObject.hpp"
 #include "HierarchyObject.hpp"
 
+
 // Adds an existing child object and takes ownership.
 // Returns a raw pointer to the added child for immediate access.
 HierarchyObject::Ref HierarchyObject::AddChild(std::unique_ptr<HierarchyObject> child) {
@@ -41,10 +42,32 @@ const Transform* HierarchyObject::GetTransform() const {
     return GetComponent<Transform>();
 }
 
-void HierarchyObject::InitializeChildren(std::vector<std::unique_ptr<ComponentBase>>& target)
+void HierarchyObject::AddComponent(std::unique_ptr<ComponentBase> component)
 {
-    for (auto& newchild : target)
-    {
-        newchild.get()->SetOwner(this);
+    if (!component) return;
+
+    // Assign this object as the owner using getRef() inherited from IInstanceManager.
+    component->SetOwner(this->getRef());
+
+    // Take ownership of the component by moving it into the vector.
+    m_components.push_back(std::move(component));
+}
+
+std::unique_ptr<ComponentBase> HierarchyObject::RemoveComponent(ComponentBase * componentToRemove)
+{
+    if (!componentToRemove) return nullptr;
+
+    for (auto it = m_components.begin(); it != m_components.end(); ++it) {
+        if (it->get() == componentToRemove) {
+            std::unique_ptr<ComponentBase> detachedComponent = std::move(*it);
+
+            detachedComponent->SetOwner(nullptr);
+
+            m_components.erase(it);
+
+            return detachedComponent;
+        }
     }
+
+    return nullptr;
 }
