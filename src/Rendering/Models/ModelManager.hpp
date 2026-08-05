@@ -9,7 +9,7 @@ public:
     }
 
     // Must be called once before loading any models
-    void Initialize(IRenderDevice* pDevice, const std::string& assetBasePath = "Assets/");
+    void Initialize(IRenderDevice* pDevice, IDeviceContext* mContext, const std::string& assetBasePath = "Assets/");
 
     // Returns a pointer to the cached model, or loads it if not present
     Model* LoadModel(const std::string& filepath);
@@ -31,6 +31,7 @@ private:
     ITextureView* LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty);
 
     IRenderDevice* m_pDevice = nullptr;
+    IDeviceContext* pContext = nullptr;
     std::string m_AssetBasePath;
 
     std::unordered_map<std::string, std::unique_ptr<Model>> m_ModelCache;

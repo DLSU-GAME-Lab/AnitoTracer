@@ -18,6 +18,8 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
 {
     if (m_pImGuiRenderer) return; // Already initialized
 
+    m_pDevice = pDevice;
+
     ImGuiDiligentCreateInfo imguiCI;
     imguiCI.pDevice = pDevice;
     imguiCI.BackBufferFmt = SCDesc.ColorBufferFormat;
@@ -88,9 +90,11 @@ void Diligent::GUIManager::Shutdown()
 void Diligent::GUIManager::InitializeDefaultPanels()
 {
     auto hierarchyPanel = std::make_unique<Diligent::HierarchyPanel>("Hierarchy");
-    Diligent::HierarchyPanel* hierarchyPtr = hierarchyPanel.get();
+    m_pHierarchyPanel = hierarchyPanel.get();
 
-    Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::InspectorPanel>(hierarchyPtr, "Inspector"));
+    Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::InspectorPanel>(m_pHierarchyPanel, "Inspector"));
+    Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::UserSettingsPanel>());
+    Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::ProfilerPanel>(m_pDevice));
     Diligent::GUIManager::GetInstance().AddPanel(std::move(hierarchyPanel));
 }
 
@@ -99,4 +103,15 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<Transform, TransformUI>();
     InspectorRegistry::GetInstance().RegisterUI<CameraComponent, CameraUI>();
     InspectorRegistry::GetInstance().RegisterUI<DirectionalLight, DirectionalLightUI>();
+    InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
+}
+
+void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)
+{
+    // Ensure the panel exists before trying to call its method
+    if (m_pHierarchyPanel)
+    {
+        // Forwards the object to the existing SetSelectedObject method in HierarchyPanel
+        m_pHierarchyPanel->SetSelectedObject(obj);
+    }
 }

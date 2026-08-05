@@ -73,6 +73,12 @@ public:
     Transform* GetTransform();
     const Transform* GetTransform() const;
 
+    // Adds a component to this object and takes ownership.
+    void AddComponent(std::unique_ptr<ComponentBase> component);
+
+    // Removes a component by its raw pointer and returns ownership to the caller.
+    std::unique_ptr<ComponentBase> RemoveComponent(ComponentBase* componentToRemove);
+
 private:
     std::string m_name;
     GBE_SERIALIZE_FIELD(m_name);

@@ -4,6 +4,9 @@
 Texture2D g_Texture;
 SamplerState g_Texture_sampler;
 
+// Bind the Scene Acceleration Structure for Ray Queries
+RaytracingAccelerationStructure g_TLAS;
+
 struct PSInput
 {
     float4 Pos : SV_POSITION;
@@ -11,6 +14,32 @@ struct PSInput
     float3 Normal : TEXCOORD1;
     float2 UV : TEXCOORD2;
 };
+
+// ------------------------------------------------------------------
+// Helper: Traces a shadow ray towards a light source
+// ------------------------------------------------------------------
+float TraceShadowRay(float3 worldPos, float3 normal, float3 lightDir, float maxDist)
+{
+    RayDesc ray;
+    // Offset the origin slightly along the surface normal to prevent shadow acne
+    ray.Origin = worldPos + (normal * 0.002);
+    ray.Direction = lightDir;
+    ray.TMin = 0.001;
+    ray.TMax = maxDist;
+
+    // Fast shadow test: accepts the first hit found and skips closest hit execution
+    RayQuery < RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > q;
+    q.TraceRayInline(g_TLAS, RAY_FLAG_NONE, 0xFF, ray);
+    q.Proceed();
+
+    // If a triangle blocks the ray before reaching the light, return 0 (shadowed)
+    if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+    {
+        return 0.0;
+    }
+
+    return 1.0; // Fully lit
+}
 
 void main_vs(in VertexInput In, out PSInput Out)
 {
@@ -38,22 +67,34 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     float3 totalDiffuse = float3(0.0, 0.0, 0.0);
     float3 totalSpecular = float3(0.0, 0.0, 0.0);
 
+    // ==================================================================
     // Directional Lights Processing
+    // ==================================================================
     for (int i = 0; i < g_NumDirLights; ++i)
     {
         float3 lightDir = normalize(-g_DirLights[i].Direction.xyz);
-        
-        // Diffuse
         float NdotL = max(dot(normal, lightDir), 0.0);
-        totalDiffuse += g_DirLights[i].Color.rgb * g_DirLights[i].Color.a * NdotL;
+        
+        // Only trace a shadow ray if the surface faces the light
+        float shadowFactor = 1.0;
+        if (NdotL > 0.0)
+        {
+            // Directional lights are infinitely far away
+            shadowFactor = TraceShadowRay(In.WorldPos, normal, lightDir, 1000.0);
+        }
+
+        // Apply shadow factor to both Diffuse and Specular
+        totalDiffuse += g_DirLights[i].Color.rgb * g_DirLights[i].Color.a * NdotL * shadowFactor;
 
         // Specular (Blinn-Phong)
         float3 halfDir = normalize(lightDir + viewDir);
         float NdotH = max(dot(normal, halfDir), 0.0);
-        totalSpecular += g_DirLights[i].Color.rgb * pow(NdotH, 32.0) * (NdotL > 0.0 ? 1.0 : 0.0);
+        totalSpecular += g_DirLights[i].Color.rgb * pow(NdotH, 32.0) * (NdotL > 0.0 ? 1.0 : 0.0) * shadowFactor;
     }
 
+    // ==================================================================
     // Point Lights Processing
+    // ==================================================================
     for (int j = 0; j < g_NumPointLights; ++j)
     {
         float3 lightVec = g_PointLights[j].Position.xyz - In.WorldPos;
@@ -62,19 +103,27 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
         if (dist < g_PointLights[j].Range)
         {
             float3 lightDir = lightVec / dist;
+            float NdotL = max(dot(normal, lightDir), 0.0);
+
+            // Only trace a shadow ray if the surface faces the light
+            float shadowFactor = 1.0;
+            if (NdotL > 0.0)
+            {
+                // Limit ray distance to light position (subtract small epsilon to prevent hitting point light origin)
+                shadowFactor = TraceShadowRay(In.WorldPos, normal, lightDir, dist - 0.01);
+            }
             
             // Attenuation factor
             float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
             attenuation *= attenuation;
 
-            // Diffuse
-            float NdotL = max(dot(normal, lightDir), 0.0);
-            totalDiffuse += g_PointLights[j].Color.rgb * g_PointLights[j].Color.a * NdotL * attenuation;
+            // Apply shadow factor to Diffuse and Specular
+            totalDiffuse += g_PointLights[j].Color.rgb * g_PointLights[j].Color.a * NdotL * attenuation * shadowFactor;
 
             // Specular
             float3 halfDir = normalize(lightDir + viewDir);
             float NdotH = max(dot(normal, halfDir), 0.0);
-            totalSpecular += g_PointLights[j].Color.rgb * pow(NdotH, 32.0) * attenuation * (NdotL > 0.0 ? 1.0 : 0.0);
+            totalSpecular += g_PointLights[j].Color.rgb * pow(NdotH, 32.0) * attenuation * (NdotL > 0.0 ? 1.0 : 0.0) * shadowFactor;
         }
     }
 

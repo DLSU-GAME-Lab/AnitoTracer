@@ -14,9 +14,14 @@ set(${CUR_TARGET_NAME}_src
 	Panels/InspectorPanel/Components/TransformUI.hpp
 	Panels/InspectorPanel/Components/CameraUI.hpp
 	Panels/InspectorPanel/Components/DirectionalLightUI.hpp
+	Panels/InspectorPanel/Components/PointLightUI.hpp
 
 	Panels/HierarchyPanel.cpp
 	Panels/HierarchyPanel.hpp
+	Panels/UserSettingsPanel.cpp
+	Panels/UserSettingsPanel.hpp
+	Panels/ProfilerPanel.cpp
+	Panels/ProfilerPanel.hpp
 
 	MenuBar.hpp
 	MenuBar.cpp
@@ -26,6 +31,9 @@ set(${CUR_TARGET_NAME}_src
 
 	GUIManager.cpp
 	GUIManager.hpp
+
+	ObjectPicker.hpp
+	ObjectPicker.cpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})

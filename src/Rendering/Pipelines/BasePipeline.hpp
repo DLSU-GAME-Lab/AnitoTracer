@@ -49,6 +49,7 @@ namespace Diligent {
         RefCntAutoPtr<IBuffer> m_pModelCB;
         RefCntAutoPtr<IShaderResourceBinding> m_pSRB;
         RefCntAutoPtr<ISwapChain> pSwapChain;
+        RefCntAutoPtr<IRenderDevice> m_pDevice;
     };
 
 }

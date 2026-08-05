@@ -1,7 +1,8 @@
 #include "ModelManager.hpp"
 
-void ModelManager::Initialize(IRenderDevice* pDevice, const std::string& assetBasePath) {
+void ModelManager::Initialize(IRenderDevice* pDevice, IDeviceContext* mContext, const std::string& assetBasePath) {
     m_pDevice = pDevice;
+    pContext = mContext;
     m_AssetBasePath = assetBasePath;
 
     LoadDefaultWhite();
@@ -90,7 +91,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     // Optimize for Vulkan/Modern APIs: Triangulate, Gen Normals, Flip UVs (Diligent uses Top-Left UVs)
     const aiScene* pScene = importer.ReadFile(fullPath,
         aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-        aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+        aiProcess_ConvertToLeftHanded | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
 
     if (!pScene || pScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !pScene->mRootNode) {
         std::cerr << "Assimp error: " << importer.GetErrorString() << std::endl;
@@ -183,6 +184,15 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
         for (unsigned int j = 0; j < mesh->mNumVertices; j++) {
             Vertex v;
             v.pos = float3(mesh->mVertices[j].x, mesh->mVertices[j].y, mesh->mVertices[j].z);
+
+            pModel->AABBMin.x = std::min(pModel->AABBMin.x, v.pos.x);
+            pModel->AABBMin.y = std::min(pModel->AABBMin.y, v.pos.y);
+            pModel->AABBMin.z = std::min(pModel->AABBMin.z, v.pos.z);
+
+            pModel->AABBMax.x = std::max(pModel->AABBMax.x, v.pos.x);
+            pModel->AABBMax.y = std::max(pModel->AABBMax.y, v.pos.y);
+            pModel->AABBMax.z = std::max(pModel->AABBMax.z, v.pos.z);
+
             if (mesh->HasNormals()) {
                 v.normal = float3(mesh->mNormals[j].x, mesh->mNormals[j].y, mesh->mNormals[j].z);
             }
@@ -199,7 +209,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
         for (unsigned int j = 0; j < mesh->mNumFaces; j++) {
             aiFace face = mesh->mFaces[j];
             for (unsigned int k = 0; k < face.mNumIndices; k++) {
-                indices.push_back(face.mIndices[k]);
+                indices.push_back(face.mIndices[k] + submesh.BaseVertex);
             }
         }
 
@@ -210,8 +220,9 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     // 3. Create Diligent Hardware Buffers
     BufferDesc VertBuffDesc;
     VertBuffDesc.Name = "Model Vertex Buffer";
-    VertBuffDesc.Usage = USAGE_IMMUTABLE; // Immutable is optimal for Vulkan
-    VertBuffDesc.BindFlags = BIND_VERTEX_BUFFER;
+    VertBuffDesc.Usage = USAGE_IMMUTABLE;
+    // ADDED: BIND_RAY_TRACING is required for buffers used in BLAS building
+    VertBuffDesc.BindFlags = BIND_VERTEX_BUFFER | BIND_RAY_TRACING;
     VertBuffDesc.Size = vertices.size() * sizeof(Vertex);
 
     BufferData VBData;
@@ -222,13 +233,70 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     BufferDesc IndBuffDesc;
     IndBuffDesc.Name = "Model Index Buffer";
     IndBuffDesc.Usage = USAGE_IMMUTABLE;
-    IndBuffDesc.BindFlags = BIND_INDEX_BUFFER;
+    // ADDED: BIND_RAY_TRACING is required for buffers used in BLAS building
+    IndBuffDesc.BindFlags = BIND_INDEX_BUFFER | BIND_RAY_TRACING;
     IndBuffDesc.Size = indices.size() * sizeof(Uint32);
 
     BufferData IBData;
     IBData.pData = indices.data();
     IBData.DataSize = IndBuffDesc.Size;
     m_pDevice->CreateBuffer(IndBuffDesc, &IBData, &pModel->pIndexBuffer);
+
+    // 4. Describe Acceleration Structure
+    BLASTriangleDesc TriangleDesc;
+    TriangleDesc.GeometryName = "ModelGeometry";
+    TriangleDesc.MaxVertexCount = static_cast<Uint32>(vertices.size());
+    TriangleDesc.VertexValueType = VT_FLOAT32;
+    TriangleDesc.VertexComponentCount = 3;
+    TriangleDesc.MaxPrimitiveCount = static_cast<Uint32>(indices.size()) / 3;
+    TriangleDesc.IndexType = VT_UINT32;
+
+    BottomLevelASDesc ASDesc;
+    ASDesc.Name = "Model BLAS";
+    ASDesc.Flags = RAYTRACING_BUILD_AS_PREFER_FAST_TRACE;
+    ASDesc.pTriangles = &TriangleDesc;
+    ASDesc.TriangleCount = 1;
+
+    m_pDevice->CreateBLAS(ASDesc, &pModel->pBLAS);
+
+    // 5. Query Scratch Size & Allocate Scratch Buffer
+    ScratchBufferSizes ScratchSizes = pModel->pBLAS->GetScratchBufferSizes();
+
+    BufferDesc ScratchBuffDesc;
+    ScratchBuffDesc.Name = "BLAS Build Scratch Buffer";
+    ScratchBuffDesc.Size = ScratchSizes.Build;
+    ScratchBuffDesc.Usage = USAGE_DEFAULT;
+    ScratchBuffDesc.BindFlags = BIND_RAY_TRACING;
+
+    RefCntAutoPtr<IBuffer> pScratchBuffer;
+    m_pDevice->CreateBuffer(ScratchBuffDesc, nullptr, &pScratchBuffer);
+
+    // 6. Build BLAS on GPU
+    BLASBuildTriangleData TriData;
+    TriData.GeometryName = "ModelGeometry";
+    TriData.pVertexBuffer = pModel->pVertexBuffer;
+    TriData.VertexStride = sizeof(Vertex);
+    TriData.VertexOffset = 0;
+    TriData.VertexCount = static_cast<Uint32>(vertices.size());
+    TriData.VertexValueType = VT_FLOAT32;
+    TriData.VertexComponentCount = 3;
+    TriData.pIndexBuffer = pModel->pIndexBuffer;
+    TriData.IndexType = VT_UINT32;
+    TriData.IndexOffset = 0;
+    TriData.PrimitiveCount = static_cast<Uint32>(indices.size()) / 3;
+
+    BuildBLASAttribs BuildAttribs;
+    BuildAttribs.pBLAS = pModel->pBLAS;
+    BuildAttribs.pTriangleData = &TriData;
+    BuildAttribs.TriangleDataCount = 1;
+    BuildAttribs.pScratchBuffer = pScratchBuffer;
+
+    // Transition the buffers so Vulkan can safely read/write during the BLAS build
+    BuildAttribs.BLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    BuildAttribs.GeometryTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    BuildAttribs.ScratchBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+
+    pContext->BuildBLAS(BuildAttribs);
 
     // Store in cache and return
     Model* rawPtr = pModel.get();

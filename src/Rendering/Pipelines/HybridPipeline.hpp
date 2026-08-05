@@ -5,7 +5,7 @@
 #include "Graphics/GraphicsEngine/interface/TopLevelAS.h"
 
 namespace Diligent {
-    class BasicLitPipeline : public BasePipeline {
+    class HybridPipeline : public BasePipeline {
         public:
             void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
 
@@ -17,8 +17,15 @@ namespace Diligent {
             void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model) override;
 
         private:
+            void InitializeTLAS(IRenderDevice* pDevice, Uint32 maxInstances = 1000);
+            void BuildSceneTLAS(IDeviceContext* pContext, const RenderData& renderData);
+
             RefCntAutoPtr<IBuffer> m_pMaterialCB;
             RefCntAutoPtr<IBuffer> m_pLightCB;
             RefCntAutoPtr<IBuffer> m_pShadowCB;
+
+            RefCntAutoPtr<ITopLevelAS> m_pTLAS;
+            RefCntAutoPtr<IBuffer> m_pTLASScratchBuffer;
+            RefCntAutoPtr<IBuffer> m_pTLASInstanceBuffer;
     };
 }

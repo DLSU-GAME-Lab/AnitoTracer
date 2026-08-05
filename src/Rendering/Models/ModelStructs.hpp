@@ -11,12 +11,15 @@
 #include "Common/interface/BasicMath.hpp"
 #include "TextureLoader/interface/TextureUtilities.h"
 #include "Graphics/GraphicsEngine/interface/TextureView.h"
+#include "Graphics/GraphicsEngine/interface/BottomLevelAS.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <iostream>
 #include <filesystem> // Add this at the top of your cpp file
+
+#include <glm/glm.hpp>
 
 using namespace Diligent;
 
@@ -54,6 +57,8 @@ struct Model {
     RefCntAutoPtr<IBuffer> pVertexBuffer;
     RefCntAutoPtr<IBuffer> pIndexBuffer;
 
+    RefCntAutoPtr<IBottomLevelAS> pBLAS;
+
     std::vector<SubMesh> SubMeshes;
     std::vector<RefCntAutoPtr<ITextureView>> Materials; // Diffuse SRVs mapped to SubMeshes
 
@@ -65,4 +70,8 @@ struct Model {
 
     //EZ flag
     bool HasPBRProperties = false;
+
+    //For local raytrace obj picking
+    glm::vec3 AABBMin = glm::vec3(std::numeric_limits<float>::max());
+    glm::vec3 AABBMax = glm::vec3(std::numeric_limits<float>::lowest());
 };

@@ -18,6 +18,7 @@ namespace Diligent {
         void Draw() override;
 
         HierarchyObject::Ref GetSelectedObject() const { return m_SelectedObject; }
+        void SetSelectedObject(HierarchyObject::Ref obj);
 
     private:
         HierarchyObject::Ref m_SelectedObject = nullptr;

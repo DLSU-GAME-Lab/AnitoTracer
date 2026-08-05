@@ -4,7 +4,8 @@ HierarchyObject::Ref HierarchyManager::AddRootObject(std::unique_ptr<HierarchyOb
     if (!rootObj) return nullptr;
 
     m_rootNodes.push_back(std::move(rootObj));
-    return m_rootNodes.back().get();
+
+    return  m_rootNodes.back().get();
 }
 
 std::unique_ptr<HierarchyObject> HierarchyManager::RemoveRootObject(HierarchyObject::Ref rootToRemove) {
@@ -20,29 +21,15 @@ std::unique_ptr<HierarchyObject> HierarchyManager::RemoveRootObject(HierarchyObj
 
 void HierarchyManager::AddComponentToObject(HierarchyObject::Ref object, std::unique_ptr<ComponentBase> component) {
     if (!object || !component) return;
-
-    // Assign the owner before moving the component into the object's vector.
-    component->SetOwner(object);
-
-    // Accessing private member m_components requires friend class declaration.
-    object.GetPtr()->m_components.push_back(std::move(component));
+    //Moved it to object
+    object.GetPtr()->AddComponent(std::move(component));
 }
 
 std::unique_ptr<ComponentBase> HierarchyManager::RemoveComponentFromObject(HierarchyObject::Ref object, ComponentBase* componentToRemove) {
     if (!object || !componentToRemove) return nullptr;
 
-    for (auto it = object.GetPtr()->m_components.begin(); it != object.GetPtr()->m_components.end(); ++it) {
-        if (it->get() == componentToRemove) {
-            std::unique_ptr<ComponentBase> detachedComponent = std::move(*it);
-
-            // Clear the owner pointer as it is no longer attached.
-            detachedComponent->SetOwner(nullptr);
-            object.GetPtr()->m_components.erase(it);
-
-            return detachedComponent;
-        }
-    }
-    return nullptr;
+    //Moved it to object
+    return object.GetPtr()->RemoveComponent(componentToRemove);
 }
 
 bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix) {
@@ -77,7 +64,7 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
     if (ModelComponent* modelComp = obj.GetPtr()->GetComponent<ModelComponent>()) {
         // Retrieve the underlying Model struct pointer
         if (Model* pModel = modelComp->GetModel()) {
-            outModels.push_back({ pModel, currentWorldMatrix });
+            outModels.push_back({ pModel, currentWorldMatrix, obj.GetID() });
         }
     }
 
@@ -128,8 +115,7 @@ static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
     }
 
     // Process Point Lights (Assuming you make a PointLight class inheriting LightBase next!)
-    /*
-    if (PointLight* pointLight = obj->GetComponent<PointLight>()) {
+    if (PointLight* pointLight = obj.GetPtr()->GetComponent<PointLight>()) {
         if (outLights.NumPointLights < Diligent::MAX_POINT_LIGHTS) {
             // Extract the absolute world position from the 4th column of the world matrix
             glm::vec3 worldPos = glm::vec3(currentWorldMatrix[3]);
@@ -144,8 +130,7 @@ static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
             outLights.NumPointLights++;
         }
     }
-    */
-
+    
     // Recursively process children
     for (const auto& child : obj.GetPtr()->GetChildren()) {
         GatherLightsRecursive(child.get(), currentWorldMatrix, outLights);
