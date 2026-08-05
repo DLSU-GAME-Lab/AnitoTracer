@@ -13,8 +13,10 @@ namespace gbe {
 		//SERIALIZATION
 		virtual SerializedData Serialize();
 		virtual void Deserialize(SerializedData& data);
-		void DeserializeFromFile(std::string absolute_path);
-		void SerializeToFile(std::string absolute_path);
+		inline void DeserializeFromFile(std::string absolute_path) { DeserializeFromFile(std::filesystem::path(absolute_path)); }
+		void DeserializeFromFile(std::filesystem::path absolute_path);
+		inline void SerializeToFile(std::string absolute_path) { SerializeToFile(std::filesystem::path(absolute_path)); }
+		void SerializeToFile(std::filesystem::path absolute_path);
 		//DESERIALIZATION
 		SerializedData* mostRecentData = nullptr;
 		ISerializable(SerializedData& data);

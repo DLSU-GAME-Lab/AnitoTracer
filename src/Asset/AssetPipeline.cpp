@@ -1,9 +1,6 @@
 #include "AssetPipeline.hpp"
 #include "AssetPipeline.hpp"
 
-#define ASSETTYPE_MODEL "MODEL"
-#define ASSETTYPE_TEXTURE "TEXTURE"
-
 #include "AssetLoading/BatchLoader.hpp"
 
 #include "Models/ModelManager.hpp"

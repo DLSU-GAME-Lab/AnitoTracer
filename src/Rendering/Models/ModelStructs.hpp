@@ -68,5 +68,6 @@ struct Model : public IModel {
     //EZ flag
     bool HasPBRProperties = false;
 
+    inline Model() : IModel() {}
     virtual ~Model() = default;
 };

@@ -1,5 +1,11 @@
 #pragma once
 
+#include "Meta/IAsset_meta.hpp"
+#include "Meta/GUID_meta.hpp"
+#include "Meta/DynamicEnum_meta.hpp"
+
+#include "Types/TypeConstants.hpp"
+
 #include "AssetLoading/BatchLoader.hpp"
 #include "IAsset.hpp"
 #include "AssetRef.hpp"

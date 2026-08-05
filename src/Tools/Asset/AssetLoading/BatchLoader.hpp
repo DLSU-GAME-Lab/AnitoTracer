@@ -12,6 +12,8 @@
 #include "../IAsset.hpp"
 #include "AssetDatabase.hpp"
 
+#include "File/Parser.hpp"
+
 namespace fs = std::filesystem;
 
 namespace gbe {
@@ -79,6 +81,8 @@ namespace gbe {
 
                 // Initial setup
                 newdata.SetPath(sourcePath);
+                newdata.SetMetaPath(metaPath);
+                newdata.SetAssetType(gbe::AssetType(ASSETTYPE_MODEL));
 
                 // Check if metafile exists to parse existing GUID, or generate a fresh one
                 GUID assignedGuid = GUID::Generate();
@@ -94,7 +98,7 @@ namespace gbe {
                 }
 
                 // Save or overwrite meta file with resolved GUID
-                // Parser::ExportClass(newdata, metaPath);
+                Parser::ExportClass(newdata, metaPath);
                 };
 
             GetInstance().m_categories.push_back(config);
