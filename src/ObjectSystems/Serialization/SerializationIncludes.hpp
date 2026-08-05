@@ -4,4 +4,4 @@
 #include "SerializedData.hpp"
 
 #include "AutoSerializer.hpp"
-#include "AutoVectorSerializer.hpp"
+#include "AutoSerializer_Vector.hpp"

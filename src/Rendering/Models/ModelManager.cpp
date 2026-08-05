@@ -239,7 +239,7 @@ void ModelManager::ClearCache() {
     m_TextureCache.clear();
 }
 
-bool ModelManager::LoadAssetImpl(std::unique_ptr<AModel> fileAsset) {
+bool ModelManager::LoadAssetImpl(std::unique_ptr<IModel> fileAsset) {
     auto backend_object = LoadModel(fileAsset.get()->GetPath().string());
 
     if (backend_object != nullptr)

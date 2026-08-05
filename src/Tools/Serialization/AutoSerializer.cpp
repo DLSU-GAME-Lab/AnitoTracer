@@ -2,11 +2,10 @@
 #include "ISerializable.hpp"
 
 namespace gbe {
+
     void IAutoSerializer::RemoveFromInspector(ISerializable* owner) {
         owner->UnRegisterProperty(this);
     }
-
-
 
     template class AutoSerializer<float>;
     template class AutoSerializer<int>;
@@ -24,6 +23,9 @@ namespace gbe {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
             m_target = std::stoi(data.serialized_variables[m_id]);
         }
+        if (m_on_init) {
+            m_on_init(m_target);
+        }
     }
 
     // BOOL
@@ -38,6 +40,9 @@ namespace gbe {
             std::string val = data.serialized_variables[m_id];
             m_target = (val == "1" || val == "true");
         }
+        if (m_on_init) {
+            m_on_init(m_target);
+        }
     }
 
     // FLOAT
@@ -51,6 +56,9 @@ namespace gbe {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
             m_target = std::stof(data.serialized_variables[m_id]);
         }
+        if (m_on_init) {
+            m_on_init(m_target);
+        }
     }
 
     // STRING
@@ -63,6 +71,9 @@ namespace gbe {
     void AutoSerializer<std::string>::Deserialize(SerializedData& data) {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
             m_target = data.serialized_variables[m_id];
+        }
+        if (m_on_init) {
+            m_on_init(m_target);
         }
     }
 

@@ -17,16 +17,19 @@ namespace gbe {
     template <typename T>
     class AutoSerializer<std::vector<std::unique_ptr<T>>> : public IAutoSerializer {
     private:
+        using InitCallback = std::function<void(std::vector<std::unique_ptr<T>>&)>;
         std::vector<std::unique_ptr<T>>& m_target;
         ISerializable* m_owner;
+        InitCallback m_on_init;
 
     public:
-        // Binds directly to the container reference — zero copies or vector reassignments
+
         AutoSerializer(ISerializable* owner,
             std::string id,
             std::string display_name,
-            std::vector<std::unique_ptr<T>>& target)
-            : m_owner(owner), m_target(target)
+            std::vector<std::unique_ptr<T>>& target,
+            InitCallback on_init = nullptr)
+            : m_owner(owner), m_target(target), m_on_init(std::move(on_init))
         {
             m_id = id;
             m_display_name = display_name;
@@ -120,6 +123,10 @@ namespace gbe {
                         }
                     }
                 }
+            }
+
+            if (m_on_init) {
+                m_on_init(m_target);
             }
         }
     };

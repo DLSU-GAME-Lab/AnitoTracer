@@ -143,6 +143,7 @@ int main(int argc, char** argv)
     // ===================== ACTUAL ENGINE START ============================//
 
     auto desuwa = objFactory.CreateRootObjectWithTransform("Desu wa");
+    desuwa.GetPtr()->CreateChild("Desu wa wa");
 
     auto MainCam = objFactory.CreateRootCameraObject("Camera nana");
     MainCam.GetPtr()->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));

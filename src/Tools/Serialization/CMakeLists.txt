@@ -1,8 +1,6 @@
 set(GBE_SERIALIZATION_SRC
 	ISerializable.cpp
 	AutoSerializer.cpp
-	
-	AutoVectorSerializer.hpp
 )
 
 set(CUR_TARGET_NAME gbe_serialization)

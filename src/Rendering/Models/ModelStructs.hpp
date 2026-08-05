@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Types/Model.h"
+#include "Types/IModel.h"
 
 #include <vector>
 #include <string>
@@ -52,7 +52,7 @@ struct PBRMaterial {
 };
 
 // Holds the loaded GPU resources for a complete model
-struct Model : public AModel {
+struct Model : public IModel {
     RefCntAutoPtr<IBuffer> pVertexBuffer;
     RefCntAutoPtr<IBuffer> pIndexBuffer;
 

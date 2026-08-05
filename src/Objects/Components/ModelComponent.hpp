@@ -45,5 +45,13 @@ public:
     const std::vector<Diligent::float4>& GetMaterialColors() const;
 
 private:
-    Model* m_pModel;
+    Model* m_pModel = nullptr;
+
+    gbe::AssetRef<Model> m_model;
+    GBE_SERIALIZE_FIELD(m_model);
+
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ModelComponent, ComponentBase);
+
 };
+
+GBE_REGISTER_SERIALIZED_TYPE(ModelComponent, ComponentBase);

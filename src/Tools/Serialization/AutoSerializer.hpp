@@ -2,9 +2,9 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 
 #include "SerializedData.hpp"
-
 #include "File/Parser.hpp"
 
 namespace gbe {
@@ -26,19 +26,24 @@ namespace gbe {
 
     template <typename T>
     class AutoSerializer : public IAutoSerializer {
+    public:
+        using InitCallback = std::function<void(T&)>;
+
     private:
         T& m_target;
         ISerializable* m_owner;
+        InitCallback m_on_init;
 
     public:
         AutoSerializer(ISerializable* owner,
             std::string id,
             std::string display_name,
-            T& target)
-            : m_owner(owner), m_target(target)
+            T& target,
+            InitCallback on_init = nullptr)
+            : m_owner(owner), m_target(target), m_on_init(std::move(on_init))
         {
-            m_id = id;
-            m_display_name = display_name;
+            m_id = std::move(id);
+            m_display_name = std::move(display_name);
 
             if (m_owner) {
                 m_owner->RegisterProperty(this);
@@ -68,6 +73,10 @@ namespace gbe {
             if (it != data.serialized_variables.end()) {
                 Parser::PopulateClassStr(m_target, it->second);
             }
+
+            if (m_on_init) {
+                m_on_init(m_target);
+            }
         }
     };
 
@@ -81,10 +90,20 @@ namespace gbe {
     template<> void AutoSerializer<std::string>::Serialize(SerializedData& data);
     template<> void AutoSerializer<std::string>::Deserialize(SerializedData& data);
 
-    // Macro for custom display name
+    // Macro with display name AND callback
+#define GBE_SERIALIZE_FIELD_W_NAME_CB(var_name, display_name, callback) \
+        gbe::AutoSerializer<std::decay_t<decltype(var_name)>> _auto_serializer_##var_name{this, #var_name, display_name, var_name, callback}
+
+    // Macro with display name (no callback)
 #define GBE_SERIALIZE_FIELD_W_NAME(var_name, display_name) \
-    gbe::AutoSerializer<std::decay_t<decltype(var_name)>> _auto_serializer_##var_name{this, #var_name, display_name, var_name}
-// Macro using variable name as default display name
+        GBE_SERIALIZE_FIELD_W_NAME_CB(var_name, display_name, nullptr)
+
+    // Macro with variable name as default display name AND callback
+#define GBE_SERIALIZE_FIELD_W_CB(var_name, callback) \
+        GBE_SERIALIZE_FIELD_W_NAME_CB(var_name, #var_name, callback)
+
+    // Macro using variable name as default display name (no callback)
 #define GBE_SERIALIZE_FIELD(var_name) \
-    GBE_SERIALIZE_FIELD_W_NAME(var_name, #var_name)
+        GBE_SERIALIZE_FIELD_W_NAME(var_name, #var_name)
+
 }

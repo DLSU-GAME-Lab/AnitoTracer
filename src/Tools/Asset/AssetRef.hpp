@@ -7,10 +7,10 @@
 namespace gbe {
 
     template <typename T>
-    class Ref {
+    class AssetRef {
         static_assert(
             std::is_base_of_v<IAsset, T>,
-            "Ref<T> error: Template parameter T must derive from gbe::IAsset!"
+            "AssetRef<T> error: Template parameter T must derive from gbe::IAsset!"
             );
 
     private:
@@ -19,26 +19,26 @@ namespace gbe {
 
     public:
         // Default Constructor (Empty/Null reference)
-        Ref() = default;
+        AssetRef() = default;
 
         // Construct from GUID
-        Ref(const GUID& guid) : m_guid(guid) {}
+        AssetRef(const GUID& guid) : m_guid(guid) {}
 
         // Construct directly from Raw Asset Pointer
-        Ref(T* asset)
+        AssetRef(T* asset)
             : m_guid(asset ? asset->GetGUID() : GUID::Empty()),
             m_cachedPtr(asset) {}
 
         // Copy & Move Operators
-        Ref(const Ref& other) = default;
-        Ref& operator=(const Ref& other) = default;
+        AssetRef(const AssetRef& other) = default;
+        AssetRef& operator=(const AssetRef& other) = default;
 
-        Ref(Ref&& other) noexcept
+        AssetRef(AssetRef&& other) noexcept
             : m_guid(std::move(other.m_guid)), m_cachedPtr(other.m_cachedPtr) {
             other.m_cachedPtr = nullptr;
         }
 
-        Ref& operator=(Ref&& other) noexcept {
+        AssetRef& operator=(AssetRef&& other) noexcept {
             if (this != &other) {
                 m_guid = std::move(other.m_guid);
                 m_cachedPtr = other.m_cachedPtr;
@@ -48,7 +48,7 @@ namespace gbe {
         }
 
         // Assign from Raw Asset Pointer
-        Ref& operator=(T* asset) {
+        AssetRef& operator=(T* asset) {
             m_guid = asset ? asset->GetGUID() : GUID::Empty();
             m_cachedPtr = asset;
             return *this;
@@ -88,8 +88,8 @@ namespace gbe {
         explicit operator bool() const { return IsValid(); }
 
         // Comparison Operators
-        bool operator==(const Ref<T>& other) const { return m_guid == other.m_guid; }
-        bool operator!=(const Ref<T>& other) const { return m_guid != other.m_guid; }
+        bool operator==(const AssetRef<T>& other) const { return m_guid == other.m_guid; }
+        bool operator!=(const AssetRef<T>& other) const { return m_guid != other.m_guid; }
 
         bool operator==(std::nullptr_t) const { return !IsValid(); }
         bool operator!=(std::nullptr_t) const { return IsValid(); }

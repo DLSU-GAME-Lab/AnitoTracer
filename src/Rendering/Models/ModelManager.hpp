@@ -1,11 +1,11 @@
 #pragma once
 #include "ModelStructs.hpp"
 
-#include "AssetLoading/AssetLoader.hpp"
+#include "AssetPipeline.hpp"
 
-#include "Types/Model.h"
+#include "Types/IModel.h"
 
-class ModelManager : gbe::AssetLoader<AModel> {
+class ModelManager : gbe::AssetLoader<IModel> {
 public:
     static ModelManager& GetInstance() {
         static ModelManager instance;
@@ -43,5 +43,5 @@ private:
     RefCntAutoPtr<ITextureView> m_pDefaultTextureView;
 
     //IMPLEMENTED REQUIRED ASSET MANAGER RESPONSIBILITIES
-    virtual bool LoadAssetImpl(std::unique_ptr<AModel> fileAsset);
+    virtual bool LoadAssetImpl(std::unique_ptr<IModel> fileAsset);
 };

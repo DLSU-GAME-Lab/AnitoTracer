@@ -2,6 +2,9 @@
 
 #include "AssetLoading/BatchLoader.hpp"
 #include "IAsset.hpp"
+#include "AssetRef.hpp"
+#include "AutoSerializer_AssetRef.hpp"
+#include "AssetLoading/AssetLoader.hpp"
 
 #include "Organization/SingletonMacro.hpp"
 

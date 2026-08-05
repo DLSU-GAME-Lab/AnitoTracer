@@ -1,4 +1,5 @@
 #include "HierarchyObject.hpp"
+#include "HierarchyObject.hpp"
 
 // Adds an existing child object and takes ownership.
 // Returns a raw pointer to the added child for immediate access.
@@ -38,4 +39,12 @@ Transform* HierarchyObject::GetTransform() {
 // Const shortcut implementation
 const Transform* HierarchyObject::GetTransform() const {
     return GetComponent<Transform>();
+}
+
+void HierarchyObject::InitializeChildren(std::vector<std::unique_ptr<ComponentBase>>& target)
+{
+    for (auto& newchild : target)
+    {
+        newchild.get()->SetOwner(this);
+    }
 }
