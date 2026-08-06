@@ -7,6 +7,7 @@
 #include <map>
 
 class JoltPhysicsBody;
+class JoltContactListener;
 
 class JoltPhysicsEngine : public IPhysicsEngine {
 public:
@@ -21,9 +22,14 @@ public:
 	std::shared_ptr<IPhysicsBody> CreateRigidBody(
 		const glm::vec3& position,
 		const glm::quat& rotation,
-		float mass
+		float mass,
+		ShapeType shape = ShapeType::Box,
+		const ShapeParams& shapeParams = {}
 	) override;
 	void DestroyRigidBody(std::shared_ptr<IPhysicsBody> body) override;
+
+	// Collision callback
+	void SetCollisionCallback(CollisionCallback callback) override;
 
 	// Simulation
 	void Step(float deltaTime) override;
@@ -35,10 +41,18 @@ public:
 	JPH::PhysicsSystem* GetPhysicsSystem() { return mPhysicsSystem.get(); }
 	JPH::BodyInterface& GetBodyInterface() { return mPhysicsSystem->GetBodyInterface(); }
 
+	bool HasCollisionCallback() const;
+	void InvokeCollisionCallback(std::shared_ptr<IPhysicsBody> bodyA, std::shared_ptr<IPhysicsBody> bodyB, const glm::vec3& point);
+	std::shared_ptr<JoltPhysicsBody> FindBodyByID(JPH::BodyID id);
+
 private:
 	std::unique_ptr<JPH::JobSystemThreadPool> mJobSystem;
 	std::unique_ptr<JPH::PhysicsSystem> mPhysicsSystem;
+	std::unique_ptr<JoltContactListener> mContactListener;
 
 	std::map<JPH::BodyID, std::shared_ptr<JoltPhysicsBody>> mBodies;
 	glm::vec3 mGravity;
+
+	CollisionCallback mCollisionCallback;
+
 };

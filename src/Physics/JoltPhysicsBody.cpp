@@ -5,3 +5,92 @@
 JoltPhysicsBody::JoltPhysicsBody(JPH::BodyID bodyID, JPH::BodyInterface* bodyInterface, float mass)
 	: mBodyID(bodyID), mBodyInterface(bodyInterface), mMass(mass) {
 }
+
+JPH::RVec3 JoltPhysicsBody::ToJoltVec3(const glm::vec3& value) {
+	return JPH::RVec3(value.x, value.y, value.z);
+}
+
+glm::vec3 JoltPhysicsBody::ToGlmVec3(const JPH::Vec3& value) {
+	return glm::vec3(value.GetX(), value.GetY(), value.GetZ());
+}
+
+JPH::Quat JoltPhysicsBody::ToJoltQuat(const glm::quat& value) {
+	return JPH::Quat(value.x, value.y, value.z, value.w);
+}
+
+glm::quat JoltPhysicsBody::ToGlmQuat(const JPH::Quat& value) {
+	return glm::quat(value.GetW(), value.GetX(), value.GetY(), value.GetZ());
+}
+
+void JoltPhysicsBody::SetPosition(const glm::vec3& position) {
+	mBodyInterface->SetPosition(mBodyID, ToJoltVec3(position), JPH::EActivation::Activate);
+}
+
+glm::vec3 JoltPhysicsBody::GetPosition() const {
+	if (!mBodyInterface) {
+		return glm::vec3(0.0f);
+	}
+	return ToGlmVec3(mBodyInterface->GetPosition(mBodyID));
+}
+
+void JoltPhysicsBody::SetRotation(const glm::quat& rotation) {
+	if (mBodyInterface) {
+		mBodyInterface->SetRotation(mBodyID, ToJoltQuat(rotation), JPH::EActivation::Activate);
+	}
+}
+
+glm::quat JoltPhysicsBody::GetRotation() const {
+	if (!mBodyInterface) {
+		return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+	}
+	return ToGlmQuat(mBodyInterface->GetRotation(mBodyID));
+}
+
+void JoltPhysicsBody::SetMass(float mass) {
+	mMass = mass;
+
+	// TODO: Apply updated mass properties to the Jolt body when the engine creates
+	// bodies with explicit mass properties. For now, we just store the mass value.
+}
+
+float JoltPhysicsBody::GetMass() const {
+	return mMass;
+}
+
+void JoltPhysicsBody::SetVelocity(const glm::vec3& velocity) {
+	if (mBodyInterface) {
+		mBodyInterface->SetLinearVelocity(mBodyID, ToJoltVec3(velocity));
+	}
+}
+
+glm::vec3 JoltPhysicsBody::GetVelocity() const {
+	if (!mBodyInterface) {
+		return glm::vec3(0.0f);
+	}
+	return ToGlmVec3(mBodyInterface->GetLinearVelocity(mBodyID));
+}
+
+void JoltPhysicsBody::SetAngularVelocity(const glm::vec3& angularVelocity) {
+	if (mBodyInterface) {
+		mBodyInterface->SetAngularVelocity(mBodyID, ToJoltVec3(angularVelocity));
+	}
+}
+
+glm::vec3 JoltPhysicsBody::GetAngularVelocity() const {
+	if (!mBodyInterface) {
+		return glm::vec3(0.0f);
+	}
+	return ToGlmVec3(mBodyInterface->GetAngularVelocity(mBodyID));
+}
+
+void JoltPhysicsBody::ApplyForce(const glm::vec3& force) {
+	if (mBodyInterface) {
+		mBodyInterface->AddForce(mBodyID, ToJoltVec3(force));
+	}
+}
+
+void JoltPhysicsBody::ApplyImpulse(const glm::vec3& impulse) {
+	if (mBodyInterface) {
+		mBodyInterface->AddImpulse(mBodyID, ToJoltVec3(impulse));
+	}
+}
