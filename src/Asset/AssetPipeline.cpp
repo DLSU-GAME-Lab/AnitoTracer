@@ -1,5 +1,4 @@
 #include "AssetPipeline.hpp"
-#include "AssetPipeline.hpp"
 
 #include "AssetLoading/BatchLoader.hpp"
 

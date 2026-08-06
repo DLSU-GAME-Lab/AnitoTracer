@@ -7,88 +7,103 @@
 #include "SerializedData.hpp"
 #include "File/Parser.hpp"
 
+#include "PropertyDrawer.hpp"
+#include "IAutoSerializer.hpp"
+
+#include <typeinfo>
+
 namespace gbe {
 
-    class ISerializable;
-
-    struct IAutoSerializer {
-
-        std::string m_id;
-        std::string m_display_name;
-
-        virtual void Serialize(SerializedData& data) = 0;
-        virtual void Deserialize(SerializedData& data) = 0;
-
-        void RemoveFromInspector(ISerializable* _owner);
-
-        virtual ~IAutoSerializer() = default;
-    };
-
+    // =======================================================
+    // PRIMARY TEMPLATE: Only handles default Serialization
+    // =======================================================
     template <typename T>
-    class AutoSerializer : public IAutoSerializer {
+    class AutoSerializer : public AutoSerializerBase<T> {
     public:
-        using InitCallback = std::function<void(T&)>;
+        // Inherit constructors from AutoSerializerBase
+        using AutoSerializerBase<T>::AutoSerializerBase;
 
-    private:
-        T& m_target;
-        ISerializable* m_owner;
-        InitCallback m_on_init;
-
-    public:
-        AutoSerializer(ISerializable* owner,
-            std::string id,
-            std::string display_name,
-            T& target,
-            InitCallback on_init = nullptr)
-            : m_owner(owner), m_target(target), m_on_init(std::move(on_init))
-        {
-            m_id = std::move(id);
-            m_display_name = std::move(display_name);
-
-            if (m_owner) {
-                m_owner->RegisterProperty(this);
-            }
-        }
-
-        // Strictly delete copy operations on the serializer object itself
-        AutoSerializer(const AutoSerializer&) = delete;
-        AutoSerializer& operator=(const AutoSerializer&) = delete;
-
-        ~AutoSerializer() override {
-            if (m_owner) {
-                RemoveFromInspector(m_owner);
-            }
-        }
-
-        T& Get() { return m_target; }
-        const T& Get() const { return m_target; }
-
-        // Fallback using your Glaze Parser for any GLM or complex type
         inline void Serialize(SerializedData& data) override {
-            data.serialized_variables.insert_or_assign(m_id, Parser::ExportClassStr(m_target));
+            data.serialized_variables.insert_or_assign(this->m_id, Parser::ExportClassStr(this->m_target));
         }
 
         inline void Deserialize(SerializedData& data) override {
-            auto it = data.serialized_variables.find(m_id);
+            auto it = data.serialized_variables.find(this->m_id);
             if (it != data.serialized_variables.end()) {
-                Parser::PopulateClassStr(m_target, it->second);
+                Parser::PopulateClassStr(this->m_target, it->second);
             }
 
-            if (m_on_init) {
-                m_on_init(m_target);
+            if (this->m_on_init) {
+                this->m_on_init(this->m_target);
             }
         }
     };
 
     // --- Explicit Specialization Declarations ---
-    template<> void AutoSerializer<float>::Serialize(SerializedData& data);
-    template<> void AutoSerializer<float>::Deserialize(SerializedData& data);
-    template<> void AutoSerializer<int>::Serialize(SerializedData& data);
-    template<> void AutoSerializer<int>::Deserialize(SerializedData& data);
-    template<> void AutoSerializer<bool>::Serialize(SerializedData& data);
-    template<> void AutoSerializer<bool>::Deserialize(SerializedData& data);
-    template<> void AutoSerializer<std::string>::Serialize(SerializedData& data);
-    template<> void AutoSerializer<std::string>::Deserialize(SerializedData& data);
+    // INT
+    template<>
+    void AutoSerializer<int>::Serialize(SerializedData& data) {
+        data.serialized_variables.insert_or_assign(m_id, std::to_string(m_target));
+    }
+
+    template<>
+    void AutoSerializer<int>::Deserialize(SerializedData& data) {
+        if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
+            m_target = std::stoi(data.serialized_variables[m_id]);
+        }
+        if (m_on_init) {
+            m_on_init(m_target);
+        }
+    }
+
+    // BOOL
+    template<>
+    void AutoSerializer<bool>::Serialize(SerializedData& data) {
+        data.serialized_variables.insert_or_assign(m_id, m_target ? "1" : "0");
+    }
+
+    template<>
+    void AutoSerializer<bool>::Deserialize(SerializedData& data) {
+        if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
+            std::string val = data.serialized_variables[m_id];
+            m_target = (val == "1" || val == "true");
+        }
+        if (m_on_init) {
+            m_on_init(m_target);
+        }
+    }
+
+    // FLOAT
+    template<>
+    void AutoSerializer<float>::Serialize(SerializedData& data) {
+        data.serialized_variables.insert_or_assign(m_id, std::to_string(m_target));
+    }
+
+    template<>
+    void AutoSerializer<float>::Deserialize(SerializedData& data) {
+        if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
+            m_target = std::stof(data.serialized_variables[m_id]);
+        }
+        if (m_on_init) {
+            m_on_init(m_target);
+        }
+    }
+
+    // STRING
+    template<>
+    void AutoSerializer<std::string>::Serialize(SerializedData& data) {
+        data.serialized_variables.insert_or_assign(m_id, m_target);
+    }
+
+    template<>
+    void AutoSerializer<std::string>::Deserialize(SerializedData& data) {
+        if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
+            m_target = data.serialized_variables[m_id];
+        }
+        if (m_on_init) {
+            m_on_init(m_target);
+        }
+    }
 
     // Macro with display name AND callback
 #define GBE_SERIALIZE_FIELD_W_NAME_CB(var_name, display_name, callback) \
@@ -105,5 +120,4 @@ namespace gbe {
     // Macro using variable name as default display name (no callback)
 #define GBE_SERIALIZE_FIELD(var_name) \
         GBE_SERIALIZE_FIELD_W_NAME(var_name, #var_name)
-
 }

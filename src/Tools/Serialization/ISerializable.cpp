@@ -1,5 +1,7 @@
 #include "ISerializable.hpp"
 #include "File/Parser.hpp"
+#include "IAutoSerializer.hpp"
+
 
 gbe::SerializedData gbe::ISerializable::Serialize() {
 	

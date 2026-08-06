@@ -1,12 +1,14 @@
 #pragma once
 
-#include "AutoSerializer.hpp"
 #include "SerializedData.hpp"
 
 #include <list>
 #include <functional>
+#include <filesystem>
 
 namespace gbe {
+	struct IAutoSerializer;
+
 	class ISerializable {
 	public:
 
