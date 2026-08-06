@@ -1,12 +1,3 @@
-# Blender 5.1.1 MTL File: 'None'
-# www.blender.org
-
-newmtl bake
-Ns 250.000000
-Ka 1.000000 1.000000 1.000000
-Kd 0.800000 0.800000 0.800000
-Ks 0.500000 0.500000 0.500000
-Ke 0.000000 0.000000 0.000000
-Ni 1.500000
-d 1.000000
-illum 2
+version https://git-lfs.github.com/spec/v1
+oid sha256:bf524892030063dfc7190ae2ce9d0c02d4db0ec8ae545e0fe870232f32358ffe
+size 229

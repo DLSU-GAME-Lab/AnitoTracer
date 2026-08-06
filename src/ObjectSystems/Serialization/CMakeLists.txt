@@ -17,6 +17,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC
 	gbe::serialization
 	anito::objects
+	anito::ui
 )
 
 #ADDITIONAL STUFF

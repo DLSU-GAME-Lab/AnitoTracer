@@ -1,5 +1,7 @@
 #pragma once
 
+#include ANITO_SERIALIZATION_INCLUDES
+
 #include "Meta/AssetRef_meta.hpp"
 #include "Meta/IAsset_meta.hpp"
 #include "Meta/GUID_meta.hpp"
@@ -7,10 +9,9 @@
 
 #include "Types/TypeConstants.hpp"
 
-#include "AssetLoading/BatchLoader.hpp"
-#include "IAsset.hpp"
 #include "AssetRef.hpp"
 #include "AutoSerializer_AssetRef.hpp"
+
 #include "AssetLoading/AssetLoader.hpp"
 
 #include "Organization/SingletonMacro.hpp"

@@ -51,6 +51,11 @@ target_link_libraries(${CUR_TARGET_NAME}
 	anito::objects
 
 	Diligent-GraphicsEngineVk-shared
+)
+
+#PUBLIC
+target_link_libraries(${CUR_TARGET_NAME}
+	PUBLIC
 	Diligent-Imgui
 )
 

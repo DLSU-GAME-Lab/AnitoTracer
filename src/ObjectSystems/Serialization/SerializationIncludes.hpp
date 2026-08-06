@@ -1,3 +1,5 @@
+#include "PropertyDrawers.hpp"
+
 #include "Meta/glm_meta.hpp"
 
 #include "ISerializable.hpp"
