@@ -2,10 +2,11 @@
   "name": "anitoracer-rebuild",
   "version": "0.2.0",
   "dependencies": [
+    "assimp",
+    "directx-dxc",
     "glm",
     "vulkan",
     "vulkan-headers",
-    "assimp",
-    "directx-dxc"
+    "joltphysics"
   ]
 }
