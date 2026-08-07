@@ -2,12 +2,13 @@
 
 #include "ComponentBase.hpp"
 #include "Models/ModelManager.hpp"
+#include "AssetRef.hpp"
 
 class ModelComponent : public ComponentBase {
 public:
     // Initializes the component with an optional loaded model and owner
-    ModelComponent(Model* model = nullptr, gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
-        : ComponentBase("ModelComponent", owner), m_pModel(model) {}
+    ModelComponent(gbe::AssetRef<Model> model = gbe::AssetRef<Model>(), gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
+        : ComponentBase("ModelComponent", owner), m_model(model) {}
 
     ~ModelComponent() override = default;
 
@@ -21,9 +22,9 @@ public:
 
     // --- Core Model Setters / Getters ---
 
-    void SetModel(Model* model) { m_pModel = model; }
-    Model* GetModel() const { return m_pModel; }
-    bool HasModel() const { return m_pModel != nullptr; }
+    void SetModel(gbe::AssetRef<Model> model) { m_model = model; }
+    gbe::AssetRef<Model> GetModel() const { return m_model; }
+    bool HasModel() const { return !m_model.IsEmpty(); }
 
     // --- Easy Getters for Model Properties ---
 
@@ -45,5 +46,11 @@ public:
     const std::vector<Diligent::float4>& GetMaterialColors() const;
 
 private:
-    Model* m_pModel;
+    gbe::AssetRef<Model> m_model;
+    GBE_SERIALIZE_FIELD(m_model);
+
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ModelComponent, ComponentBase);
+
 };
+
+GBE_REGISTER_SERIALIZED_TYPE(ModelComponent, ComponentBase);

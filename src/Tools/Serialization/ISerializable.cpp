@@ -1,5 +1,7 @@
 #include "ISerializable.hpp"
 #include "File/Parser.hpp"
+#include "IAutoSerializer.hpp"
+
 
 gbe::SerializedData gbe::ISerializable::Serialize() {
 	
@@ -21,14 +23,14 @@ void gbe::ISerializable::Deserialize(SerializedData& data)
 	}
 }
 
-void gbe::ISerializable::DeserializeFromFile(std::string absolute_path)
+void gbe::ISerializable::DeserializeFromFile(std::filesystem::path absolute_path)
 {
 	SerializedData data = {};
 	Parser::PopulateClass(data, absolute_path);
 	this->Deserialize(data);
 }
 
-void gbe::ISerializable::SerializeToFile(std::string absolute_path)
+void gbe::ISerializable::SerializeToFile(std::filesystem::path absolute_path)
 {
 	SerializedData data = Serialize();
 	Parser::ExportClass(data, absolute_path);

@@ -1,9 +1,8 @@
 #include "ModelManager.hpp"
 
-void ModelManager::Initialize(IRenderDevice* pDevice, IDeviceContext* mContext, const std::string& assetBasePath) {
+void ModelManager::Initialize(IRenderDevice* pDevice, IDeviceContext* mContext) {
     m_pDevice = pDevice;
     pContext = mContext;
-    m_AssetBasePath = assetBasePath;
 
     LoadDefaultWhite();
 }
@@ -49,7 +48,7 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB
     loadInfo.Format = isSRGB ? Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB : Diligent::TEX_FORMAT_RGBA8_UNORM;
 
     std::filesystem::path modelFilePath(filepath);
-    std::string fullPath = modelFilePath.is_absolute() ? filepath : (m_AssetBasePath + filepath);
+    std::string fullPath = modelFilePath.string();
 
     CreateTextureFromFile(fullPath.c_str(), loadInfo, m_pDevice, &pTexture);
 
@@ -89,7 +88,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     }
 
     std::filesystem::path modelFilePath(filepath);
-    std::string fullPath = modelFilePath.is_absolute() ? filepath : (m_AssetBasePath + filepath);
+    std::string fullPath = modelFilePath.string();
 
     Assimp::Importer importer;
     // Optimize for Vulkan/Modern APIs: Triangulate, Gen Normals, Flip UVs (Diligent uses Top-Left UVs)

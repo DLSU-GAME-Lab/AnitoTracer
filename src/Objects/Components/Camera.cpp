@@ -10,11 +10,13 @@ CameraComponent::CameraComponent(Transform* transform, gbe::IInstanceManager<Hie
 }
 
 void CameraComponent::UpdateViewMatrix() {
-    if (!m_transform) return;
+    auto t = this->GetOwner().GetPtr()->GetTransform();
+
+    if (!t) return;
 
     // Fetch the current position and rotation from the attached Transform
-    glm::vec3 position = m_transform->GetPosition();
-    glm::quat rotation = m_transform->GetRotation();
+    glm::vec3 position = t->GetPosition();
+    glm::quat rotation = t->GetRotation();
 
     // Calculate the forward and up vectors using the quaternion.
     // In a left-handed system, forward is +Z and up is +Y.

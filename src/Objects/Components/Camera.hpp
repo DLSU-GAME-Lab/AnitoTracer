@@ -46,13 +46,21 @@ public:
     glm::mat4 GetViewProjectionMatrix() const;
 
 private:
-    Transform* m_transform; // The required transform dependency
+    Transform* m_transform = nullptr; // The required transform dependency
 
     float m_FOV = 45.0f;  
+    GBE_SERIALIZE_FIELD(m_FOV);
     float m_Aspect = 16.0f / 9.0f;  
+    GBE_SERIALIZE_FIELD(m_Aspect);
     float m_NearZ = 0.1f;
+    GBE_SERIALIZE_FIELD(m_NearZ);
     float m_FarZ = 1000.0f;
+    GBE_SERIALIZE_FIELD(m_FarZ);
 
     glm::mat4 m_ViewMatrix = glm::mat4(1.0f);  
     glm::mat4 m_ProjMatrix = glm::mat4(1.0f);  
+
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(CameraComponent, ComponentBase);
 };
+
+GBE_REGISTER_SERIALIZED_TYPE(CameraComponent, ComponentBase);

@@ -1,4 +1,8 @@
 #pragma once
+
+//very important
+#include "PropertyDrawers.hpp"
+
 #include <string>
 
 namespace Diligent {

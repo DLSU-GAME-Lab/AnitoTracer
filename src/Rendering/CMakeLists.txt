@@ -37,12 +37,16 @@ add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
 target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 #PRIVATE
+
+#PUBLIC
 target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC
 	glm::glm
 	Diligent-Common
 	Diligent-GraphicsEngineVk-shared
 	Diligent-TextureLoader
+
+	anito::asset
 )
 
 target_include_directories(${CUR_TARGET_NAME}
