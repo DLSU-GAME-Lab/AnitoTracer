@@ -1,4 +1,5 @@
 #include "HierarchyObject.hpp"
+#include "HierarchyObject.hpp"
 
 
 // Adds an existing child object and takes ownership.
@@ -50,6 +51,13 @@ void HierarchyObject::AddComponent(std::unique_ptr<ComponentBase> component)
 
     // Take ownership of the component by moving it into the vector.
     m_components.push_back(std::move(component));
+}
+
+void HierarchyObject::InitializeChildren(std::vector<std::unique_ptr<ComponentBase>>& target) {
+    for (auto& newchild : target)
+    {
+        newchild.get()->SetOwner(this);
+    }
 }
 
 std::unique_ptr<ComponentBase> HierarchyObject::RemoveComponent(ComponentBase * componentToRemove)

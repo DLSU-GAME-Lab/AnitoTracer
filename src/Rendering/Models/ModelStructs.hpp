@@ -21,6 +21,8 @@
 
 #include <glm/glm.hpp>
 
+#include "Types/IModel.hpp"
+
 using namespace Diligent;
 
 // Standard vertex structure
@@ -55,7 +57,7 @@ struct PBRMaterial {
 };
 
 // Holds the loaded GPU resources for a complete model
-struct Model {
+struct Model : public IModel {
     RefCntAutoPtr<IBuffer> pVertexBuffer;
     RefCntAutoPtr<IBuffer> pIndexBuffer;
 

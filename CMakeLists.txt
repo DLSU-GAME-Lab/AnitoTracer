@@ -56,6 +56,7 @@ add_compile_definitions(PLATFORM_WIN32=1)
 set(anito_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE INTERNAL "Src directory of AnitoEngine" FORCE)
 
 add_subdirectory(src/Objects)
+add_subdirectory(src/Asset)
 add_subdirectory(src/ObjectSystems/Serialization)
 
 add_subdirectory(src/Physics)
@@ -99,6 +100,7 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 anito::rendering
                 anito::ui
                 anito::physics
+                anito::asset
 )
 
 set(SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Shaders")

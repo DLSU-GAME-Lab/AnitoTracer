@@ -1,6 +1,6 @@
 #pragma once
 
-#include SERIALIZATION_INCLUDES
+#include ANITO_SERIALIZATION_INCLUDES
 
 #include <string>
 #include <vector>
@@ -87,7 +87,8 @@ private:
     GBE_SERIALIZE_FIELD(m_children);
 
     std::vector<std::unique_ptr<ComponentBase>> m_components;
-    GBE_SERIALIZE_FIELD(m_components);
+    void InitializeChildren(std::vector < std::unique_ptr<ComponentBase>>& target);
+    GBE_SERIALIZE_FIELD_W_CB(m_components, std::bind_front(&HierarchyObject::InitializeChildren, this));
 
     friend class HierarchyManager;
 

@@ -14,6 +14,7 @@
 #include "Objects/ObjectFactory.hpp"
 #include "UserSettings.hpp"
 #include "UI/ObjectPicker.hpp"
+#include "Asset/AssetPipeline.hpp"
 
 using namespace Diligent;
 
@@ -147,7 +148,8 @@ bool AnitoTracer_App::InitEngine()
 void AnitoTracer_App::InitManagers()
 {
     Diligent::ShaderManager::GetInstance().Initialize(m_pDevice, "Shaders");
-    ModelManager::GetInstance().Initialize(m_pDevice, m_pImmediateContext, "Assets/");
+    ModelManager::GetInstance().Initialize(m_pDevice, m_pImmediateContext);
+    AssetPipeline::LoadFolder("Assets");
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
     m_MainCam = objFactory.CreateRootCameraObject("Main Camera");

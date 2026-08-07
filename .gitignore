@@ -38,3 +38,4 @@ out
 thirdparty
 vcpkg
 DiligentEngine
+/build

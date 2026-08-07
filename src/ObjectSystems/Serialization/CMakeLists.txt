@@ -3,6 +3,7 @@ set(CUR_TARGET_SUBLIBNAME serialization)
 set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
 
 set(${CUR_TARGET_NAME}_src
+	Meta/glm_meta.hpp
 	Initializer/ObjectInitializer.hpp
 	Initializer/ComponentInitializer.hpp
 	Initializer/ComponentInitializer.cpp
@@ -15,13 +16,9 @@ target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC
 	gbe::serialization
-)
-
-#PRIVATE
-target_link_libraries(${CUR_TARGET_NAME}
-	PRIVATE
 	anito::objects
+	anito::ui
 )
 
 #ADDITIONAL STUFF
-target_compile_definitions(${CUR_TARGET_NAME} PUBLIC SERIALIZATION_INCLUDES="SerializationIncludes.hpp")
+target_compile_definitions(${CUR_TARGET_NAME} PUBLIC ANITO_SERIALIZATION_INCLUDES="SerializationIncludes.hpp")

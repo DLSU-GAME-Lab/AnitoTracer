@@ -38,6 +38,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	glm::glm
 	anito::serialization
 	gbe::tools
+	anito::asset
 )
 
 #PRIVATE
