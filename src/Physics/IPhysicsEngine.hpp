@@ -19,7 +19,7 @@ public:
 
 	// Generic shape parameters
 	struct ShapeParams {
-		glm::vec3 v = glm::vec3(1.0f); // For box: half extents, for sphere: radius in x, for capsule: radius in x and height in y
+		glm::vec3 v = glm::vec3(1.0f); // For box: half extents, for sphere: radius in x, for capsule: radius in x and half-height in y
 	};
 
 	// Collision callback

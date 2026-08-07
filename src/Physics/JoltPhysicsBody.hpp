@@ -34,6 +34,7 @@ public:
 private:
 	JPH::BodyID mBodyID;
 	JPH::BodyInterface* mBodyInterface;
+	const JPH::BodyLockInterface* mBodyLockInterface;
 	float mMass;
 
 	static JPH::RVec3 ToJoltVec3(const glm::vec3& value);

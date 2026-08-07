@@ -1,6 +1,7 @@
 #include "JoltPhysicsBody.hpp"
 
 #include <Jolt/Physics/Body/BodyLockInterface.h>
+#include <Jolt/Physics/Body/BodyLock.h>
 
 JoltPhysicsBody::JoltPhysicsBody(JPH::BodyID bodyID, JPH::BodyInterface* bodyInterface, float mass)
 	: mBodyID(bodyID), mBodyInterface(bodyInterface), mMass(mass) {
@@ -47,10 +48,26 @@ glm::quat JoltPhysicsBody::GetRotation() const {
 }
 
 void JoltPhysicsBody::SetMass(float mass) {
-	mMass = mass;
+	if (mass <= 0.0f) {
+		mMass = 0.0f;
+		return;
+	}
 
-	// TODO: Apply updated mass properties to the Jolt body when the engine creates
-	// bodies with explicit mass properties. For now, we just store the mass value.
+	if (mBodyInterface) {
+		JPH::BodyLockWrite lock(*mBodyLockInterface, mBodyID);
+		if (lock.Succeeded())
+		{
+			JPH::Body& body = lock.GetBody();
+			JPH::MotionProperties* motionProperties = body.GetMotionProperties();
+			if (motionProperties) {
+				JPH::MassProperties massProperties = body.GetShape()->GetMassProperties();
+				massProperties.ScaleToMass(mass);
+				motionProperties->SetMassProperties(JPH::EAllowedDOFs::All, massProperties);
+			}
+		}
+	}
+
+	mMass = mass;
 }
 
 float JoltPhysicsBody::GetMass() const {

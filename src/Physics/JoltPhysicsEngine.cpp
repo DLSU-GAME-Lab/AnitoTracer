@@ -7,6 +7,8 @@
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
+#include <Jolt/Physics/Collision/RayCast.h>
+#include <Jolt/Physics/Collision/CastResult.h>
 #include <iostream>
 
 // Constants for Jolt initialization
@@ -214,4 +216,35 @@ void JoltPhysicsEngine::Step(float deltaTime) {
 
 	// Timestep
 	mPhysicsSystem->Update(deltaTime, 1, &tempAllocator, mJobSystem.get());
+}
+
+bool JoltPhysicsEngine::Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, std::shared_ptr<IPhysicsBody>& outBody, glm::vec3& outHitPoint) {
+	if (!mPhysicsSystem) {
+		return false;
+	}
+
+	// Normalize direction just in case
+	glm::vec3 dir = glm::normalize(direction);
+
+	JPH::RVec3 rayOrigin(origin.x, origin.y, origin.z);
+	JPH::RVec3 rayDirection(dir.x, dir.y, dir.z);
+	JPH::RRayCast ray(rayOrigin, rayDirection);
+
+	JPH::RayCastResult result;
+	bool hit = mPhysicsSystem->GetNarrowPhaseQuery().CastRay(ray, result, JPH::BroadPhaseLayerFilter{}, JPH::ObjectLayerFilter{}, JPH::BodyFilter{});
+
+	if (!hit) {
+		return false;
+	}
+
+	outBody = FindBodyByID(result.mBodyID);
+	if (!outBody) {
+		// Jolt detects body but we don't have it in our map
+		return false;
+	}
+
+	JPH::RVec3 hitPos = ray.GetPointOnRay(result.mFraction);
+	outHitPoint = glm::vec3(hitPos.GetX(), hitPos.GetY(), hitPos.GetZ());
+
+	return true;
 }
