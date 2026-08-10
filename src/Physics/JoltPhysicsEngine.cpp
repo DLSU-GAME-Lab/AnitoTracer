@@ -96,8 +96,8 @@ std::shared_ptr<IPhysicsBody> JoltPhysicsEngine::CreateRigidBody(
 	const glm::vec3& position, 
 	const glm::quat& rotation, 
 	float mass, 
-	ShapeType shape = ShapeType::Box, 
-	const ShapeParams& shapeParams = {}) {
+	ShapeType shape, 
+	const ShapeParams& shapeParams) {
 	if (!mPhysicsSystem)
 	{
 		std::cerr << "[JoltPhysicsEngine] Error: Physics system is not initialized.\n";
