@@ -1,6 +1,8 @@
 #pragma once
 
 #include "IAsset.hpp"
+#include "Meta/IAsset_meta.hpp"
+
 #include "TypeConstants.hpp"
 
 #include "glaze/glaze.hpp"
@@ -12,3 +14,15 @@ public:
 	}
 	virtual ~IModel() = default;
 };
+
+// =========================================================================
+// GLAZE METADATA FOR IAsset
+// =========================================================================
+namespace glz {
+
+    template <>
+	struct meta<IModel> {
+		using T = IModel;
+		static constexpr auto value = meta<gbe::IAsset>::value;
+	};
+} // namespace glz

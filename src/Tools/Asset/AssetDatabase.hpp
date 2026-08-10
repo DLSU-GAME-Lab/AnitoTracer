@@ -10,6 +10,18 @@
 namespace gbe {
 
     class AssetDatabase {
+        static std::string PathToKey(const std::filesystem::path& path) {
+            // 1. Lexically normalize separators and relative components (a/b/../c -> a/c)
+            // 2. Convert to generic format (always uses '/' regardless of OS)
+            auto generic_path = path.lexically_normal().generic_u8string();
+
+            // 3. (Optional) Force lowercase if targeting case-insensitive OS (Windows/macOS)
+            std::string key(generic_path.begin(), generic_path.end());
+            std::transform(key.begin(), key.end(), key.begin(),
+                [](unsigned char c) { return std::tolower(c); });
+            return key;
+        }
+    
     public:
         static std::unordered_map<GUID, IAsset*>& GetGuidMap() {
             static std::unordered_map<GUID, IAsset*> instance;
@@ -33,7 +45,8 @@ namespace gbe {
         // Fast O(1) path lookup
         static IAsset* GetAssetByPath(const std::filesystem::path& path) {
             auto& pathMap = GetPathMap();
-            auto it = pathMap.find(path.string());
+            auto path_lookup = PathToKey(path);
+            auto it = pathMap.find(path_lookup);
             if (it != pathMap.end()) {
                 return GetAssetByGUID(it->second);
             }
@@ -70,7 +83,7 @@ namespace gbe {
 
             asset->SetGUID(finalGuid);
             guidMap[finalGuid] = asset;
-            pathMap[asset->GetPath().string()] = finalGuid;
+            pathMap[PathToKey(asset->GetPath())] = finalGuid;
 
             return finalGuid;
         }
@@ -79,7 +92,7 @@ namespace gbe {
             auto& guidMap = GetGuidMap();
             auto it = guidMap.find(guid);
             if (it != guidMap.end()) {
-                GetPathMap().erase(it->second->GetPath().string());
+                GetPathMap().erase(PathToKey(it->second->GetPath()));
                 guidMap.erase(it);
             }
         }

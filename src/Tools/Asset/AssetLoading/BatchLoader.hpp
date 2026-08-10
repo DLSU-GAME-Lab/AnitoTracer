@@ -33,36 +33,15 @@ namespace gbe {
             bool isDeferred = false;
             MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename;
 
-            std::function<void(const fs::path& sourcePath, const fs::path& metaPath)> metaGenerator;
-            std::function<void(const fs::path& metaPath)> loader;
+            std::function<void(const fs::path& sourcePath, const fs::path& metaPath)> loader;
         };
-
-        static void RegisterCategoryDefault(const std::string& categoryName,
-            const std::vector<std::string>& sourceExtensions,
-            const std::string& metaSuffix,
-            std::function<void(const fs::path& metaPath)> loader,
-            std::function<void(IAsset& meta, const fs::path& sourcePath)> metaInitializer = nullptr,
-            bool isDeferred = false,
-            MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename)
-        {
-            RegisterCategory<IAsset>(
-                categoryName,
-                sourceExtensions,
-                metaSuffix,
-                loader,
-                metaInitializer,
-                isDeferred,
-                namingStrategy
-            );
-        }
 
         template <typename TMeta>
         static void RegisterCategory(
             const std::string& categoryName,
             const std::vector<std::string>& sourceExtensions,
             const std::string& metaSuffix,
-            std::function<void(const fs::path& metaPath)> loader,
-            std::function<void(TMeta& meta, const fs::path& sourcePath)> metaInitializer = nullptr,
+            std::function<TMeta*(const fs::path& sourcePath)> loader = nullptr,
             bool isDeferred = false,
             MetaNamingStrategy namingStrategy = MetaNamingStrategy::AppendToFilename)
         {
@@ -72,34 +51,39 @@ namespace gbe {
             config.name = categoryName;
             config.sourceExtensions = sourceExtensions;
             config.metaSuffix = metaSuffix;
-            config.loader = loader;
             config.isDeferred = isDeferred;
             config.namingStrategy = namingStrategy;
 
-            config.metaGenerator = [metaInitializer, categoryName](const fs::path& sourcePath, const fs::path& metaPath) {
-                TMeta newdata{};
+            config.loader = [loader, categoryName](const fs::path& sourcePath, const fs::path& metaPath) {
+                if (!loader) {
+                    return;
+                }
+                TMeta* newdata = loader(sourcePath);
 
                 // Initial setup
-                newdata.SetPath(sourcePath);
-                newdata.SetMetaPath(metaPath);
-                newdata.SetAssetType(gbe::AssetType(ASSETTYPE_MODEL));
+                newdata->SetPath(sourcePath);
+                newdata->SetMetaPath(metaPath);
+
+                // TODO
+                // If parser exists: read requested GUID from meta file
+
+                TMeta dummydata = {};
+                Parser::PopulateClass(dummydata, metaPath);
+
+                GUID assignedGuid = {};
 
                 // Check if metafile exists to parse existing GUID, or generate a fresh one
-                GUID assignedGuid = GUID::Generate();
-
-                // If parser exists: read requested GUID from meta file
-                // assignedGuid = Parser::ReadGUID(metaPath);
+                if (fs::exists(metaPath))
+                    assignedGuid = dummydata.GetGUID();
+                else
+                    assignedGuid = GUID::Generate();
 
                 // Register with AssetDatabase (will automatically re-key if collision occurs)
-                assignedGuid = AssetDatabase::RegisterAsset(&newdata, assignedGuid);
-
-                if (metaInitializer) {
-                    metaInitializer(newdata, sourcePath);
-                }
+                assignedGuid = AssetDatabase::RegisterAsset(newdata, assignedGuid);
 
                 // Save or overwrite meta file with resolved GUID
-                Parser::ExportClass(newdata, metaPath);
-                };
+                Parser::ExportClass(*newdata, metaPath);
+            };
 
             GetInstance().m_categories.push_back(config);
         }
@@ -122,27 +106,6 @@ namespace gbe {
                     }
                 }
             }
-
-            // Phase 2: Generate missing metafiles / process GUIDs
-            filepaths = GetAllFilepaths(directory);
-            for (const auto& filepath : filepaths) {
-                std::string ext = filepath.extension().string();
-
-                for (const auto& cat : GetInstance().m_categories) {
-                    bool matchesExt = std::any_of(cat.sourceExtensions.begin(), cat.sourceExtensions.end(),
-                        [&ext](const std::string& validExt) {
-                            return EqualIgnoreCase(ext, validExt);
-                        });
-
-                    if (matchesExt) {
-                        fs::path metaPath = BuildMetaPath(filepath, cat);
-                        if (!fs::exists(metaPath) && cat.metaGenerator) {
-                            std::cout << "[BATCHLOADER] Generating metafile: " << metaPath << std::endl;
-                            cat.metaGenerator(filepath, metaPath);
-                        }
-                    }
-                }
-            }
         }
 
         // Phase 3: Load registered assets
@@ -156,19 +119,34 @@ namespace gbe {
                 std::string filename = filepath.filename().string();
 
                 for (const auto& cat : GetInstance().m_categories) {
-                    if (EndsWith(filename, cat.metaSuffix)) {
+
+                    std::string ext = filepath.extension().string();
+                    bool matchesExt = std::any_of(cat.sourceExtensions.begin(), cat.sourceExtensions.end(),
+                        [&ext](const std::string& validExt) {
+                            return EqualIgnoreCase(ext, validExt);
+                        });
+
+                    if (matchesExt) {
                         if (cat.isDeferred) {
                             deferredLoads.push_back({ cat, filepath });
                         }
                         else {
-                            if (cat.loader) cat.loader(filepath);
+                            fs::path metaPath = BuildMetaPath(filepath, cat);
+                            if (cat.loader) {
+                                std::cout << "[BATCHLOADER] Loading: " << metaPath << std::endl;
+                                cat.loader(filepath, metaPath);
+                            }
                         }
                     }
                 }
             }
 
             for (const auto& [cat, filepath] : deferredLoads) {
-                if (cat.loader) cat.loader(filepath);
+                fs::path metaPath = BuildMetaPath(filepath, cat);
+                if (cat.loader) {
+                    std::cout << "[BATCHLOADER] Loading: " << metaPath << std::endl;
+                    cat.loader(filepath, metaPath);
+                }
             }
 
             if (isAsyncPending) {

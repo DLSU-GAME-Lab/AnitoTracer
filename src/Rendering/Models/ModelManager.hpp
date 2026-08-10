@@ -1,10 +1,13 @@
 #pragma once
 #include "ModelStructs.hpp"
 
-class ModelManager {
+#include "AssetLoading/AssetLoader.hpp"
+
+class ModelManager : public gbe::AssetLoader<Model> {
 public:
     static ModelManager& GetInstance() {
         static ModelManager instance;
+        instance.AssignSelfAsLoader();
         return instance;
     }
 
