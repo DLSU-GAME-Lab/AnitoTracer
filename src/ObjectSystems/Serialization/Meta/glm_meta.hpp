@@ -3,6 +3,7 @@
 #include <glaze/glaze.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include "../../Common/MathDefs.hpp"
 
 // =========================================================================
 // GLAZE METADATA FOR GLM TYPES
@@ -81,6 +82,24 @@ namespace glz {
             "col1", [](M& m) -> auto& { return m[1]; },
             "col2", [](M& m) -> auto& { return m[2]; },
             "col3", [](M& m) -> auto& { return m[3]; }
+        );
+    };
+
+    // --- Color3 (wrapper around glm::vec3) ---
+    template <>
+    struct meta<Color3> {
+        using C = Color3;
+        static constexpr auto value = object(
+            "value", &C::value
+        );
+    };
+
+    // --- Color4 (wrapper around glm::vec4) ---
+    template <>
+    struct meta<Color4> {
+        using C = Color4;
+        static constexpr auto value = object(
+            "value", &C::value
         );
     };
 

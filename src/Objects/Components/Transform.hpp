@@ -46,15 +46,15 @@ public:
 
 private:
     glm::vec3 m_position;
-    GBE_SERIALIZE_FIELD(m_position);
+    GBE_SERIALIZE_FIELD_W_NAME(m_position, "Position");
 
     glm::quat m_rotation; // Don't serialize this anymore, rely on euler angles.
 
     glm::vec3 m_eulerAnglesDegrees;
-    GBE_SERIALIZE_FIELD(m_eulerAnglesDegrees);
+    GBE_SERIALIZE_FIELD_W_NAME(m_eulerAnglesDegrees, "Rotation");
     
     glm::vec3 m_scale;
-    GBE_SERIALIZE_FIELD(m_scale);
+    GBE_SERIALIZE_FIELD_W_NAME(m_scale, "Scale");
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(Transform, ComponentBase);
 };
