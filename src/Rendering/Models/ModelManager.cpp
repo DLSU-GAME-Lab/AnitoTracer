@@ -1,4 +1,5 @@
 #include "ModelManager.hpp"
+#include "ModelManager.hpp"
 
 void ModelManager::Initialize(IRenderDevice* pDevice, IDeviceContext* mContext) {
     m_pDevice = pDevice;
