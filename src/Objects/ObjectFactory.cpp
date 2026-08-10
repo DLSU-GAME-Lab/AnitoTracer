@@ -40,7 +40,7 @@ HierarchyObject::Ref ObjectFactory::CreateRootCameraObject(const std::string& na
 }
 
 HierarchyObject::Ref ObjectFactory::CreateModelObject(const std::string& name, const std::string& filepath) {
-    Model* pModel = ModelManager::GetInstance().LoadModel(filepath);
+    Model* pModel = ModelManager::GetAssetByPath(filepath);
 
     HierarchyObject::Ref newObject = CreateRootObject(name);
 
@@ -79,9 +79,9 @@ HierarchyObject::Ref ObjectFactory::CreatePointLightObject(const std::string& na
 }
 
 HierarchyObject::Ref ObjectFactory::CreateSpherePrimitive(const std::string& name) {
-    return CreateModelObject(name, "Primitives/sphere.obj");
+    return CreateModelObject(name, "Assets/Primitives/sphere.obj");
 }
 
 HierarchyObject::Ref ObjectFactory::CreateCubePrimitive(const std::string& name) {
-    return CreateModelObject(name, "Primitives/cube.obj");
+    return CreateModelObject(name, "Assets/Primitives/cube.obj");
 }
