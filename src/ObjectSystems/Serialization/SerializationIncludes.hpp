@@ -7,3 +7,5 @@
 
 #include "AutoSerializer.hpp"
 #include "AutoSerializer_Vector.hpp"
+
+#include "ObjectRef.hpp"

@@ -35,7 +35,11 @@ void Diligent::InspectorPanel::Draw()
                             }
 
                             // Draw all other properties normally
-                            property->DrawInspector();
+                            if (!property->DrawInspector()) {
+                                //Sanity check to see if something is there even if the draw did not happen
+								std::string fallBackTxt = "No UI for " + property->m_display_name;
+								ImGui::Text(fallBackTxt.c_str());
+                            }
                         }
                     }
                     //TODO: Add specialty component laters desu
