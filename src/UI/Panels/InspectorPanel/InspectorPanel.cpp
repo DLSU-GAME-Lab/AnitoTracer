@@ -38,7 +38,7 @@ void Diligent::InspectorPanel::Draw()
                             property->DrawInspector();
                         }
                     }
-
+                    //TODO: Add specialty component laters desu
                     /*InspectorRegistry::GetInstance().DrawComponent(component.get());*/
                     ImGui::Spacing();
                 }
