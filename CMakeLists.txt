@@ -55,6 +55,7 @@ add_compile_definitions(PLATFORM_WIN32=1)
 
 set(anito_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE INTERNAL "Src directory of AnitoEngine" FORCE)
 
+add_subdirectory(src/Common)
 add_subdirectory(src/Objects)
 add_subdirectory(src/Asset)
 add_subdirectory(src/ObjectSystems/Serialization)
@@ -95,6 +96,7 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
 				Diligent-Imgui
 
                 $<LINK_LIBRARY:WHOLE_ARCHIVE,anito::objects>
+                anito::common 
                 anito::rendering
                 anito::ui
                 anito::asset
