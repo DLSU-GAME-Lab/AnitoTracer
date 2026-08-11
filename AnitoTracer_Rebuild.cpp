@@ -9,6 +9,13 @@ int main(int argc, char** argv)
 {
     AnitoTracer_App app;
 
+#ifdef _DEBUG
+    AllocConsole();
+    FILE* fDummy;
+    freopen_s(&fDummy, "CONOUT$", "w", stderr);
+    freopen_s(&fDummy, "CONOUT$", "w", stdout);
+#endif
+
 #if PLATFORM_WIN32
     if (app.Initialize(hInstance, nCmdShow))
 #else
