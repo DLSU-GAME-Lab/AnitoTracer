@@ -64,9 +64,6 @@ namespace gbe {
                 newdata->SetPath(sourcePath);
                 newdata->SetMetaPath(metaPath);
 
-                // TODO
-                // If parser exists: read requested GUID from meta file
-
                 TMeta dummydata = {};
                 Parser::PopulateClass(dummydata, metaPath);
 

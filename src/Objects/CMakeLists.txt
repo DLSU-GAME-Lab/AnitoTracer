@@ -39,6 +39,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	anito::serialization
 	gbe::tools
 	anito::asset
+	anito::common
 )
 
 #PRIVATE

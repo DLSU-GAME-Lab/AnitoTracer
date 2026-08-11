@@ -56,6 +56,19 @@ namespace Diligent {
         // Render the node using the object's memory address as a unique ID
         bool nodeOpen = ImGui::TreeNodeEx((void*)node.GetID(), flags, "%s", node.GetPtr()->GetName().c_str());
 
+        //For drag drop hierarchy / component references
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+        {
+            // We pass the raw pointer address as the payload data
+            HierarchyObject* objPtr = node.GetPtr();
+            ImGui::SetDragDropPayload("DND_HIERARCHY_OBJ", &objPtr, sizeof(HierarchyObject*));
+
+            // Show a cute tooltip while dragging!
+            ImGui::Text("Assign %s", objPtr->GetName().c_str());
+
+            ImGui::EndDragDropSource();
+        }
+
         // Update the selected object when clicked
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {

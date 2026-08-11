@@ -6,11 +6,17 @@
 #include <functional>
 #include <filesystem>
 
+#include "GUID.hpp"
+
 namespace gbe {
 	struct IAutoSerializer;
 
 	class ISerializable {
+	private:
+		GUID m_guid = GUID::Generate();
 	public:
+
+		GUID GetGUID() const { return m_guid; }
 
 		//SERIALIZATION
 		virtual SerializedData Serialize();
@@ -23,6 +29,7 @@ namespace gbe {
 		SerializedData* mostRecentData = nullptr;
 		ISerializable(SerializedData& data);
 		ISerializable();
+		~ISerializable();
 
 		//INSPECTOR + SERIALIZATION
 		std::vector<IAutoSerializer*> properties;

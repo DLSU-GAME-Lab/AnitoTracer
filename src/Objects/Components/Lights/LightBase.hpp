@@ -6,7 +6,11 @@
 #include "../ComponentBase.hpp"
 #include <glm/glm.hpp>
 
-class LightBase : public ComponentBase {
+#include "../../../Common/MathDefs.hpp"
+
+#include "Organization/IInstanceManager.hpp"
+
+class LightBase : public ComponentBase, public gbe::IInstanceManager<LightBase> {
 public:
     // Initializes the light component with a name, an optional owner, and default light properties.
     LightBase(const std::string& name, gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
@@ -33,6 +37,12 @@ public:
     void SetIntensity(float intensity) { m_intensity = intensity; }
 
 protected:
-    glm::vec3 m_color;
+    Color3 m_color;
+    GBE_SERIALIZE_FIELD_W_NAME(m_color, "Light Color");
     float m_intensity;
+    GBE_SERIALIZE_FIELD_W_NAME(m_intensity, "Intensity");
+
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(LightBase, ComponentBase);
 };
+
+GBE_REGISTER_SERIALIZED_TYPE(LightBase, ComponentBase);
