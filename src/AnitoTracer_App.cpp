@@ -122,6 +122,14 @@ bool AnitoTracer_App::InitEngine()
     EngineVkCreateInfo engineCI;
     engineCI.Features.RayTracing = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
 
+#if defined(_DEBUG) || defined(DEBUG)
+    // Enable the Vulkan validation layer in debug builds so driver-specific
+    // usage errors (invalid buffer alignment, resource state, RT feature
+    // misuse, etc.) surface as explicit messages instead of silently
+    // producing incorrect rendering on some GPUs/drivers.
+    engineCI.EnableValidation = true;
+#endif
+
     SwapChainDesc swapChainDesc;
     swapChainDesc.Width = m_WindowWidth;
     swapChainDesc.Height = m_WindowHeight;
@@ -129,7 +137,14 @@ bool AnitoTracer_App::InitEngine()
     pFactoryVk->CreateDeviceAndContextsVk(engineCI, &m_pDevice, &m_pImmediateContext);
     pFactoryVk->CreateSwapChainVk(m_pDevice, m_pImmediateContext, swapChainDesc, m_NativeWindow, &m_pSwapChain);
 
+    const GraphicsAdapterInfo& AdapterInfo = m_pDevice->GetAdapterInfo();
+    std::cout << "[Info] GPU Adapter: " << AdapterInfo.Description
+        << " (VendorId=0x" << std::hex << AdapterInfo.VendorId << std::dec << ")" << std::endl;
+
     bool bSupportsRayTracing = (m_pDevice->GetDeviceInfo().Features.RayTracing == Diligent::DEVICE_FEATURE_STATE_ENABLED);
+
+    std::cout << "[Info] RayTracing feature state: "
+        << (bSupportsRayTracing ? "ENABLED" : "DISABLED/UNSUPPORTED") << std::endl;
 
     if (bSupportsRayTracing)
     {
