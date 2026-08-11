@@ -34,7 +34,13 @@ set(${CUR_TARGET_NAME}_src
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
-target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CUR_TARGET_NAME} 
+	PUBLIC 
+		${CMAKE_CURRENT_SOURCE_DIR}
+		${diligentcore_SOURCE_DIR}
+		${diligenttools_SOURCE_DIR}
+		${diligentfx_SOURCE_DIR}
+)
 
 #PRIVATE
 

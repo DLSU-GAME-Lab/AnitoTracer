@@ -23,7 +23,23 @@ void Diligent::InspectorPanel::Draw()
             {
                 if (component)
                 {
-                    InspectorRegistry::GetInstance().DrawComponent(component.get());
+                    //Skip name and use it to collapse
+                    if (ImGui::CollapsingHeader(component->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+
+                        // Loop through the public properties vector from ISerializable
+                        for (auto* property : component->properties) {
+
+                            //Skip name
+                            if (property->m_id == "m_name") {
+                                continue;
+                            }
+
+                            // Draw all other properties normally
+                            property->DrawInspector();
+                        }
+                    }
+                    //TODO: Add specialty component laters desu
+                    /*InspectorRegistry::GetInstance().DrawComponent(component.get());*/
                     ImGui::Spacing();
                 }
             }

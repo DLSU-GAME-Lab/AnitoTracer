@@ -5,8 +5,8 @@
 #include <unordered_map>
 #include <memory>
 
-#include "RenderDevice.h"
-#include "DeviceContext.h"
+#include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Common/interface/BasicMath.hpp"
 #include "TextureLoader/interface/TextureUtilities.h"
