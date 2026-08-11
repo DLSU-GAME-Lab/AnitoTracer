@@ -8,15 +8,12 @@ AssetPipeline::AssetPipeline() {
 	gbe::AssetType::register_value(ASSETTYPE_MODEL);
 	gbe::AssetType::register_value(ASSETTYPE_TEXTURE);
 
-    gbe::BatchLoader::RegisterCategoryDefault(
+    gbe::BatchLoader::RegisterCategory<IModel>(
         ASSETTYPE_MODEL,
         { ".obj", ".fbx" },
         ".ani",
-        [](const fs::path& path) {
-            //Meta file preprocessing goes here, usually empty tho.
-        },
-        [](gbe::IAsset& meta, const fs::path& src) { 
-            ModelManager::GetInstance().LoadModel(src.string()); //Connect asset system to asset loader
+        [](const fs::path& src) { 
+            return ModelManager::GetInstance().LoadModel(src.string()); //Connect asset system to asset loader
         },
         false,
         gbe::BatchLoader::MetaNamingStrategy::AppendToFilename

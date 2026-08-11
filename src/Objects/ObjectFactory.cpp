@@ -40,7 +40,7 @@ HierarchyObject::Ref ObjectFactory::CreateRootCameraObject(const std::string& na
 }
 
 HierarchyObject::Ref ObjectFactory::CreateModelObject(const std::string& name, const std::string& filepath) {
-    Model* pModel = ModelManager::GetInstance().LoadModel(filepath);
+    Model* pModel = ModelManager::GetAssetByPath(filepath);
 
     HierarchyObject::Ref newObject = CreateRootObject(name);
 

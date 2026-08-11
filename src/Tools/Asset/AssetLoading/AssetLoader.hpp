@@ -59,27 +59,17 @@ namespace gbe {
 			return assetIds;
 		}
 
-		bool RegisterAsset(IAsset* asset) override {
-			TEngineAsset* typedAsset = dynamic_cast<TEngineAsset*>(asset);
-			if (!typedAsset) return false;
-
-			// Register through AssetDatabase with collision handling
-			AssetDatabase::RegisterAsset(typedAsset, typedAsset->GetGUID());
-			return true;
+		static TEngineAsset* GetAssetByPath(const std::filesystem::path& path) {
+			return dynamic_cast<TEngineAsset*>(AssetDatabase::GetAssetByPath(path));
 		}
-
+		
 		// Fast O(1) GUID lookup
-		TEngineAsset* GetAssetByGUID(const GUID& guid) {
+		static TEngineAsset* GetAssetByGUID(const GUID& guid) {
 			return dynamic_cast<TEngineAsset*>(AssetDatabase::GetAssetByGUID(guid));
 		}
 
-		// Fast O(1) Path lookup
-		TEngineAsset* GetBaseData(const std::filesystem::path& path) {
-			return dynamic_cast<TEngineAsset*>(AssetDatabase::GetAssetByPath(path));
-		}
-
 		// Directory move listener
-		void OnAssetMoved(const std::filesystem::path& oldPath, const std::filesystem::path& newPath) {
+		static void OnAssetMoved(const std::filesystem::path& oldPath, const std::filesystem::path& newPath) {
 			IAsset* asset = AssetDatabase::GetAssetByPath(oldPath);
 			if (asset) {
 				AssetDatabase::GetPathMap().erase(oldPath.string());
@@ -91,7 +81,17 @@ namespace gbe {
 		int CheckAsynchronousTasks() override { return 0; }
 
 	protected:
-		virtual bool LoadAssetImpl(std::unique_ptr<TEngineAsset> fileAsset) = 0;
+		/// <summary>
+		/// Call this function at the end of your primary public asset loader function to handle the final registration and caching of the loaded asset.
+		/// </summary>
+		bool RegisterAsset(IAsset* asset) override {
+			TEngineAsset* typedAsset = dynamic_cast<TEngineAsset*>(asset);
+			if (!typedAsset) return false;
+
+			// Register through AssetDatabase with collision handling
+			AssetDatabase::RegisterAsset(typedAsset, typedAsset->GetGUID());
+			return true;
+		}
 	};
 
 	template<typename TEngineAsset>
@@ -100,8 +100,6 @@ namespace gbe {
 	// --- Standalone Global Helpers ---
 	extern std::unordered_map<AssetType, IAssetCollection*> allAssetLoaders;
 
-	IAsset* GetBaseData(const GUID& guid);
-	IAsset* GetBaseDataByPath(const std::filesystem::path& path);
 	AssetType GetAssetType(const GUID& guid);
 
 } // namespace gbe
