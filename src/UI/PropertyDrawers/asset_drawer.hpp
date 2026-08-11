@@ -29,10 +29,17 @@ namespace gbe {
                     ImGui::Indent();
 
                     // Display internal array sizes
-                    ImGui::Text("Path: %s", modelData->GetPath().string());
+                    ImGui::Text("Path: %s", modelData->GetPath().generic_string().c_str());
                     ImGui::Text("Submeshes: %zu", modelData->SubMeshes.size());
                     ImGui::Text("PBR Materials: %zu", modelData->PBRMaterials.size());
                     ImGui::Text("PBR Enabled: %s", modelData->HasPBRProperties ? "True" : "False");
+
+                    int verts = 0;
+                    for (auto submesh : modelData->SubMeshes) {
+                        verts += submesh.IndexCount;
+                    }
+
+                    ImGui::Text("Total Vertices: %i", verts);
 
                     ImGui::Spacing();
 
