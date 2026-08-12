@@ -14,6 +14,11 @@ namespace gbe {
             return instance;
         }
 
+        /// Returns reference to all registered objects currently in memory
+        const std::unordered_map<GUID, ISerializable*>& GetRegistry() const {
+            return m_registry;
+        }
+
         void Register(const GUID& guid, ISerializable* ptr) {
             if (guid != GUID::Empty() && ptr != nullptr) {
                 m_registry[guid] = ptr;
