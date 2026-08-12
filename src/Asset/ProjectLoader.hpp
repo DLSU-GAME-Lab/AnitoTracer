@@ -25,7 +25,7 @@ public:
 		currentSceneFile = currentProjectDir / newinfo.entryscene;
 		currentProjectFile = path;
 
-		AssetPipeline::LoadFolder(currentProjectDir);
+		AssetPipeline::IncludeFolder(currentProjectDir);
 		HierarchyManager::GetInstance().DeserializeFromFile(currentSceneFile);
 		
 	}

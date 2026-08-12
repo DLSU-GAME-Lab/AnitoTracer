@@ -20,8 +20,9 @@ AssetPipeline::AssetPipeline() {
     );
 }
 
-void AssetPipeline::LoadFolder(std::filesystem::path folderpath)
+void AssetPipeline::IncludeFolder(std::filesystem::path folderpath)
 {
     GetInstance();
+    gbe::AssetDatabase::RegisterDirectory(folderpath);
     gbe::BatchLoader::ReloadDirectory(folderpath);
 }
