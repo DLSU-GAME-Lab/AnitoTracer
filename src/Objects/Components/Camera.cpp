@@ -36,3 +36,12 @@ void CameraComponent::UpdateProjectionMatrix() {
 glm::mat4 CameraComponent::GetViewProjectionMatrix() const {
     return m_ProjMatrix * m_ViewMatrix;
 }
+
+void CameraComponent::OnUpdate(float deltatime)
+{
+}
+
+void CameraComponent::OnEditorUpdate(float deltatime)
+{
+    //std::cout << "Camera Editor Update Delta Time: " << deltatime << std::endl;
+}

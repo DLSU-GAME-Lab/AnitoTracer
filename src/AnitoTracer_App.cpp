@@ -16,6 +16,8 @@
 #include "UI/ObjectPicker.hpp"
 #include "Asset/AssetPipeline.hpp"
 
+#include ANITO_EVENT_INCLUDES
+
 using namespace Diligent;
 
 // Global pointer required for the static WindowProc to route messages back to the class instance.
@@ -265,6 +267,9 @@ void AnitoTracer_App::Update()
     imguiManager.NewFrame(SCDesc.Width, SCDesc.Height, transform);
     UpdateCameraControls();
     imguiManager.DrawUI(m_AppRunning);
+
+    //===============//EVENTS//===============//
+    HierarchyManager::GetInstance().DispatchEvent<EditorUpdateEvent>(0.016f); //test delta frame
 }
 
 void AnitoTracer_App::Render()
