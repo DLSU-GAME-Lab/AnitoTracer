@@ -25,6 +25,9 @@ gbe::ISerializable::~ISerializable()
 gbe::SerializedData gbe::ISerializable::Serialize() {
 	SerializedData data = {};
 
+	// FIX 1: Explicitly write GUID to serialized_variables
+	data.serialized_variables["m_guid"] = m_guid.ToString();
+
 	for (const auto& prop : this->properties)
 	{
 		prop->Serialize(data);
@@ -38,13 +41,21 @@ void gbe::ISerializable::Deserialize(SerializedData& data)
 	// Unregister initial temporary GUID
 	SceneRegistry::GetInstance().Unregister(m_guid);
 
+	// FIX 2: Read persistent GUID back from SerializedData
+	auto it = data.serialized_variables.find("m_guid");
+	if (it != data.serialized_variables.end())
+	{
+		m_guid = GUID::FromString(it->second);
+	}
+
+	// FIX 3: Register restored persistent GUID BEFORE property deserialization
+	// so reference resolution works during property deserialization
+	SceneRegistry::GetInstance().Register(m_guid, this);
+
 	for (auto& prop : this->properties)
 	{
 		prop->Deserialize(data);
 	}
-
-	// Register restored persistent GUID loaded from file
-	SceneRegistry::GetInstance().Register(m_guid, this);
 }
 
 void gbe::ISerializable::DeserializeFromFile(std::filesystem::path absolute_path)

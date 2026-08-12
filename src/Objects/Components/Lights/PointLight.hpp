@@ -32,4 +32,4 @@ private:
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(PointLight, LightBase);
 };
 
-GBE_REGISTER_SERIALIZED_TYPE(PointLight, LightBase);
+GBE_REGISTER_SERIALIZED_TYPE(PointLight, ComponentBase);
