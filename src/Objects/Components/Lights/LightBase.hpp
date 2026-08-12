@@ -44,5 +44,3 @@ protected:
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(LightBase, ComponentBase);
 };
-
-GBE_REGISTER_SERIALIZED_TYPE(LightBase, ComponentBase);

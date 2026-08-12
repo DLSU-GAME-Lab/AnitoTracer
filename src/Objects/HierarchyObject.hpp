@@ -92,7 +92,7 @@ private:
 
     friend class HierarchyManager;
 
-    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(HierarchyObject, gbe::ISerializable);
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR_W_NAME(HierarchyObject, gbe::ISerializable, [this]() {return m_name; });
     GBE_DECLARE_INSTANCE_REF(HierarchyObject);
 };
 
