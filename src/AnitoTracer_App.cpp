@@ -164,7 +164,8 @@ void AnitoTracer_App::InitManagers()
 {
     Diligent::ShaderManager::GetInstance().Initialize(m_pDevice, "Shaders");
     ModelManager::GetInstance().Initialize(m_pDevice, m_pImmediateContext);
-    AssetPipeline::LoadFolder("Assets");
+    
+    AssetPipeline::IncludeFolder("Assets");
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
     m_MainCam = objFactory.CreateRootCameraObject("Main Camera");
