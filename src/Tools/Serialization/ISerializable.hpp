@@ -17,6 +17,7 @@ namespace gbe {
 	public:
 
 		GUID GetGUID() const { return m_guid; }
+		inline virtual std::string GetLabel() { return ""; }
 
 		//SERIALIZATION
 		virtual SerializedData Serialize();

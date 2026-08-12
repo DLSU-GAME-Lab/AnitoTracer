@@ -51,7 +51,7 @@ private:
     glm::quat m_rotation; // Don't serialize this anymore, rely on euler angles.
 
     glm::vec3 m_eulerAnglesDegrees;
-    GBE_SERIALIZE_FIELD_W_NAME(m_eulerAnglesDegrees, "Rotation");
+    GBE_SERIALIZE_FIELD_W_NAME_CB(m_eulerAnglesDegrees, "Rotation", [this](glm::vec3 m_eulerAnglesDegrees) {SetEulerAnglesDegrees(m_eulerAnglesDegrees); });
     
     glm::vec3 m_scale;
     GBE_SERIALIZE_FIELD_W_NAME(m_scale, "Scale");
