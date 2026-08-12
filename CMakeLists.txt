@@ -59,6 +59,7 @@ add_subdirectory(src/Common)
 add_subdirectory(src/Objects)
 add_subdirectory(src/Asset)
 add_subdirectory(src/ObjectSystems/Serialization)
+add_subdirectory(src/ObjectSystems/Event)
 
 add_subdirectory(src/UI)
 add_subdirectory(src/Rendering)
@@ -100,6 +101,7 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 anito::rendering
                 anito::ui
                 anito::asset
+                anito::event
 )
 
 set(SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Shaders")
