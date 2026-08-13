@@ -58,7 +58,7 @@ void Diligent::BasicPipeline::StartFrameRender(IDeviceContext* pContext, RenderD
     pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-void Diligent::BasicPipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance model)
+void Diligent::BasicPipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance model, bool renderOpaque)
 {
     // Update the Model Constant Buffer with the current model's transform
     {

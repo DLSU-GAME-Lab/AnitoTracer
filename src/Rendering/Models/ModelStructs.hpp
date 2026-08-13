@@ -54,6 +54,8 @@ struct PBRMaterial {
     float4 BaseColorFactor = float4(1.0f, 1.0f, 1.0f, 1.0f);
     float MetallicFactor = 0.0f;
     float RoughnessFactor = 1.0f;
+
+    bool IsTransparent = false;
 };
 
 // Holds the loaded GPU resources for a complete model
@@ -74,6 +76,9 @@ struct Model : public IModel {
 
     //EZ flag
     bool HasPBRProperties = false;
+
+    //If any submesh has transparency
+    bool HasTransparency = false;
 
     //For local raytrace obj picking
     glm::vec3 AABBMin = glm::vec3(std::numeric_limits<float>::max());

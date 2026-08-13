@@ -99,6 +99,9 @@ void Diligent::HybridPipeline::BuildSceneTLAS(IDeviceContext* pContext, const Re
         const auto& modelInstance = renderData.Models[i];
         if (!modelInstance.ModelData->pBLAS) continue;
 
+        if (!modelInstance.ModelData->pBLAS || modelInstance.OpaqueSubmeshIndices.empty())
+            continue;
+
         TLASBuildInstanceData tlasInst{};
         tlasInst.InstanceName = "ModelInstance " + i;
         tlasInst.pBLAS = modelInstance.ModelData->pBLAS;
