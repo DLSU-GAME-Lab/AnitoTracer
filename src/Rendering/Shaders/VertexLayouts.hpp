@@ -12,16 +12,16 @@ namespace Diligent {
         /// </summary>
         static std::vector<LayoutElement> GetStandardLayout() {
             return {
-                // Position
-                LayoutElement{0, 0, 3, VT_FLOAT32, False},
-                //Norm
-                LayoutElement{1, 0, 3, VT_FLOAT32, False},
-                // UV
-                LayoutElement{2, 0, 2, VT_FLOAT32, False},
-                // Tangent  
-                LayoutElement{3, 0, 3, VT_FLOAT32, False},
-                // Bitangent
-                LayoutElement{4, 0, 3, VT_FLOAT32, False}
+                // Position (float4)
+                LayoutElement{0, 0, 4, VT_FLOAT32, False},
+                // Norm (float4)
+                LayoutElement{1, 0, 4, VT_FLOAT32, False},
+                // UV (float4 padded)
+                LayoutElement{2, 0, 4, VT_FLOAT32, False},
+                // Tangent (float4)  
+                LayoutElement{3, 0, 4, VT_FLOAT32, False},
+                // Bitangent (float4)
+                LayoutElement{4, 0, 4, VT_FLOAT32, False}
             };
         }
 

@@ -27,11 +27,27 @@ using namespace Diligent;
 
 // Standard vertex structure
 struct Vertex {
-    float3 pos;
-    float3 normal;
-    float2 uv;
-    float3 tangent;
-    float3 bitangent;
+    float4 pos;       // xyz = pos, w = 1.0 (or padding)
+    float4 normal;    // xyz = normal, w = 0.0
+    float4 uv;        // xy = uv, zw = 0.0
+    float4 tangent;   // xyz = tangent, w = 0.0
+    float4 bitangent; // xyz = bitangent, w = 0.0
+};
+
+// C++ equivalent of the HLSL BindlessMaterial struct
+struct BindlessMaterial {
+    int BaseColorTexIdx = -1;
+    Uint32 Padding1 = 0;
+    Uint32 Padding2 = 0;
+    Uint32 Padding3 = 0;
+};
+
+// C++ equivalent of the HLSL InstanceData struct
+struct BindlessInstanceData {
+    Uint32 VertexOffset;
+    Uint32 IndexOffset;
+    Uint32 MaterialIndex;
+    Uint32 Padding;
 };
 
 // Represents a single part of a model with a specific material
@@ -64,6 +80,9 @@ struct Model : public IModel {
     RefCntAutoPtr<IBuffer> pIndexBuffer;
 
     RefCntAutoPtr<IBottomLevelAS> pBLAS;
+
+    std::vector<Vertex> CPUVertices;
+    std::vector<Uint32> CPUIndices;
 
     std::vector<SubMesh> SubMeshes;
     std::vector<RefCntAutoPtr<ITextureView>> Materials; // Diffuse SRVs mapped to SubMeshes

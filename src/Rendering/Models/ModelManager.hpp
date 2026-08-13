@@ -25,6 +25,19 @@ public:
     // normal maps), causing incorrect lighting/normals.
     ITextureView* LoadTexture(const std::string& filepath, bool isSRGB = false);
 
+    std::vector<IDeviceObject*> GetCachedTextures() const {
+        std::vector<IDeviceObject*> textures;
+        textures.reserve(m_TextureCache.size());
+        for (const auto& pair : m_TextureCache) {
+            textures.push_back(pair.second.RawPtr());
+        }
+        return textures;
+    }
+
+    ITextureView* GetDefaultTexture() const {
+        return m_pDefaultTextureView.RawPtr();
+    }
+
     // Clears the cache and releases Vulkan resources
     void ClearCache();
 

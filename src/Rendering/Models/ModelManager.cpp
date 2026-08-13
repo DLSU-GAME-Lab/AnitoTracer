@@ -232,10 +232,10 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
                 v.bitangent = float3(0.0f, 0.0f, 0.0f);
             }
             if (mesh->mTextureCoords[0]) {
-                v.uv = float2(mesh->mTextureCoords[0][j].x, mesh->mTextureCoords[0][j].y);
+                v.uv = float4(mesh->mTextureCoords[0][j].x, mesh->mTextureCoords[0][j].y, 0.0f, 0.0f);
             }
             else {
-                v.uv = float2(0.0f, 0.0f);
+                v.uv = float4(0.0f, 0.0f, 0.0f, 0.0f);
             }
             vertices.push_back(v);
         }
@@ -251,6 +251,9 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
         submesh.IndexCount = static_cast<Uint32>(indices.size()) - submesh.IndexOffset;
         pModel->SubMeshes.push_back(submesh);
     }
+
+    pModel->CPUVertices = vertices;
+    pModel->CPUIndices = indices;
 
     // 3. Create Diligent Hardware Buffers
     BufferDesc VertBuffDesc;

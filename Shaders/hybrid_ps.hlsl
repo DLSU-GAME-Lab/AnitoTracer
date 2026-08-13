@@ -2,6 +2,33 @@
 #include "light_struct.hlsli"
 #include "pbr_defs.hlsi"
 
+// Bindless structures matching your C++ engine layout
+struct InstanceData
+{
+    uint VertexOffset;
+    uint IndexOffset;
+    uint MaterialIndex;
+    uint Padding;
+};
+
+struct BindlessMaterial
+{
+    int BaseColorTexIdx;
+    uint Padding1;
+    uint Padding2;
+    uint Padding3;
+};
+
+// Global Scene Buffers
+StructuredBuffer<InstanceData> g_InstanceData;
+StructuredBuffer<BindlessMaterial> g_MaterialData;
+StructuredBuffer<VertexInput> g_GlobalVertices;
+StructuredBuffer<uint> g_GlobalIndices;
+
+// Bindless Texture Array (Bounded to 1024 to ensure broad API compatibility)
+Texture2D g_BindlessTextures[1024];
+SamplerState g_LinearSampler;
+
 // Bind the Scene Acceleration Structure for Ray Queries
 RaytracingAccelerationStructure g_TLAS;
 
@@ -21,19 +48,59 @@ struct PSInput
 float TraceShadowRay(float3 worldPos, float3 normal, float3 lightDir, float maxDist)
 {
     RayDesc ray;
-    ray.Origin = worldPos + (normal * g_ShadowBias); // Increased from 0.002
+    ray.Origin = worldPos + (normal * g_ShadowBias);
     ray.Direction = lightDir;
     ray.TMin = 0.001;
     ray.TMax = maxDist;
 
-    RayQuery < RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > q;
+    // ACCEPT_FIRST_HIT_AND_END_SEARCH so we can evaluate non-opaque alpha
+    RayQuery < RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH > q;
 
-    // Force opaque so the rayquery doesn't wait for any-hit shader confirmation
-    q.TraceRayInline(g_TLAS, RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
+    // REMOVED: RAY_FLAG_FORCE_OPAQUE
+    q.TraceRayInline(g_TLAS, RAY_FLAG_NONE, 0xFF, ray);
 
-    // The traversal state machine requires a loop to walk through the BVH
     while (q.Proceed())
     {
+        if (q.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
+        {
+            // 1. Get Hit Info
+            // CustomId in your C++ TLAS build matches this InstanceID
+            uint instanceID = q.CandidateInstanceID();
+            uint primIndex = q.CandidatePrimitiveIndex();
+            float2 bary = q.CandidateTriangleBarycentrics();
+
+            // 2. Fetch Instance & Material
+            InstanceData inst = g_InstanceData[instanceID];
+            BindlessMaterial mat = g_MaterialData[inst.MaterialIndex];
+
+            // 3. Fetch Indices
+            uint baseIdx = inst.IndexOffset + (primIndex * 3);
+            uint i0 = g_GlobalIndices[baseIdx + 0];
+            uint i1 = g_GlobalIndices[baseIdx + 1];
+            uint i2 = g_GlobalIndices[baseIdx + 2];
+
+            // 4. Fetch Vertices (UVs only needed for alpha testing)
+            float2 uv0 = g_GlobalVertices[inst.VertexOffset + i0].uv;
+            float2 uv1 = g_GlobalVertices[inst.VertexOffset + i1].uv;
+            float2 uv2 = g_GlobalVertices[inst.VertexOffset + i2].uv;
+
+            // 5. Interpolate UV using Barycentrics
+            float2 hitUV = uv0 + bary.x * (uv1 - uv0) + bary.y * (uv2 - uv0);
+
+            // 6. Sample Bindless Array
+            // Use SampleLevel with mip level 0, since gradients aren't available in compute/ray queries
+            float alpha = 1.0;
+            if (mat.BaseColorTexIdx >= 0)
+            {
+                alpha = g_BindlessTextures[mat.BaseColorTexIdx].SampleLevel(g_LinearSampler, hitUV, 0).a;
+            }
+
+            // 7. Alpha Cutout Test
+            if (alpha >= 0.5)
+            {
+                q.CommitNonOpaqueTriangleHit(); // Blocks the ray
+            }
+        }
     }
 
     if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
@@ -53,6 +120,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
         albedo *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV);
     }
     
+    //Clip transparent pixels based on alpha threshold
     if (albedo.a < 0.5)
     {
         discard;
