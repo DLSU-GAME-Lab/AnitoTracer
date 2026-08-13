@@ -42,12 +42,20 @@ struct BindlessMaterial {
     Uint32 Padding3 = 0;
 };
 
+// C++ equivalent of the HLSL GeometryData struct
+struct BindlessGeometryData {
+    Uint32 IndexOffset;
+    Uint32 MaterialIndex;
+    Uint32 Padding1;
+    Uint32 Padding2;
+};
+
 // C++ equivalent of the HLSL InstanceData struct
 struct BindlessInstanceData {
     Uint32 VertexOffset;
-    Uint32 IndexOffset;
-    Uint32 MaterialIndex;
-    Uint32 Padding;
+    Uint32 GeometryOffset;
+    Uint32 Padding1;
+    Uint32 Padding2;
 };
 
 // Represents a single part of a model with a specific material

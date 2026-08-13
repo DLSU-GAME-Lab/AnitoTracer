@@ -281,25 +281,32 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     m_pDevice->CreateBuffer(IndBuffDesc, &IBData, &pModel->pIndexBuffer);
 
     // 4. Describe Acceleration Structure
-    BLASTriangleDesc TriangleDesc;
-    TriangleDesc.GeometryName = "ModelGeometry";
-    TriangleDesc.MaxVertexCount = static_cast<Uint32>(vertices.size());
-    TriangleDesc.VertexValueType = VT_FLOAT32;
-    TriangleDesc.VertexComponentCount = 3;
-    TriangleDesc.MaxPrimitiveCount = static_cast<Uint32>(indices.size()) / 3;
-    TriangleDesc.IndexType = VT_UINT32;
+    std::vector<std::string> GeometryNames(pModel->SubMeshes.size());
+    std::vector<BLASTriangleDesc> TriangleDescs(pModel->SubMeshes.size());
+
+    for (size_t i = 0; i < pModel->SubMeshes.size(); ++i) {
+        auto& submesh = pModel->SubMeshes[i];
+
+        GeometryNames[i] = "Submesh_" + std::to_string(i);
+        TriangleDescs[i].GeometryName = GeometryNames[i].c_str(); // Now it's a safe pointer!
+
+        TriangleDescs[i].MaxVertexCount = static_cast<Uint32>(vertices.size());
+        TriangleDescs[i].VertexValueType = VT_FLOAT32;
+        TriangleDescs[i].VertexComponentCount = 3;
+        TriangleDescs[i].MaxPrimitiveCount = submesh.IndexCount / 3;
+        TriangleDescs[i].IndexType = VT_UINT32;
+    }
 
     BottomLevelASDesc ASDesc;
     ASDesc.Name = "Model BLAS";
     ASDesc.Flags = RAYTRACING_BUILD_AS_PREFER_FAST_TRACE;
-    ASDesc.pTriangles = &TriangleDesc;
-    ASDesc.TriangleCount = 1;
+    ASDesc.pTriangles = TriangleDescs.data();
+    ASDesc.TriangleCount = static_cast<Uint32>(TriangleDescs.size());
 
     m_pDevice->CreateBLAS(ASDesc, &pModel->pBLAS);
 
     // 5. Query Scratch Size & Allocate Scratch Buffer
     ScratchBufferSizes ScratchSizes = pModel->pBLAS->GetScratchBufferSizes();
-
     BufferDesc ScratchBuffDesc;
     ScratchBuffDesc.Name = "BLAS Build Scratch Buffer";
     ScratchBuffDesc.Size = ScratchSizes.Build;
@@ -310,26 +317,38 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     m_pDevice->CreateBuffer(ScratchBuffDesc, nullptr, &pScratchBuffer);
 
     // 6. Build BLAS on GPU
-    BLASBuildTriangleData TriData;
-    TriData.GeometryName = "ModelGeometry";
-    TriData.pVertexBuffer = pModel->pVertexBuffer;
-    TriData.VertexStride = sizeof(Vertex);
-    TriData.VertexOffset = 0;
-    TriData.VertexCount = static_cast<Uint32>(vertices.size());
-    TriData.VertexValueType = VT_FLOAT32;
-    TriData.VertexComponentCount = 3;
-    TriData.pIndexBuffer = pModel->pIndexBuffer;
-    TriData.IndexType = VT_UINT32;
-    TriData.IndexOffset = 0;
-    TriData.PrimitiveCount = static_cast<Uint32>(indices.size()) / 3;
+    std::vector<BLASBuildTriangleData> TriDatas(pModel->SubMeshes.size());
+    for (size_t i = 0; i < pModel->SubMeshes.size(); ++i) {
+        auto& submesh = pModel->SubMeshes[i];
+        TriDatas[i].GeometryName = TriangleDescs[i].GeometryName;
+        TriDatas[i].pVertexBuffer = pModel->pVertexBuffer;
+        TriDatas[i].VertexStride = sizeof(Vertex);
+        TriDatas[i].VertexOffset = 0;
+        TriDatas[i].VertexCount = static_cast<Uint32>(vertices.size());
+        TriDatas[i].VertexValueType = VT_FLOAT32;
+        TriDatas[i].VertexComponentCount = 3;
+        TriDatas[i].pIndexBuffer = pModel->pIndexBuffer;
+        TriDatas[i].IndexType = VT_UINT32;
+
+        // Offset in bytes for this specific submesh
+        TriDatas[i].IndexOffset = submesh.IndexOffset * sizeof(Uint32);
+        TriDatas[i].PrimitiveCount = submesh.IndexCount / 3;
+
+        // Apply hardware acceleration flags here
+        if (!pModel->PBRMaterials[submesh.MaterialIndex].IsTransparent) {
+            TriDatas[i].Flags = RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+        }
+        else {
+            TriDatas[i].Flags = RAYTRACING_GEOMETRY_FLAG_NONE;
+        }
+    }
 
     BuildBLASAttribs BuildAttribs;
     BuildAttribs.pBLAS = pModel->pBLAS;
-    BuildAttribs.pTriangleData = &TriData;
-    BuildAttribs.TriangleDataCount = 1;
+    BuildAttribs.pTriangleData = TriDatas.data();
+    BuildAttribs.TriangleDataCount = static_cast<Uint32>(TriDatas.size());
     BuildAttribs.pScratchBuffer = pScratchBuffer;
 
-    // Transition the buffers so Vulkan can safely read/write during the BLAS build
     BuildAttribs.BLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
     BuildAttribs.GeometryTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
     BuildAttribs.ScratchBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;

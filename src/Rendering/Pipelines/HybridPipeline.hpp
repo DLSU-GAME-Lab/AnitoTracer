@@ -22,5 +22,6 @@ namespace Diligent {
         RefCntAutoPtr<IBuffer> m_pGlobalIndexBuffer;
         RefCntAutoPtr<IBuffer> m_pInstanceBuffer;
         RefCntAutoPtr<IBuffer> m_pMaterialBuffer;
+        RefCntAutoPtr<IBuffer> m_pGeometryBuffer;
     };
 }

@@ -41,6 +41,7 @@ void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapC
     Variables.push_back({ SHADER_TYPE_PIXEL, "g_GlobalIndices", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC });
     Variables.push_back({ SHADER_TYPE_PIXEL, "g_InstanceData", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC });
     Variables.push_back({ SHADER_TYPE_PIXEL, "g_MaterialData", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC });
+    Variables.push_back({ SHADER_TYPE_PIXEL, "g_GeometryData", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC });
 
     // The Bindless Array (Mutable allows SetArray calls)
     Variables.push_back({ SHADER_TYPE_PIXEL, "g_BindlessTextures", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE });
@@ -91,6 +92,7 @@ void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapC
     if (!m_pGlobalIndexBuffer)  CreateDummyBuffer(m_pGlobalIndexBuffer, "Dummy Global Index Buffer", sizeof(Uint32));
     if (!m_pInstanceBuffer)     CreateDummyBuffer(m_pInstanceBuffer, "Dummy Global Instance Buffer", sizeof(BindlessInstanceData));
     if (!m_pMaterialBuffer)     CreateDummyBuffer(m_pMaterialBuffer, "Dummy Global Material Buffer", sizeof(BindlessMaterial));
+    if (!m_pGeometryBuffer)     CreateDummyBuffer(m_pGeometryBuffer, "Dummy Global Geometry Buffer", sizeof(BindlessGeometryData));
     // ---------------------------------
 
     // Now it is perfectly safe to get their views! No more null pointers! ☆
@@ -105,6 +107,9 @@ void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapC
     }
     if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_MaterialData")) {
         pVar->Set(m_pMaterialBuffer->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+    }
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_GeometryData")) {
+        pVar->Set(m_pGeometryBuffer->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
     }
 }
 
@@ -210,6 +215,7 @@ void Diligent::HybridPipeline::UpdateBindlessResources(IDeviceContext* pContext,
     // Gather global vertices, indices, instances, and unique materials across all render items
     std::vector<Vertex> allVertices;
     std::vector<Uint32> allIndices;
+    std::vector<BindlessGeometryData> allGeometries;
     std::vector<BindlessInstanceData> allInstances;
     std::vector<BindlessMaterial> allMaterials;
 
@@ -220,19 +226,16 @@ void Diligent::HybridPipeline::UpdateBindlessResources(IDeviceContext* pContext,
         Model* model = modelInstance.ModelData;
         if (!model) continue;
 
-        // For simplicity, we aggregate submeshes based on model layout chunks.
         Uint32 vertexOffsetVal = static_cast<Uint32>(allVertices.size());
         Uint32 indexOffsetVal = static_cast<Uint32>(allIndices.size());
+        Uint32 geomOffsetVal = static_cast<Uint32>(allGeometries.size()); // New!
 
         allVertices.insert(allVertices.end(), model->CPUVertices.begin(), model->CPUVertices.end());
         allIndices.insert(allIndices.end(), model->CPUIndices.begin(), model->CPUIndices.end());
 
-        // Replace the submesh loop with a single instance push for the whole model!
-        Uint32 matIdx = 0;
-
-        // Grab the first material of the model to map 1:1 with the TLAS CustomId!
-        if (!modelInstance.OpaqueSubmeshIndices.empty()) {
-            const auto& sub = model->SubMeshes[modelInstance.OpaqueSubmeshIndices[0]];
+        // Loop through all submeshes to map geometries properly!
+        for (const auto& sub : model->SubMeshes) {
+            Uint32 matIdx = 0;
             const PBRMaterial& pbrMat = model->PBRMaterials[sub.MaterialIndex];
 
             auto matIt = materialToIndexMap.find(&pbrMat);
@@ -257,12 +260,16 @@ void Diligent::HybridPipeline::UpdateBindlessResources(IDeviceContext* pContext,
                 bindlessMat.BaseColorTexIdx = texIndex;
                 allMaterials.push_back(bindlessMat);
             }
+
+            BindlessGeometryData geomData{};
+            geomData.IndexOffset = indexOffsetVal + sub.IndexOffset;
+            geomData.MaterialIndex = matIdx;
+            allGeometries.push_back(geomData);
         }
 
         BindlessInstanceData instData{};
-        instData.VertexOffset = vertexOffsetVal; // Start of the ENTIRE model's vertices
-        instData.IndexOffset = indexOffsetVal;   // Start of the ENTIRE model's indices
-        instData.MaterialIndex = matIdx;
+        instData.VertexOffset = vertexOffsetVal;
+        instData.GeometryOffset = geomOffsetVal;
         allInstances.push_back(instData);
     }
 
@@ -377,7 +384,27 @@ void Diligent::HybridPipeline::UpdateBindlessResources(IDeviceContext* pContext,
         if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_InstanceData")) {
             pVar->Set(m_pInstanceBuffer->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
         }
+    }
 
-        
+    if (!allGeometries.empty()) {
+        if (!m_pGeometryBuffer || m_pGeometryBuffer->GetDesc().Size < allGeometries.size() * sizeof(BindlessGeometryData)) {
+            BufferDesc desc;
+            desc.Name = "Global Bindless Geometry Buffer";
+            desc.Size = allGeometries.size() * sizeof(BindlessGeometryData) * 2; // Extra headroom!
+            desc.Usage = USAGE_DEFAULT;
+            desc.BindFlags = BIND_SHADER_RESOURCE;
+            desc.Mode = BUFFER_MODE_STRUCTURED;
+            desc.ElementByteStride = sizeof(BindlessGeometryData);
+
+            m_pGeometryBuffer.Release();
+            m_pDevice->CreateBuffer(desc, nullptr, &m_pGeometryBuffer);
+        }
+
+        // Upload the geometry data to the GPU!
+        pContext->UpdateBuffer(m_pGeometryBuffer, 0, allGeometries.size() * sizeof(BindlessGeometryData), allGeometries.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_GeometryData")) {
+            pVar->Set(m_pGeometryBuffer->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+        }
     }
 }

@@ -6,9 +6,18 @@
 struct InstanceData
 {
     uint VertexOffset;
+    uint GeometryOffset; // Replaced IndexOffset/MaterialIndex
+    uint Padding1;
+    uint Padding2;
+};
+
+// Add the new Geometry struct
+struct GeometryData
+{
     uint IndexOffset;
     uint MaterialIndex;
-    uint Padding;
+    uint Padding1;
+    uint Padding2;
 };
 
 struct BindlessMaterial
@@ -20,6 +29,7 @@ struct BindlessMaterial
 };
 
 // Global Scene Buffers
+StructuredBuffer<GeometryData> g_GeometryData;
 StructuredBuffer<InstanceData> g_InstanceData;
 StructuredBuffer<BindlessMaterial> g_MaterialData;
 StructuredBuffer<VertexInput> g_GlobalVertices;
@@ -64,17 +74,18 @@ float TraceShadowRay(float3 worldPos, float3 normal, float3 lightDir, float maxD
         if (q.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
         {
             // 1. Get Hit Info
-            // CustomId in your C++ TLAS build matches this InstanceID
             uint instanceID = q.CandidateInstanceID();
+            uint geomIndex = q.CandidateGeometryIndex(); 
             uint primIndex = q.CandidatePrimitiveIndex();
             float2 bary = q.CandidateTriangleBarycentrics();
 
-            // 2. Fetch Instance & Material
+            // 2. Fetch Instance, Geometry, & Material
             InstanceData inst = g_InstanceData[instanceID];
-            BindlessMaterial mat = g_MaterialData[inst.MaterialIndex];
+            GeometryData geom = g_GeometryData[inst.GeometryOffset + geomIndex];
+            BindlessMaterial mat = g_MaterialData[geom.MaterialIndex];
 
-            // 3. Fetch Indices
-            uint baseIdx = inst.IndexOffset + (primIndex * 3);
+            // 3. Fetch Indices (using the GEOMETRY's absolute index offset!)
+            uint baseIdx = geom.IndexOffset + (primIndex * 3);
             uint i0 = g_GlobalIndices[baseIdx + 0];
             uint i1 = g_GlobalIndices[baseIdx + 1];
             uint i2 = g_GlobalIndices[baseIdx + 2];
