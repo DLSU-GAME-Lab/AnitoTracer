@@ -306,7 +306,7 @@ void AnitoTracer_App::Render()
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
         pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
-        pipeline.RenderModels(m_pImmediateContext, renderData);
+        pipeline.RenderModels(m_pImmediateContext, renderData, true);
         }, m_bLitPipeline);
 
     auto* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();

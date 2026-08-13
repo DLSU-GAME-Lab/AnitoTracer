@@ -12,7 +12,7 @@ namespace Diligent {
     public:
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* _pSwapChain) override;
         void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
-        void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model) override;
+        void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model, bool renderOpaque = true) override;
     };
 
 }

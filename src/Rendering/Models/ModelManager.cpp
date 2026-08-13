@@ -118,6 +118,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     pModel->MaterialColors.resize(pScene->mNumMaterials, float4(1.0f, 1.0f, 1.0f, 1.0f));
     pModel->PBRMaterials.resize(pScene->mNumMaterials);
     bool modelHasAnyPBR = false;
+    bool modelHasTransparency = false;
 
     for (unsigned int i = 0; i < pScene->mNumMaterials; i++) {
         aiMaterial* material = pScene->mMaterials[i];
@@ -128,6 +129,21 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
         if (material->Get(AI_MATKEY_BASE_COLOR, color) == AI_SUCCESS ||
             material->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS) {
             pbrMat.BaseColorFactor = float4(color.r, color.g, color.b, color.a);
+
+            if (color.a < 1.0f) {
+                pbrMat.IsTransparent = true;
+            }
+        }
+
+        float opacity = 1.0f;
+        if (material->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS) {
+            if (opacity < 1.0f) {
+                pbrMat.IsTransparent = true;
+            }
+        }
+
+        if (pbrMat.IsTransparent) {
+            modelHasTransparency = true;
         }
 
         // Metallic / Roughness Factors
@@ -182,6 +198,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     }
 
     pModel->HasPBRProperties = modelHasAnyPBR;
+	pModel->HasTransparency = modelHasTransparency;
 
     for (unsigned int i = 0; i < pScene->mNumMeshes; i++) {
         aiMesh* mesh = pScene->mMeshes[i];

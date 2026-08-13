@@ -17,6 +17,10 @@ namespace Diligent {
         Model* ModelData = nullptr;
         glm::mat4 WorldTransform{ 1.0f };
         uint64_t OwnerID = 0;
+
+		//Opaque and transparent meshes are separated for proper rendering order
+        std::vector<uint32_t> OpaqueSubmeshIndices;
+        std::vector<uint32_t> TransparentSubmeshIndices;
     };
 
     class RenderData {
