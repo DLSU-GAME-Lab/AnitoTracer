@@ -1,10 +1,10 @@
 #pragma once
 
-#include "IHandler.hpp"
+#include "ITrigger.hpp"
 #include <type_traits>
 
 namespace gbe {
-    class EventDispatcher {
+    class TriggerDispatcher {
     public:
         // Overload 1: Dispatch with an existing event object
         template <typename TEvent, typename TComponent>
@@ -14,7 +14,7 @@ namespace gbe {
             using RawComponent = std::decay_t<TComponent>;
             using RawEvent = std::decay_t<TEvent>;
 
-            using TargetHandler = gbe::IHandler<RawEvent>;
+            using TargetHandler = gbe::ITrigger<RawEvent>;
 
             // Path A: Direct compile-time match
             if constexpr (std::is_base_of_v<TargetHandler, RawComponent>) {

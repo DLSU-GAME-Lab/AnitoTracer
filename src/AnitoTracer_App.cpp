@@ -16,6 +16,8 @@
 #include "UI/ObjectPicker.hpp"
 #include "Asset/AssetPipeline.hpp"
 
+#include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
+
 #include ANITO_EVENT_INCLUDES
 
 using namespace Diligent;
@@ -219,6 +221,9 @@ void AnitoTracer_App::OnDestroy()
 
 void AnitoTracer_App::Run()
 {
+    //LifeCycle objects
+    Print_OnSceneLoad print_OnSceneLoad; //test
+
     while (m_AppRunning)
     {
         Update();
@@ -269,7 +274,7 @@ void AnitoTracer_App::Update()
     imguiManager.DrawUI(m_AppRunning);
 
     //===============//EVENTS//===============//
-    HierarchyManager::GetInstance().DispatchEvent<EditorUpdateEvent>(0.016f); //test delta frame
+    HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
 }
 
 void AnitoTracer_App::Render()

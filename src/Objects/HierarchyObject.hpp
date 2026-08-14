@@ -91,7 +91,7 @@ public:
     void DispatchEventData(const TEvent& event, bool recursive = false) {
         // 1. Dispatch to all local components attached to this object
         for (auto& component : m_components) {
-            gbe::EventDispatcher::Dispatch(component.get(), event);
+            gbe::TriggerDispatcher::Dispatch(component.get(), event);
         }
 
         // 2. Recursively dispatch down child nodes if requested

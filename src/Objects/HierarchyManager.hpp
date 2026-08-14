@@ -92,6 +92,9 @@ public:
         DispatchEventData<TEvent>(event);
     }
 
+    virtual gbe::SerializedData Serialize() override;
+    virtual void Deserialize(gbe::SerializedData& data) override;
+
 private:
     HierarchyManager() = default;
     ~HierarchyManager() = default;
