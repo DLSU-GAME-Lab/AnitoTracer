@@ -1,20 +1,20 @@
 #pragma once
 
-#include "IHandler.hpp"
+#include "ITrigger.hpp"
 
-struct FixedUpdateEvent {
+struct FixedUpdateTrigger {
     float deltaTime;
 };
 
 namespace gbe {
     // Template specialization for UpdateEvent
     template <>
-    class IHandler<FixedUpdateEvent> {
+    class ITrigger<FixedUpdateTrigger> {
     public:
-        virtual ~IHandler() = default;
+        virtual ~ITrigger() = default;
 
         // Direct delegate call
-        virtual void OnEvent(const FixedUpdateEvent& event) {
+        virtual void OnEvent(const FixedUpdateTrigger& event) {
             OnFixedUpdate(event.deltaTime);
         }
 

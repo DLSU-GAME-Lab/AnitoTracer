@@ -1,6 +1,13 @@
-#include "Types/FixedUpdateEvent.hpp"
-#include "Types/LateUpdateEvent.hpp"
-#include "Types/EditorUpdateEvent.hpp"
-#include "Types/UpdateEvent.hpp"
+#include "EventDefines.hpp"
+#include "EventSystem.hpp"
 
-#include "EventDispatcher.hpp"
+//PER OBJECT TRIGGER TYPES
+#include "Types/FixedUpdateTrigger.hpp"
+#include "Types/LateUpdateTrigger.hpp"
+#include "Types/EditorUpdateTrigger.hpp"
+#include "Types/UpdateTrigger.hpp"
+
+//ARG TYPES
+#include "Args/SceneLoadArgs.hpp"
+
+#include "TriggerDispatcher.hpp"

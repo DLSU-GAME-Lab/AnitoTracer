@@ -11,7 +11,7 @@
 
 #include "Organization/IInstanceManager.hpp"
 
-class CameraComponent : public ComponentBase, public gbe::IInstanceManager<CameraComponent>, public gbe::IHandler<UpdateEvent>, public gbe::IHandler<EditorUpdateEvent> {
+class CameraComponent : public ComponentBase, public gbe::IInstanceManager<CameraComponent>, public gbe::ITrigger<UpdateTrigger>, public gbe::ITrigger<EditorUpdateTrigger> {
 public:
     // We require a Transform pointer to ensure the camera always knows where it is!
     CameraComponent(Transform* transform, gbe::IInstanceManager<HierarchyObject>::Ref owner = {});
@@ -45,9 +45,9 @@ public:
 
     glm::mat4 GetViewProjectionMatrix() const;
 
-    //From gbe::IHandler<UpdateEvent>
+    //From gbe::ITrigger<UpdateEvent>
     virtual void OnUpdate(float deltatime) override;
-    //From gbe::IHandler<EditorUpdateEvent>
+    //From gbe::ITrigger<EditorUpdateEvent>
     virtual void OnEditorUpdate(float deltatime) override;
 
 private:

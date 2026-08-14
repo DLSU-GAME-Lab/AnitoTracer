@@ -61,6 +61,7 @@ void gbe::ISerializable::Deserialize(SerializedData& data)
 void gbe::ISerializable::DeserializeFromFile(std::filesystem::path absolute_path)
 {
 	SerializedData data = {};
+	data.label = absolute_path.string();
 	Parser::PopulateClass(data, absolute_path);
 	this->Deserialize(data);
 }
@@ -68,6 +69,7 @@ void gbe::ISerializable::DeserializeFromFile(std::filesystem::path absolute_path
 void gbe::ISerializable::SerializeToFile(std::filesystem::path absolute_path)
 {
 	SerializedData data = Serialize();
+	data.label = absolute_path.string();
 	Parser::ExportClass(data, absolute_path);
 }
 
