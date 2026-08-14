@@ -52,6 +52,11 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     {
         albedo *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV);
     }
+    
+    if (albedo.a < 0.5)
+    {
+        discard;
+    }
 
     float metallic = g_MetallicFactor;
     float roughness = g_RoughnessFactor;
