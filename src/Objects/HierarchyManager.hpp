@@ -16,6 +16,8 @@
 #include "Components/Lights/PointLight.hpp"
 
 #include ANITO_SERIALIZATION_INCLUDES
+#include ANITO_EVENT_INCLUDES
+
 #include "Initializer/ObjectInitializer.hpp" //Needed for object creation setup
 #include "Initializer/ComponentInitializer.hpp" //Needed for component creation setup
 
@@ -63,6 +65,35 @@ public:
     void GatherLightData(Diligent::LightConstants& outLights) const;
 
     bool GetMainCameraPosition(glm::vec3& outPosition) const;
+
+    // ========================================================================
+    // Event Dispatching Methods
+    // ========================================================================
+
+    /**
+     * @brief Dispatches an event globally across ALL active root objects and their entire hierarchy subtrees.
+     */
+    template <typename TEvent>
+    void DispatchEventData(const TEvent& event) {
+        for (auto& root : m_rootNodes) {
+            if (root) {
+                root->DispatchEventData(event, /*recursive=*/true);
+            }
+        }
+    }
+
+    /**
+     * @brief Overload to construct a global event in-place.
+     * Usage: HierarchyManager::GetInstance().DispatchGlobalEvent<UpdateEvent>(deltaTime);
+     */
+    template <typename TEvent, typename... Args>
+    void DispatchEvent(Args&&... args) {
+        TEvent event{ std::forward<Args>(args)... };
+        DispatchEventData<TEvent>(event);
+    }
+
+    virtual gbe::SerializedData Serialize() override;
+    virtual void Deserialize(gbe::SerializedData& data) override;
 
 private:
     HierarchyManager() = default;

@@ -1,7 +1,5 @@
 #pragma once
 
-#include ANITO_SERIALIZATION_INCLUDES
-
 #include "LightBase.hpp"
 #include "../Transform.hpp"
 
