@@ -1,6 +1,7 @@
 #pragma once
 
 #include ANITO_SERIALIZATION_INCLUDES
+#include ANITO_EVENT_INCLUDES
 
 #include <string>
 #include <iostream>

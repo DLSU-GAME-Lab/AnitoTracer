@@ -40,6 +40,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	gbe::tools
 	anito::asset
 	anito::common
+	anito::event
 )
 
 #PRIVATE

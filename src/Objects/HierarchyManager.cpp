@@ -184,3 +184,18 @@ bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
 
     return false;
 }
+
+gbe::SerializedData HierarchyManager::Serialize()
+{
+    return gbe::SerializedData();
+}
+
+void HierarchyManager::Deserialize(gbe::SerializedData& data)
+{
+    gbe::EventSystem::DispatchTo(
+        EVENT_ONSCENELOAD,
+        std::make_unique<SceneLoadArgs>(data.label)
+    );
+
+    gbe::ISerializable::Deserialize(data);
+}

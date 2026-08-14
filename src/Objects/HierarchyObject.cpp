@@ -1,6 +1,4 @@
 #include "HierarchyObject.hpp"
-#include "HierarchyObject.hpp"
-
 
 // Adds an existing child object and takes ownership.
 // Returns a raw pointer to the added child for immediate access.
