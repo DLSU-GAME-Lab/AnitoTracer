@@ -69,7 +69,7 @@ void Diligent::TexturedPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
     }
 }
 
-void Diligent::TexturedPipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData)
+void Diligent::TexturedPipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData, bool renderOpaque)
 {
     Model* model = modelData.ModelData;
 

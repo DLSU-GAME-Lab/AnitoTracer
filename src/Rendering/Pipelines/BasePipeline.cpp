@@ -27,7 +27,7 @@ void Diligent::BasePipeline::UpdateShadowSettings(IDeviceContext* pContext, cons
     *CBData = settings;
 }
 
-void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData)
+void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData, bool renderOpaque)
 {
     Model* model = modelData.ModelData;
 
@@ -40,7 +40,12 @@ void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRe
     pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
     pContext->SetIndexBuffer(model->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    for (const auto& submesh : model->SubMeshes) {
+    // Determine which list of submesh indices to iterate over
+    const auto& targetIndices = renderOpaque ? modelData.OpaqueSubmeshIndices : modelData.TransparentSubmeshIndices;
+
+    for (uint32_t submeshIdx : targetIndices) {
+        const auto& submesh = model->SubMeshes[submeshIdx];
+
         if (submesh.MaterialIndex < model->PBRMaterials.size()) {
             const PBRMaterial& mat = model->PBRMaterials[submesh.MaterialIndex];
 
@@ -96,10 +101,10 @@ void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRe
     }
 }
 
-void Diligent::BasePipeline::RenderModels(IDeviceContext* pContext, RenderData renderData)
+void Diligent::BasePipeline::RenderModels(IDeviceContext* pContext, RenderData renderData, bool renderOpaque)
 {
     for (int i = 0; i < renderData.Models.size(); i++) {
-        RenderModel(pContext, renderData.Models[i]);
+        RenderModel(pContext, renderData.Models[i], renderOpaque);
     }
 }
 

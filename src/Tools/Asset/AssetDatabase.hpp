@@ -101,6 +101,39 @@ namespace gbe {
             if (it != pathMap.end()) {
                 return GetAssetByGUID(it->second);
             }
+            //Temp fix- TODO can you check why
+            //This fails when path_lookup = i:/dev/anitotracerrebuild/anitotracer/assets/sponza/sponza.obj
+            //And pathMap has key / value sponza/sponza.obj, so it should be there
+            //Another note- using JP paths so the ani file stores the path as Assets\\Sponza\\sponza.obj not sure if this is the one at fault
+
+            //Delete this later pls- will definitely positively cause problems xD;;;
+            // Fallback: if path is absolute and we didn't find it directly,
+            // try matching against the tail of the path (handles cases where
+            // the asset was stored with a relative path)
+            if (path.is_absolute()) {
+                // Collect path components from the relative portion
+                auto rel_path = path.relative_path();
+                std::vector<std::filesystem::path> components;
+                for (const auto& comp : rel_path) {
+                    components.push_back(comp);
+                }
+
+                // Try different suffix lengths (2 to 4 components from the end)
+                for (size_t len = std::min(size_t(2), components.size()); 
+                     len <= std::min(size_t(4), components.size()); ++len) {
+                    std::filesystem::path suffix;
+                    size_t start = components.size() - len;
+                    for (size_t i = start; i < components.size(); ++i) {
+                        suffix /= components[i];
+                    }
+                    auto suffix_key = PathToKey(suffix);
+                    auto it2 = pathMap.find(suffix_key);
+                    if (it2 != pathMap.end()) {
+                        return GetAssetByGUID(it2->second);
+                    }
+                }
+            }
+
             return nullptr;
         }
 
