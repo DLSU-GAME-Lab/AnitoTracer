@@ -36,8 +36,8 @@ namespace Diligent {
         virtual void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
         virtual void UpdateShadowSettings(IDeviceContext* pContext, const ShadowSettings& settings);
 
-        virtual void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model);
-        virtual void RenderModels(IDeviceContext* pContext, RenderData renderData);
+        virtual void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model, bool renderOpaque = true);
+        virtual void RenderModels(IDeviceContext* pContext, RenderData renderData, bool renderOpaque = true);
 
     protected:
         void CreateCameraConstantBuffer(IRenderDevice* pDevice);

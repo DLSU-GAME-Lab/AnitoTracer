@@ -4,24 +4,37 @@
 #include <unordered_map>
 #include <filesystem>
 #include <string>
+#include <vector>
+#include <algorithm>
+#include <iterator>
 #include "IAsset.hpp"
 #include "GUID.hpp"
 
 namespace gbe {
 
     class AssetDatabase {
-        static std::string PathToKey(const std::filesystem::path& path) {
-            // 1. Lexically normalize separators and relative components (a/b/../c -> a/c)
-            // 2. Convert to generic format (always uses '/' regardless of OS)
-            auto generic_path = path.lexically_normal().generic_u8string();
+    private:
+        static std::vector<std::filesystem::path>& GetDirectories() {
+            static std::vector<std::filesystem::path> instance;
+            return instance;
+        }
 
-            // 3. (Optional) Force lowercase if targeting case-insensitive OS (Windows/macOS)
+        static std::string PathToKey(const std::filesystem::path& path) {
+            // 1. Attempt to localize the path relative to registered include directories
+            auto localized = LocalizePath(path);
+            const auto& target_path = localized.empty() ? path : localized;
+
+            // 2. Lexically normalize separators and relative components (a/b/../c -> a/c)
+            // 3. Convert to generic format (always uses '/' regardless of OS)
+            auto generic_path = target_path.lexically_normal().generic_u8string();
+
+            // 4. Force lowercase for case-insensitive matching
             std::string key(generic_path.begin(), generic_path.end());
             std::transform(key.begin(), key.end(), key.begin(),
-                [](unsigned char c) { return std::tolower(c); });
+                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
             return key;
         }
-    
+
     public:
         static std::unordered_map<GUID, IAsset*>& GetGuidMap() {
             static std::unordered_map<GUID, IAsset*> instance;
@@ -33,6 +46,44 @@ namespace gbe {
             return instance;
         }
 
+        /**
+         * @brief Registers a search/include directory for path localization.
+         */
+        static void RegisterDirectory(const std::filesystem::path& dir) {
+            GetDirectories().push_back(std::filesystem::absolute(dir).lexically_normal());
+        }
+
+        /**
+         * @brief Localizes an absolute path relative to the closest registered directory.
+         * @return Relative path from the closest directory, or an empty path if not inside any.
+         */
+        static std::filesystem::path LocalizePath(const std::filesystem::path& abs_path) {
+            namespace fs = std::filesystem;
+            fs::path norm_target = abs_path.lexically_normal();
+
+            fs::path best_relative;
+            std::ptrdiff_t max_depth = -1;
+
+            for (const auto& dir : GetDirectories()) {
+                fs::path norm_dir = dir.lexically_normal();
+                fs::path rel = fs::relative(norm_target, norm_dir);
+
+                // Reject if empty or starts with ".." (outside of the registered directory)
+                if (rel.empty() || rel.begin() == rel.end() || *rel.begin() == "..") {
+                    continue;
+                }
+
+                // Check depth of this directory (higher depth = deeper/closer match)
+                std::ptrdiff_t depth = std::distance(norm_dir.begin(), norm_dir.end());
+                if (depth > max_depth) {
+                    max_depth = depth;
+                    best_relative = std::move(rel);
+                }
+            }
+
+            return best_relative;
+        }
+
         // Fast O(1) global GUID lookup
         static IAsset* GetAssetByGUID(const GUID& guid) {
             if (guid == GUID::Empty()) return nullptr;
@@ -42,7 +93,7 @@ namespace gbe {
             return (it != guidMap.end()) ? it->second : nullptr;
         }
 
-        // Fast O(1) path lookup
+        // Fast O(1) path lookup (handles both full and localized paths)
         static IAsset* GetAssetByPath(const std::filesystem::path& path) {
             auto& pathMap = GetPathMap();
             auto path_lookup = PathToKey(path);
@@ -50,6 +101,39 @@ namespace gbe {
             if (it != pathMap.end()) {
                 return GetAssetByGUID(it->second);
             }
+            //Temp fix- TODO can you check why
+            //This fails when path_lookup = i:/dev/anitotracerrebuild/anitotracer/assets/sponza/sponza.obj
+            //And pathMap has key / value sponza/sponza.obj, so it should be there
+            //Another note- using JP paths so the ani file stores the path as Assets\\Sponza\\sponza.obj not sure if this is the one at fault
+
+            //Delete this later pls- will definitely positively cause problems xD;;;
+            // Fallback: if path is absolute and we didn't find it directly,
+            // try matching against the tail of the path (handles cases where
+            // the asset was stored with a relative path)
+            if (path.is_absolute()) {
+                // Collect path components from the relative portion
+                auto rel_path = path.relative_path();
+                std::vector<std::filesystem::path> components;
+                for (const auto& comp : rel_path) {
+                    components.push_back(comp);
+                }
+
+                // Try different suffix lengths (2 to 4 components from the end)
+                for (size_t len = std::min(size_t(2), components.size()); 
+                     len <= std::min(size_t(4), components.size()); ++len) {
+                    std::filesystem::path suffix;
+                    size_t start = components.size() - len;
+                    for (size_t i = start; i < components.size(); ++i) {
+                        suffix /= components[i];
+                    }
+                    auto suffix_key = PathToKey(suffix);
+                    auto it2 = pathMap.find(suffix_key);
+                    if (it2 != pathMap.end()) {
+                        return GetAssetByGUID(it2->second);
+                    }
+                }
+            }
+
             return nullptr;
         }
 
@@ -100,6 +184,7 @@ namespace gbe {
         static void Clear() {
             GetGuidMap().clear();
             GetPathMap().clear();
+            GetDirectories().clear();
         }
     };
 

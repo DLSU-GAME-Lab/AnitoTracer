@@ -2,7 +2,7 @@
 
 #include <glaze/glaze.hpp>
 #include "AssetRef.hpp"
-#include "GUID_meta.hpp"
+#include "Meta/GUID_meta.hpp"
 
 // =========================================================================
 // GLAZE METADATA FOR gbe::AssetRef<T>

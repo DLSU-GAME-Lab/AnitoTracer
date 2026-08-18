@@ -64,7 +64,23 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
     if (ModelComponent* modelComp = obj.GetPtr()->GetComponent<ModelComponent>()) {
         // Retrieve the underlying Model struct pointer
         if (Model* pModel = modelComp->GetModel().Get()) {
-            outModels.push_back({ pModel, currentWorldMatrix, obj.GetID() });
+            ModelRenderInstance instance;
+            instance.ModelData = pModel;
+            instance.WorldTransform = currentWorldMatrix;
+            instance.OwnerID = obj.GetID();
+
+            // ADDED: Sort submeshes based on material transparency
+            for (uint32_t i = 0; i < pModel->SubMeshes.size(); ++i) {
+                uint32_t matIndex = pModel->SubMeshes[i].MaterialIndex;
+                if (pModel->PBRMaterials[matIndex].IsTransparent) {
+                    instance.TransparentSubmeshIndices.push_back(i);
+                }
+                else {
+                    instance.OpaqueSubmeshIndices.push_back(i);
+                }
+            }
+
+            outModels.push_back(instance);
         }
     }
 
@@ -167,4 +183,19 @@ bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
     }
 
     return false;
+}
+
+gbe::SerializedData HierarchyManager::Serialize()
+{
+    return gbe::SerializedData();
+}
+
+void HierarchyManager::Deserialize(gbe::SerializedData& data)
+{
+    gbe::EventSystem::DispatchTo(
+        EVENT_ONSCENELOAD,
+        std::make_unique<SceneLoadArgs>(data.label)
+    );
+
+    gbe::ISerializable::Deserialize(data);
 }

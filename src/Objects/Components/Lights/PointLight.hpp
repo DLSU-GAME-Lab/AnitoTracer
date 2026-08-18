@@ -27,4 +27,9 @@ public:
 
 private:
     float m_range;
+    GBE_SERIALIZE_FIELD_W_NAME(m_range, "Range");
+
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(PointLight, LightBase);
 };
+
+GBE_REGISTER_SERIALIZED_TYPE(PointLight, ComponentBase);

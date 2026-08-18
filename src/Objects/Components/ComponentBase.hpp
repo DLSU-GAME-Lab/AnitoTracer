@@ -1,6 +1,7 @@
 #pragma once
 
 #include ANITO_SERIALIZATION_INCLUDES
+#include ANITO_EVENT_INCLUDES
 
 #include <string>
 #include <iostream>
@@ -44,4 +45,6 @@ protected:
     gbe::IInstanceManager<HierarchyObject>::Ref m_owner;
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ComponentBase, gbe::ISerializable);
+public:
+    virtual std::string GetLabel() override;
 };

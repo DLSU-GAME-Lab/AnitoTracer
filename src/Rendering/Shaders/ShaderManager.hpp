@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "RenderDevice.h"
+#include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Common/interface/RefCntAutoPtr.hpp"
 
 namespace Diligent {

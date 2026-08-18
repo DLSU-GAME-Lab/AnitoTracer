@@ -7,7 +7,7 @@ namespace Diligent {
     public:
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
         // StartFrameRender is entirely handled by BasePipeline, so no override is necessary
-        void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model) override;
+        void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model, bool renderOpaque = true) override;
 
     private:
         RefCntAutoPtr<IBuffer> m_pMaterialCB;

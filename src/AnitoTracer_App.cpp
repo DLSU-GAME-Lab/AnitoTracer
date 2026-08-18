@@ -16,6 +16,10 @@
 #include "UI/ObjectPicker.hpp"
 #include "Asset/AssetPipeline.hpp"
 
+#include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
+
+#include ANITO_EVENT_INCLUDES
+
 using namespace Diligent;
 
 // Global pointer required for the static WindowProc to route messages back to the class instance.
@@ -164,7 +168,8 @@ void AnitoTracer_App::InitManagers()
 {
     Diligent::ShaderManager::GetInstance().Initialize(m_pDevice, "Shaders");
     ModelManager::GetInstance().Initialize(m_pDevice, m_pImmediateContext);
-    AssetPipeline::LoadFolder("Assets");
+    
+    AssetPipeline::IncludeFolder("Assets");
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
     m_MainCam = objFactory.CreateRootCameraObject("Main Camera");
@@ -216,6 +221,9 @@ void AnitoTracer_App::OnDestroy()
 
 void AnitoTracer_App::Run()
 {
+    //LifeCycle objects
+    Print_OnSceneLoad print_OnSceneLoad; //test
+
     while (m_AppRunning)
     {
         Update();
@@ -264,6 +272,9 @@ void AnitoTracer_App::Update()
     imguiManager.NewFrame(SCDesc.Width, SCDesc.Height, transform);
     UpdateCameraControls();
     imguiManager.DrawUI(m_AppRunning);
+
+    //===============//EVENTS//===============//
+    HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
 }
 
 void AnitoTracer_App::Render()
@@ -305,7 +316,7 @@ void AnitoTracer_App::Render()
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
         pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
-        pipeline.RenderModels(m_pImmediateContext, renderData);
+        pipeline.RenderModels(m_pImmediateContext, renderData, true);
         }, m_bLitPipeline);
 
     auto* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();

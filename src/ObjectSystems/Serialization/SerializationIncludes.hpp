@@ -1,4 +1,3 @@
-#include "PropertyDrawers.hpp"
 
 #include "Meta/glm_meta.hpp"
 
@@ -7,3 +6,7 @@
 
 #include "AutoSerializer.hpp"
 #include "AutoSerializer_Vector.hpp"
+
+#include "ObjectRef.hpp"
+
+#include "PropertyDrawers.hpp"

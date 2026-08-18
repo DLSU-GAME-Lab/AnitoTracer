@@ -1,7 +1,5 @@
 #pragma once
 
-#include ANITO_SERIALIZATION_INCLUDES
-
 #include "LightBase.hpp"
 #include "../Transform.hpp"
 
@@ -30,4 +28,8 @@ public:
 
 private:
     glm::vec3 m_localDirection;
+
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(DirectionalLight, LightBase);
 };
+
+GBE_REGISTER_SERIALIZED_TYPE(DirectionalLight, ComponentBase);

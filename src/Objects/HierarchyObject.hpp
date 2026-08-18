@@ -1,6 +1,7 @@
 #pragma once
 
 #include ANITO_SERIALIZATION_INCLUDES
+#include ANITO_EVENT_INCLUDES
 
 #include <string>
 #include <vector>
@@ -79,6 +80,39 @@ public:
     // Removes a component by its raw pointer and returns ownership to the caller.
     std::unique_ptr<ComponentBase> RemoveComponent(ComponentBase* componentToRemove);
 
+
+    //================//EVENTS//================//
+    /**
+     * @brief Dispatches an event to components on this object, with optional recursive propagation to children.
+     * @param event The event payload struct.
+     * @param recursive If true, propagates down through all child nodes.
+     */
+    template <typename TEvent>
+    void DispatchEventData(const TEvent& event, bool recursive = false) {
+        // 1. Dispatch to all local components attached to this object
+        for (auto& component : m_components) {
+            gbe::TriggerDispatcher::Dispatch(component.get(), event);
+        }
+
+        // 2. Recursively dispatch down child nodes if requested
+        if (recursive) {
+            for (auto& child : m_children) {
+                if (child) {
+                    child->DispatchEventData(event, true);
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief In-place event construction helper.
+     */
+    template <typename TEvent, typename... Args>
+    void DispatchEvent(bool recursive, Args&&... args) {
+        TEvent event{ std::forward<Args>(args)... };
+        DispatchEventData<TEvent>(event, recursive);
+    }
+
 private:
     std::string m_name;
     GBE_SERIALIZE_FIELD(m_name);
@@ -92,7 +126,7 @@ private:
 
     friend class HierarchyManager;
 
-    GBE_GENERATE_SERIALIZER_CONSTRUCTOR(HierarchyObject, gbe::ISerializable);
+    GBE_GENERATE_SERIALIZER_CONSTRUCTOR_W_NAME(HierarchyObject, gbe::ISerializable, [this]() {return m_name; });
     GBE_DECLARE_INSTANCE_REF(HierarchyObject);
 };
 
