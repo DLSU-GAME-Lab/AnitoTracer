@@ -8,20 +8,16 @@
 namespace gbe {
     class InputSystem {
     public:
-        // ---------------------------------------------------------------------
-        // TIER 3: DEFINING MAPPINGS (Static Access for UI / Game Logic)
-        // ---------------------------------------------------------------------
-        static void RegisterMapping(const std::string& actionName, Key key, InputTrigger trigger, KeyModifier modifiers = KeyModifier::None) {
-            Instance().RegisterMappingInternal(actionName, key, trigger, modifiers);
+        // Tier 3: Register mappings with default InputTrigger::All (Down | While | Up)
+        static void RegisterMapping(const std::string& actionName, Key key, InputTrigger triggers = InputTrigger::All, KeyModifier modifiers = KeyModifier::None) {
+            Instance().RegisterMappingInternal(actionName, key, triggers, modifiers);
         }
 
         static void ClearMappings() {
             Instance().ClearMappingsInternal();
         }
 
-        // ---------------------------------------------------------------------
-        // TIER 2: ROUTING INPUTS (Raw Ingestion from GLFW, ImGui, Win32, etc.)
-        // ---------------------------------------------------------------------
+        // Tier 2: Ingestion from raw inputs
         static void SetRawKeyState(Key key, bool isDown) {
             Instance().SetRawKeyStateInternal(key, isDown);
         }
@@ -30,9 +26,7 @@ namespace gbe {
             Instance().SetRawModifierStateInternal(modifier, active);
         }
 
-        // ---------------------------------------------------------------------
-        // TIER 4: CALLING FUNCTIONS (Tick Evaluation & Dispatch)
-        // ---------------------------------------------------------------------
+        // Tier 4: Process frame transitions and dispatch events
         static void Update() {
             Instance().UpdateInternal();
         }
@@ -51,12 +45,12 @@ namespace gbe {
         struct Mapping {
             std::string actionName;
             Key key;
-            InputTrigger trigger;
+            InputTrigger mask;
             KeyModifier modifiers;
         };
 
-        void RegisterMappingInternal(const std::string& actionName, Key key, InputTrigger trigger, KeyModifier modifiers) {
-            mappings_.push_back({ actionName, key, trigger, modifiers });
+        void RegisterMappingInternal(const std::string& actionName, Key key, InputTrigger mask, KeyModifier modifiers) {
+            mappings_.push_back({ actionName, key, mask, modifiers });
         }
 
         void ClearMappingsInternal() {
@@ -88,36 +82,39 @@ namespace gbe {
                 bool isCurrDown = currentKeyStates_[keyIndex];
                 bool isPrevDown = previousKeyStates_[keyIndex];
 
-                // 1. Check if required modifiers match active modifiers
+                // Modifier Check
                 bool modifiersMatch = (static_cast<uint8_t>(currentModifiers_) & static_cast<uint8_t>(binding.modifiers))
                     == static_cast<uint8_t>(binding.modifiers);
 
                 if (!modifiersMatch) continue;
 
-                // 2. Evaluate Trigger Type
-                bool shouldFire = false;
-                switch (binding.trigger) {
-                case InputTrigger::Down:
-                    shouldFire = isCurrDown && !isPrevDown;
-                    break;
-                case InputTrigger::Up:
-                    shouldFire = !isCurrDown && isPrevDown;
-                    break;
-                case InputTrigger::While:
-                    shouldFire = isCurrDown;
-                    break;
-                }
+                // Frame State Conditions
+                bool isDownState = isCurrDown && !isPrevDown;
+                bool isWhileState = isCurrDown;
+                bool isUpState = !isCurrDown && isPrevDown;
 
-                // 3. Dispatch to EventSystem
-                if (shouldFire) {
-                    EventSystem::DispatchTo(
-                        binding.actionName,
-                        std::make_unique<InputEventArgs>(binding.actionName, binding.key, binding.trigger, binding.modifiers)
-                    );
-                }
+                auto dispatchPhase = [&](InputTrigger phase, const std::string& phaseSuffix) {
+                    bool enabledInMask = static_cast<uint8_t>(binding.mask & phase) != 0;
+                    if (enabledInMask) {
+                        // 1. Dispatch to global channel (e.g., "ChargeAttack")
+                        EventSystem::DispatchTo(
+                            binding.actionName,
+                            std::make_unique<InputEventArgs>(binding.actionName, binding.key, phase, binding.modifiers)
+                        );
+
+                        // 2. Dispatch to phase-specific sub-channel (e.g., "ChargeAttack:Down")
+                        EventSystem::DispatchTo(
+                            binding.actionName + ":" + phaseSuffix,
+                            std::make_unique<InputEventArgs>(binding.actionName, binding.key, phase, binding.modifiers)
+                        );
+                    }
+                    };
+
+                if (isDownState)  dispatchPhase(InputTrigger::Down, "Down");
+                if (isWhileState) dispatchPhase(InputTrigger::While, "While");
+                if (isUpState)    dispatchPhase(InputTrigger::Up, "Up");
             }
 
-            // Copy state to previous frame state at the end of tick
             previousKeyStates_ = currentKeyStates_;
         }
 

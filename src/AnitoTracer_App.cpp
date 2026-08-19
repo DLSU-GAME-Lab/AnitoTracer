@@ -15,6 +15,7 @@
 #include "UserSettings.hpp"
 #include "UI/ObjectPicker.hpp"
 #include "Asset/AssetPipeline.hpp"
+#include "InputSystem.hpp"
 
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
 
@@ -275,6 +276,7 @@ void AnitoTracer_App::Update()
 
     //===============//EVENTS//===============//
     HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
+    gbe::InputSystem::Update();
 }
 
 void AnitoTracer_App::Render()
