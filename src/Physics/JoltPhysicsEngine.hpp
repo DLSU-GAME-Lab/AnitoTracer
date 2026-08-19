@@ -29,7 +29,8 @@ public:
 	void DestroyRigidBody(std::shared_ptr<IPhysicsBody> body) override;
 
 	// Collision callback
-	void SetCollisionCallback(CollisionCallback callback) override;
+	void RegisterCollisionCallback(IPhysicsBody* body, CollisionCallback callback) override;
+	void UnregisterCollisionCallback(IPhysicsBody* body) override;
 
 	// Simulation
 	void Step(float deltaTime) override;
@@ -42,7 +43,7 @@ public:
 	JPH::BodyInterface& GetBodyInterface() { return mPhysicsSystem->GetBodyInterface(); }
 
 	bool HasCollisionCallback() const;
-	void InvokeCollisionCallback(std::shared_ptr<IPhysicsBody> bodyA, std::shared_ptr<IPhysicsBody> bodyB, const glm::vec3& point);
+	void InvokeCollisionCallbacks(std::shared_ptr<IPhysicsBody> bodyA, std::shared_ptr<IPhysicsBody> bodyB, const glm::vec3& point);
 	std::shared_ptr<JoltPhysicsBody> FindBodyByID(JPH::BodyID id);
 
 private:
@@ -53,6 +54,5 @@ private:
 	std::map<JPH::BodyID, std::shared_ptr<JoltPhysicsBody>> mBodies;
 	glm::vec3 mGravity;
 
-	CollisionCallback mCollisionCallback;
-
+	std::map<IPhysicsBody*, CollisionCallback> mCollisionCallbacks;
 };

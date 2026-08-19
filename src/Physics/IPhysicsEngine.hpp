@@ -7,6 +7,13 @@
 #include <vector>
 #include <functional>
 
+// Physics event types
+struct CollisionEnterTrigger {
+	std::shared_ptr<IPhysicsBody> self;
+	std::shared_ptr<IPhysicsBody> other;
+	glm::vec3 contactPoint;
+};
+
 class IPhysicsEngine {
 public:
 	virtual ~IPhysicsEngine() = default;
@@ -40,7 +47,8 @@ public:
 	virtual void DestroyRigidBody(std::shared_ptr<IPhysicsBody> body) = 0;
 
 	// Collision callback
-	virtual void SetCollisionCallback(CollisionCallback callback) = 0;
+	virtual void RegisterCollisionCallback(IPhysicsBody* body, CollisionCallback callback) = 0;
+	virtual void UnregisterCollisionCallback(IPhysicsBody* body) = 0;
 
 	// Simulation
 	virtual void Step(float deltaTime) = 0;

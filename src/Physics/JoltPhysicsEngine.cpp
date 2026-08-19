@@ -52,6 +52,7 @@ public:
 
 JoltPhysicsEngine::JoltPhysicsEngine() : mGravity(0.0f, -9.81f, 0.0f) {
 	// Initialize Jolt
+	JPH::RegisterDefaultAllocator();
 	JPH::Factory::sInstance = new JPH::Factory();
 	JPH::RegisterTypes();
 
@@ -75,6 +76,7 @@ JoltPhysicsEngine::JoltPhysicsEngine() : mGravity(0.0f, -9.81f, 0.0f) {
 
 JoltPhysicsEngine::~JoltPhysicsEngine() {
 	mBodies.clear();
+	mCollisionCallbacks.clear();
 	mPhysicsSystem.reset();
 	mJobSystem.reset();
 	delete JPH::Factory::sInstance;
@@ -129,7 +131,7 @@ std::shared_ptr<IPhysicsBody> JoltPhysicsEngine::CreateRigidBody(
 			std::cerr << "[JoltPhysicsEngine] Error: Capsule radius and half-height must be greater than zero.\n";
 			return nullptr;
 		}
-		JPH::CapsuleShapeSettings capsuleSettings(radius, halfHeight);
+		JPH::CapsuleShapeSettings capsuleSettings(halfHeight, radius);
 		shapeResult = capsuleSettings.Create();
 		break;
 	}
@@ -187,18 +189,26 @@ void JoltPhysicsEngine::DestroyRigidBody(std::shared_ptr<IPhysicsBody> body) {
 	mBodies.erase(bodyID);
 }
 
-void JoltPhysicsEngine::SetCollisionCallback(CollisionCallback callback) {
-	mCollisionCallback = callback;
+void JoltPhysicsEngine::RegisterCollisionCallback(IPhysicsBody* body, CollisionCallback callback) {
+	if (!body) return;
+	mCollisionCallbacks[body] = callback;
 }
 
-bool JoltPhysicsEngine::HasCollisionCallback() const {
-	return static_cast<bool>(mCollisionCallback);
+void JoltPhysicsEngine::UnregisterCollisionCallback(IPhysicsBody* body) {
+	if (!body) return;
+	mCollisionCallbacks.erase(body);
 }
 
-void JoltPhysicsEngine::InvokeCollisionCallback(std::shared_ptr<IPhysicsBody> bodyA, std::shared_ptr<IPhysicsBody> bodyB, const glm::vec3& point) {
-	if (mCollisionCallback) {
-		mCollisionCallback(bodyA, bodyB, point);
-	}
+void JoltPhysicsEngine::InvokeCollisionCallbacks(std::shared_ptr<IPhysicsBody> bodyA, std::shared_ptr<IPhysicsBody> bodyB, const glm::vec3& point) {
+	auto fireIfRegistered = [&](std::shared_ptr<IPhysicsBody> body, std::shared_ptr<IPhysicsBody> other) {
+		auto it = mCollisionCallbacks.find(body.get());
+		if (it != mCollisionCallbacks.end()) {
+			it->second(body, other, point);
+		}
+	};
+
+	fireIfRegistered(bodyA, bodyB);
+	fireIfRegistered(bodyB, bodyA);
 }
 
 std::shared_ptr<JoltPhysicsBody> JoltPhysicsEngine::FindBodyByID(JPH::BodyID id) {
