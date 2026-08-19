@@ -50,8 +50,9 @@ namespace gbe {
         }
 
         void Unsubscribe(const std::string& eventName, SubscriptionID id) {
+            //TODO: This function violates memory access on program close. Fix why.
             std::lock_guard<std::mutex> lock(mutex_);
-            auto it = listeners_.find(eventName);
+            auto it = listeners_.find(eventName); 
             if (it != listeners_.end()) {
                 it->second.erase(id);
                 if (it->second.empty()) {

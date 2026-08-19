@@ -1,15 +1,16 @@
 #include "EventHandler.hpp"
 #include "InputMappedBool.hpp"
+#include "InputSystem.hpp"
 
-#define INPUTKEY_DOWN "INPUTKEY_DOWN"
-#define INPUTKEY_UP "INPUTKEY_UP"
-#define INPUTKEY_RIGHT "INPUTKEY_RIGHT"
-#define INPUTKEY_LEFT "INPUTKEY_LEFT"
-#define INPUTKEY_JUMP "INPUTKEY_JUMP"
-#define INPUTKEY_SPRINT "INPUTKEY_SPRINT"
-#define INPUTKEY_CROUCH "INPUTKEY_CROUCH"
-#define INPUTKEY_PRIMARY "INPUTKEY_PRIMARY"
-#define INPUTKEY_SECONDARY "INPUTKEY_SECONDARY"
+#define INPUTKEY_DOWN "INPUT_KEY_DOWN"
+#define INPUTKEY_UP "INPUT_KEY_UP"
+#define INPUTKEY_RIGHT "INPUT_KEY_RIGHT"
+#define INPUTKEY_LEFT "INPUT_KEY_LEFT"
+#define INPUTKEY_JUMP "INPUT_KEY_JUMP"
+#define INPUTKEY_SPRINT "INPUT_KEY_SPRINT"
+#define INPUTKEY_CROUCH "INPUT_KEY_CROUCH"
+#define INPUTKEY_PRIMARY "INPUT_KEY_PRIMARY"
+#define INPUTKEY_SECONDARY "INPUT_KEY_SECONDARY"
 
 #include <glm/glm.hpp>
 
@@ -31,4 +32,14 @@ public:
 		float y = static_cast<float>(isUp) - static_cast<float>(isDown);
 		return glm::normalize(glm::vec2(x, y));
 	}
+
+    static inline void RegisterDefaultKeybinds() {
+        gbe::InputSystem::RegisterMapping(INPUTKEY_DOWN, gbe::Key::S, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_UP, gbe::Key::W, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_RIGHT, gbe::Key::D, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_LEFT, gbe::Key::A, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_JUMP, gbe::Key::Space, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_PRIMARY, gbe::Key::MouseLeft, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_SECONDARY, gbe::Key::MouseRight, gbe::InputTrigger::All);
+    }
 };

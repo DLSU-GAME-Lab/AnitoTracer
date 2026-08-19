@@ -171,7 +171,7 @@ bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
 
 gbe::SerializedData HierarchyManager::Serialize()
 {
-    return gbe::SerializedData();
+    return gbe::ISerializable::Serialize();
 }
 
 void HierarchyManager::Deserialize(gbe::SerializedData& data)

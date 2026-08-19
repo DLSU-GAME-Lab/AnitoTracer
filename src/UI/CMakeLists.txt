@@ -52,7 +52,6 @@ target_link_libraries(${CUR_TARGET_NAME}
 
 	anito::serialization
 	gbe::filedialogue
-	gbe::tools
 	anito::rendering
 	anito::objects
 	
@@ -66,6 +65,8 @@ target_link_libraries(${CUR_TARGET_NAME}
 	Diligent-Imgui
 
 	anito::common
+
+	gbe::tools
 )
 
 #ADDITIONAL STUFF

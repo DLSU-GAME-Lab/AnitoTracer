@@ -5,6 +5,7 @@
 
 #include "FileDialogue.hpp"
 
+#include "CreateInstance.hpp"
 
 namespace Diligent {
 
@@ -83,6 +84,17 @@ namespace Diligent {
                 for (const auto& panel : panels)
                 {
                     ImGui::MenuItem(panel->GetName().c_str(), NULL, &panel->GetVisible());
+                }
+                ImGui::EndMenu();
+            }
+            
+            // Dynamically populate the Windows menu based on registered panels
+            if (ImGui::BeginMenu("Launch"))
+            {
+                if (ImGui::MenuItem("Play"))
+                {
+                    gbe::CreateInstance(" -release --entry \"" + ProjectLoader::GetCurrentProjectFile().string() + "\"");
+
                 }
                 ImGui::EndMenu();
             }

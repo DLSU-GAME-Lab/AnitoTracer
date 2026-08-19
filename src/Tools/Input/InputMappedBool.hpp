@@ -1,10 +1,12 @@
+#pragma once
+
 #include "EventHandler.hpp"
 
 namespace gbe {
 
     class InputMappedBool : public EventHandler {
     public:
-        explicit MappedBool(const std::string& actionName)
+        explicit InputMappedBool(const std::string& actionName)
             : isPressed_(false) {
 
             // Automatically set state to true on Down

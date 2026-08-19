@@ -96,6 +96,8 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
 				Diligent-GraphicsEngineVk-shared
 				Diligent-Imgui
 
+                gbe::tools
+
                 $<LINK_LIBRARY:WHOLE_ARCHIVE,anito::objects>
                 anito::common 
                 anito::rendering

@@ -16,6 +16,10 @@ class ProjectLoader {
 	inline static std::filesystem::path currentProjectFile;
 
 public:
+	inline static std::filesystem::path GetCurrentProjectDir() { return currentProjectDir; }
+	inline static std::filesystem::path GetCurrentSceneFile() { return currentSceneFile; }
+	inline static std::filesystem::path GetCurrentProjectFile() { return currentProjectFile; }
+
 	static inline void LoadProject(std::filesystem::path path) {
 		ProjectInfo newinfo;
 

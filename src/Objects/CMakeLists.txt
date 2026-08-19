@@ -19,6 +19,8 @@ set(${CUR_TARGET_NAME}_src
 	Components/Lights/PointLight.cpp
 	Components/Lights/PointLight.hpp
 
+	Components/Gameplay/PlayerMovementComponent.hpp
+
 	HierarchyObject.hpp
 	HierarchyObject.cpp
 
@@ -48,3 +50,5 @@ target_link_libraries(${CUR_TARGET_NAME}
 	PRIVATE
 	anito::rendering
 )
+
+target_compile_definitions(${CUR_TARGET_NAME} PUBLIC ANITO_COMPONENT_INCLUDES="Components/ComponentIncludes.hpp")

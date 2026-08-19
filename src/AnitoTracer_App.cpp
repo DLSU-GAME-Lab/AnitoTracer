@@ -18,8 +18,13 @@
 #include "InputSystem.hpp"
 
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
+#include "Asset/ProjectLoader.hpp"
+
+#include "AppConfig.hpp"
+#include "Input/ImguiBridge.hpp"
 
 #include ANITO_EVENT_INCLUDES
+#include ANITO_COMPONENT_INCLUDES
 
 using namespace Diligent;
 
@@ -83,6 +88,20 @@ bool AnitoTracer_App::Initialize(HINSTANCE hInstance, int nCmdShow)
     m_LastMSAAState = UserSettings::GetInstance().GetEnableMSAA();
 
     return true;
+}
+
+bool AnitoTracer_App::Initialize(void* hInstance, int nCmdShow, const std::vector<std::string>& args)
+{
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (args[i] == "-release" || args[i] == "--release") {
+            AppConfig::release = true;
+        }
+        else if ((args[i] == "--entry" || args[i] == "-entry") && (i + 1 < args.size())) {
+            AppConfig::entry = args[++i]; // Read the path and skip to next token
+        }
+    }
+
+    return AnitoTracer_App::Initialize(static_cast<HINSTANCE>(hInstance), nCmdShow);
 }
 
 bool AnitoTracer_App::InitWindow(HINSTANCE hInstance, int nCmdShow)
@@ -172,9 +191,14 @@ void AnitoTracer_App::InitManagers()
     
     AssetPipeline::IncludeFolder("Assets");
 
+    if (AppConfig::entry.size() > 0)
+        ProjectLoader::LoadProject(AppConfig::entry);
+
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
     m_MainCam = objFactory.CreateRootCameraObject("Main Camera");
     m_MainCam.GetPtr()->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
+
+    PlayerInput::RegisterDefaultKeybinds();
 }
 
 void AnitoTracer_App::CreateMSAABuffers()
@@ -271,11 +295,18 @@ void AnitoTracer_App::Update()
     io.DisplaySize = ImVec2(static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height));
 
     imguiManager.NewFrame(SCDesc.Width, SCDesc.Height, transform);
-    UpdateCameraControls();
-    imguiManager.DrawUI(m_AppRunning);
+    //UpdateCameraControls();
+
+    if (!AppConfig::release)
+        imguiManager.DrawUI(m_AppRunning);
 
     //===============//EVENTS//===============//
-    HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
+    if (!AppConfig::release)
+        HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
+    if (AppConfig::release)
+        HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame
+    
+    ForwardImGuiInputToSystem();
     gbe::InputSystem::Update();
 }
 

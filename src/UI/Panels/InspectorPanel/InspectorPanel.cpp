@@ -1,4 +1,6 @@
 #include "InspectorPanel.hpp"
+#include "TypeRegistry.hpp"
+#include "SerializedData.hpp"
 
 void Diligent::InspectorPanel::Draw()
 {
@@ -23,29 +25,61 @@ void Diligent::InspectorPanel::Draw()
             {
                 if (component)
                 {
-                    //Skip name and use it to collapse
-                    if (ImGui::CollapsingHeader(component->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+                    // Fall back to a default name if m_name was not populated during serialization
+                    std::string compName = component->GetName();
+                    if (compName.empty()) {
+                        compName = "Unnamed Component";
+                    }
 
-                        // Loop through the public properties vector from ISerializable
+                    // Append unique pointer address (##) to ensure non-empty, unique ImGui IDs
+                    std::string headerLabel = compName + "##" + std::to_string(reinterpret_cast<uintptr_t>(component.get()));
+
+                    if (ImGui::CollapsingHeader(headerLabel.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
                         for (auto* property : component->properties) {
+                            if (property->m_id == "m_name") continue;
 
-                            //Skip name
-                            if (property->m_id == "m_name") {
-                                continue;
-                            }
-
-                            // Draw all other properties normally
                             if (!property->DrawInspector()) {
-                                //Sanity check to see if something is there even if the draw did not happen
-								std::string fallBackTxt = "No UI for " + property->m_display_name;
-								ImGui::Text(fallBackTxt.c_str());
+                                std::string fallBackTxt = "No UI for " + property->m_display_name;
+                                ImGui::Text("%s", fallBackTxt.c_str());
                             }
                         }
                     }
-                    //TODO: Add specialty component laters desu
-                    /*InspectorRegistry::GetInstance().DrawComponent(component.get());*/
                     ImGui::Spacing();
                 }
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            // --- ADD COMPONENT BUTTON & POPUP ---
+            if (ImGui::Button("Add Component", ImVec2(-1, 0))) {
+                ImGui::OpenPopup("AddComponentPopup");
+            }
+
+            if (ImGui::BeginPopup("AddComponentPopup")) {
+                for (const auto& entry : gbe::TypeRegistry::GetEntries()) {
+                    std::string label = entry.name;
+                    if (label.rfind("class ", 0) == 0) label.erase(0, 6);
+                    if (label.rfind("struct ", 0) == 0) label.erase(0, 7);
+
+                    // Ensure popup labels are non-empty and uniquely identified
+                    std::string popupItemLabel = (label.empty() ? "Unknown Type" : label) + "##" + entry.name;
+
+                    if (ImGui::Selectable(popupItemLabel.c_str())) {
+                        gbe::SerializedData emptyData;
+                        gbe::ISerializable* rawInstance = gbe::TypeRegistry::Instantiate(entry.name, emptyData);
+
+                        if (auto* newComponent = dynamic_cast<ComponentBase*>(rawInstance)) {
+                            newComponent->SetOwner(selected);
+                            selected.GetPtr()->AddComponent(std::unique_ptr<ComponentBase>(newComponent));
+                        }
+                        else {
+                            delete rawInstance;
+                        }
+                    }
+                }
+                ImGui::EndPopup();
             }
         }
         else
