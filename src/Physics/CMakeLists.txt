@@ -4,6 +4,8 @@ set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
 set(${CUR_TARGET_NAME}_src
 	IPhysicsBody.hpp
 	IPhysicsEngine.hpp
+	PhysicsEngine.hpp
+	PhysicsEngine.cpp
 	JoltPhysicsEngine.hpp
 	JoltPhysicsEngine.cpp
 	JoltPhysicsBody.hpp
