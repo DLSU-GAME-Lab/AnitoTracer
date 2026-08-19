@@ -126,6 +126,7 @@ private:
 
     friend class HierarchyManager;
 
+    inline void GBE_Init() {};
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR_W_NAME(HierarchyObject, gbe::ISerializable, [this]() {return m_name; });
     GBE_DECLARE_INSTANCE_REF(HierarchyObject);
 };

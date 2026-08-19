@@ -25,16 +25,16 @@ void Diligent::InspectorPanel::Draw()
             {
                 if (component)
                 {
+                    // Scope all widgets within this component to its memory address
+                    ImGui::PushID(component.get());
+
                     // Fall back to a default name if m_name was not populated during serialization
                     std::string compName = component->GetName();
                     if (compName.empty()) {
                         compName = "Unnamed Component";
                     }
 
-                    // Append unique pointer address (##) to ensure non-empty, unique ImGui IDs
-                    std::string headerLabel = compName + "##" + std::to_string(reinterpret_cast<uintptr_t>(component.get()));
-
-                    if (ImGui::CollapsingHeader(headerLabel.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+                    if (ImGui::CollapsingHeader(compName.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
                         for (auto* property : component->properties) {
                             if (property->m_id == "m_name") continue;
 
@@ -44,6 +44,8 @@ void Diligent::InspectorPanel::Draw()
                             }
                         }
                     }
+
+                    ImGui::PopID(); // Pop ID scope after drawing component
                     ImGui::Spacing();
                 }
             }

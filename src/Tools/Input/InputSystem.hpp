@@ -8,6 +8,11 @@
 namespace gbe {
     class InputSystem {
     public:
+        struct Vec2 {
+            float x = 0.0f;
+            float y = 0.0f;
+        };
+
         // Tier 3: Register mappings with default InputTrigger::All (Down | While | Up)
         static void RegisterMapping(const std::string& actionName, Key key, InputTrigger triggers = InputTrigger::All, KeyModifier modifiers = KeyModifier::None) {
             Instance().RegisterMappingInternal(actionName, key, triggers, modifiers);
@@ -30,6 +35,17 @@ namespace gbe {
         static void Update() {
             Instance().UpdateInternal();
         }
+
+        // Setters using native types
+        static void SetMouseDelta(float x, float y) { s_mouseDelta = { x, y }; }
+        static void SetMouseDelta(Vec2 delta) { s_mouseDelta = delta; }
+
+        static void SetMousePosition(float x, float y) { s_mousePosition = { x, y }; }
+        static void SetMousePosition(Vec2 pos) { s_mousePosition = pos; }
+
+        // Native getters
+        static Vec2 GetMouseDelta() { return s_mouseDelta; }
+        static Vec2 GetMousePosition() { return s_mousePosition; }
 
     private:
         InputSystem() {
@@ -117,6 +133,9 @@ namespace gbe {
 
             previousKeyStates_ = currentKeyStates_;
         }
+
+        static inline Vec2 s_mouseDelta{ 0.0f, 0.0f };
+        static inline Vec2 s_mousePosition{ 0.0f, 0.0f };
 
         std::array<bool, static_cast<size_t>(Key::COUNT)> currentKeyStates_;
         std::array<bool, static_cast<size_t>(Key::COUNT)> previousKeyStates_;

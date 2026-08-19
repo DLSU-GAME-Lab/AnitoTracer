@@ -23,6 +23,8 @@
 #include "AppConfig.hpp"
 #include "Input/ImguiBridge.hpp"
 
+#include "UI/CursorManager.hpp"
+
 #include ANITO_EVENT_INCLUDES
 #include ANITO_COMPONENT_INCLUDES
 
@@ -133,11 +135,13 @@ bool AnitoTracer_App::InitWindow(HINSTANCE hInstance, int nCmdShow)
 
     ShowWindow(hWnd, nCmdShow);
     m_NativeWindow.hWnd = hWnd;
+    CursorManager::GetInstance().Initialize(hWnd);
     return true;
 #else
 #error Platform window creation logic must be declared for non-Windows builds.
     return false;
 #endif
+
 }
 
 bool AnitoTracer_App::InitEngine()
@@ -186,6 +190,7 @@ bool AnitoTracer_App::InitEngine()
 
 void AnitoTracer_App::InitManagers()
 {
+
     Diligent::ShaderManager::GetInstance().Initialize(m_pDevice, "Shaders");
     ModelManager::GetInstance().Initialize(m_pDevice, m_pImmediateContext);
     

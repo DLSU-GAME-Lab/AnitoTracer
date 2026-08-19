@@ -20,6 +20,8 @@ set(${CUR_TARGET_NAME}_src
 	Components/Lights/PointLight.hpp
 
 	Components/Gameplay/PlayerMovementComponent.hpp
+	Components/Gameplay/PickupComponent.hpp
+	Components/Gameplay/PickupComponent.cpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp

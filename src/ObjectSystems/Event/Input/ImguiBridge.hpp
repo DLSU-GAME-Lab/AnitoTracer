@@ -39,7 +39,13 @@ inline gbe::Key MapImGuiKeyToGbeKey(ImGuiKey key) {
 	case ImGuiKey_RightArrow:    return gbe::Key::Right;
 	case ImGuiKey_UpArrow:       return gbe::Key::Up;
 	case ImGuiKey_DownArrow:     return gbe::Key::Down;
-	default: return gbe::Key::COUNT; // Return a sentinel value for unmapped keys
+
+		// Mouse button keys (ImGui standard keys include mouse buttons)
+	case ImGuiKey_MouseLeft:     return gbe::Key::MouseLeft;
+	case ImGuiKey_MouseRight:    return gbe::Key::MouseRight;
+	case ImGuiKey_MouseMiddle:   return gbe::Key::MouseMiddle;
+
+	default: return gbe::Key::COUNT;
 	}
 }
 
@@ -52,7 +58,11 @@ inline void ForwardImGuiInputToSystem() {
 	gbe::InputSystem::SetRawModifierState(gbe::KeyModifier::Ctrl, io.KeyCtrl);
 	gbe::InputSystem::SetRawModifierState(gbe::KeyModifier::Alt, io.KeyAlt);
 
-	// 2. Iterate through named keys and update raw key states
+	// 2. Pass mouse position and delta via native structs
+	gbe::InputSystem::SetMouseDelta({ io.MouseDelta.x, io.MouseDelta.y });
+	gbe::InputSystem::SetMousePosition({ io.MousePos.x, io.MousePos.y });
+
+	// 3. Iterate through named keys and update raw key states
 	for (int i = ImGuiKey_NamedKey_BEGIN; i < ImGuiKey_NamedKey_END; ++i) {
 		ImGuiKey imguiKey = static_cast<ImGuiKey>(i);
 		gbe::Key engineKey = MapImGuiKeyToGbeKey(imguiKey);

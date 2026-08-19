@@ -32,8 +32,13 @@ namespace gbe {
         EventSystem& operator=(const EventSystem&) = delete;
 
         static EventSystem& Instance() {
-            static EventSystem instance;
-            return instance;
+            static EventSystem* instance = new EventSystem();
+            return *instance;
+        }
+
+        static void Shutdown() {
+            EventSystem* instance = &Instance();
+            delete instance;
         }
 
         // Explicitly grant subscription access ONLY to EventHandler
@@ -50,7 +55,6 @@ namespace gbe {
         }
 
         void Unsubscribe(const std::string& eventName, SubscriptionID id) {
-            //TODO: This function violates memory access on program close. Fix why.
             std::lock_guard<std::mutex> lock(mutex_);
             auto it = listeners_.find(eventName); 
             if (it != listeners_.end()) {
