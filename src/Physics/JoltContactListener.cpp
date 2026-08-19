@@ -9,16 +9,15 @@ void JoltContactListener::OnContactAdded(
 	const JPH::Body& inBody2,
 	const JPH::ContactManifold& inManifold,
 	JPH::ContactSettings& ioSettings) {
-	if (!mEngine.HasCollisionCallback()) {
-		return;
-	}
-
 	auto bodyA = mEngine.FindBodyByID(inBody1.GetID());
 	auto bodyB = mEngine.FindBodyByID(inBody2.GetID());
 
-	if (bodyA && bodyB) {
-		JPH::RVec3 contactPoint = inManifold.GetWorldSpaceContactPointOn1(0);
-		glm::vec3 hitPos(contactPoint.GetX(), contactPoint.GetY(), contactPoint.GetZ());
-		mEngine.InvokeCollisionCallback(bodyA, bodyB, hitPos);
+	if (!bodyA || !bodyB) {
+		return;
 	}
+
+	JPH::RVec3 cp = inManifold.GetWorldSpaceContactPointOn1(0);
+	glm::vec3 contactPoint(static_cast<float>(cp.GetX()), static_cast<float>(cp.GetY()), static_cast<float>(cp.GetZ()));
+
+	mEngine.InvokeCollisionCallbacks(bodyA, bodyB, contactPoint);
 }
