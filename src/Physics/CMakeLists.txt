@@ -32,5 +32,5 @@ endif()
 target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC
 	glm::glm
-	#{_JOLT_TARGET}
+	${_JOLT_TARGET}
 )
