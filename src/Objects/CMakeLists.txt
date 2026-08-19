@@ -19,6 +19,11 @@ set(${CUR_TARGET_NAME}_src
 	Components/Lights/PointLight.cpp
 	Components/Lights/PointLight.hpp
 
+	Components/Physics/PhysicsBase.hpp
+	Components/Physics/PhysicsBase.cpp
+	Components/Physics/RigidBody.hpp
+	Components/Physics/RigidBody.cpp
+
 	HierarchyObject.hpp
 	HierarchyObject.cpp
 
