@@ -129,6 +129,12 @@ void Diligent::HybridPipeline::BuildSceneTLAS(IDeviceContext* pContext, const Re
     Uint32 requiredInstanceBufferSize = static_cast<Uint32>(Instances.size() * sizeof(TLASBuildInstanceData));
 
     if (!m_pTLASInstanceBuffer || m_pTLASInstanceBuffer->GetDesc().Size < requiredInstanceBufferSize) {
+
+        //Release old buffer and create a new one
+        if (m_pTLASInstanceBuffer) {
+            m_pTLASInstanceBuffer.Release();
+        }
+
         BufferDesc InstBuffDesc;
         InstBuffDesc.Name = "TLAS Instance Buffer";
         InstBuffDesc.Size = requiredInstanceBufferSize * 2;
