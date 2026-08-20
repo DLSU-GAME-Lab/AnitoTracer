@@ -28,6 +28,20 @@
 #include "Rendering/Pipelines/HybridPipeline.hpp"
 #include "Objects/HierarchyObject.hpp"
 
+#include ANITO_EVENT_INCLUDES
+
+using namespace gbe;
+
+
+//For testing / possible addition
+struct WindowResizeArgs : public EventArgs {
+    short width;
+    short height;
+
+    WindowResizeArgs(short w, short h)
+        : width(w), height(h) {}
+};
+
 class AnitoTracer_App
 {
 public:
@@ -45,6 +59,8 @@ public:
 private:
     bool InitWindow(HINSTANCE hInstance, int nCmdShow);
     bool InitEngine();
+
+    void SubscribeToStandardEvents();
     void InitManagers();
     void CreateMSAABuffers();
 
@@ -52,6 +68,11 @@ private:
     void Render();
     void UpdateCameraControls();
     void HandleObjectPicking(const Diligent::SwapChainDesc& SCDesc, const struct RenderData& renderData);
+
+    //Event handlers
+    void HandleInitializeEvent(const gbe::EventArgs* args);
+    void HandleRenderStartEvent(const gbe::EventArgs* args);
+    void HandleRenderEndEvent(const gbe::EventArgs* args);
 
 private:
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice>  m_pDevice;
@@ -72,4 +93,12 @@ private:
 
     HierarchyObject::Ref m_MainCam;
     std::variant<HybridPipeline, BasicLitPipeline> m_bLitPipeline;
+
+    //Subscription properties
+    ScopedSubscription m_OnInitializeSub;
+    ScopedSubscription m_OnRenderStartSub;
+    ScopedSubscription m_OnRenderEndSub;
+
+    gbe::ScopedSubscription m_OnWindowResizeSub;
+    void HandleWindowResizeEvent(const WindowResizeArgs* args);
 };
