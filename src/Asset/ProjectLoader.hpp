@@ -1,3 +1,5 @@
+#pragma once
+
 
 #include <filesystem>
 #include "File/Parser.hpp"
@@ -19,6 +21,10 @@ public:
 	inline static std::filesystem::path GetCurrentProjectDir() { return currentProjectDir; }
 	inline static std::filesystem::path GetCurrentSceneFile() { return currentSceneFile; }
 	inline static std::filesystem::path GetCurrentProjectFile() { return currentProjectFile; }
+
+	inline static std::filesystem::path GetAbsolutePath(const std::filesystem::path& relativePath) {
+		return std::filesystem::absolute(currentProjectDir / relativePath);
+	}
 
 	static inline void LoadProject(std::filesystem::path path) {
 		ProjectInfo newinfo;

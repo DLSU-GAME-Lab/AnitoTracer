@@ -34,6 +34,8 @@
 #include "PropertyDrawers/objectref_drawer.hpp"
 #include "PropertyDrawers/event_drawer.hpp"
 
+#include "ObjectSystems/Scene/SceneManager.hpp"
+
 using namespace Diligent;
 
 // Global pointer required for the static WindowProc to route messages back to the class instance.
@@ -312,6 +314,8 @@ void AnitoTracer_App::Update()
         imguiManager.DrawUI(m_AppRunning);
 
     //===============//EVENTS//===============//
+    SceneManager::GetInstance().ProcessPendingSceneChange();
+    
     if (!AppConfig::release)
         HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
     if (AppConfig::release)

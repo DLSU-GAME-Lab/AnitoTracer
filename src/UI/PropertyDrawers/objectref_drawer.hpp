@@ -58,8 +58,11 @@ namespace gbe {
 
                 // Option 2: Iterate memory via SceneRegistry for all valid ISerializables of type T
                 const auto& registry = SceneRegistry::GetInstance().GetRegistry();
+				size_t index = 0;
                 for (const auto& [guid, rawPtr] : registry) {
                     if (!rawPtr) continue;
+
+                    ImGui::PushID(index);
 
                     // Safely check if this memory instance can cast to type T
                     T* typedPtr = dynamic_cast<T*>(rawPtr);
@@ -80,6 +83,8 @@ namespace gbe {
                             ImGui::SetItemDefaultFocus();
                         }
                     }
+                    ImGui::PopID();
+                    index++;
                 }
 
                 ImGui::EndCombo();
