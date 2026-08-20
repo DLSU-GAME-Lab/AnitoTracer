@@ -8,6 +8,8 @@
 #include <memory>
 
 #include "Components/ComponentBase.hpp"
+#include "PropertyDrawers/componentbase_drawer.hpp" // should come after #include "Components/ComponentBase.hpp"
+
 #include "Components/Transform.hpp"
 
 #include "Organization/IInstanceManager.hpp"

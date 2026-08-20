@@ -13,10 +13,7 @@ void InspectorRegistry::DrawComponent(ComponentBase* component) {
     else {
         // TODO: Draw Fallback
         for (gbe::IAutoSerializer* prop : component->properties) {
-            if (!prop->DrawInspector()) { // Automatically invokes PropertyDrawer<T>::Draw
-                std::string fallBackTxt = "No UI for " + prop->m_display_name;
-                ImGui::Text(fallBackTxt.c_str());
-            }
+            prop->DrawInspector();
         }
     }
 }

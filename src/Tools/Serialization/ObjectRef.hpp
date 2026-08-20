@@ -4,7 +4,6 @@
 #include "SceneRegistry.hpp"
 
 #include "AutoSerializer.hpp"
-#include "ObjectRef.hpp"
 #include "File/Parser.hpp"
 
 namespace gbe {

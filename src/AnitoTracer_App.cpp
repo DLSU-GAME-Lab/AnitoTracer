@@ -28,6 +28,12 @@
 #include ANITO_EVENT_INCLUDES
 #include ANITO_COMPONENT_INCLUDES
 
+#include "AssignableEvent/MethodRegistry.hpp"
+#include "AssignableEvent/AssignableEvent.hpp"
+
+#include "PropertyDrawers/objectref_drawer.hpp"
+#include "PropertyDrawers/event_drawer.hpp"
+
 using namespace Diligent;
 
 // Global pointer required for the static WindowProc to route messages back to the class instance.

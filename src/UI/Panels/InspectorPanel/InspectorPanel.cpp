@@ -38,10 +38,7 @@ void Diligent::InspectorPanel::Draw()
                         for (auto* property : component->properties) {
                             if (property->m_id == "m_name") continue;
 
-                            if (!property->DrawInspector()) {
-                                std::string fallBackTxt = "No UI for " + property->m_display_name;
-                                ImGui::Text("%s", fallBackTxt.c_str());
-                            }
+                            property->DrawInspector();
                         }
                     }
 

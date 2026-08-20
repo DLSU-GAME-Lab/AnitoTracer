@@ -2,6 +2,8 @@
 
 #include ANITO_SERIALIZATION_INCLUDES
 
+#include "ISerializable.hpp"
+
 #include <imgui.h>
 #include "PropertyDrawer.hpp"
 #include "ObjectRef.hpp"
@@ -84,7 +86,7 @@ namespace gbe {
             }
 
             ImGui::PopID();
-            return true;
+            return changed;
         }
     };
 

@@ -4,12 +4,10 @@
 namespace gbe {
 
     // Primary template (Fallback if no ImGui drawer specialization exists)
-    template <typename T, typename Enable = void>
+    template <typename T>
     struct PropertyDrawer {
-        static bool Draw(const std::string& label, T& target) {
-            // Default no-op for headless/game runtime builds
-            return false;
-        }
+        //static bool Draw(const std::string& label, T& target)
+		//Force the compiler to throw an error if no specialization exists for the type T
     };
 
     template <> struct PropertyDrawer<float>;

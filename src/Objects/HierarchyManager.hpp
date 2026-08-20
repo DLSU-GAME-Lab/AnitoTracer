@@ -4,8 +4,12 @@
 #include <memory>
 #include <string>
 
+
 #include "HierarchyObject.hpp"
 #include "Components/ComponentBase.hpp"
+#include "PropertyDrawers/componentbase_drawer.hpp" // should come after #include "Components/ComponentBase.hpp"
+
+
 #include "Components/Transform.hpp"
 #include "Components/Camera.hpp"
 #include "Components/ModelComponent.hpp"

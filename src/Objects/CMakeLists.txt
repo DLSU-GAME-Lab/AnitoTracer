@@ -22,6 +22,7 @@ set(${CUR_TARGET_NAME}_src
 	Components/Gameplay/PlayerMovementComponent.hpp
 	Components/Gameplay/PickupComponent.hpp
 	Components/Gameplay/PickupComponent.cpp
+	Components/Gameplay/CameraProximityTrigger.cpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp
