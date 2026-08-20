@@ -20,28 +20,21 @@ namespace gbe {
     // Singleton Event System
     class EventSystem {
     public:
+        // Expose types globally so free functions can store their IDs
+        using SubscriptionID = uint64_t;
+        using EventCallback = std::function<void(const std::unique_ptr<EventArgs>&)>;
+
         // Global static dispatch method - callable from anywhere
         static void DispatchTo(const std::string& eventName, std::unique_ptr<EventArgs> args) {
             Instance().DispatchInternal(eventName, std::move(args));
         }
-
-    private:
-        EventSystem() = default;
-        ~EventSystem() = default;
-        EventSystem(const EventSystem&) = delete;
-        EventSystem& operator=(const EventSystem&) = delete;
 
         static EventSystem& Instance() {
             static EventSystem instance;
             return instance;
         }
 
-        // Explicitly grant subscription access ONLY to EventHandler
-        friend class EventHandler;
-
-        using SubscriptionID = uint64_t;
-        using EventCallback = std::function<void(const std::unique_ptr<EventArgs>&)>;
-
+        // Publicly accessible so standalone functions can subscribe without the EventHandler base class
         SubscriptionID Subscribe(const std::string& eventName, EventCallback callback) {
             std::lock_guard<std::mutex> lock(mutex_);
             SubscriptionID id = ++nextID_;
@@ -49,6 +42,7 @@ namespace gbe {
             return id;
         }
 
+        // Publicly accessible so standalone functions can clean up after themselves
         void Unsubscribe(const std::string& eventName, SubscriptionID id) {
             std::lock_guard<std::mutex> lock(mutex_);
             auto it = listeners_.find(eventName);
@@ -59,6 +53,30 @@ namespace gbe {
                 }
             }
         }
+
+        static SubscriptionID SubscribeTo(const std::string& eventName, EventCallback callback) {
+            return Instance().Subscribe(eventName, std::move(callback));
+        }
+
+        static void UnsubscribeFrom(const std::string& eventName, SubscriptionID id) {
+            Instance().Unsubscribe(eventName, id);
+        }
+
+        // Helper template to auto-cast EventArgs for standalone functions/lambdas
+        template <typename TArgs, typename F>
+        static SubscriptionID SubscribeTyped(const std::string& eventName, F&& callback) {
+            return SubscribeTo(eventName, [cb = std::forward<F>(callback)](const std::unique_ptr<EventArgs>& args) {
+                if (auto* castedArgs = dynamic_cast<const TArgs*>(args.get())) {
+                    cb(castedArgs); // Pass the raw pointer directly to the user's function
+                }
+                });
+        }
+
+    private:
+        EventSystem() = default;
+        ~EventSystem() = default;
+        EventSystem(const EventSystem&) = delete;
+        EventSystem& operator=(const EventSystem&) = delete;
 
         void DispatchInternal(const std::string& eventName, std::unique_ptr<EventArgs> args) {
             std::vector<EventCallback> callbacksToInvoke;
