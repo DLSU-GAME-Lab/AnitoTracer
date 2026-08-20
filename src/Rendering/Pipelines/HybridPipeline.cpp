@@ -99,6 +99,9 @@ void Diligent::HybridPipeline::BuildSceneTLAS(IDeviceContext* pContext, const Re
         const auto& modelInstance = renderData.Models[i];
         if (!modelInstance.ModelData->pBLAS) continue;
 
+        if (!modelInstance.ModelData->pBLAS || modelInstance.OpaqueSubmeshIndices.empty())
+            continue;
+
         TLASBuildInstanceData tlasInst{};
         tlasInst.InstanceName = "ModelInstance " + i;
         tlasInst.pBLAS = modelInstance.ModelData->pBLAS;
@@ -126,6 +129,12 @@ void Diligent::HybridPipeline::BuildSceneTLAS(IDeviceContext* pContext, const Re
     Uint32 requiredInstanceBufferSize = static_cast<Uint32>(Instances.size() * sizeof(TLASBuildInstanceData));
 
     if (!m_pTLASInstanceBuffer || m_pTLASInstanceBuffer->GetDesc().Size < requiredInstanceBufferSize) {
+
+        //Release old buffer and create a new one
+        if (m_pTLASInstanceBuffer) {
+            m_pTLASInstanceBuffer.Release();
+        }
+
         BufferDesc InstBuffDesc;
         InstBuffDesc.Name = "TLAS Instance Buffer";
         InstBuffDesc.Size = requiredInstanceBufferSize * 2;

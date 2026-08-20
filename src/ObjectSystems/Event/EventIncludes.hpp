@@ -9,5 +9,7 @@
 
 //ARG TYPES
 #include "Args/SceneLoadArgs.hpp"
+#include "Args/DefaultEventArgs.hpp"
 
+#include "ScopedSubscription.hpp"
 #include "TriggerDispatcher.hpp"

@@ -89,6 +89,8 @@ AnitoTracer_App::~AnitoTracer_App()
 
 bool AnitoTracer_App::Initialize(HINSTANCE hInstance, int nCmdShow)
 {
+    SubscribeToStandardEvents();
+
     if (!InitWindow(hInstance, nCmdShow)) return false;
     if (!InitEngine()) return false;
 
@@ -96,6 +98,9 @@ bool AnitoTracer_App::Initialize(HINSTANCE hInstance, int nCmdShow)
     CreateMSAABuffers();
 
     m_LastMSAAState = UserSettings::GetInstance().GetEnableMSAA();
+
+    //Dispatch with empty EventArgs
+    EventSystem::DispatchTo(EVENT_ON_APP_INITIALIZE, std::make_unique<EventArgs>());
 
     return true;
 }
@@ -196,6 +201,33 @@ bool AnitoTracer_App::InitEngine()
     return true;
 }
 
+void AnitoTracer_App::SubscribeToStandardEvents()
+{
+    m_OnInitializeSub = ScopedSubscription::Create<EventArgs>(
+        EVENT_ON_APP_INITIALIZE,
+        &AnitoTracer_App::HandleInitializeEvent,
+        this
+    );
+
+    m_OnRenderStartSub = ScopedSubscription::Create<EventArgs>(
+        EVENT_RENDER_START,
+        &AnitoTracer_App::HandleRenderStartEvent,
+        this
+    );
+
+    m_OnRenderEndSub = ScopedSubscription::Create<EventArgs>(
+        EVENT_RENDER_END,
+        &AnitoTracer_App::HandleRenderEndEvent,
+        this
+    );
+
+    m_OnWindowResizeSub = gbe::ScopedSubscription::Create<WindowResizeArgs>(
+        "EVENT_ONWINDOWRESIZE", //For testing
+        &AnitoTracer_App::HandleWindowResizeEvent,
+        this
+    );
+}
+
 void AnitoTracer_App::InitManagers()
 {
 
@@ -250,6 +282,11 @@ void AnitoTracer_App::OnResize(short width, short height)
     {
         m_pSwapChain->Resize(width, height);
     }
+
+    gbe::EventSystem::DispatchTo(
+        "EVENT_ONWINDOWRESIZE", //For testing
+        std::make_unique<WindowResizeArgs>(width, height)
+    );
 }
 
 void AnitoTracer_App::OnDestroy()
@@ -327,6 +364,8 @@ void AnitoTracer_App::Update()
 
 void AnitoTracer_App::Render()
 {
+    EventSystem::DispatchTo(EVENT_RENDER_START, std::make_unique<EventArgs>());
+
     const auto& SCDesc = m_pSwapChain->GetDesc();
     if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
 
@@ -364,7 +403,7 @@ void AnitoTracer_App::Render()
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
         pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
-        pipeline.RenderModels(m_pImmediateContext, renderData);
+        pipeline.RenderModels(m_pImmediateContext, renderData, true);
         }, m_bLitPipeline);
 
     auto* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
@@ -389,6 +428,8 @@ void AnitoTracer_App::Render()
 
     GUIManager::GetInstance().Render(m_pImmediateContext);
     m_pSwapChain->Present(1);
+
+    EventSystem::DispatchTo(EVENT_RENDER_END, std::make_unique<EventArgs>());
 }
 
 void AnitoTracer_App::UpdateCameraControls()
@@ -451,6 +492,29 @@ void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const Ren
             GUIManager::GetInstance().SetSelectedObject(selectedObj);
         }
     }
+}
+
+void AnitoTracer_App::HandleInitializeEvent(const gbe::EventArgs* args)
+{
+    std::cout << "Engine Initialized" << std::endl;
+}
+
+void AnitoTracer_App::HandleRenderStartEvent(const gbe::EventArgs * args)
+{
+    //Avoid Spam- uncomment if necessary desu
+    //std::cout << "Engine Render Start" << std::endl;
+}
+
+void AnitoTracer_App::HandleRenderEndEvent(const gbe::EventArgs * args)
+{
+    //Avoid Spam- uncomment if necessary desu
+    //std::cout << "Engine Render End" << std::endl;
+}
+
+void AnitoTracer_App::HandleWindowResizeEvent(const WindowResizeArgs* args)
+{
+    std::cout << "EVENT_ONWINDOWRESIZE: SwapChain resized to "
+        << args->width << "x" << args->height << "!\n";
 }
 
 void AnitoTracer_App::Shutdown()
