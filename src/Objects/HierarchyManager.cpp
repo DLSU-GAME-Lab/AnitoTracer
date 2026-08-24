@@ -19,6 +19,40 @@ std::unique_ptr<HierarchyObject> HierarchyManager::RemoveRootObject(HierarchyObj
     return nullptr;
 }
 
+void HierarchyManager::QueueObjectDeletion(HierarchyObject::Ref object) {
+    if (!object) return;
+
+    const auto objectId = object.GetID();
+    for (const auto queuedId : m_deferredDeletionIds) {
+        if (queuedId == objectId) return;
+    }
+
+    m_deferredDeletionIds.push_back(objectId);
+}
+
+size_t HierarchyManager::CommitDeferredDeletions() {
+    std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> pendingDeletions;
+    pendingDeletions.swap(m_deferredDeletionIds);
+
+    size_t removedCount = 0;
+    for (const auto objectId : pendingDeletions) {
+        HierarchyObject::Ref object(objectId);
+        HierarchyObject* objectPtr = object.GetPtr();
+        if (!objectPtr) continue;
+
+        if (HierarchyObject::Ref parent = objectPtr->GetParent()) {
+            if (parent.GetPtr()->RemoveChild(object)) {
+                ++removedCount;
+            }
+        }
+        else if (RemoveRootObject(object)) {
+            ++removedCount;
+        }
+    }
+
+    return removedCount;
+}
+
 void HierarchyManager::AddComponentToObject(HierarchyObject::Ref object, std::unique_ptr<ComponentBase> component) {
     if (!object || !component) return;
     //Moved it to object

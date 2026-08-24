@@ -371,6 +371,8 @@ void AnitoTracer_App::Update()
         HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
     if (AppConfig::release)
         HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame
+
+    HierarchyManager::GetInstance().CommitDeferredDeletions();
 }
 
 void AnitoTracer_App::Render()

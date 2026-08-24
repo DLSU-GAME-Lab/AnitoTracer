@@ -45,6 +45,13 @@ public:
     // Removes a root object by its exact pointer address and transfers ownership back to the caller.
     std::unique_ptr<HierarchyObject> RemoveRootObject(HierarchyObject::Ref rootToRemove);
 
+    // Queues an object and its entire subtree for removal at the next commit.
+    void QueueObjectDeletion(HierarchyObject::Ref object);
+
+    // Commits all object deletions queued since the previous commit.
+    // Returns the number of queued objects that were found and removed.
+    size_t CommitDeferredDeletions();
+
     // Retrieves all active root nodes in the hierarchy tree.
     const std::vector<std::unique_ptr<HierarchyObject>>& GetRootObjects() const {
         return m_rootNodes;
@@ -79,8 +86,16 @@ public:
      */
     template <typename TEvent>
     void DispatchEventData(const TEvent& event) {
-        for (auto& root : m_rootNodes) {
+        std::vector<HierarchyObject::Ref> rootsToDispatch;
+        rootsToDispatch.reserve(m_rootNodes.size());
+        for (const auto& root : m_rootNodes) {
             if (root) {
+                rootsToDispatch.push_back(root->getRef());
+            }
+        }
+
+        for (const HierarchyObject::Ref rootRef : rootsToDispatch) {
+            if (HierarchyObject* root = rootRef.GetPtr()) {
                 root->DispatchEventData(event, /*recursive=*/true);
             }
         }
@@ -105,6 +120,8 @@ private:
 
     std::vector<std::unique_ptr<HierarchyObject>> m_rootNodes;
     GBE_SERIALIZE_FIELD(m_rootNodes);
+
+    std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> m_deferredDeletionIds;
 
 public:
     

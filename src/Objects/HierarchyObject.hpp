@@ -98,8 +98,16 @@ public:
 
         // 2. Recursively dispatch down child nodes if requested
         if (recursive) {
-            for (auto& child : m_children) {
+            std::vector<HierarchyObject::Ref> childrenToDispatch;
+            childrenToDispatch.reserve(m_children.size());
+            for (const auto& child : m_children) {
                 if (child) {
+                    childrenToDispatch.push_back(child->getRef());
+                }
+            }
+
+            for (const HierarchyObject::Ref childRef : childrenToDispatch) {
+                if (HierarchyObject* child = childRef.GetPtr()) {
                     child->DispatchEventData(event, true);
                 }
             }

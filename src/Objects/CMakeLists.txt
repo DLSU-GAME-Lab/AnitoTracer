@@ -23,6 +23,13 @@ set(${CUR_TARGET_NAME}_src
 	Components/Gameplay/PickupComponent.hpp
 	Components/Gameplay/PickupComponent.cpp
 	Components/Gameplay/CameraProximityTrigger.cpp
+	Components/Gameplay/KeyComponent.cpp
+	Components/Gameplay/ParticleSpawnerComponent.cpp
+	Components/Gameplay/LockComponent.cpp
+	
+	Components/Gameplay/CameraProximityTrigger.cpp
+	Components/Gameplay/CameraProximityTrigger.cpp
+	
 	Components/Global/SceneChanger.cpp
 	Components/Global/SceneChanger.hpp
 
