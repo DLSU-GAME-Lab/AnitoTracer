@@ -4,38 +4,75 @@
 #include "Components/Transform.hpp"
 #include "Example/PlayerInput.hpp"
 
-class PlayerMovementComponent : public ComponentBase, public gbe::ITrigger<UpdateTrigger> {
+class PlayerMovementComponent : public ComponentBase, public gbe::ITrigger<UpdateTrigger>
+{
 public:
     PlayerMovementComponent(gbe::IInstanceManager<HierarchyObject>::Ref owner = nullptr)
         : ComponentBase("PlayerMovementComponent", owner),
-        m_moveSpeed(5.0f) {}
+          m_moveSpeed(5.0f) {}
 
     ~PlayerMovementComponent() override = default;
 
-    PlayerMovementComponent(const PlayerMovementComponent&) = delete;
-    PlayerMovementComponent& operator=(const PlayerMovementComponent&) = delete;
+    PlayerMovementComponent(const PlayerMovementComponent &) = delete;
+    PlayerMovementComponent &operator=(const PlayerMovementComponent &) = delete;
 
-    PlayerMovementComponent(PlayerMovementComponent&&) = default;
-    PlayerMovementComponent& operator=(PlayerMovementComponent&&) = default;
+    PlayerMovementComponent(PlayerMovementComponent &&) = default;
+    PlayerMovementComponent &operator=(PlayerMovementComponent &&) = default;
 
-    void OnUpdate(float deltaTime) override {
-        Transform* transform = m_targetTransform.Get();
-        if (!transform) {
+    void OnUpdate(float deltaTime) override
+    {
+        Transform *transform = m_targetTransform.Get();
+        if (!transform)
+        {
             return;
         }
 
         glm::vec2 moveDir = m_input.GetMovementVector();
-        float lengthSq = glm::length(moveDir);
+        constexpr float epsilon = 0.0001f;
+        float moveLengthSquared = glm::dot(moveDir, moveDir);
 
-        // Safe length check to prevent division by zero
-        if (lengthSq > 0.0001f) {
+        if (moveLengthSquared > epsilon * epsilon)
+        {
+            glm::quat rotation = transform->GetRotation();
+            glm::vec3 front = rotation * glm::vec3(0.0f, 0.0f, 1.0f);
+            glm::vec3 right = rotation * glm::vec3(1.0f, 0.0f, 0.0f);
+
+            right.y = 0.0f;
+            front.y = 0.0f;
+
+            float frontLengthSquared = glm::dot(front, front);
+            if (frontLengthSquared > epsilon * epsilon)
+            {
+                front *= 1.0f / std::sqrt(frontLengthSquared);
+
+                glm::vec3 planarRight(front.z, 0.0f, -front.x);
+                if (glm::dot(planarRight, right) < 0.0f)
+                {
+                    planarRight = -planarRight;
+                }
+                right = planarRight;
+            }
+            else
+            {
+                float rightLengthSquared = glm::dot(right, right);
+                if (rightLengthSquared > epsilon * epsilon)
+                {
+                    right *= 1.0f / std::sqrt(rightLengthSquared);
+                    front = glm::vec3(-right.z, 0.0f, right.x);
+                }
+                else
+                {
+                    front = glm::vec3(0.0f, 0.0f, 1.0f);
+                    right = glm::vec3(1.0f, 0.0f, 0.0f);
+                }
+            }
+
             glm::vec3 currentPos = transform->GetPosition();
+            float moveLength = std::sqrt(moveLengthSquared);
 
-            // If GetMovementVector doesn't normalize internally:
-            glm::vec2 normDir = moveDir / std::sqrt(lengthSq);
-
-            currentPos.x += normDir.x * m_moveSpeed * deltaTime;
-            currentPos.z += normDir.y * m_moveSpeed * deltaTime;
+            glm::vec3 movement = (right * moveDir.x + front * moveDir.y) / moveLength;
+            currentPos += movement * m_moveSpeed * deltaTime;
+            currentPos.y = transform->GetPosition().y;
 
             transform->SetPosition(currentPos);
         }

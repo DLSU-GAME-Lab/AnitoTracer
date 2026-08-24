@@ -44,6 +44,11 @@ static AnitoTracer_App* g_pAppInstance = nullptr;
 #if PLATFORM_WIN32
 LRESULT CALLBACK EngineWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (message == WM_LBUTTONDOWN)
+    {
+        CursorManager::GetInstance().OnMouseButtonDown();
+    }
+
     if (ImGui::GetCurrentContext() != nullptr)
     {
         extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -53,6 +58,12 @@ LRESULT CALLBACK EngineWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 
     switch (message)
     {
+    case WM_ACTIVATEAPP:
+        CursorManager::GetInstance().OnFocusChanged(wParam != FALSE);
+        return 0;
+    case WM_ACTIVATE:
+        CursorManager::GetInstance().OnFocusChanged(LOWORD(wParam) != WA_INACTIVE);
+        return 0;
     case WM_SIZE:
         if (g_pAppInstance)
         {
@@ -352,14 +363,14 @@ void AnitoTracer_App::Update()
 
     //===============//EVENTS//===============//
     SceneManager::GetInstance().ProcessPendingSceneChange();
+
+    ForwardImGuiInputToSystem();
+    gbe::InputSystem::Update();
     
     if (!AppConfig::release)
         HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
     if (AppConfig::release)
         HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame
-    
-    ForwardImGuiInputToSystem();
-    gbe::InputSystem::Update();
 }
 
 void AnitoTracer_App::Render()

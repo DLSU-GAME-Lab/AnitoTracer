@@ -19,12 +19,20 @@ public:
 	// Initialize with the HWND from your app setup
 	void Initialize(HWND hWnd) {
 		m_hWnd = hWnd;
+		m_isFocused = m_hWnd && ::GetForegroundWindow() == m_hWnd;
 	}
 
 	// Lock or unlock the cursor
 	void SetCursorLock(bool locked) {
-		if (m_isLocked == locked) return;
+		if (m_isLocked == locked) {
+			if (locked && m_isTemporarilyUnlocked) {
+				Relock();
+			}
+			return;
+		}
 		m_isLocked = locked;
+		m_isTemporarilyUnlocked = false;
+		if (!m_isFocused) return;
 
 		ImGuiIO& io = ImGui::GetIO();
 
@@ -60,6 +68,54 @@ public:
 		}
 	}
 
+	void OnFocusChanged(bool focused) {
+		if (m_isFocused == focused) return;
+		m_isFocused = focused;
+
+#if defined(_WIN32) || defined(PLATFORM_WIN32)
+		if (!focused) {
+			::ClipCursor(NULL);
+			while (::ShowCursor(TRUE) < 0);
+			m_cursorWarped = false;
+			return;
+		}
+#endif
+
+		if (m_isLocked) {
+			Relock();
+		}
+	}
+
+	void TemporarilyUnlock() {
+		if (!m_isLocked || m_isTemporarilyUnlocked) return;
+		m_isTemporarilyUnlocked = true;
+		m_cursorWarped = false;
+
+		ImGuiIO& io = ImGui::GetIO();
+		io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+		ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+
+#if defined(_WIN32) || defined(PLATFORM_WIN32)
+		if (m_hWnd) {
+			::ClipCursor(NULL);
+			while (::ShowCursor(TRUE) < 0);
+		}
+#endif
+	}
+
+	void Relock() {
+		if (!m_isLocked || !m_isFocused) return;
+		m_isTemporarilyUnlocked = false;
+		m_isLocked = false;
+		SetCursorLock(true);
+	}
+
+	void OnMouseButtonDown() {
+		if (m_isTemporarilyUnlocked) {
+			Relock();
+		}
+	}
+
 	void ToggleLock() {
 		SetCursorLock(!m_isLocked);
 	}
@@ -68,8 +124,45 @@ public:
 		return m_isLocked;
 	}
 
+	bool IsTemporarilyUnlocked() const {
+		return m_isTemporarilyUnlocked;
+	}
+
+	ImVec2 ProcessMouseDelta(const ImVec2& mouseDelta) {
+		if (!m_cursorWarped) return mouseDelta;
+		m_cursorWarped = false;
+		return ImVec2(0.0f, 0.0f);
+	}
+
+	void MaintainLock() {
+#if defined(_WIN32) || defined(PLATFORM_WIN32)
+		if (m_isLocked && !m_isTemporarilyUnlocked && m_isFocused && m_hWnd && ::GetForegroundWindow() == m_hWnd) {
+			UpdateClipRect(false);
+
+			POINT cursorPosition;
+			if (::GetCursorPos(&cursorPosition)) {
+				RECT clientRect;
+				::GetClientRect(m_hWnd, &clientRect);
+
+				POINT topLeft{ clientRect.left, clientRect.top };
+				POINT bottomRight{ clientRect.right, clientRect.bottom };
+				::ClientToScreen(m_hWnd, &topLeft);
+				::ClientToScreen(m_hWnd, &bottomRight);
+
+				constexpr LONG recenterMargin = 32;
+				if (cursorPosition.x <= topLeft.x + recenterMargin ||
+					cursorPosition.x >= bottomRight.x - recenterMargin ||
+					cursorPosition.y <= topLeft.y + recenterMargin ||
+					cursorPosition.y >= bottomRight.y - recenterMargin) {
+					UpdateClipRect(true);
+				}
+			}
+		}
+#endif
+	}
+
 	// Recalculates screen bounds (call if window is resized/moved while locked)
-	void UpdateClipRect() {
+	void UpdateClipRect(bool recenter = true) {
 #if defined(_WIN32) || defined(PLATFORM_WIN32)
 		if (m_isLocked && m_hWnd) {
 			RECT rect;
@@ -84,10 +177,12 @@ public:
 			RECT screenRect{ topLeft.x, topLeft.y, bottomRight.x, bottomRight.y };
 			::ClipCursor(&screenRect);
 
-			// Position cursor at center of client window
-			int centerX = topLeft.x + (rect.right - rect.left) / 2;
-			int centerY = topLeft.y + (rect.bottom - rect.top) / 2;
-			::SetCursorPos(centerX, centerY);
+			if (recenter) {
+				int centerX = topLeft.x + (rect.right - rect.left) / 2;
+				int centerY = topLeft.y + (rect.bottom - rect.top) / 2;
+				::SetCursorPos(centerX, centerY);
+				m_cursorWarped = true;
+			}
 		}
 #endif
 	}
@@ -101,4 +196,7 @@ private:
 
 	HWND m_hWnd = nullptr;
 	bool m_isLocked = false;
+	bool m_isFocused = true;
+	bool m_isTemporarilyUnlocked = false;
+	bool m_cursorWarped = false;
 };

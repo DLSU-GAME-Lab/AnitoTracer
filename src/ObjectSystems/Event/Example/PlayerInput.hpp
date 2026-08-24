@@ -30,7 +30,7 @@ public:
 	glm::vec2 GetMovementVector() const {
 		float x = static_cast<float>(isRight) - static_cast<float>(isLeft);
 		float y = static_cast<float>(isUp) - static_cast<float>(isDown);
-		return glm::normalize(glm::vec2(x, y));
+        return glm::vec2(x, y);
 	}
 
     static inline void RegisterDefaultKeybinds() {

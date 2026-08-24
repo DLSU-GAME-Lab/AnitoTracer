@@ -32,6 +32,10 @@ public:
             return;
         }
 
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+            CursorManager::GetInstance().TemporarilyUnlock();
+        }
+
         gbe::InputSystem::Vec2 mouseDelta = gbe::InputSystem::GetMouseDelta();
 
         if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f) {
@@ -46,6 +50,11 @@ public:
 
             // Apply orientation to Transform
             transform->SetEulerAnglesDegrees(glm::vec3(m_pitch, m_yaw, 0.0f));
+        }
+
+        if (m_lockcursor && CursorManager::GetInstance().IsLocked() &&
+            !CursorManager::GetInstance().IsTemporarilyUnlocked()) {
+            CursorManager::GetInstance().MaintainLock();
         }
     }
 

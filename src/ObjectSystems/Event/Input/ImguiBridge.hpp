@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 #include "InputSystem.hpp"
+#include "UI/CursorManager.hpp"
 
 // Maps Dear ImGui keys to your custom gbe::Key enum
 inline gbe::Key MapImGuiKeyToGbeKey(ImGuiKey key) {
@@ -59,7 +60,8 @@ inline void ForwardImGuiInputToSystem() {
 	gbe::InputSystem::SetRawModifierState(gbe::KeyModifier::Alt, io.KeyAlt);
 
 	// 2. Pass mouse position and delta via native structs
-	gbe::InputSystem::SetMouseDelta({ io.MouseDelta.x, io.MouseDelta.y });
+	ImVec2 mouseDelta = CursorManager::GetInstance().ProcessMouseDelta(io.MouseDelta);
+	 gbe::InputSystem::SetMouseDelta({ mouseDelta.x, mouseDelta.y });
 	gbe::InputSystem::SetMousePosition({ io.MousePos.x, io.MousePos.y });
 
 	// 3. Iterate through named keys and update raw key states
