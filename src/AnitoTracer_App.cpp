@@ -122,8 +122,11 @@ bool AnitoTracer_App::Initialize(void* hInstance, int nCmdShow, const std::vecto
         if (args[i] == "-release" || args[i] == "--release") {
             AppConfig::release = true;
         }
-        else if ((args[i] == "--entry" || args[i] == "-entry") && (i + 1 < args.size())) {
-            AppConfig::entry = args[++i]; // Read the path and skip to next token
+        else if ((args[i] == "--project" || args[i] == "-project") && (i + 1 < args.size())) {
+            AppConfig::entry_project = args[++i]; // Read the path and skip to next token
+        }
+        else if ((args[i] == "--scene" || args[i] == "-scene") && (i + 1 < args.size())) {
+            AppConfig::entry_scene = args[++i]; // Read the path and skip to next token
         }
     }
 
@@ -247,8 +250,10 @@ void AnitoTracer_App::InitManagers()
     
     AssetPipeline::IncludeFolder("Assets");
 
-    if (AppConfig::entry.size() > 0)
-        ProjectLoader::LoadProject(AppConfig::entry);
+    if (AppConfig::entry_project.size() > 0)
+        ProjectLoader::LoadProject(AppConfig::entry_project);
+    if (AppConfig::entry_scene.size() > 0)
+        HierarchyManager::GetInstance().LoadScene(AppConfig::entry_scene);
 
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
     m_MainCam = objFactory.CreateRootCameraObject("Main Camera");

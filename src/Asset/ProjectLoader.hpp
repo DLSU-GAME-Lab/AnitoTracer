@@ -36,7 +36,7 @@ public:
 		currentProjectFile = path;
 
 		AssetPipeline::IncludeFolder(currentProjectDir);
-		HierarchyManager::GetInstance().DeserializeFromFile(currentSceneFile);
+		HierarchyManager::GetInstance().LoadScene(currentSceneFile);
 		
 	}
 };

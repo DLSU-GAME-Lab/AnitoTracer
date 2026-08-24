@@ -12,6 +12,7 @@
 
 #include "Imgui/interface/ImGuiDiligentRenderer.hpp"
 #include "Imgui/interface/ImGuiImplDiligent.hpp"
+#include <utility>
 
 // Initialize ImGui context and Diligent renderer
 void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDesc& SCDesc, NativeWindow nativeWindow)
@@ -96,6 +97,13 @@ void Diligent::GUIManager::InitializeDefaultPanels()
     Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::UserSettingsPanel>());
     Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::ProfilerPanel>(m_pDevice));
     Diligent::GUIManager::GetInstance().AddPanel(std::move(hierarchyPanel));
+
+    auto fileExplorerPanel = std::make_unique<Diligent::FileExplorerPanel>("File Explorer");
+    m_pFileExplorerPanel = fileExplorerPanel.get();
+    for (auto& opener : m_FileOpeners)
+        m_pFileExplorerPanel->RegisterOpener(std::move(opener));
+    m_FileOpeners.clear();
+    Diligent::GUIManager::GetInstance().AddPanel(std::move(fileExplorerPanel));
 }
 
 void Diligent::GUIManager::InitializeComponentDrawers()
@@ -114,4 +122,12 @@ void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)
         // Forwards the object to the existing SetSelectedObject method in HierarchyPanel
         m_pHierarchyPanel->SetSelectedObject(obj);
     }
+}
+
+void Diligent::GUIManager::RegisterFileOpener(FileExplorerPanel::Opener opener)
+{
+    if (m_pFileExplorerPanel)
+        m_pFileExplorerPanel->RegisterOpener(std::move(opener));
+    else if (opener)
+        m_FileOpeners.push_back(std::move(opener));
 }

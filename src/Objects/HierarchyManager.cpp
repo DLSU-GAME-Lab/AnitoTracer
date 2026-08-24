@@ -233,3 +233,18 @@ void HierarchyManager::Deserialize(gbe::SerializedData& data)
 
     gbe::ISerializable::Deserialize(data);
 }
+
+void HierarchyManager::LoadScene(std::filesystem::path filepath)
+{
+    m_sceneFile = filepath;
+    this->DeserializeFromFile(filepath);
+}
+
+void HierarchyManager::QuickSave()
+{
+    if(m_sceneFile.empty()){
+        return;
+    }
+    
+    this->SerializeToFile(m_sceneFile);
+}

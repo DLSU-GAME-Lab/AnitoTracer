@@ -32,7 +32,7 @@ namespace Diligent {
                 if (ImGui::MenuItem("Load Scene", "Alt+F4"))
                 {
                     std::string outPath = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, "ascene");
-                    HierarchyManager::GetInstance().DeserializeFromFile(outPath);
+                    HierarchyManager::GetInstance().LoadScene(outPath);
                 }
                 ImGui::EndMenu();
             }
@@ -91,15 +91,17 @@ namespace Diligent {
             // Dynamically populate the Windows menu based on registered panels
             if (ImGui::BeginMenu("Launch"))
             {
-                if (ImGui::MenuItem("Play"))
+                if (ImGui::MenuItem("Play Project"))
                 {
-                    gbe::CreateInstance(" -release --entry \"" + ProjectLoader::GetCurrentProjectFile().string() + "\"");
-
+                    gbe::CreateInstance(" -release --project \"" + ProjectLoader::GetCurrentProjectFile().string() + "\"");
+                }
+                if (ImGui::MenuItem("Play Scene"))
+                {
+                    gbe::CreateInstance(" -release --project \"" + ProjectLoader::GetCurrentProjectFile().string() + "\"" + " --scene \"" + HierarchyManager::GetInstance().GetSceneFile().string() + "\"");
                 }
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
         }
     }
-
 }

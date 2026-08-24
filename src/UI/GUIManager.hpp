@@ -10,6 +10,7 @@
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/UserSettingsPanel.hpp"
 #include "Panels/ProfilerPanel.hpp"
+#include "Panels/FileExplorerPanel.hpp"
 #include "Panels/InspectorPanel/InspectorPanel.hpp"
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"
@@ -50,6 +51,8 @@ namespace Diligent {
         //Bridge function to set the selected object
         void SetSelectedObject(HierarchyObject::Ref obj);
 
+        void RegisterFileOpener(FileExplorerPanel::Opener opener);
+
     private:
         GUIManager() = default;
         ~GUIManager() = default;
@@ -61,6 +64,8 @@ namespace Diligent {
 
         //Cache ref for laters
         HierarchyPanel* m_pHierarchyPanel = nullptr;
+        FileExplorerPanel* m_pFileExplorerPanel = nullptr;
+        std::vector<FileExplorerPanel::Opener> m_FileOpeners;
 
         // Manage all UI windows dynamically
         std::vector<std::unique_ptr<BasePanel>> m_Panels;

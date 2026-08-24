@@ -22,6 +22,8 @@ set(${CUR_TARGET_NAME}_src
 	Panels/UserSettingsPanel.hpp
 	Panels/ProfilerPanel.cpp
 	Panels/ProfilerPanel.hpp
+	Panels/FileExplorerPanel.cpp
+	Panels/FileExplorerPanel.hpp
 
 	MenuBar.hpp
 	MenuBar.cpp

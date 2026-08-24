@@ -114,9 +114,16 @@ public:
     virtual gbe::SerializedData Serialize() override;
     virtual void Deserialize(gbe::SerializedData& data) override;
 
+    void LoadScene(std::filesystem::path filepath);
+    std::filesystem::path GetCurrentScene();
+    std::filesystem::path GetSceneFile() const { return m_sceneFile; }
+    void QuickSave();
+
 private:
     HierarchyManager() = default;
     ~HierarchyManager() = default;
+
+    std::filesystem::path m_sceneFile = "";
 
     std::vector<std::unique_ptr<HierarchyObject>> m_rootNodes;
     GBE_SERIALIZE_FIELD(m_rootNodes);
