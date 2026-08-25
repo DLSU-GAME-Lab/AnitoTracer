@@ -18,6 +18,10 @@ public:
 	void SetRotation(const glm::quat& rotation) override;
 	glm::quat GetRotation() const override;
 
+	void SetPositionAndRotation(const glm::vec3& position, const glm::quat& rotation) override;
+
+	void Activate() override;
+
 	void SetMass(float mass) override;
 	float GetMass() const override;
 
@@ -32,6 +36,8 @@ public:
 
 	JPH::BodyID GetBodyID() const { return mBodyID; }
 private:
+	void WakeSurroundingBodies();
+
 	JPH::BodyID mBodyID;
 	JPH::BodyInterface* mBodyInterface;
 	const JPH::BodyLockInterface* mBodyLockInterface;

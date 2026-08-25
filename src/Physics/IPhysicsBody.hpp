@@ -14,6 +14,11 @@ public:
 	virtual void SetRotation(const glm::quat& rotation) = 0;
 	virtual glm::quat GetRotation() const = 0;
 
+	virtual void SetPositionAndRotation(const glm::vec3& position, const glm::quat& rotation) = 0;
+
+	// Activation
+	virtual void Activate() = 0;
+
 	// Phsyics properties
 	virtual void SetMass(float mass) = 0;
 	virtual float GetMass() const = 0;

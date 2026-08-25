@@ -24,6 +24,9 @@ set(${CUR_TARGET_NAME}_src
 	Components/Physics/PhysicsBase.cpp
 	Components/Physics/RigidBody.hpp
 	Components/Physics/RigidBody.cpp
+	Components/Physics/StaticBody.hpp
+	Components/Physics/Collider.hpp
+	Components/Physics/Collider.cpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp

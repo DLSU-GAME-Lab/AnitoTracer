@@ -1,7 +1,12 @@
 #include "JoltPhysicsBody.hpp"
+#include "PhysicsEngine.hpp"
 
 #include <Jolt/Physics/Body/BodyLockInterface.h>
 #include <Jolt/Physics/Body/BodyLock.h>
+#include <Jolt/Geometry/AABox.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
+#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
 
 JoltPhysicsBody::JoltPhysicsBody(JPH::BodyID bodyID, JPH::BodyInterface* bodyInterface, const JPH::BodyLockInterface* bodyLockInterface, float mass)
 	: mBodyID(bodyID), mBodyInterface(bodyInterface), mBodyLockInterface(bodyLockInterface), mMass(mass) {
@@ -24,7 +29,17 @@ glm::quat JoltPhysicsBody::ToGlmQuat(const JPH::Quat& value) {
 }
 
 void JoltPhysicsBody::SetPosition(const glm::vec3& position) {
+	if (!mBodyInterface) return;
+
+	if (mMass <= 0.0f) {
+		WakeSurroundingBodies();
+	}
+
 	mBodyInterface->SetPosition(mBodyID, ToJoltVec3(position), JPH::EActivation::Activate);
+
+	if (mMass <= 0.0f) {
+		WakeSurroundingBodies();
+	}
 }
 
 glm::vec3 JoltPhysicsBody::GetPosition() const {
@@ -35,8 +50,16 @@ glm::vec3 JoltPhysicsBody::GetPosition() const {
 }
 
 void JoltPhysicsBody::SetRotation(const glm::quat& rotation) {
-	if (mBodyInterface) {
-		mBodyInterface->SetRotation(mBodyID, ToJoltQuat(rotation), JPH::EActivation::Activate);
+	if (!mBodyInterface) return;
+
+	if (mMass <= 0.0f) {
+		WakeSurroundingBodies();
+	}
+
+	mBodyInterface->SetRotation(mBodyID, ToJoltQuat(rotation), JPH::EActivation::Activate);
+
+	if (mMass <= 0.0f) {
+		WakeSurroundingBodies();
 	}
 }
 
@@ -45,6 +68,26 @@ glm::quat JoltPhysicsBody::GetRotation() const {
 		return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 	}
 	return ToGlmQuat(mBodyInterface->GetRotation(mBodyID));
+}
+
+void JoltPhysicsBody::SetPositionAndRotation(const glm::vec3& position, const glm::quat& rotation) {
+	if (!mBodyInterface) return;
+
+	if (mMass <= 0.0f) {
+		WakeSurroundingBodies();
+	}
+
+	mBodyInterface->SetPositionAndRotation(mBodyID, ToJoltVec3(position), ToJoltQuat(rotation), JPH::EActivation::Activate);
+
+	if (mMass <= 0.0f) {
+		WakeSurroundingBodies();
+	}
+}
+
+void JoltPhysicsBody::Activate() {
+	if (mBodyInterface && mMass > 0.0f) {
+		mBodyInterface->ActivateBody(mBodyID);
+	}
 }
 
 void JoltPhysicsBody::SetMass(float mass) {
@@ -110,4 +153,9 @@ void JoltPhysicsBody::ApplyImpulse(const glm::vec3& impulse) {
 	if (mBodyInterface) {
 		mBodyInterface->AddImpulse(mBodyID, ToJoltVec3(impulse));
 	}
+}
+
+void JoltPhysicsBody::WakeSurroundingBodies() {
+	if (!mBodyInterface) return;
+	PhysicsEngine::GetInstance().Get().WakeBodiesAroundBody(this);
 }

@@ -1,4 +1,6 @@
 #include "RigidBody.hpp"
+#include "Collider.hpp"
+#include "StaticBody.hpp"
 #include "../Transform.hpp"
 #include "../../HierarchyObject.hpp"
 
@@ -15,14 +17,26 @@ RigidBody::RigidBody(
 	glm::vec3 startPos(0.0f);
 	glm::quat startRot(1.0f, 0.0f, 0.0f, 0.0f);
 
-	if (HierarchyObject* o = m_owner.GetPtr()) {
+	HierarchyObject* o = m_owner.GetPtr();
+
+	if (o) {
 		if (Transform* t = o->GetTransform()) {
 			startPos = t->GetPosition();
 			startRot = t->GetRotation();
 		}
 	}
 
-	CreateBody(startPos, startRot, mMass, mShapeType, mShapeParams);
+	if (o) {
+		if (StaticBody* existing = o->GetComponent<StaticBody>()) {
+			for (Collider* c : existing->TakeColliders()) {
+				mColliders.push_back(c);
+				c->Reparent(this);
+			}
+			o->RemoveComponent(existing);
+		}
+	}
+
+	CreateBody(startPos, startRot, mMass);
 }
 
 void RigidBody::OnFixedUpdate(float deltaTime) {
@@ -99,5 +113,5 @@ void RigidBody::Rebuild(
 	}
 
 	DestroyBody();
-	CreateBody(pos, rot, mMass, mShapeType, mShapeParams);
+	CreateBody(pos, rot, mMass);
 }

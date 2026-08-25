@@ -9,14 +9,16 @@
 
 #include ANITO_EVENT_INCLUDES
 
+#include <vector>
+
+class Collider;
+
 class PhysicsBase : public ComponentBase, public gbe::IInstanceManager<PhysicsBase>, public ITeleportable {
 public:
 	PhysicsBase(const std::string& name, gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
 		: ComponentBase(name, owner) {}
 
-	~PhysicsBase() override {
-		DestroyBody();
-	}
+	~PhysicsBase() override;
 
 	PhysicsBase(const PhysicsBase&) = delete;
 	PhysicsBase& operator=(const PhysicsBase&) = delete;
@@ -30,13 +32,19 @@ public:
 	// Directly move the body (bypasses simulation)
 	void Teleport(const glm::vec3& position, const glm::quat& rotation) override;
 
+	// Called by Collider components on attach/detach/change
+	void RegisterCollider(Collider* collider);
+	void UnregisterCollider(Collider* collider);
+	void RebuildShapes();
+
+	// Used when a RigidBody takes over an auto-created StaticBody's colliders
+	std::vector<Collider*> TakeColliders();
+
 protected:
 	void CreateBody(
 		const glm::vec3& position,
 		const glm::quat& rotation,
-		float mass,
-		IPhysicsEngine::ShapeType shapeType,
-		IPhysicsEngine::ShapeParams shapeParams
+		float mass
 	);
 
 	void DestroyBody();
@@ -49,6 +57,7 @@ protected:
 	);
 
 	std::shared_ptr<IPhysicsBody> mBody;
+	std::vector<Collider*> mColliders;
 
 	GBE_GENERATE_SERIALIZER_CONSTRUCTOR(PhysicsBase, ComponentBase);
 };

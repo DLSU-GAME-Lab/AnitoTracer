@@ -9,6 +9,9 @@
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
+#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseQuery.h>
 #include <iostream>
 
 // Constants for Jolt initialization
@@ -94,60 +97,85 @@ glm::vec3 JoltPhysicsEngine::GetGravity() const {
 	return mGravity;
 }
 
+JPH::ShapeSettings::ShapeResult JoltPhysicsEngine::BuildShapeSettings(ShapeType type, const ShapeParams& params) {
+	switch (type) {
+	case ShapeType::Box: {
+		JPH::BoxShapeSettings boxSettings(JPH::Vec3(params.v.x * 0.5f, params.v.y * 0.5f, params.v.z * 0.5f));
+		return boxSettings.Create();
+	}
+	case ShapeType::Sphere: {
+		float radius = params.v.x;
+		if (radius <= 0.0f) {
+			std::cerr << "[JoltPhysicsEngine] Error: Sphere radius must be greater than zero.\n";
+			return JPH::ShapeSettings::ShapeResult();
+		}
+		JPH::SphereShapeSettings sphereSettings(radius);
+		return sphereSettings.Create();
+	}
+	case ShapeType::Capsule: {
+		float radius = params.v.x;
+		float halfHeight = params.v.y;
+		if (radius <= 0.0f || halfHeight <= 0.0f) {
+			std::cerr << "[JoltPhysicsEngine] Error: Capsule radius and half-height must be greater than zero.\n";
+			return JPH::ShapeSettings::ShapeResult();
+		}
+		JPH::CapsuleShapeSettings capsuleSettings(halfHeight, radius);
+		return capsuleSettings.Create();
+	}
+	default:
+		std::cerr << "[JoltPhysicsEngine] Error: Unknown shape type.\n";
+		return JPH::ShapeSettings::ShapeResult();
+	}
+}
+
+JPH::RefConst<JPH::Shape> JoltPhysicsEngine::BuildCompoundShape(const std::vector<ColliderShape>& shapes) {
+	if (shapes.empty()) {
+		// Placeholder geometry for a body that has no Colliders registered yet
+		JPH::BoxShapeSettings placeholder(JPH::Vec3(0.5f, 0.5f, 0.5f));
+		auto result = placeholder.Create();
+		return result.IsValid() ? result.Get() : nullptr;
+	}
+
+	if (shapes.size() == 1 && shapes[0].offset == glm::vec3(0.0f)) {
+		auto result = BuildShapeSettings(shapes[0].type, shapes[0].params);
+		return result.IsValid() ? result.Get() : nullptr;
+	}
+
+	JPH::StaticCompoundShapeSettings compound;
+	for (const ColliderShape& s : shapes) {
+		auto sub = BuildShapeSettings(s.type, s.params);
+		if (!sub.IsValid()) {
+			std::cerr << "[JoltPhysicsEngine] Error: Failed to create sub-shape for compound collider.\n";
+			continue;
+		}
+		compound.AddShape(JPH::Vec3(s.offset.x, s.offset.y, s.offset.z), JPH::Quat::sIdentity(), sub.Get());
+	}
+
+	auto result = compound.Create();
+	if (!result.IsValid()) {
+		std::cerr << "[JoltPhysicsEngine] Error: Failed to create compound shape.\n";
+		return nullptr;
+	}
+	return result.Get();
+}
+
 std::shared_ptr<IPhysicsBody> JoltPhysicsEngine::CreateRigidBody(
 	const glm::vec3& position, 
 	const glm::quat& rotation, 
 	float mass, 
-	ShapeType shape, 
-	const ShapeParams& shapeParams) {
+	const std::vector<ColliderShape>& shapes) {
 	if (!mPhysicsSystem)
 	{
 		std::cerr << "[JoltPhysicsEngine] Error: Physics system is not initialized.\n";
 		return nullptr;
 	}
 
-	// Build requested shape
-	JPH::ShapeSettings::ShapeResult shapeResult;
-	switch (shape) {
-	case ShapeType::Box: {
-		JPH::BoxShapeSettings boxSettings(JPH::Vec3(shapeParams.v.x * 0.5f, shapeParams.v.y * 0.5f, shapeParams.v.z * 0.5f));
-		shapeResult = boxSettings.Create();
-		break;
-	}
-	case ShapeType::Sphere: {
-		float radius = shapeParams.v.x;
-		if (radius <= 0.0f) {
-			std::cerr << "[JoltPhysicsEngine] Error: Sphere radius must be greater than zero.\n";
-			return nullptr;
-		}
-		JPH::SphereShapeSettings sphereSettings(radius);
-		shapeResult = sphereSettings.Create();
-		break;
-	}
-	case ShapeType::Capsule: {
-		float radius = shapeParams.v.x;
-		float halfHeight = shapeParams.v.y;
-		if (radius <= 0.0f || halfHeight <= 0.0f) {
-			std::cerr << "[JoltPhysicsEngine] Error: Capsule radius and half-height must be greater than zero.\n";
-			return nullptr;
-		}
-		JPH::CapsuleShapeSettings capsuleSettings(halfHeight, radius);
-		shapeResult = capsuleSettings.Create();
-		break;
-	}
-		default:
-			std::cerr << "[JoltPhysicsEngine] Error: Unknown shape type.\n";
-			return nullptr;
-	}
-
-	if (!shapeResult.IsValid()) {
-		std::cerr << "[JoltPhysicsEngine] Error: Failed to create shape.\n";
-		return nullptr;
-	}
+	JPH::RefConst<JPH::Shape> shape = BuildCompoundShape(shapes);
+	if (!shape) return nullptr;
 
 	// Create body settings
 	JPH::BodyCreationSettings bodySettings(
-		shapeResult.Get(),
+		shape,
 		JPH::RVec3(position.x, position.y, position.z),
 		JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w),
 		mass > 0.0f ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
@@ -187,6 +215,18 @@ void JoltPhysicsEngine::DestroyRigidBody(std::shared_ptr<IPhysicsBody> body) {
 
 	// Remove from tracking
 	mBodies.erase(bodyID);
+}
+
+bool JoltPhysicsEngine::SetShapes(IPhysicsBody* body, const std::vector<ColliderShape>& shapes) {
+	if (!body || !mPhysicsSystem) return false;
+
+	JPH::BodyID bodyID = static_cast<JoltPhysicsBody*>(body)->GetBodyID();
+
+	JPH::RefConst<JPH::Shape> shape = BuildCompoundShape(shapes);
+	if (!shape) return false;
+
+	mPhysicsSystem->GetBodyInterface().SetShape(bodyID, shape, true, JPH::EActivation::Activate);
+	return true;
 }
 
 void JoltPhysicsEngine::RegisterCollisionCallback(IPhysicsBody* body, CollisionCallback callback) {
@@ -257,4 +297,33 @@ bool JoltPhysicsEngine::Raycast(const glm::vec3& origin, const glm::vec3& direct
 	outHitPoint = glm::vec3(hitPos.GetX(), hitPos.GetY(), hitPos.GetZ());
 
 	return true;
+}
+
+void JoltPhysicsEngine::WakeBodiesAroundBody(IPhysicsBody* body) {
+	if (!body || !mPhysicsSystem) return;
+
+	auto* joltBody = dynamic_cast<JoltPhysicsBody*>(body);
+	if (!joltBody) return;
+
+	JPH::BodyID bodyID = joltBody->GetBodyID();
+
+	JPH::AABox bounds = mPhysicsSystem->GetBodyInterface().GetTransformedShape(bodyID).GetWorldSpaceBounds();
+	bounds.ExpandBy(JPH::Vec3(0.5f, 0.5f, 0.5f));
+
+	// Query broadphase for overlapping bodies
+	JPH::AllHitCollisionCollector<JPH::CollideShapeBodyCollector> collector;
+	mPhysicsSystem->GetBroadPhaseQuery().CollideAABox(
+		bounds,
+		collector,
+		JPH::BroadPhaseLayerFilter{},
+		JPH::ObjectLayerFilter{}
+	);
+
+	// Wake all collected bodies
+	if (!collector.mHits.empty()) {
+		mPhysicsSystem->GetBodyInterface().ActivateBodies(
+			collector.mHits.data(),
+			static_cast<int>(collector.mHits.size())
+		);
+	}
 }

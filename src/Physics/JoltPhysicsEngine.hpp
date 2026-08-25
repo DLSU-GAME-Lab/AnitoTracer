@@ -23,10 +23,10 @@ public:
 		const glm::vec3& position,
 		const glm::quat& rotation,
 		float mass,
-		ShapeType shape = ShapeType::Box,
-		const ShapeParams& shapeParams = {}
+		const std::vector<ColliderShape>& shapes = {}
 	) override;
 	void DestroyRigidBody(std::shared_ptr<IPhysicsBody> body) override;
+	bool SetShapes(IPhysicsBody* body, const std::vector<ColliderShape>& shapes) override;
 
 	// Collision callback
 	void RegisterCollisionCallback(IPhysicsBody* body, CollisionCallback callback) override;
@@ -38,6 +38,9 @@ public:
 	// Raycasting
 	bool Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, std::shared_ptr<IPhysicsBody>& outBody, glm::vec3& outHitPoint) override;
 
+	// Activate bodies
+	void WakeBodiesAroundBody(IPhysicsBody* body) override;
+
 	// Internal access for JoltPhysicsBody
 	JPH::PhysicsSystem* GetPhysicsSystem() { return mPhysicsSystem.get(); }
 	JPH::BodyInterface& GetBodyInterface() { return mPhysicsSystem->GetBodyInterface(); }
@@ -47,6 +50,8 @@ public:
 	std::shared_ptr<JoltPhysicsBody> FindBodyByID(JPH::BodyID id);
 
 private:
+	JPH::ShapeSettings::ShapeResult BuildShapeSettings(ShapeType type, const ShapeParams& params);
+	JPH::RefConst<JPH::Shape> BuildCompoundShape(const std::vector<ColliderShape>& shapes);
 	std::unique_ptr<JPH::JobSystemThreadPool> mJobSystem;
 	std::unique_ptr<JPH::PhysicsSystem> mPhysicsSystem;
 	std::unique_ptr<JoltContactListener> mContactListener;
