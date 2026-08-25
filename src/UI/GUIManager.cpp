@@ -13,6 +13,12 @@
 #include "Imgui/interface/ImGuiDiligentRenderer.hpp"
 #include "Imgui/interface/ImGuiImplDiligent.hpp"
 
+GUIManager& Diligent::GUIManager::GetInstance()
+{
+    static GUIManager instance;
+    return instance;
+}
+
 // Initialize ImGui context and Diligent renderer
 void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDesc& SCDesc, NativeWindow nativeWindow)
 {
@@ -51,6 +57,8 @@ void Diligent::GUIManager::NewFrame(Uint32 width, Uint32 height, SURFACE_TRANSFO
 {
     if (!m_pImGuiRenderer) return;
     m_pImGuiRenderer->NewFrame(width, height, transform);
+
+    ImGuizmo::BeginFrame();
 }
 
 void Diligent::GUIManager::DrawUI(bool& appRunning)
@@ -115,3 +123,14 @@ void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)
         m_pHierarchyPanel->SetSelectedObject(obj);
     }
 }
+
+void Diligent::GUIManager::DrawGizmos(CameraComponent* pActiveCamera, float x, float y, float width, float height) {
+    
+    auto selectedObj = GetSelectedObject();
+    if (selectedObj != nullptr) {
+        m_GizmoDrawer.Draw(pActiveCamera, selectedObj, x, y, width, height);
+    }
+
+}
+
+Diligent::GUIManager::~GUIManager() = default;

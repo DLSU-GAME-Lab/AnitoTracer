@@ -6,6 +6,8 @@
 #include <string>
 #include "imgui.h"
 
+#include "../../GUIManager.hpp"
+
 namespace Diligent {
 
     class InspectorPanel : public BasePanel
