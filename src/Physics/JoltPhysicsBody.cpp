@@ -3,8 +3,8 @@
 #include <Jolt/Physics/Body/BodyLockInterface.h>
 #include <Jolt/Physics/Body/BodyLock.h>
 
-JoltPhysicsBody::JoltPhysicsBody(JPH::BodyID bodyID, JPH::BodyInterface* bodyInterface, float mass)
-	: mBodyID(bodyID), mBodyInterface(bodyInterface), mMass(mass) {
+JoltPhysicsBody::JoltPhysicsBody(JPH::BodyID bodyID, JPH::BodyInterface* bodyInterface, const JPH::BodyLockInterface* bodyLockInterface, float mass)
+	: mBodyID(bodyID), mBodyInterface(bodyInterface), mBodyLockInterface(bodyLockInterface), mMass(mass) {
 }
 
 JPH::RVec3 JoltPhysicsBody::ToJoltVec3(const glm::vec3& value) {
@@ -53,7 +53,7 @@ void JoltPhysicsBody::SetMass(float mass) {
 		return;
 	}
 
-	if (mBodyInterface) {
+	if (mBodyInterface && mBodyLockInterface) {
 		JPH::BodyLockWrite lock(*mBodyLockInterface, mBodyID);
 		if (lock.Succeeded())
 		{

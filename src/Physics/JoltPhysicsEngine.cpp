@@ -162,7 +162,7 @@ std::shared_ptr<IPhysicsBody> JoltPhysicsEngine::CreateRigidBody(
 	mPhysicsSystem->GetBodyInterface().AddBody(bodyID, JPH::EActivation::Activate);
 
 	// Create wrapper
-	auto physicsBody = std::make_shared<JoltPhysicsBody>(bodyID, &mPhysicsSystem->GetBodyInterface(), mass);
+	auto physicsBody = std::make_shared<JoltPhysicsBody>(bodyID, &mPhysicsSystem->GetBodyInterface(), &mPhysicsSystem->GetBodyLockInterface(), mass);
 	mBodies[bodyID] = physicsBody; 
 
 	return physicsBody;

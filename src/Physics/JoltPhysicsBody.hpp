@@ -9,7 +9,7 @@
 
 class JoltPhysicsBody : public IPhysicsBody {
 public:
-	JoltPhysicsBody(JPH::BodyID bodyID, JPH::BodyInterface* bodyInterface, float mass = 0.0f);
+	JoltPhysicsBody(JPH::BodyID bodyID, JPH::BodyInterface* bodyInterface, const JPH::BodyLockInterface* bodyLockInterface, float mass = 0.0f);
 	~JoltPhysicsBody() override = default;
 
 	void SetPosition(const glm::vec3& position) override;
