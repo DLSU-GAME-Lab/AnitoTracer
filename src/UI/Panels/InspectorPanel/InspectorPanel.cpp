@@ -10,6 +10,37 @@ void Diligent::InspectorPanel::Draw()
 
         if (selected.GetPtr())
         {
+            // --- Gizmo Control Toolbar ---
+            auto& gizmoDrawer = GUIManager::GetInstance().GetGizmoDrawer();
+            ImGuizmo::OPERATION currentOp = gizmoDrawer.GetOperation();
+            ImGuizmo::MODE currentMode = gizmoDrawer.GetMode();
+
+            // Operation Buttons (Translate, Rotate, Scale)
+            if (ImGui::RadioButton("Translate", currentOp == ImGuizmo::TRANSLATE))
+                gizmoDrawer.SetOperation(ImGuizmo::TRANSLATE);
+
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Rotate", currentOp == ImGuizmo::ROTATE))
+                gizmoDrawer.SetOperation(ImGuizmo::ROTATE);
+
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Scale", currentOp == ImGuizmo::SCALE))
+                gizmoDrawer.SetOperation(ImGuizmo::SCALE);
+
+            ImGui::SameLine();
+            ImGui::TextDisabled("|");
+            ImGui::SameLine();
+
+            // Toggle Local / World Space
+            bool isLocal = (currentMode == ImGuizmo::LOCAL);
+            if (ImGui::Checkbox("Local", &isLocal))
+            {
+                gizmoDrawer.SetMode(isLocal ? ImGuizmo::LOCAL : ImGuizmo::WORLD);
+            }
+
+            ImGui::Separator();
+            ImGui::Spacing();
+
             // Display the object's name
             ImGui::TextDisabled("Name:");
             ImGui::SameLine();

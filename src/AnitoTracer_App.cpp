@@ -310,6 +310,15 @@ void AnitoTracer_App::Update()
     UpdateCameraControls();
     imguiManager.DrawUI(m_AppRunning);
 
+    //Draw Gizmos
+    if (m_MainCam.GetPtr()) {
+        imguiManager.DrawGizmos(
+            m_MainCam.GetPtr()->GetComponent<CameraComponent>(),
+            0.0f, 0.0f,
+            static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height)
+        );
+    }
+
     //===============//EVENTS//===============//
     HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
 }
