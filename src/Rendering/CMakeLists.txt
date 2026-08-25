@@ -10,6 +10,9 @@ set(${CUR_TARGET_NAME}_src
 	RenderData.hpp
 	RenderData.cpp
 
+	RendererManager.hpp
+	RendererManager.cpp
+
 	Shaders/ShaderManager.hpp
 	Shaders/ShaderManager.cpp
 	Shaders/VertexLayouts.hpp

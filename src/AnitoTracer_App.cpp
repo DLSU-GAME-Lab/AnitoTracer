@@ -79,7 +79,6 @@ bool AnitoTracer_App::Initialize(HINSTANCE hInstance, int nCmdShow)
     if (!InitEngine()) return false;
 
     InitManagers();
-    CreateMSAABuffers();
 
     m_LastMSAAState = UserSettings::GetInstance().GetEnableMSAA();
 
@@ -152,19 +151,7 @@ bool AnitoTracer_App::InitEngine()
 
     bool bSupportsRayTracing = (m_pDevice->GetDeviceInfo().Features.RayTracing == Diligent::DEVICE_FEATURE_STATE_ENABLED);
 
-    std::cout << "[Info] RayTracing feature state: "
-        << (bSupportsRayTracing ? "ENABLED" : "DISABLED/UNSUPPORTED") << std::endl;
-
-    if (bSupportsRayTracing)
-    {
-        m_bLitPipeline.emplace<HybridPipeline>();
-        std::cout << "[Info] Hardware Ray Tracing detected. Using HybridPipeline." << std::endl;
-    }
-    else
-    {
-        m_bLitPipeline.emplace<BasicLitPipeline>();
-        std::cout << "[Warn] Hardware Ray Tracing not available. Falling back to BasicLitPipeline." << std::endl;
-    }
+    RendererManager::GetInstance().Initialize(m_pDevice, m_pImmediateContext, m_pSwapChain, bSupportsRayTracing);
 
     return true;
 }
@@ -208,43 +195,8 @@ void AnitoTracer_App::InitManagers()
     m_MainCam.GetPtr()->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 }
 
-void AnitoTracer_App::CreateMSAABuffers()
-{
-    if (!m_pSwapChain) return;
-
-    const auto& SCDesc = m_pSwapChain->GetDesc();
-    Uint8 sampleCount = UserSettings::GetInstance().GetEnableMSAA() ? 4 : 1;
-
-    TextureDesc ColorDesc;
-    ColorDesc.Name = "MSAA Color Target";
-    ColorDesc.Type = RESOURCE_DIM_TEX_2D;
-    ColorDesc.Width = SCDesc.Width;
-    ColorDesc.Height = SCDesc.Height;
-    ColorDesc.BindFlags = BIND_RENDER_TARGET;
-    ColorDesc.Format = SCDesc.ColorBufferFormat;
-    ColorDesc.SampleCount = sampleCount;
-
-    m_pMSAATarget.Release();
-    m_pDevice->CreateTexture(ColorDesc, nullptr, &m_pMSAATarget);
-    m_pMSAARTV = m_pMSAATarget->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
-
-    TextureDesc DepthDesc = ColorDesc;
-    DepthDesc.Name = "MSAA Depth Buffer";
-    DepthDesc.BindFlags = BIND_DEPTH_STENCIL;
-    DepthDesc.Format = SCDesc.DepthBufferFormat;
-
-    m_pMSAADepth.Release();
-    m_pDevice->CreateTexture(DepthDesc, nullptr, &m_pMSAADepth);
-    m_pMSAADSV = m_pMSAADepth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
-}
-
 void AnitoTracer_App::OnResize(short width, short height)
 {
-    if (m_pSwapChain)
-    {
-        m_pSwapChain->Resize(width, height);
-    }
-
     gbe::EventSystem::DispatchTo(
         "EVENT_ONWINDOWRESIZE", //For testing
         std::make_unique<WindowResizeArgs>(width, height)
@@ -288,10 +240,7 @@ void AnitoTracer_App::Update()
     if (!imguiManager.IsInitialized() && SCDesc.Width > 0 && SCDesc.Height > 0)
     {
         imguiManager.Initialize(m_pDevice, SCDesc, m_NativeWindow);
-
-        std::visit([&](auto& pipeline) {
-            pipeline.InitializePipeline(m_pDevice, m_pSwapChain);
-            }, m_bLitPipeline);
+        RendererManager::GetInstance().InitializePipelines();
     }
 
     if (!imguiManager.IsInitialized() || !(SCDesc.Width > 0 && SCDesc.Height > 0))
@@ -327,64 +276,15 @@ void AnitoTracer_App::Render()
 {
     EventSystem::DispatchTo(EVENT_RENDER_START, std::make_unique<EventArgs>());
 
-    const auto& SCDesc = m_pSwapChain->GetDesc();
-    if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
-
-    bool isMSAAEnabled = UserSettings::GetInstance().GetEnableMSAA();
-
-    if (m_pMSAATarget->GetDesc().Width != SCDesc.Width ||
-        m_pMSAATarget->GetDesc().Height != SCDesc.Height ||
-        m_LastMSAAState != isMSAAEnabled)
-    {
-        CreateMSAABuffers();
-
-        if (m_LastMSAAState != isMSAAEnabled)
-        {
-            std::visit([&](auto& pipeline) {
-                pipeline.InitializePipeline(m_pDevice, m_pSwapChain);
-                }, m_bLitPipeline);
-            m_LastMSAAState = isMSAAEnabled;
-        }
-    }
-
-    const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
-    ITextureView* pActiveRTV = isMSAAEnabled ? m_pMSAARTV : m_pSwapChain->GetCurrentBackBufferRTV();
-    ITextureView* pActiveDSV = isMSAAEnabled ? m_pMSAADSV : m_pSwapChain->GetDepthBufferDSV();
-
-    m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    m_pImmediateContext->ClearRenderTarget(pActiveRTV, clearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    m_pImmediateContext->ClearDepthStencil(pActiveDSV, CLEAR_DEPTH_FLAG, 1.0f, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
     RenderData renderData;
     HierarchyManager::GetInstance().GetMainCameraMatrices(renderData.ViewMatrix, renderData.ProjectionMatrix);
     HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
     HierarchyManager::GetInstance().GatherLightData(renderData.Lights);
 
-    std::visit([&](auto& pipeline) {
-        pipeline.StartFrameRender(m_pImmediateContext, renderData);
-        pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
-        pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
-        pipeline.RenderModels(m_pImmediateContext, renderData, true);
-        }, m_bLitPipeline);
+    // Pass the render data to the new manager to handle frame execution
+    RendererManager::GetInstance().RenderFrame(renderData);
 
-    auto* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
-    auto* pDefaultDSV = m_pSwapChain->GetDepthBufferDSV();
-
-    if (isMSAAEnabled)
-    {
-        ResolveTextureSubresourceAttribs ResolveAttribs;
-        ResolveAttribs.SrcTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-        ResolveAttribs.DstTextureTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-
-        m_pImmediateContext->ResolveTextureSubresource(
-            m_pMSAATarget,
-            pBackBufferRTV->GetTexture(),
-            ResolveAttribs
-        );
-    }
-
-    m_pImmediateContext->SetRenderTargets(1, &pBackBufferRTV, pDefaultDSV, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
+    const auto& SCDesc = m_pSwapChain->GetDesc();
     HandleObjectPicking(SCDesc, renderData);
 
     GUIManager::GetInstance().Render(m_pImmediateContext);
@@ -476,6 +376,8 @@ void AnitoTracer_App::HandleWindowResizeEvent(const WindowResizeArgs* args)
 {
     std::cout << "EVENT_ONWINDOWRESIZE: SwapChain resized to "
         << args->width << "x" << args->height << "!\n";
+
+    RendererManager::GetInstance().OnResize(args->width, args->height);
 }
 
 void AnitoTracer_App::Shutdown()
@@ -485,6 +387,7 @@ void AnitoTracer_App::Shutdown()
 
     Diligent::ShaderManager::GetInstance().Shutdown();
     GUIManager::GetInstance().Shutdown();
+    RendererManager::GetInstance().Shutdown(); // Shutdown the manager
 
     m_pSwapChain.Release();
     m_pImmediateContext.Release();

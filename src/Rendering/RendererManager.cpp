@@ -1,0 +1,137 @@
+#include "RendererManager.hpp"
+#include <iostream>
+
+void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, bool supportsRayTracing)
+{
+    m_pDevice = pDevice;
+    m_pImmediateContext = pContext;
+    m_pSwapChain = pSwapChain;
+
+    // Allocate pipeline based on ray tracing support feature state
+    if (supportsRayTracing)
+    {
+        m_bLitPipeline.emplace<Diligent::HybridPipeline>();
+        std::cout << "[Info] Hardware Ray Tracing detected. Using HybridPipeline." << std::endl;
+    }
+    else
+    {
+        m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
+        std::cout << "[Warn] Hardware Ray Tracing not available. Falling back to BasicLitPipeline." << std::endl;
+    }
+    
+    m_LastMSAAState = Diligent::UserSettings::GetInstance().GetEnableMSAA();
+    CreateMSAABuffers();
+}
+
+void RendererManager::InitializePipelines()
+{
+    std::visit([&](auto& pipeline) {
+        pipeline.InitializePipeline(m_pDevice, m_pSwapChain);
+        }, m_bLitPipeline);
+}
+
+void RendererManager::CreateMSAABuffers()
+{
+    if (!m_pSwapChain) return;
+
+    const auto& SCDesc = m_pSwapChain->GetDesc();
+    Diligent::Uint8 sampleCount = Diligent::UserSettings::GetInstance().GetEnableMSAA() ? 4 : 1;
+
+    Diligent::TextureDesc ColorDesc;
+    ColorDesc.Name = "MSAA Color Target";
+    ColorDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+    ColorDesc.Width = SCDesc.Width;
+    ColorDesc.Height = SCDesc.Height;
+    ColorDesc.BindFlags = Diligent::BIND_RENDER_TARGET;
+    ColorDesc.Format = SCDesc.ColorBufferFormat;
+    ColorDesc.SampleCount = sampleCount;
+
+    m_pMSAATarget.Release();
+    m_pDevice->CreateTexture(ColorDesc, nullptr, &m_pMSAATarget);
+    m_pMSAARTV = m_pMSAATarget->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+
+    Diligent::TextureDesc DepthDesc = ColorDesc;
+    DepthDesc.Name = "MSAA Depth Buffer";
+    DepthDesc.BindFlags = Diligent::BIND_DEPTH_STENCIL;
+    DepthDesc.Format = SCDesc.DepthBufferFormat;
+
+    m_pMSAADepth.Release();
+    m_pDevice->CreateTexture(DepthDesc, nullptr, &m_pMSAADepth);
+    m_pMSAADSV = m_pMSAADepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
+}
+
+void RendererManager::OnResize(Diligent::Uint32 width, Diligent::Uint32 height)
+{
+    if (m_pSwapChain)
+    {
+        m_pSwapChain->Resize(width, height);
+    }
+}
+
+void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
+{
+    const auto& SCDesc = m_pSwapChain->GetDesc();
+    if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
+
+    bool isMSAAEnabled = UserSettings::GetInstance().GetEnableMSAA();
+
+    // Recreate MSAA buffers and reinitialize pipelines if MSAA state or window dimensions change
+    if (m_pMSAATarget->GetDesc().Width != SCDesc.Width ||
+        m_pMSAATarget->GetDesc().Height != SCDesc.Height ||
+        m_LastMSAAState != isMSAAEnabled)
+    {
+        CreateMSAABuffers();
+
+        if (m_LastMSAAState != isMSAAEnabled)
+        {
+            InitializePipelines();
+            m_LastMSAAState = isMSAAEnabled;
+        }
+    }
+
+    const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
+    Diligent::ITextureView* pActiveRTV = isMSAAEnabled ? m_pMSAARTV : m_pSwapChain->GetCurrentBackBufferRTV();
+    Diligent::ITextureView* pActiveDSV = isMSAAEnabled ? m_pMSAADSV : m_pSwapChain->GetDepthBufferDSV();
+
+    m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_pImmediateContext->ClearRenderTarget(pActiveRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_pImmediateContext->ClearDepthStencil(pActiveDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    std::visit([&](auto& pipeline) {
+        pipeline.StartFrameRender(m_pImmediateContext, renderData);
+        pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
+        pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
+        pipeline.RenderModels(m_pImmediateContext, renderData, true);
+        }, m_bLitPipeline);
+
+    auto* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
+    auto* pDefaultDSV = m_pSwapChain->GetDepthBufferDSV();
+
+    // Resolve MSAA to back buffer if enabled
+    if (isMSAAEnabled)
+    {
+        Diligent::ResolveTextureSubresourceAttribs ResolveAttribs;
+        ResolveAttribs.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+        ResolveAttribs.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+
+        m_pImmediateContext->ResolveTextureSubresource(
+            m_pMSAATarget,
+            pBackBufferRTV->GetTexture(),
+            ResolveAttribs
+        );
+    }
+
+    // Set render targets back for ImGui/Post-processing
+    m_pImmediateContext->SetRenderTargets(1, &pBackBufferRTV, pDefaultDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+}
+
+void RendererManager::Shutdown()
+{
+    m_pMSAARTV.Release();
+    m_pMSAADSV.Release();
+    m_pMSAATarget.Release();
+    m_pMSAADepth.Release();
+    m_pSwapChain.Release();
+    m_pImmediateContext.Release();
+    m_pDevice.Release();
+}
