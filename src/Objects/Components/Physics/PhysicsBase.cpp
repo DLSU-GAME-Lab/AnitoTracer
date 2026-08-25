@@ -2,6 +2,22 @@
 #include "../Transform.hpp"
 #include "../../HierarchyObject.hpp"
 
+void PhysicsBase::Teleport(const glm::vec3& position, const glm::quat& rotation) {
+	if (!mBody) return;
+
+	mBody->SetPosition(position);
+	mBody->SetRotation(rotation);
+	mBody->SetVelocity(glm::vec3(0.0f));
+	mBody->SetAngularVelocity(glm::vec3(0.0f));
+
+	if (HierarchyObject* owner = m_owner.GetPtr()) {
+		if (Transform* transform = owner->GetTransform()) {
+			transform->SetPosition(position);
+			transform->SetRotation(rotation);
+		}
+	}
+}
+
 void PhysicsBase::CreateBody(
 	const glm::vec3& position,
 	const glm::quat& rotation,

@@ -11,6 +11,7 @@ set(${CUR_TARGET_NAME}_src
 	Components/Camera.hpp
 	Components/ModelComponent.cpp
 	Components/ModelComponent.hpp
+	Components/ITeleportable.hpp
 
 	Components/Lights/LightBase.cpp
 	Components/Lights/LightBase.hpp

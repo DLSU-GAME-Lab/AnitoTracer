@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ComponentBase.hpp"
+#include "../ITeleportable.hpp"
 #include "../../../Physics/IPhysicsEngine.hpp"
 #include "../../../Physics/PhysicsEngine.hpp"
 
@@ -8,7 +9,7 @@
 
 #include ANITO_EVENT_INCLUDES
 
-class PhysicsBase : public ComponentBase, public gbe::IInstanceManager<PhysicsBase> {
+class PhysicsBase : public ComponentBase, public gbe::IInstanceManager<PhysicsBase>, public ITeleportable {
 public:
 	PhysicsBase(const std::string& name, gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
 		: ComponentBase(name, owner) {}
@@ -25,6 +26,9 @@ public:
 
 	// Access body for raycasting, etc
 	IPhysicsBody* GetBody() const { return mBody.get(); }
+
+	// Directly move the body (bypasses simulation)
+	void Teleport(const glm::vec3& position, const glm::quat& rotation) override;
 
 protected:
 	void CreateBody(
