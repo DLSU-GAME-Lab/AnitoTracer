@@ -47,6 +47,7 @@ protected:
 	IPhysicsEngine::ShapeParams mShapeParams = {};
 
 	GBE_SERIALIZE_FIELD_W_CB(mMass, [this](float) {
+		DestroyBody();
 		CreateBody({}, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), mMass, mShapeType, mShapeParams);
 	});
 

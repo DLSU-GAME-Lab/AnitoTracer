@@ -98,5 +98,6 @@ void RigidBody::Rebuild(
 		}
 	}
 
+	DestroyBody();
 	CreateBody(pos, rot, mMass, mShapeType, mShapeParams);
 }
