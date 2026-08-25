@@ -481,6 +481,8 @@ void AnitoTracer_App::HandleWindowResizeEvent(const WindowResizeArgs* args)
 
 void AnitoTracer_App::Shutdown()
 {
+	HierarchyManager::GetInstance().Clear();
+
     if (m_pImmediateContext) m_pImmediateContext->Flush();
     if (m_pDevice) m_pDevice->IdleGPU();
 
