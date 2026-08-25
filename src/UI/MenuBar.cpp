@@ -4,6 +4,7 @@
 #include "ProjectLoader.hpp"
 
 #include "FileDialogue.hpp"
+#include "RendererManager.hpp"
 
 
 namespace Diligent {
@@ -74,6 +75,31 @@ namespace Diligent {
                         ObjectFactory::GetInstance().CreateModelObject("Loaded Model", filepath);
                     }
                 }
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("Rendering"))
+            {
+                bool rtSupported = RendererManager::GetInstance().IsRayTracingSupported();
+
+                if (ImGui::MenuItem("Basic Lit Pipeline"))
+                {
+                    gbe::EventSystem::DispatchTo(
+                        EVENT_RENDER_CHANGE,
+                        std::make_unique<RendererChangeArgs>(RendererChangeArgs::BASIC_LIT)
+                    );
+                }
+
+                // The last parameter of MenuItem acts as the "enabled" flag.
+                // If rtSupported is false, the menu item will be greyed out and unclickable!
+                if (ImGui::MenuItem("Hybrid Pipeline (RayTraced)", nullptr, false, rtSupported))
+                {
+                    gbe::EventSystem::DispatchTo(
+                        EVENT_RENDER_CHANGE,
+                        std::make_unique<RendererChangeArgs>(RendererChangeArgs::HYBRID)
+                    );
+                }
+
                 ImGui::EndMenu();
             }
 

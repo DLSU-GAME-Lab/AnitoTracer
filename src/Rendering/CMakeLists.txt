@@ -10,6 +10,8 @@ set(${CUR_TARGET_NAME}_src
 	RenderData.hpp
 	RenderData.cpp
 
+	RendererEvents.hpp
+
 	RendererManager.hpp
 	RendererManager.cpp
 
@@ -56,6 +58,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	Diligent-TextureLoader
 
 	anito::asset
+	anito::event
 )
 
 target_include_directories(${CUR_TARGET_NAME}

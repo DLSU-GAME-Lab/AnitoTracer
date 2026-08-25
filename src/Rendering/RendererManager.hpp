@@ -11,6 +11,7 @@
 #include "RenderData.hpp"
 
 #include "../UserSettings.hpp"
+#include "RendererEvents.hpp"
 
 class RendererManager {
 public:
@@ -29,11 +30,14 @@ public:
     void OnResize(Diligent::Uint32 width, Diligent::Uint32 height);
     void Shutdown();
 
+    bool IsRayTracingSupported() const { return m_SupportsRayTracing; }
+
 private:
     RendererManager() = default;
     ~RendererManager() = default;
 
     void CreateMSAABuffers();
+    void HandleRendererChangeEvent(const RendererChangeArgs* args);
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice>  m_pDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> m_pImmediateContext;
@@ -46,4 +50,7 @@ private:
 
     std::variant<Diligent::HybridPipeline, Diligent::BasicLitPipeline> m_bLitPipeline;
     bool m_LastMSAAState = false;
+    bool m_SupportsRayTracing = false;
+
+    gbe::ScopedSubscription m_OnRendererChangeSub;
 };

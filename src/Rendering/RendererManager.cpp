@@ -6,6 +6,7 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
     m_pDevice = pDevice;
     m_pImmediateContext = pContext;
     m_pSwapChain = pSwapChain;
+    m_SupportsRayTracing = supportsRayTracing;
 
     // Allocate pipeline based on ray tracing support feature state
     if (supportsRayTracing)
@@ -21,6 +22,29 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
     
     m_LastMSAAState = Diligent::UserSettings::GetInstance().GetEnableMSAA();
     CreateMSAABuffers();
+
+    m_OnRendererChangeSub = gbe::ScopedSubscription::Create<RendererChangeArgs>(
+        EVENT_RENDER_CHANGE,
+        &RendererManager::HandleRendererChangeEvent,
+        this
+    );
+}
+
+void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
+{
+    if (args->targetPipeline == RendererChangeArgs::HYBRID && m_SupportsRayTracing)
+    {
+        m_bLitPipeline.emplace<Diligent::HybridPipeline>();
+        std::cout << "[RendererManager] Swapped to Hybrid Pipeline." << std::endl;
+    }
+    else
+    {
+        m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
+        std::cout << "[RendererManager] Swapped to Basic Lit Pipeline." << std::endl;
+    }
+
+    // Immediately reinitialize the newly emplaced pipeline
+    InitializePipelines();
 }
 
 void RendererManager::InitializePipelines()
