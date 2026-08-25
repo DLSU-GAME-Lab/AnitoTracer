@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PhysicsBase.hpp"
+#include "../../HierarchyObject.hpp"
 #include "../../../ObjectSystems/Event/Types/FixedUpdateTrigger.hpp"
 
 class RigidBody
@@ -47,8 +48,25 @@ protected:
 	IPhysicsEngine::ShapeParams mShapeParams = {};
 
 	GBE_SERIALIZE_FIELD_W_CB(mMass, [this](float) {
+		glm::vec3 pos(0.0f);
+		glm::quat rot(1.0f, 0.0f, 0.0f, 0.0f);
+		if (HierarchyObject* o = m_owner.GetPtr()) {
+			if (Transform* t = o->GetTransform()) {
+				pos = t->GetPosition();
+				rot = t->GetRotation();
+			}
+		}
+
+		glm::vec3 vel = mBody ? mBody->GetVelocity() : glm::vec3(0.0f);
+		glm::vec3 angVel = mBody ? mBody->GetAngularVelocity() : glm::vec3(0.0f);
+
 		DestroyBody();
-		CreateBody({}, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), mMass, mShapeType, mShapeParams);
+		CreateBody(pos, rot, mMass, mShapeType, mShapeParams);
+
+		if (mBody) {
+			mBody->SetVelocity(vel);
+			mBody->SetAngularVelocity(angVel);
+		}
 	});
 
 	GBE_GENERATE_SERIALIZER_CONSTRUCTOR(RigidBody, PhysicsBase);
