@@ -1,4 +1,5 @@
 #include "GizmoDrawer.hpp"
+#include "../../Objects/Components/ITeleportable.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -55,9 +56,19 @@ namespace Diligent {
                 glm::value_ptr(scale)
             );
 
-            transformComp->SetPosition(pos);
-            transformComp->SetEulerAnglesDegrees(rotDegrees);
-            transformComp->SetScale(scale);
+            glm::quat rot = glm::quat(glm::radians(rotDegrees));
+
+			if (auto* movable = selectedObj.GetPtr()->GetComponent<ITeleportable>()) 
+            {
+				movable->Teleport(pos, rot);
+                transformComp->SetScale(scale);
+			}
+            else 
+            {
+                transformComp->SetPosition(pos);
+                transformComp->SetEulerAnglesDegrees(rotDegrees);
+                transformComp->SetScale(scale);
+            }
         }
     }
 

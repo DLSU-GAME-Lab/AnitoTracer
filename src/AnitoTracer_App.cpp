@@ -18,6 +18,8 @@
 
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
 
+#include "Physics/PhysicsEngine.hpp"
+
 #include ANITO_EVENT_INCLUDES
 
 using namespace Diligent;
@@ -269,6 +271,14 @@ void AnitoTracer_App::Update()
     }
 
     //===============//EVENTS//===============//
+
+	static double s_LastTime = ImGui::GetTime();
+	double currentTime = ImGui::GetTime();
+	float deltaTime = static_cast<float>(currentTime - s_LastTime);
+	s_LastTime = currentTime;
+
+	PhysicsEngine::GetInstance().Get().Step(deltaTime);
+    HierarchyManager::GetInstance().DispatchEvent<FixedUpdateTrigger>(deltaTime);
     HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
 }
 
@@ -382,6 +392,8 @@ void AnitoTracer_App::HandleWindowResizeEvent(const WindowResizeArgs* args)
 
 void AnitoTracer_App::Shutdown()
 {
+	HierarchyManager::GetInstance().Clear();
+
     if (m_pImmediateContext) m_pImmediateContext->Flush();
     if (m_pDevice) m_pDevice->IdleGPU();
 
