@@ -59,18 +59,13 @@ void Diligent::InspectorPanel::Draw()
                     // Scope all widgets within this component to its memory address
                     ImGui::PushID(component.get());
 
-                    // Fall back to a default name if m_name was not populated during serialization
-                    std::string compName = component->GetName();
-                    if (compName.empty()) {
-                        compName = "Unnamed Component";
-                    }
+                    InspectorRegistry::GetInstance().DrawComponent(component.get());
 
-                    if (ImGui::CollapsingHeader(compName.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-                        for (auto* property : component->properties) {
-                            if (property->m_id == "m_name") continue;
-
-                            property->DrawInspector();
-                        }
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Remove")) {
+                        selected.GetPtr()->RemoveComponent(component.get());
+                        ImGui::PopID();
+                        break;
                     }
 
                     ImGui::PopID(); // Pop ID scope after drawing component

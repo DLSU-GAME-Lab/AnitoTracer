@@ -11,9 +11,11 @@ void InspectorRegistry::DrawComponent(ComponentBase* component) {
         it->second->Draw(component);
     }
     else {
-        // TODO: Draw Fallback
-        for (gbe::IAutoSerializer* prop : component->properties) {
-            prop->DrawInspector();
+        if (ImGui::CollapsingHeader(component->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+            for (gbe::IAutoSerializer* prop : component->properties) {
+                if (prop->m_id != "m_name")
+                    prop->DrawInspector();
+            }
         }
     }
 }

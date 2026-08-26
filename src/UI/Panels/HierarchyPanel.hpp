@@ -22,6 +22,8 @@ namespace Diligent {
 
     private:
         HierarchyObject::Ref m_SelectedObject = nullptr;
+        HierarchyObject::Ref m_pendingDraggedObject = nullptr;
+        HierarchyObject::Ref m_pendingDropParent = nullptr;
 
         // Recursive helper function to draw tree nodes for each object
         void DrawNode(HierarchyObject::Ref node);

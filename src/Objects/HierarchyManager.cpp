@@ -30,6 +30,81 @@ void HierarchyManager::QueueObjectDeletion(HierarchyObject::Ref object) {
     m_deferredDeletionIds.push_back(objectId);
 }
 
+bool HierarchyManager::ReparentObject(HierarchyObject::Ref object, HierarchyObject::Ref parent) {
+    HierarchyObject* objectPtr = object.GetPtr();
+    HierarchyObject* parentPtr = parent.GetPtr();
+    if (!objectPtr || objectPtr == parentPtr) return false;
+
+    // A node cannot become a child of itself or one of its descendants.
+    for (HierarchyObject* ancestor = parentPtr; ancestor != nullptr;) {
+        if (ancestor == objectPtr) return false;
+        ancestor = ancestor->GetParent().GetPtr();
+    }
+
+    if (objectPtr->GetParent() == parent) return true;
+
+    std::unique_ptr<HierarchyObject> detachedObject;
+    if (HierarchyObject::Ref oldParent = objectPtr->GetParent()) {
+        detachedObject = oldParent.GetPtr()->RemoveChild(object);
+    }
+    else {
+        detachedObject = RemoveRootObject(object);
+    }
+
+    if (!detachedObject) return false;
+
+    if (parentPtr) {
+        parentPtr->AddChild(std::move(detachedObject));
+    }
+    else {
+        AddRootObject(std::move(detachedObject));
+    }
+    return true;
+}
+
+bool HierarchyManager::CopyObject(HierarchyObject::Ref object) {
+    HierarchyObject* objectPtr = object.GetPtr();
+    if (!objectPtr) return false;
+
+    m_copiedObject = objectPtr->Serialize();
+    for (auto it = m_copiedObject.serialized_variables.begin();
+         it != m_copiedObject.serialized_variables.end();) {
+        const std::string& key = it->first;
+        if (key == "m_guid" ||
+            (key.size() > 7 && key.compare(key.size() - 7, 7, ".m_guid") == 0)) {
+            it = m_copiedObject.serialized_variables.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+    m_copiedObject.label = "HierarchyObjectClipboard";
+    m_hasCopiedObject = true;
+    return true;
+}
+
+HierarchyObject::Ref HierarchyManager::PasteObject(HierarchyObject::Ref parent) {
+    if (!m_hasCopiedObject) return nullptr;
+
+    gbe::SerializedData pasteData = m_copiedObject;
+    gbe::ISerializable* rawObject = gbe::TypeRegistry::Instantiate(
+        typeid(HierarchyObject).name(), pasteData);
+    auto* pastedObject = dynamic_cast<HierarchyObject*>(rawObject);
+    if (!pastedObject) {
+        delete rawObject;
+        return nullptr;
+    }
+
+    pastedObject->Deserialize(pasteData);
+
+    std::unique_ptr<HierarchyObject> ownedObject(pastedObject);
+    if (parent) {
+        return parent.GetPtr()->AddChild(std::move(ownedObject));
+    }
+
+    return AddRootObject(std::move(ownedObject));
+}
+
 size_t HierarchyManager::CommitDeferredDeletions() {
     std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> pendingDeletions;
     pendingDeletions.swap(m_deferredDeletionIds);

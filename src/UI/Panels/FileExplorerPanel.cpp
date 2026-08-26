@@ -1,9 +1,11 @@
 #include "FileExplorerPanel.hpp"
 
 #include "ProjectLoader.hpp"
+#include "HierarchyManager.hpp"
 #include "imgui.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <system_error>
 
@@ -17,11 +19,25 @@ namespace Diligent
             auto absolute = std::filesystem::absolute(path, error);
             return error ? path.lexically_normal() : absolute.lexically_normal();
         }
+
+        bool IsSceneFile(const std::filesystem::path& path)
+        {
+            std::string extension = path.extension().string();
+            std::transform(extension.begin(), extension.end(), extension.begin(),
+                [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+            return extension == ".ascene";
+        }
     }
 
     FileExplorerPanel::FileExplorerPanel(const std::string& name) : BasePanel(name)
     {
         SetRoot(ProjectLoader::GetCurrentProjectDir().empty() ? std::filesystem::current_path() : ProjectLoader::GetCurrentProjectDir());
+        // TODO: Register file-type openers through a shared application registry instead of
+        // coupling this panel directly to ProjectLoader.
+        RegisterOpener([](const std::filesystem::path& path) {
+            if (IsSceneFile(path))
+                ProjectLoader::RequestSceneLoad(Normalize(path));
+        });
     }
 
     void FileExplorerPanel::RegisterOpener(Opener opener) { if (opener) m_Openers.push_back(std::move(opener)); }
@@ -108,34 +124,56 @@ namespace Diligent
             return left.path().filename().wstring() < right.path().filename().wstring();
         });
 
-        constexpr float tileWidth = 132.0f;
-        constexpr float tileHeight = 72.0f;
-        constexpr float tileSpacing = 8.0f;
-        const float availableWidth = ImGui::GetContentRegionAvail().x;
-        const int columnCount = std::max(1, static_cast<int>((availableWidth + tileSpacing) / (tileWidth + tileSpacing)));
-        int column = 0;
-
         for (const auto& entry : entries)
-        {
-            const auto path = entry.path();
-            const bool selected = std::find(m_Selection.begin(), m_Selection.end(), path) != m_Selection.end();
-            const std::string label = (entry.is_directory(error) ? "[DIR]\n" : "[FILE]\n") + DisplayName(entry);
-            ImGui::PushID(path.generic_string().c_str());
-            if (ImGui::Selectable(label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick, ImVec2(tileWidth, tileHeight)))
-            {
-                Select(path, ImGui::GetIO().KeyCtrl);
-                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                    if (entry.is_directory(error)) NavigateTo(path); else OpenSelected();
-            }
-            ImGui::PopID();
-
-            ++column;
-            if (column < columnCount)
-                ImGui::SameLine(0.0f, tileSpacing);
-            else
-                column = 0;
-        }
+            DrawEntry(entry);
         ImGui::EndChild();
+    }
+
+    void FileExplorerPanel::DrawEntry(const std::filesystem::directory_entry& entry)
+    {
+        const auto path = entry.path();
+        std::error_code error;
+        const bool isDirectory = entry.is_directory(error);
+        const bool selected = std::find(m_Selection.begin(), m_Selection.end(), path) != m_Selection.end();
+
+        ImGui::PushID(path.generic_string().c_str());
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAvailWidth |
+            ImGuiTreeNodeFlags_OpenOnArrow |
+            ImGuiTreeNodeFlags_OpenOnDoubleClick;
+        if (selected) flags |= ImGuiTreeNodeFlags_Selected;
+        if (!isDirectory) flags |= ImGuiTreeNodeFlags_Leaf;
+
+        const bool isOpen = ImGui::TreeNodeEx(DisplayName(entry).c_str(), flags);
+        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+        {
+            Select(path, ImGui::GetIO().KeyCtrl);
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            {
+                if (isDirectory) NavigateTo(path);
+                else OpenSelected();
+            }
+        }
+
+        if (isOpen)
+        {
+            if (isDirectory)
+            {
+                std::vector<std::filesystem::directory_entry> children;
+                for (const auto& child : std::filesystem::directory_iterator(path, error))
+                    children.push_back(child);
+                std::sort(children.begin(), children.end(), [](const auto& left, const auto& right) {
+                    std::error_code leftError;
+                    std::error_code rightError;
+                    if (left.is_directory(leftError) != right.is_directory(rightError))
+                        return left.is_directory(leftError);
+                    return left.path().filename().wstring() < right.path().filename().wstring();
+                });
+                for (const auto& child : children)
+                    DrawEntry(child);
+            }
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
     }
 
     void FileExplorerPanel::DrawContextMenu()

@@ -24,15 +24,19 @@ namespace Diligent {
                     std::string outPath = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, "aproject");
                     ProjectLoader::LoadProject(outPath);
                 }
-                if (ImGui::MenuItem("Save Scene", "Alt+F4"))
+                if (ImGui::MenuItem("Quick Save", "Ctrl+S", false, !ProjectLoader::GetCurrentSceneFile().empty()))
+                {
+                    ProjectLoader::QuickSave();
+                }
+                if (ImGui::MenuItem("Save Scene As..."))
                 {
                     std::string outPath = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::SAVE);
-                    HierarchyManager::GetInstance().SerializeToFile(outPath);
+                    ProjectLoader::SaveSceneAs(outPath);
                 }
                 if (ImGui::MenuItem("Load Scene", "Alt+F4"))
                 {
                     std::string outPath = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, "ascene");
-                    HierarchyManager::GetInstance().LoadScene(outPath);
+                    ProjectLoader::RequestSceneLoad(outPath);
                 }
                 ImGui::EndMenu();
             }
@@ -102,6 +106,43 @@ namespace Diligent {
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
+        }
+
+        if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S) &&
+            !ImGui::GetIO().WantTextInput)
+        {
+            ProjectLoader::QuickSave();
+        }
+
+        // TODO: Move scene-load confirmation into a reusable modal/service so non-menu callers
+        // can request guarded loads without depending on MenuBar rendering.
+        if (ProjectLoader::HasPendingSceneLoad())
+        {
+            ImGui::OpenPopup("Unsaved Scene Changes");
+        }
+        if (ImGui::BeginPopupModal("Unsaved Scene Changes", nullptr,
+            ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextWrapped("The current scene has unsaved changes.");
+            ImGui::TextWrapped("Load %s anyway?", ProjectLoader::GetPendingSceneFile().filename().string().c_str());
+            if (ImGui::Button("Save and Load"))
+            {
+                ProjectLoader::ResolvePendingSceneLoad(true);
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Load Without Saving"))
+            {
+                ProjectLoader::ResolvePendingSceneLoad(false);
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                ProjectLoader::CancelPendingSceneLoad();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
     }
 }

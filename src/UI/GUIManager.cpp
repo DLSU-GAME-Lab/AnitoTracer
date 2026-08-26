@@ -120,6 +120,7 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<CameraComponent, CameraUI>();
     InspectorRegistry::GetInstance().RegisterUI<DirectionalLight, DirectionalLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
+    InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
 }
 
 void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)

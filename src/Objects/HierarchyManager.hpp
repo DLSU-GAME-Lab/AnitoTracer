@@ -52,6 +52,17 @@ public:
     // Returns the number of queued objects that were found and removed.
     size_t CommitDeferredDeletions();
 
+    // Moves an existing object under a new parent, or to the root when parent is empty.
+    bool ReparentObject(HierarchyObject::Ref object, HierarchyObject::Ref parent);
+
+    // Copies an object and its serialized subtree into the in-memory clipboard.
+    bool CopyObject(HierarchyObject::Ref object);
+
+    // Pastes the clipboard as a child of parent, or as a root when parent is empty.
+    HierarchyObject::Ref PasteObject(HierarchyObject::Ref parent = nullptr);
+
+    bool HasCopiedObject() const { return m_hasCopiedObject; }
+
     // Retrieves all active root nodes in the hierarchy tree.
     const std::vector<std::unique_ptr<HierarchyObject>>& GetRootObjects() const {
         return m_rootNodes;
@@ -134,6 +145,8 @@ private:
     GBE_SERIALIZE_FIELD(m_rootNodes);
 
     std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> m_deferredDeletionIds;
+    gbe::SerializedData m_copiedObject;
+    bool m_hasCopiedObject = false;
 
 public:
     

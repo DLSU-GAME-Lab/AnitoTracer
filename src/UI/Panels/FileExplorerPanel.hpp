@@ -27,6 +27,7 @@ namespace Diligent
 
         void DrawToolbar();
         void DrawDirectoryContents();
+        void DrawEntry(const std::filesystem::directory_entry& entry);
         void DrawContextMenu();
         void DrawDialogs();
         void HandleShortcuts();

@@ -5,6 +5,7 @@
 #include "HierarchyManager.hpp"
 #include "Components/Transform.hpp"
 #include "Components/Camera.hpp"
+#include "imgui.h"
 
 #include <iostream>
 
@@ -43,16 +44,41 @@ void CameraProximityTrigger::OnUpdate(float /*deltaTime*/) {
     }
     else if (!currentlyInRange && m_isInRange) {
         m_isInRange = false;
+        m_waitingForConfirmation = false;
+    }
+
+    if (m_waitingForConfirmation) {
+        DrawConfirmationPrompt();
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
+            m_waitingForConfirmation = false;
+            m_onProximityCallback.Invoke();
+        }
     }
 }
 
 void CameraProximityTrigger::OnProximityEnter() {
     std::cout << "CameraProximityTrigger: Camera entered threshold distance!" << std::endl;
+    m_waitingForConfirmation = true;
+}
 
-    // Execute callback if assigned
-    m_onProximityCallback.Invoke();
+void CameraProximityTrigger::DrawConfirmationPrompt() {
+    ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_Always);
+    ImGui::PushID(this);
 
-    // ==========================================
-    // INSERT YOUR CUSTOM FUNCTION CALL HERE
-    // ==========================================
+    if (ImGui::Begin("Interaction Prompt", nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize |
+        ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoNav |
+        ImGuiWindowFlags_NoFocusOnAppearing)) {
+        const char* objectName = "object";
+        if (HierarchyObject::Ref owner = GetOwner()) {
+            objectName = owner.GetPtr()->GetName().c_str();
+        }
+
+        ImGui::Text("Press Enter to interact with %s", objectName);
+    }
+    ImGui::End();
+    ImGui::PopID();
 }

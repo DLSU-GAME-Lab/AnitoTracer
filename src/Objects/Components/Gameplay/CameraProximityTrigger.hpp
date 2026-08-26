@@ -30,9 +30,11 @@ public:
     bool IsCameraInRange() const { return m_isInRange; }
 private:
     void OnProximityEnter();
+    void DrawConfirmationPrompt();
 
     Transform* m_transform = nullptr;
     bool m_isInRange = false;
+    bool m_waitingForConfirmation = false;
 
     float m_triggerDistance = 3.0f;
     GBE_SERIALIZE_FIELD_W_NAME(m_triggerDistance, "Trigger Distance");

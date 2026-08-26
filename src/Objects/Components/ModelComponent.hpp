@@ -24,6 +24,7 @@ public:
 
     void SetModel(gbe::AssetRef<Model> model) { m_model = model; }
     gbe::AssetRef<Model> GetModel() const { return m_model; }
+    gbe::AssetRef<Model>& GetModelRef() { return m_model; }
     bool HasModel() const { return !m_model.IsEmpty(); }
 
     // --- Easy Getters for Model Properties ---
