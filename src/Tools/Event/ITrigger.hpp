@@ -8,5 +8,6 @@ namespace gbe {
     public:
         virtual ~ITrigger() = default;
         virtual void OnTrigger(const TTrigger& trigger) = 0;
+		virtual void OnEvent(const TTrigger& trigger) { OnTrigger(trigger); } // Default to OnTrigger
     };
 }

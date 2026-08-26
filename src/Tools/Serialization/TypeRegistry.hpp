@@ -150,4 +150,14 @@ namespace gbe {
     inline Type(gbe::SerializedData& data) : Base(data) {GBE_Init();} \
 	inline virtual std::string GetLabel() override {return NameGetter();} \
     protected:
+
+	/// @brief Creates the required constructors of a default serializable.
+	/// @param "Type" Target type of the current class.
+	/// @param "Base" Base type of the current class.
+	/// @param "NameGetter" Lambda to get the name of this instance.
+#define GBE_GENERATE_SERIALIZER_CONSTRUCTOR_W_NAME(Type, Base, NameGetter) \
+    public: \
+    inline Type(gbe::SerializedData& data) : Base(data) {} \
+	inline virtual std::string GetLabel() override {return NameGetter();} \
+    protected:
 }

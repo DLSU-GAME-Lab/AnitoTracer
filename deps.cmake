@@ -27,6 +27,7 @@ FetchContent_Declare(
 )
 # FORCE DILIGENT ENGINE TO USE DYNAMIC CRT
 set(DILIGENT_MSVC_CRT_LINKAGE "Dynamic" CACHE STRING "Force Diligent to use dynamic CRT" FORCE)
+
 FetchContent_MakeAvailable(DiligentCore DiligentTools DiligentFX)
 
 #========glaze========#
@@ -37,3 +38,4 @@ FetchContent_Declare(glaze
 )
 FetchContent_MakeAvailable(glaze)
 add_compile_definitions(NOMINMAX)
+

@@ -1,4 +1,6 @@
 #include "Transform.hpp"
+#include "Physics/PhysicsBase.hpp"
+#include "../HierarchyObject.hpp"
 
 
 // Converts the current quaternion rotation to Euler angles in degrees for UI display.
@@ -23,4 +25,12 @@ glm::mat4 Transform::GetLocalMatrix() const {
     model = glm::scale(model, m_scale);
 
     return model;
+}
+
+void Transform::SyncPhysics() {
+    if (HierarchyObject* owner = m_owner.GetPtr()) {
+        if (PhysicsBase* physics = owner->GetComponent<PhysicsBase>()) {
+            physics->Teleport(m_position, m_rotation);
+        }
+    }
 }

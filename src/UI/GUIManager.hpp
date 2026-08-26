@@ -3,9 +3,11 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <compare>
 
 #include "Panels/BasePanel.hpp" 
-#include "MenuBar.hpp" // Added include for our new class
+#include "MenuBar.hpp"
+#include "Gizmos/GizmoDrawer.hpp"
 
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/UserSettingsPanel.hpp"
@@ -25,11 +27,7 @@ namespace Diligent {
     class GUIManager
     {
     public:
-        static GUIManager& GetInstance()
-        {
-            static GUIManager instance;
-            return instance;
-        }
+        static GUIManager& GetInstance();
 
         void Initialize(IRenderDevice* pDevice, const SwapChainDesc& SCDesc, NativeWindow nativeWindow);
         void NewFrame(Uint32 width, Uint32 height, SURFACE_TRANSFORM transform);
@@ -50,12 +48,19 @@ namespace Diligent {
 
         //Bridge function to set the selected object
         void SetSelectedObject(HierarchyObject::Ref obj);
+        //Bridge to get selected object
+        HierarchyObject::Ref GetSelectedObject() const {
+            return m_pHierarchyPanel ? m_pHierarchyPanel->GetSelectedObject() : nullptr;
+        }
+
+        GizmoDrawer& GetGizmoDrawer() { return m_GizmoDrawer; }
+        void DrawGizmos(CameraComponent* pActiveCamera, float x, float y, float width, float height);
 
         void RegisterFileOpener(FileExplorerPanel::Opener opener);
 
     private:
         GUIManager() = default;
-        ~GUIManager() = default;
+        ~GUIManager();
 
         GUIManager(const GUIManager&) = delete;
         GUIManager& operator=(const GUIManager&) = delete;
@@ -75,6 +80,9 @@ namespace Diligent {
 
         // The dedicated menu bar instance
         MenuBar m_MenuBar;
+
+        //Gizmo Drawer instance
+        GizmoDrawer m_GizmoDrawer;
     };
 
 }

@@ -61,6 +61,8 @@ add_subdirectory(src/Asset)
 add_subdirectory(src/ObjectSystems/Serialization)
 add_subdirectory(src/ObjectSystems/Event)
 
+add_subdirectory(src/Physics)
+
 add_subdirectory(src/UI)
 add_subdirectory(src/Rendering)
 
@@ -103,6 +105,7 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 anito::common 
                 anito::rendering
                 anito::ui
+                anito::physics
                 anito::asset
                 anito::event
 )

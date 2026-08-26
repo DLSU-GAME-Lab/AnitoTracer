@@ -57,6 +57,11 @@ public:
         return m_rootNodes;
     }
 
+    // Explicitly destroys all root nodes
+    void Clear() {
+		m_rootNodes.clear();
+    }
+
     // Adds a component to a specific HierarchyObject.
     // Note: Requires HierarchyManager to be a friend class of HierarchyObject.
     void AddComponentToObject(HierarchyObject::Ref object, std::unique_ptr<ComponentBase> component);
