@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../EventDefines.hpp"
 #include "EventHandler.hpp"
 

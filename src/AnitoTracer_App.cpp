@@ -378,33 +378,30 @@ void AnitoTracer_App::Update()
     ForwardImGuiInputToSystem();
     gbe::InputSystem::Update();
     
-    if (!AppConfig::release)
-        HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
-    if (AppConfig::release)
-        HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame
-
-    HierarchyManager::GetInstance().CommitDeferredDeletions();
-//Draw Gizmos
-    if (m_MainCam.GetPtr()) {
-        imguiManager.DrawGizmos(
-            m_MainCam.GetPtr()->GetComponent<CameraComponent>(),
-            0.0f, 0.0f,
-            static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height)
-        );
-    }
-
-	static double s_LastTime = ImGui::GetTime();
+    static double s_LastTime = ImGui::GetTime();
 	double currentTime = ImGui::GetTime();
 	float deltaTime = static_cast<float>(currentTime - s_LastTime);
 	s_LastTime = currentTime;
-	
-	//TODO: Wrap inside release
-	
-	if (AppConfig::release){
-	PhysicsEngine::GetInstance().Get().Step(deltaTime);
-    HierarchyManager::GetInstance().DispatchEvent<FixedUpdateTrigger>(deltaTime);
+
+    if (!AppConfig::release){
+        //Editor update
+        HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(deltaTime); //test delta frame
+        //Draw Gizmos
+        if (IInstanceManager<CameraComponent>::getOldest()) {
+            imguiManager.DrawGizmos(
+                IInstanceManager<CameraComponent>::getOldest(),
+                0.0f, 0.0f,
+                static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height)
+            );
+        }
     }
-    
+    if (AppConfig::release){
+        HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame
+        PhysicsEngine::GetInstance().Get().Step(deltaTime);
+        HierarchyManager::GetInstance().DispatchEvent<FixedUpdateTrigger>(deltaTime);
+    }
+
+    HierarchyManager::GetInstance().CommitDeferredDeletions();
 }
 
 void AnitoTracer_App::Render()
