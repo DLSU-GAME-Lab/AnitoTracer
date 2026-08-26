@@ -44,14 +44,22 @@ public:
     void SetEulerAnglesDegrees(const glm::vec3& eulerDegrees);
     glm::mat4 GetLocalMatrix() const;
 
+    void SyncPhysics();
+
 private:
     glm::vec3 m_position;
-    GBE_SERIALIZE_FIELD_W_NAME(m_position, "Position");
+    GBE_SERIALIZE_FIELD_W_NAME_CB(m_position, "Position", [this](glm::vec3 pos) {
+        m_position = pos;
+		SyncPhysics();
+    });
 
     glm::quat m_rotation; // Don't serialize this anymore, rely on euler angles.
 
     glm::vec3 m_eulerAnglesDegrees;
-    GBE_SERIALIZE_FIELD_W_NAME_CB(m_eulerAnglesDegrees, "Rotation", [this](glm::vec3 m_eulerAnglesDegrees) {SetEulerAnglesDegrees(m_eulerAnglesDegrees); });
+    GBE_SERIALIZE_FIELD_W_NAME_CB(m_eulerAnglesDegrees, "Rotation", [this](glm::vec3 eulerDegrees) {
+        SetEulerAnglesDegrees(eulerDegrees);
+        SyncPhysics();
+    });
     
     glm::vec3 m_scale;
     GBE_SERIALIZE_FIELD_W_NAME(m_scale, "Scale");

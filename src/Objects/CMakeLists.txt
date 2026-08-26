@@ -11,6 +11,7 @@ set(${CUR_TARGET_NAME}_src
 	Components/Camera.hpp
 	Components/ModelComponent.cpp
 	Components/ModelComponent.hpp
+	Components/ITeleportable.hpp
 
 	Components/Lights/LightBase.cpp
 	Components/Lights/LightBase.hpp
@@ -18,6 +19,14 @@ set(${CUR_TARGET_NAME}_src
 	Components/Lights/DirectionLight.hpp
 	Components/Lights/PointLight.cpp
 	Components/Lights/PointLight.hpp
+
+	Components/Physics/PhysicsBase.hpp
+	Components/Physics/PhysicsBase.cpp
+	Components/Physics/RigidBody.hpp
+	Components/Physics/RigidBody.cpp
+	Components/Physics/StaticBody.hpp
+	Components/Physics/Collider.hpp
+	Components/Physics/Collider.cpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp
