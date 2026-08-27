@@ -12,6 +12,8 @@
 
 #include "Components/Transform.hpp"
 #include "Components/Camera.hpp"
+#include "Components/EditorCamera.hpp"
+#include "Components/GameCamera.hpp"
 #include "Components/ModelComponent.hpp"
 #include "Models/ModelStructs.hpp"
 
@@ -80,8 +82,11 @@ public:
     // Removes a component from a specific HierarchyObject and returns ownership.
     std::unique_ptr<ComponentBase> RemoveComponentFromObject(HierarchyObject::Ref object, ComponentBase* componentToRemove);
 
-    // Retrieves the current main camera.
-    CameraComponent* GetMainCamera() const { return gbe::IInstanceManager<CameraComponent>::getOldest(); }
+    // Retrieves the current active game camera.
+    CameraComponent* GetMainCamera() const;
+
+    // Retrieves the current editor camera for editor-only tooling.
+    EditorCamera* GetEditorCamera() const { return gbe::IInstanceManager<EditorCamera>::getOldest(); }
 
     bool GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
 
@@ -129,6 +134,9 @@ public:
 
     virtual gbe::SerializedData Serialize() override;
     virtual void Deserialize(gbe::SerializedData& data) override;
+
+    // Ensures editor tooling always has a valid editor camera after scene loads.
+    void EnsureEditorCameraExists();
 
     void LoadScene(std::filesystem::path filepath);
     std::filesystem::path GetCurrentScene();

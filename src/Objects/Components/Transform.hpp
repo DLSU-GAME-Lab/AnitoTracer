@@ -27,11 +27,18 @@ public:
     Transform(Transform&&) = default;
     Transform& operator=(Transform&&) = default;
 
-    const glm::vec3& GetPosition() const { return m_position; }
-    const glm::quat& GetRotation() const { return m_rotation; }
-    const glm::vec3& GetScale() const { return m_scale; }
+    // World-space getters that include parent transforms.
+    glm::vec3 GetPosition() const;
+    glm::quat GetRotation() const;
+    glm::vec3 GetScale() const;
+
+    // Local-space accessors for editing/serialization.
+    const glm::vec3& GetLocalPosition() const { return m_position; }
+    const glm::quat& GetLocalRotation() const { return m_rotation; }
+    const glm::vec3& GetLocalScale() const { return m_scale; }
 
     void SetPosition(const glm::vec3& position) { m_position = position; }
+    void SetWorldPosition(const glm::vec3& worldPosition);
 
     void SetRotation(const glm::quat& rotation) {
         m_rotation = rotation;

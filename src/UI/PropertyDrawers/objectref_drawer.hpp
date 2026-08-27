@@ -8,7 +8,6 @@
 #include "PropertyDrawer.hpp"
 #include "ObjectRef.hpp"
 #include "SceneRegistry.hpp"
-#include <typeinfo>
 #include <string>
 
 namespace gbe {
@@ -23,20 +22,25 @@ namespace gbe {
             // Get current selection info
             const GUID currentGuid = target.GetTargetGUID();
 
-            T* currentObj = target.Get(); // Lazy-resolves pointer via SceneRegistry
-            
-
             // Construct preview string for the combo header
             std::string previewText;
-            if (currentObj != nullptr) {
-                std::string currentLabel = currentObj->GetLabel();
-                previewText = currentLabel.size() > 0 ? currentLabel : "[" + currentGuid.ToString() + "]";
+
+            if (currentGuid != GUID::Empty()) {
+                const auto& registry = SceneRegistry::GetInstance().GetRegistry();
+                auto it = registry.find(currentGuid);
+                if (it != registry.end() && it->second != nullptr) {
+                    const std::string currentLabel = it->second->GetLabel();
+                    previewText = currentLabel.size() > 0 ? currentLabel : "[" + currentGuid.ToString() + "]";
+                }
+                else {
+                    previewText = "Missing Reference (" + currentGuid.ToString() + ")";
+                }
+            } else {
+                previewText = "None";
             }
-            else if (currentGuid != GUID::Empty()) {
+
+            if (previewText.empty()) {
                 previewText = "Missing Reference (" + currentGuid.ToString() + ")";
-            }
-            else {
-                previewText = "None (" + std::string(typeid(T).name()) + ")";
             }
 
             // Draw ImGui Dropdown
@@ -58,33 +62,28 @@ namespace gbe {
 
                 // Option 2: Iterate memory via SceneRegistry for all valid ISerializables of type T
                 const auto& registry = SceneRegistry::GetInstance().GetRegistry();
-				size_t index = 0;
                 for (const auto& [guid, rawPtr] : registry) {
                     if (!rawPtr) continue;
 
-                    ImGui::PushID(index);
+                    const std::string guidId = guid.ToString();
+                    ImGui::PushID(guidId.c_str());
 
-                    // Safely check if this memory instance can cast to type T
-                    T* typedPtr = dynamic_cast<T*>(rawPtr);
-                    if (typedPtr != nullptr) {
-                        bool isSelected = (currentGuid == guid);
+                    bool isSelected = (currentGuid == guid);
 
-                        std::string currentItemLabel = rawPtr->GetLabel();
-                        std::string itemLabel = currentItemLabel.size() > 0 ? currentItemLabel : "[" + guid.ToString() + "]";
+                    std::string currentItemLabel = rawPtr->GetLabel();
+                    std::string itemLabel = currentItemLabel.size() > 0 ? currentItemLabel : "[" + guid.ToString() + "]";
 
-                        if (ImGui::Selectable(itemLabel.c_str(), isSelected)) {
-                            if (currentGuid != guid) {
-                                target.SetGUID(guid);
-                                changed = true;
-                            }
-                        }
-
-                        if (isSelected) {
-                            ImGui::SetItemDefaultFocus();
+                    if (ImGui::Selectable(itemLabel.c_str(), isSelected)) {
+                        if (currentGuid != guid) {
+                            target.SetGUID(guid);
+                            changed = true;
                         }
                     }
+
+                    if (isSelected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
                     ImGui::PopID();
-                    index++;
                 }
 
                 ImGui::EndCombo();

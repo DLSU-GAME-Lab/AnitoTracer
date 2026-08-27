@@ -1,19 +1,18 @@
 #pragma once
 
 #include "Components/ComponentBase.hpp"
-#include "EventHandler.hpp"
-#include "Types/UpdateTrigger.hpp"
 
 #include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <string>
+
+class HierarchyObject;
 
 // Forward declarations to keep this header lightweight. Implementation details are
 // moved to the .cpp file to avoid pulling heavy transitive includes into every
 // translation unit that includes this header.
 class Transform;
-class CameraComponent;
 
-class PickupComponent : public ComponentBase, public gbe::EventHandler, public gbe::ITrigger<UpdateTrigger> {
+class PickupComponent : public ComponentBase {
 public:
     PickupComponent(Transform* transform = nullptr, gbe::IInstanceManager<HierarchyObject>::Ref owner = {});
     ~PickupComponent() override;
@@ -24,23 +23,22 @@ public:
     PickupComponent(PickupComponent&&) = default;
     PickupComponent& operator=(PickupComponent&&) = default;
 
-    virtual void OnUpdate(float deltaTime) override;
+    void SetItemId(const std::string& itemId) { m_itemId = itemId; }
+    const std::string& GetItemId() const { return m_itemId; }
 
-    // Configurable parameters
     void SetMaxPickupDistance(float dist) { m_maxPickupDistance = dist; }
     float GetMaxPickupDistance() const { return m_maxPickupDistance; }
 
     void SetFacingThreshold(float dot) { m_facingThreshold = dot; }
     float GetFacingThreshold() const { return m_facingThreshold; }
 
-    bool IsPickedUp() const { return m_isPickedUp; }
+    Transform* ResolveTransform() const;
 
 private:
     Transform* m_transform = nullptr;
 
-    bool m_isPickedUp = false;
-    bool m_primaryPressedThisFrame = false;
-    float m_holdDistance = 2.0f;
+    std::string m_itemId = "item_cube";
+    GBE_SERIALIZE_FIELD_W_NAME(m_itemId, "Item Id");
 
     float m_maxPickupDistance = 5.0f;
     GBE_SERIALIZE_FIELD_W_NAME(m_maxPickupDistance, "Max Pickup Distance");
@@ -49,7 +47,7 @@ private:
     float m_facingThreshold = 0.707f;
     GBE_SERIALIZE_FIELD_W_NAME(m_facingThreshold, "Facing Threshold (Dot)");
 
-    virtual void GBE_Init() override;
+    void GBE_Init() override;
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(PickupComponent, ComponentBase);
 };
 

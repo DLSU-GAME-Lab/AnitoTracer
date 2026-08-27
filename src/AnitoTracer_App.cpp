@@ -24,6 +24,7 @@
 #include "Input/ImguiBridge.hpp"
 
 #include "UI/CursorManager.hpp"
+#include "Objects/Components/EditorCamera.hpp"
 
 #include ANITO_EVENT_INCLUDES
 #include ANITO_COMPONENT_INCLUDES
@@ -386,10 +387,11 @@ void AnitoTracer_App::Update()
     if (!AppConfig::release){
         //Editor update
         HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(deltaTime); //test delta frame
+        HierarchyManager::GetInstance().DispatchEvent<OnGUI_Editor>(deltaTime);
         //Draw Gizmos
-        if (IInstanceManager<CameraComponent>::getOldest()) {
+        if (IInstanceManager<EditorCamera>::getOldest()) {
             imguiManager.DrawGizmos(
-                IInstanceManager<CameraComponent>::getOldest(),
+                IInstanceManager<EditorCamera>::getOldest(),
                 0.0f, 0.0f,
                 static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height)
             );
@@ -397,6 +399,7 @@ void AnitoTracer_App::Update()
     }
     if (AppConfig::release){
         HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame
+        HierarchyManager::GetInstance().DispatchEvent<OnGUI_Release>(deltaTime);
         PhysicsEngine::GetInstance().Get().Step(deltaTime);
         HierarchyManager::GetInstance().DispatchEvent<FixedUpdateTrigger>(deltaTime);
     }
@@ -472,55 +475,6 @@ void AnitoTracer_App::Render()
     m_pSwapChain->Present(1);
 
     EventSystem::DispatchTo(EVENT_RENDER_END, std::make_unique<EventArgs>());
-}
-
-void AnitoTracer_App::UpdateCameraControls()
-{
-    ImGuiIO& io = ImGui::GetIO();
-    static double s_LastTime = ImGui::GetTime();
-    double currentTime = ImGui::GetTime();
-    float deltaTime = static_cast<float>(currentTime - s_LastTime);
-    s_LastTime = currentTime;
-
-    if (!io.WantCaptureKeyboard && m_MainCam.GetPtr())
-    {
-        float mod = 1.f;
-        float mov_mod = 4.f;
-        if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
-        {
-            mod = 4.f;
-            mov_mod = 10.f;
-        }
-
-        float moveSpeed = 10.0f * deltaTime * mov_mod;
-        float rotSpeed = 8.0f * deltaTime * mod;
-
-        auto* camTransform = m_MainCam.GetPtr()->GetTransform();
-        glm::vec3 pos = camTransform->GetPosition();
-        glm::vec3 rot = camTransform->GetEulerAnglesDegrees();
-
-        glm::vec3 rotRad = glm::radians(rot);
-        glm::quat orientation = glm::quat(rotRad);
-
-        glm::vec3 forward = orientation * glm::vec3(0.0f, 0.0f, 1.0f);
-        glm::vec3 right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
-        glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
-
-        if (ImGui::IsKeyDown(ImGuiKey_W)) pos += forward * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_S)) pos -= forward * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_A)) pos -= right * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_D)) pos += right * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_Q)) pos -= up * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_E)) pos += up * moveSpeed;
-
-        if (ImGui::IsKeyDown(ImGuiKey_I)) rot.x -= rotSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_K)) rot.x += rotSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_J)) rot.y -= rotSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_L)) rot.y += rotSpeed;
-
-        camTransform->SetPosition(pos);
-        camTransform->SetEulerAnglesDegrees(rot);
-    }
 }
 
 void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const RenderData& renderData)

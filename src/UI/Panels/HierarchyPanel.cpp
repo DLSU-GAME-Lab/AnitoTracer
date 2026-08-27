@@ -3,6 +3,11 @@
 
 namespace Diligent {
 
+    bool HierarchyPanel::IsEditorCameraObject(HierarchyObject::Ref obj) const
+    {
+        return obj && obj.GetPtr()->GetComponent<EditorCamera>() != nullptr;
+    }
+
     HierarchyPanel::HierarchyPanel(const std::string& name)
         : BasePanel(name)
     {}
@@ -21,7 +26,9 @@ namespace Diligent {
             // Iterate and draw each root node
             for (const auto& root : rootObjects)
             {
-                DrawNode(root.get());
+                if (!IsEditorCameraObject(root.get())) {
+                    DrawNode(root.get());
+                }
             }
 
             if (m_pendingDraggedObject) {
@@ -65,12 +72,17 @@ namespace Diligent {
 
     void HierarchyPanel::SetSelectedObject(HierarchyObject::Ref obj)
     {
+        if (IsEditorCameraObject(obj)) {
+            m_SelectedObject = nullptr;
+            return;
+        }
         m_SelectedObject = obj;
     }
 
     void HierarchyPanel::DrawNode(HierarchyObject::Ref node)
     {
         if (!node) return;
+        if (IsEditorCameraObject(node)) return;
 
         // Configure default behavior for the tree nodes
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
@@ -159,7 +171,9 @@ namespace Diligent {
             const auto& children = node.GetPtr()->GetChildren();
             for (const auto& child : children)
             {
-                DrawNode(child.get());
+                if (!IsEditorCameraObject(child.get())) {
+                    DrawNode(child.get());
+                }
             }
             ImGui::TreePop();
         }

@@ -23,6 +23,8 @@ namespace Diligent {
 
     private:
         HierarchyPanel* m_HierarchyPanel;
+        HierarchyObject::Ref m_NameBufferObject = nullptr;
+        char m_NameBuffer[256] = {};
     };
 
 }

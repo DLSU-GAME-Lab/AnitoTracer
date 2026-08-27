@@ -21,8 +21,8 @@ public:
             return;
         }
 
-        // Trigger the actual scene load using the stored target path
-        HierarchyManager::GetInstance().DeserializeFromFile(
+        // Route through HierarchyManager::LoadScene so post-load guarantees are applied.
+        HierarchyManager::GetInstance().LoadScene(
             ProjectLoader::GetAbsolutePath(m_targetScene)
         );
 

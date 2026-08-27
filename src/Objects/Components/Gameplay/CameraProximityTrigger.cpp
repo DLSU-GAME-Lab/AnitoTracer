@@ -46,14 +46,18 @@ void CameraProximityTrigger::OnUpdate(float /*deltaTime*/) {
         m_isInRange = false;
         m_waitingForConfirmation = false;
     }
+}
 
-    if (m_waitingForConfirmation) {
-        DrawConfirmationPrompt();
+void CameraProximityTrigger::OnGUI_ReleaseEvent(float /*deltaTime*/) {
+    if (!m_waitingForConfirmation) {
+        return;
+    }
 
-        if (ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
-            m_waitingForConfirmation = false;
-            m_onProximityCallback.Invoke();
-        }
+    DrawConfirmationPrompt();
+
+    if (ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
+        m_waitingForConfirmation = false;
+        m_onProximityCallback.Invoke();
     }
 }
 

@@ -2,6 +2,7 @@
 
 #include "Panels/BasePanel.hpp"
 #include "../../Objects/HierarchyManager.hpp"
+#include "../../Objects/Components/EditorCamera.hpp"
 #include <string>
 #include "imgui.h"
 
@@ -27,6 +28,8 @@ namespace Diligent {
 
         // Recursive helper function to draw tree nodes for each object
         void DrawNode(HierarchyObject::Ref node);
+
+        bool IsEditorCameraObject(HierarchyObject::Ref obj) const;
     };
 
 }

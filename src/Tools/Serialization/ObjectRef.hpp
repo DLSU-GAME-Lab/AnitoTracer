@@ -6,12 +6,16 @@
 #include "AutoSerializer.hpp"
 #include "File/Parser.hpp"
 
+#include <cstddef>
+
 namespace gbe {
 
     template <typename T>
     class ObjectRef {
     public:
         ObjectRef() = default;
+
+        ObjectRef(std::nullptr_t) {}
 
         ObjectRef(T* instance) {
             Set(instance);

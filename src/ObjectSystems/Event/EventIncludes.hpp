@@ -6,6 +6,8 @@
 #include "Types/LateUpdateTrigger.hpp"
 #include "Types/EditorUpdateTrigger.hpp"
 #include "Types/UpdateTrigger.hpp"
+#include "Types/OnGUI_Release.hpp"
+#include "Types/OnGUI_Editor.hpp"
 
 //ARG TYPES
 #include "Args/SceneLoadArgs.hpp"

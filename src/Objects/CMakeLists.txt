@@ -9,6 +9,10 @@ set(${CUR_TARGET_NAME}_src
 	Components/Transform.hpp
 	Components/Camera.cpp
 	Components/Camera.hpp
+	Components/EditorCamera.cpp
+	Components/EditorCamera.hpp
+	Components/GameCamera.cpp
+	Components/GameCamera.hpp
 	Components/ModelComponent.cpp
 	Components/ModelComponent.hpp
 	Components/ITeleportable.hpp
@@ -30,10 +34,12 @@ set(${CUR_TARGET_NAME}_src
 	Components/Gameplay/PlayerMovementComponent.hpp
 	Components/Gameplay/PickupComponent.hpp
 	Components/Gameplay/PickupComponent.cpp
+	Components/Gameplay/PlacementComponent.hpp
+	Components/Gameplay/PlacementComponent.cpp
+	Components/Gameplay/PlayerController.hpp
+	Components/Gameplay/PlayerController.cpp
 	Components/Gameplay/CameraProximityTrigger.cpp
-	Components/Gameplay/KeyComponent.cpp
 	Components/Gameplay/ParticleSpawnerComponent.cpp
-	Components/Gameplay/LockComponent.cpp
 	
 	Components/Gameplay/CameraProximityTrigger.cpp
 	Components/Gameplay/CameraProximityTrigger.cpp

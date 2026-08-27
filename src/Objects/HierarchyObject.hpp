@@ -44,6 +44,7 @@ public:
 
     // Core getters for object traversal and identification.
     const std::string& GetName() const { return m_name; }
+    void SetName(const std::string& name) { m_name = name; }
     HierarchyObject::Ref GetParent() const { return m_parent; }
     const std::vector<std::unique_ptr<HierarchyObject>>& GetChildren() const { return m_children; }
     const std::vector<std::unique_ptr<ComponentBase>>& GetComponents() const { return m_components; }

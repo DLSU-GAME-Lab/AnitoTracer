@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Components/ComponentBase.hpp"
+#include "Types/OnGUI_Release.hpp"
 #include "Types/UpdateTrigger.hpp"
 #include "AssignableEvent/AssignableEvent.hpp"
 
@@ -10,7 +11,7 @@
 class Transform;
 class CameraComponent;
 
-class CameraProximityTrigger : public ComponentBase, public gbe::ITrigger<UpdateTrigger> {
+class CameraProximityTrigger : public ComponentBase, public gbe::ITrigger<UpdateTrigger>, public gbe::ITrigger<OnGUI_Release> {
 public:
     CameraProximityTrigger(Transform* transform = nullptr, gbe::IInstanceManager<HierarchyObject>::Ref owner = {});
     ~CameraProximityTrigger() override;
@@ -22,6 +23,7 @@ public:
     CameraProximityTrigger& operator=(CameraProximityTrigger&&) = default;
 
     virtual void OnUpdate(float deltaTime) override;
+    virtual void OnGUI_ReleaseEvent(float deltaTime) override;
 
     // Configuration parameters
     void SetTriggerDistance(float dist) { m_triggerDistance = dist; }

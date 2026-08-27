@@ -74,7 +74,7 @@ public:
             currentPos += movement * m_moveSpeed * deltaTime;
             currentPos.y = transform->GetPosition().y;
 
-            transform->SetPosition(currentPos);
+            transform->SetWorldPosition(currentPos);
         }
     }
 

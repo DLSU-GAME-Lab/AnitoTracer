@@ -1,6 +1,9 @@
 #include "InspectorPanel.hpp"
 #include "TypeRegistry.hpp"
 #include "SerializedData.hpp"
+#include "../../../Objects/Components/EditorCamera.hpp"
+
+#include <cstring>
 
 void Diligent::InspectorPanel::Draw()
 {
@@ -12,6 +15,13 @@ void Diligent::InspectorPanel::Draw()
 
         if (selected.GetPtr())
         {
+            if (selected.GetPtr()->GetComponent<EditorCamera>() != nullptr)
+            {
+                ImGui::Text("Editor camera is protected and cannot be edited here.");
+                ImGui::End();
+                return;
+            }
+
             // --- Gizmo Control Toolbar ---
             auto& gizmoDrawer = GUIManager::GetInstance().GetGizmoDrawer();
             ImGuizmo::OPERATION currentOp = gizmoDrawer.GetOperation();
@@ -43,10 +53,24 @@ void Diligent::InspectorPanel::Draw()
             ImGui::Separator();
             ImGui::Spacing();
 
-            // Display the object's name
-            ImGui::TextDisabled("Name:");
-            ImGui::SameLine();
-            ImGui::Text("%s", selected.GetPtr()->GetName().c_str());
+            // Rename selected object
+            if (m_NameBufferObject != selected)
+            {
+                m_NameBufferObject = selected;
+                std::strncpy(m_NameBuffer, selected.GetPtr()->GetName().c_str(), sizeof(m_NameBuffer) - 1);
+                m_NameBuffer[sizeof(m_NameBuffer) - 1] = '\0';
+            }
+
+            ImGui::SetNextItemWidth(-1.0f);
+            if (ImGui::InputText("Name", m_NameBuffer, sizeof(m_NameBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                selected.GetPtr()->SetName(m_NameBuffer);
+            }
+
+            if (ImGui::IsItemDeactivatedAfterEdit())
+            {
+                selected.GetPtr()->SetName(m_NameBuffer);
+            }
 
             ImGui::Separator();
             ImGui::Spacing();

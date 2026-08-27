@@ -1,5 +1,12 @@
 #include "HierarchyManager.hpp"
 
+#include "../AppConfig.hpp"
+#include "ObjectFactory.hpp"
+
+CameraComponent* HierarchyManager::GetMainCamera() const {
+    return gbe::IInstanceManager<GameCamera>::getOldest();
+}
+
 HierarchyObject::Ref HierarchyManager::AddRootObject(std::unique_ptr<HierarchyObject> rootObj) {
     if (!rootObj) return nullptr;
 
@@ -142,15 +149,26 @@ std::unique_ptr<ComponentBase> HierarchyManager::RemoveComponentFromObject(Hiera
 }
 
 bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix) {
-    if (GetMainCamera() != nullptr)
+    CameraComponent* activeCamera = nullptr;
+    if (AppConfig::release) {
+        activeCamera = GetMainCamera();
+    }
+    else {
+        activeCamera = GetEditorCamera();
+        if (!activeCamera) {
+            activeCamera = GetMainCamera();
+        }
+    }
+
+    if (activeCamera != nullptr)
     {
         // Ensure the matrices are up-to-date with the current Transform data
-        GetMainCamera()->UpdateViewMatrix();
-        GetMainCamera()->UpdateProjectionMatrix();
+        activeCamera->UpdateViewMatrix();
+        activeCamera->UpdateProjectionMatrix();
 
         // Extract the required matrices for the rendering pipeline
-        outViewMatrix = GetMainCamera()->GetViewMatrix();
-        outProjectionMatrix = GetMainCamera()->GetProjectionMatrix();
+        outViewMatrix = activeCamera->GetViewMatrix();
+        outProjectionMatrix = activeCamera->GetProjectionMatrix();
 
         return true;
     }
@@ -282,8 +300,19 @@ void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) cons
 }
 
 bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
-    if (GetMainCamera() != nullptr) {
-        if (HierarchyObject::Ref camOwner = GetMainCamera()->GetOwner()) {
+    CameraComponent* activeCamera = nullptr;
+    if (AppConfig::release) {
+        activeCamera = GetMainCamera();
+    }
+    else {
+        activeCamera = GetEditorCamera();
+        if (!activeCamera) {
+            activeCamera = GetMainCamera();
+        }
+    }
+
+    if (activeCamera != nullptr) {
+        if (HierarchyObject::Ref camOwner = activeCamera->GetOwner()) {
             if (Transform* camTransform = camOwner.GetPtr()->GetComponent<Transform>()) {
                 outPosition = camTransform->GetPosition();
                 return true;
@@ -307,12 +336,26 @@ void HierarchyManager::Deserialize(gbe::SerializedData& data)
     );
 
     gbe::ISerializable::Deserialize(data);
+    EnsureEditorCameraExists();
+}
+
+void HierarchyManager::EnsureEditorCameraExists()
+{
+    if (GetEditorCamera() != nullptr) {
+        return;
+    }
+
+    HierarchyObject::Ref editorCamObject = ObjectFactory::GetInstance().CreateRootCameraObject("Main Camera");
+    if (editorCamObject && editorCamObject.GetPtr()->GetTransform()) {
+        editorCamObject.GetPtr()->GetTransform()->SetPosition(glm::vec3(0.0f, 0.0f, -10.0f));
+    }
 }
 
 void HierarchyManager::LoadScene(std::filesystem::path filepath)
 {
     m_sceneFile = filepath;
     this->DeserializeFromFile(filepath);
+    EnsureEditorCameraExists();
 }
 
 void HierarchyManager::QuickSave()

@@ -12,6 +12,8 @@
 
 #include "Imgui/interface/ImGuiDiligentRenderer.hpp"
 #include "Imgui/interface/ImGuiImplDiligent.hpp"
+#include "../Objects/Components/EditorCamera.hpp"
+#include "../Objects/Components/GameCamera.hpp"
 #include <utility>
 
 GUIManager& Diligent::GUIManager::GetInstance()
@@ -118,6 +120,8 @@ void Diligent::GUIManager::InitializeComponentDrawers()
 {
     InspectorRegistry::GetInstance().RegisterUI<Transform, TransformUI>();
     InspectorRegistry::GetInstance().RegisterUI<CameraComponent, CameraUI>();
+    InspectorRegistry::GetInstance().RegisterUI<EditorCamera, CameraUI>();
+    InspectorRegistry::GetInstance().RegisterUI<GameCamera, CameraUI>();
     InspectorRegistry::GetInstance().RegisterUI<DirectionalLight, DirectionalLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
