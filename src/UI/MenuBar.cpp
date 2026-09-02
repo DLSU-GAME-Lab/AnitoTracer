@@ -85,28 +85,29 @@ namespace Diligent {
             if (ImGui::BeginMenu("Rendering"))
             {
                 bool rtSupported = RendererManager::GetInstance().IsRayTracingSupported();
+                auto currentRenderer = UserSettings::GetInstance().GetRendererType();
 
-                if (ImGui::MenuItem("Basic Lit Pipeline"))
+                if (ImGui::MenuItem("Basic Lit Pipeline", nullptr, currentRenderer == Diligent::PipelineType::BASIC_LIT))
                 {
                     gbe::EventSystem::DispatchTo(
                         EVENT_RENDER_CHANGE,
-                        std::make_unique<RendererChangeArgs>(RendererChangeArgs::BASIC_LIT)
+                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::BASIC_LIT)
                     );
                 }
 
-                if (ImGui::MenuItem("Deferred Pipeline"))
+                if (ImGui::MenuItem("Deferred Pipeline", nullptr, currentRenderer == Diligent::PipelineType::DEFERRED))
                 {
                     gbe::EventSystem::DispatchTo(
                         EVENT_RENDER_CHANGE,
-                        std::make_unique<RendererChangeArgs>(RendererChangeArgs::DEFERRED)
+                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::DEFERRED)
                     );
                 }
 
-                if (ImGui::MenuItem("Hybrid Pipeline (RayTraced)", nullptr, false, rtSupported))
+                if (ImGui::MenuItem("Hybrid Pipeline (RayTraced)", nullptr, currentRenderer == Diligent::PipelineType::HYBRID, rtSupported))
                 {
                     gbe::EventSystem::DispatchTo(
                         EVENT_RENDER_CHANGE,
-                        std::make_unique<RendererChangeArgs>(RendererChangeArgs::HYBRID)
+                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::HYBRID)
                     );
                 }
 

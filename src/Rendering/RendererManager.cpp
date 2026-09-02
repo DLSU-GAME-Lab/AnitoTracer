@@ -9,18 +9,35 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
     m_pSwapChain = pSwapChain;
     m_SupportsRayTracing = supportsRayTracing;
 
-    if (supportsRayTracing)
+    auto& userSettings = Diligent::UserSettings::GetInstance();
+
+    // Initialize pipeline based on the saved user setting
+    if (userSettings.GetRendererType() == Diligent::PipelineType::HYBRID && supportsRayTracing)
     {
         m_bLitPipeline.emplace<Diligent::HybridPipeline>();
         std::cout << "[Info] Hardware Ray Tracing detected. Using HybridPipeline." << std::endl;
     }
+    else if (userSettings.GetRendererType() == Diligent::PipelineType::DEFERRED)
+    {
+        m_bLitPipeline.emplace<Diligent::DeferredPipeline>();
+        std::cout << "[Info] Using DeferredPipeline." << std::endl;
+    }
     else
     {
         m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
-        std::cout << "[Warn] Hardware Ray Tracing not available. Falling back to BasicLitPipeline." << std::endl;
+        userSettings.GetRendererType() = Diligent::PipelineType::BASIC_LIT; // Force valid fallback
+
+        if (userSettings.GetRendererType() == Diligent::PipelineType::HYBRID && !supportsRayTracing)
+        {
+            std::cout << "[Warn] Hardware Ray Tracing not available. Falling back to BasicLitPipeline." << std::endl;
+        }
+        else
+        {
+            std::cout << "[Info] Using BasicLitPipeline." << std::endl;
+        }
     }
 
-    m_LastMSAAState = Diligent::UserSettings::GetInstance().GetEnableMSAA();
+    m_LastMSAAState = userSettings.GetEnableMSAA();
     CreateMSAABuffers();
 
     m_OnRendererChangeSub = gbe::ScopedSubscription::Create<RendererChangeArgs>(
@@ -32,33 +49,42 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
 
 void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
 {
-    bool isMSAAEnabled = Diligent::UserSettings::GetInstance().GetEnableMSAA();
+    auto& userSettings = Diligent::UserSettings::GetInstance();
+    bool isMSAAEnabled = userSettings.GetEnableMSAA();
 
-    if (args->targetPipeline == RendererChangeArgs::DEFERRED)
+    if (args->targetPipeline == Diligent::PipelineType::DEFERRED)
     {
         if (isMSAAEnabled)
         {
             std::cout << "[Warn] Deferred rendering does not support MSAA with current setup. Reverting to Hybrid/Basic Lit." << std::endl;
-            // Fall back to ray-traced hybrid or basic lit if MSAA is on
             if (m_SupportsRayTracing)
+            {
                 m_bLitPipeline.emplace<Diligent::HybridPipeline>();
+                userSettings.GetRendererType() = Diligent::PipelineType::HYBRID;
+            }
             else
+            {
                 m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
+                userSettings.GetRendererType() = Diligent::PipelineType::BASIC_LIT;
+            }
         }
         else
         {
             m_bLitPipeline.emplace<Diligent::DeferredPipeline>();
+            userSettings.GetRendererType() = Diligent::PipelineType::DEFERRED;
             std::cout << "[RendererManager] Swapped to Deferred Pipeline." << std::endl;
         }
     }
-    else if (args->targetPipeline == RendererChangeArgs::HYBRID && m_SupportsRayTracing)
+    else if (args->targetPipeline == Diligent::PipelineType::HYBRID && m_SupportsRayTracing)
     {
         m_bLitPipeline.emplace<Diligent::HybridPipeline>();
+        userSettings.GetRendererType() = Diligent::PipelineType::HYBRID;
         std::cout << "[RendererManager] Swapped to Hybrid Pipeline." << std::endl;
     }
     else
     {
         m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
+        userSettings.GetRendererType() = Diligent::PipelineType::BASIC_LIT;
         std::cout << "[RendererManager] Swapped to Basic Lit Pipeline." << std::endl;
     }
 
