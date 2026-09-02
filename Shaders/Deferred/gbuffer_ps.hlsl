@@ -1,21 +1,11 @@
 #include "../common_struct.hlsli"
-#include "../pbr_defs.hlsi"
+#include "../pbr_defs.hlsli"
 
 struct GBufferOutput
 {
     float4 AlbedoMetallic : SV_TARGET0;
     float4 NormalRoughness : SV_TARGET1;
     float4 WorldPos : SV_TARGET2;
-};
-
-struct PSInput
-{
-    float4 Pos : SV_POSITION;
-    centroid float3 WorldPos : TEXCOORD0;
-    centroid float3 Normal : TEXCOORD1;
-    float2 UV : TEXCOORD2;
-    float3 Tangent : TANGENT;
-    float3 Bitangent : BITANGENT;
 };
 
 void main_ps(in PSInput In, out GBufferOutput Out)

@@ -1,6 +1,6 @@
 #include "../common_struct.hlsli"
 #include "../light_struct.hlsli"
-#include "../pbr_defs.hlsi"
+#include "../pbr_defs.hlsli"
 
 // G-Buffer Inputs
 Texture2D g_GBufferAlbedo;
@@ -9,13 +9,14 @@ Texture2D g_GBufferWorldPos;
 
 SamplerState g_GBuffer_sampler;
 
-struct PSInput
+struct FullScreenPSInput
 {
     float4 Pos : SV_POSITION;
     float2 UV : TEXCOORD0;
 };
 
-void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
+
+void main_ps(in FullScreenPSInput In, out float4 OutColor : SV_TARGET)
 {
     // Sample G-Buffer
     float4 albedoMetal = g_GBufferAlbedo.Sample(g_GBuffer_sampler, In.UV);

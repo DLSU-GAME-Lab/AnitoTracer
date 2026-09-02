@@ -27,7 +27,8 @@ void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapC
     GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
     GraphicsPipeline.InputLayout.NumElements = static_cast<Uint32>(std_layout.size());
 
-    auto pVS = ShaderManager::GetInstance().GetShader("hybrid_vs.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_vs");
+    //Use the same as the deferred now
+    auto pVS = ShaderManager::GetInstance().GetShader("main_vs.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_vs");
     auto pPS = ShaderManager::GetInstance().GetShader("hybrid_ps.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_ps");
     PSOCreateInfo.pVS = pVS;
     PSOCreateInfo.pPS = pPS;
