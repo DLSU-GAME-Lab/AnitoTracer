@@ -12,6 +12,8 @@ namespace Diligent {
     static constexpr uint32_t MAX_DIR_LIGHTS = 4;
     static constexpr uint32_t MAX_POINT_LIGHTS = 8;
 
+    enum PipelineType { BASIC_LIT, HYBRID, DEFERRED };
+
     struct DirectionalLightData {
         glm::vec4 Direction{ 0.0f, -1.0f, 0.0f, 0.0f }; // xyz: dir, w: unused
         glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };      // rgb: color, a: intensity

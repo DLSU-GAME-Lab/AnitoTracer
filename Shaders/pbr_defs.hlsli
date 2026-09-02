@@ -1,3 +1,8 @@
+cbuffer MaterialConstants
+{
+    float4 g_BaseColor; // From source 1
+};
+
 cbuffer PBRMaterialConstants
 {
     float4 g_BaseColorFactor;
@@ -71,4 +76,22 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 float3 FresnelSchlick(float cosTheta, float3 F0)
 {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float3 ComputeLightRadiance(float3 N, float3 V, float3 L, float3 radiance, float3 albedo, float metallic, float roughness, float3 F0, float shadowFactor)
+{
+    float NdotL = max(dot(N, L), 0.0);
+    if (NdotL <= 0.0) return float3(0.0, 0.0, 0.0);
+
+    float3 H = normalize(V + L);
+    float NDF = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    float3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
+
+    float3 numerator = NDF * G * F;
+    float denominator = 4.0 * max(dot(N, V), 0.0) * NdotL + 0.0001;
+    float3 specular = numerator / denominator;
+
+    float3 kD = (float3(1.0, 1.0, 1.0) - F) * (1.0 - metallic);
+    return (kD * albedo / PI + specular) * radiance * NdotL * shadowFactor;
 }

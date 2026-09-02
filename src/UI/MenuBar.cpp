@@ -4,6 +4,7 @@
 #include "ProjectLoader.hpp"
 
 #include "FileDialogue.hpp"
+#include "RendererManager.hpp"
 
 #include "CreateInstance.hpp"
 
@@ -70,7 +71,6 @@ namespace Diligent {
 
                 if (ImGui::MenuItem("Load Model"))
                 {
-                    // Use the static method from the new FileDialog class
                     std::string filepath = FileDialog::OpenModelFile();
 
                     if (!filepath.empty())
@@ -82,7 +82,38 @@ namespace Diligent {
                 ImGui::EndMenu();
             }
 
-            // Dynamically populate the Windows menu based on registered panels
+            if (ImGui::BeginMenu("Rendering"))
+            {
+                bool rtSupported = RendererManager::GetInstance().IsRayTracingSupported();
+                auto currentRenderer = UserSettings::GetInstance().GetRendererType();
+
+                if (ImGui::MenuItem("Basic Lit Pipeline", nullptr, currentRenderer == Diligent::PipelineType::BASIC_LIT))
+                {
+                    gbe::EventSystem::DispatchTo(
+                        EVENT_RENDER_CHANGE,
+                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::BASIC_LIT)
+                    );
+                }
+
+                if (ImGui::MenuItem("Deferred Pipeline", nullptr, currentRenderer == Diligent::PipelineType::DEFERRED))
+                {
+                    gbe::EventSystem::DispatchTo(
+                        EVENT_RENDER_CHANGE,
+                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::DEFERRED)
+                    );
+                }
+
+                if (ImGui::MenuItem("Hybrid Pipeline (RayTraced)", nullptr, currentRenderer == Diligent::PipelineType::HYBRID, rtSupported))
+                {
+                    gbe::EventSystem::DispatchTo(
+                        EVENT_RENDER_CHANGE,
+                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::HYBRID)
+                    );
+                }
+
+                ImGui::EndMenu();
+            }
+
             if (ImGui::BeginMenu("Windows"))
             {
                 for (const auto& panel : panels)

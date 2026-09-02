@@ -59,6 +59,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 
 	anito::serialization
 	gbe::filedialogue
+	anito::event
 	anito::rendering
 	anito::objects
 	

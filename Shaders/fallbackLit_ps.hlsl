@@ -1,14 +1,6 @@
 #include "common_struct.hlsli"
 #include "light_struct.hlsli"
-#include "pbr_defs.hlsi"
-
-struct PSInput
-{
-    float4 Pos : SV_POSITION;
-    centroid float3 WorldPos : TEXCOORD0;
-    centroid float3 Normal : TEXCOORD1;
-    float2 UV : TEXCOORD2;
-};
+#include "pbr_defs.hlsli"
 
 void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 {

@@ -24,6 +24,7 @@
 #endif
 
 // Forward declarations for pipelines and objects
+#include "Rendering/RendererManager.hpp"
 #include "Rendering/Pipelines/BasicLitPipeline.hpp"
 #include "Rendering/Pipelines/HybridPipeline.hpp"
 #include "Objects/HierarchyObject.hpp"
@@ -63,7 +64,6 @@ private:
 
     void SubscribeToStandardEvents();
     void InitManagers();
-    void CreateMSAABuffers();
 
     void Update();
     void Render();
@@ -80,11 +80,6 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> m_pImmediateContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain>     m_pSwapChain;
 
-    Diligent::RefCntAutoPtr<Diligent::ITexture>     m_pMSAATarget;
-    Diligent::RefCntAutoPtr<Diligent::ITexture>     m_pMSAADepth;
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAARTV;
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAADSV;
-
     Diligent::NativeWindow m_NativeWindow;
     bool m_AppRunning;
     bool m_LastMSAAState;
@@ -93,7 +88,6 @@ private:
     Diligent::Uint32 m_WindowHeight;
 
     HierarchyObject::Ref m_MainCam;
-    std::variant<HybridPipeline, BasicLitPipeline> m_bLitPipeline;
 
     //Subscription properties
     ScopedSubscription m_OnInitializeSub;

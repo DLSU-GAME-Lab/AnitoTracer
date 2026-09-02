@@ -10,6 +10,11 @@ set(${CUR_TARGET_NAME}_src
 	RenderData.hpp
 	RenderData.cpp
 
+	RendererEvents.hpp
+
+	RendererManager.hpp
+	RendererManager.cpp
+
 	Shaders/ShaderManager.hpp
 	Shaders/ShaderManager.cpp
 	Shaders/VertexLayouts.hpp
@@ -31,6 +36,9 @@ set(${CUR_TARGET_NAME}_src
 
 	Pipelines/HybridPipeline.cpp
 	Pipelines/HybridPipeline.hpp
+
+	Pipelines/DeferredPipeline.hpp
+	Pipelines/DeferredPipeline.cpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
@@ -53,6 +61,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	Diligent-TextureLoader
 
 	anito::asset
+	anito::event
 )
 
 target_include_directories(${CUR_TARGET_NAME}

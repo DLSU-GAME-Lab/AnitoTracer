@@ -36,6 +36,9 @@ namespace Diligent {
         bool& GetEnableMSAA() { return m_EnableMSAA; }
         const bool& GetEnableMSAA() const { return m_EnableMSAA; }
 
+        PipelineType& GetRendererType() { return m_RendererType; }
+        const PipelineType& GetRendererType() const { return m_RendererType; }
+
     private:
         // Private constructor ensures it can only be created via GetInstance()
         UserSettings() = default;
@@ -45,7 +48,11 @@ namespace Diligent {
         // Data Storage
         // ------------------------------------------------------------------
         ShadowSettings m_ShadowSettings;
-        bool m_EnableMSAA = true; // Added MSAA toggle state
+        //False for now for deferred- TODO- Fix for deferred
+        bool m_EnableMSAA = false; // Added MSAA toggle state
+
+        //Default to deferred for easy rendering
+        PipelineType m_RendererType = PipelineType::DEFERRED;
 
         // GraphicsSettings m_GraphicsSettings;
         // AudioSettings m_AudioSettings;
