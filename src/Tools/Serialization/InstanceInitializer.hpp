@@ -37,6 +37,9 @@ namespace gbe {
 		}
 
 		inline static T* Initialize(std::unique_ptr<T> newobj) {
+			if (!instance) {
+				return newobj.release();
+			}
 			return instance->InitializeImpl(std::move(newobj));
 		}
 	};

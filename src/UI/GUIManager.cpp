@@ -12,6 +12,9 @@
 
 #include "Imgui/interface/ImGuiDiligentRenderer.hpp"
 #include "Imgui/interface/ImGuiImplDiligent.hpp"
+#include "../Objects/Components/EditorCamera.hpp"
+#include "../Objects/Components/GameCamera.hpp"
+#include <utility>
 
 GUIManager& Diligent::GUIManager::GetInstance()
 {
@@ -66,7 +69,7 @@ void Diligent::GUIManager::DrawUI(bool& appRunning)
     if (!m_pImGuiRenderer) return;
 
     // Delegate menu bar rendering to the dedicated class
-    m_MenuBar.Draw(appRunning, m_Panels);
+        m_MenuBar.Draw(appRunning, m_Panels);
 
     // Render all active dockable windows
     for (auto& panel : m_Panels)
@@ -104,14 +107,24 @@ void Diligent::GUIManager::InitializeDefaultPanels()
     Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::UserSettingsPanel>());
     Diligent::GUIManager::GetInstance().AddPanel(std::make_unique<Diligent::ProfilerPanel>(m_pDevice));
     Diligent::GUIManager::GetInstance().AddPanel(std::move(hierarchyPanel));
+
+    auto fileExplorerPanel = std::make_unique<Diligent::FileExplorerPanel>("File Explorer");
+    m_pFileExplorerPanel = fileExplorerPanel.get();
+    for (auto& opener : m_FileOpeners)
+        m_pFileExplorerPanel->RegisterOpener(std::move(opener));
+    m_FileOpeners.clear();
+    Diligent::GUIManager::GetInstance().AddPanel(std::move(fileExplorerPanel));
 }
 
 void Diligent::GUIManager::InitializeComponentDrawers()
 {
     InspectorRegistry::GetInstance().RegisterUI<Transform, TransformUI>();
     InspectorRegistry::GetInstance().RegisterUI<CameraComponent, CameraUI>();
+    InspectorRegistry::GetInstance().RegisterUI<EditorCamera, CameraUI>();
+    InspectorRegistry::GetInstance().RegisterUI<GameCamera, CameraUI>();
     InspectorRegistry::GetInstance().RegisterUI<DirectionalLight, DirectionalLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
+    InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
 }
 
 void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)
@@ -134,3 +147,10 @@ void Diligent::GUIManager::DrawGizmos(CameraComponent* pActiveCamera, float x, f
 }
 
 Diligent::GUIManager::~GUIManager() = default;
+void Diligent::GUIManager::RegisterFileOpener(FileExplorerPanel::Opener opener)
+{
+    if (m_pFileExplorerPanel)
+        m_pFileExplorerPanel->RegisterOpener(std::move(opener));
+    else if (opener)
+        m_FileOpeners.push_back(std::move(opener));
+}

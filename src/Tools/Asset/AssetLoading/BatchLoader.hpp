@@ -60,6 +60,12 @@ namespace gbe {
                 }
                 TMeta* newdata = loader(sourcePath);
 
+                if(!newdata)
+                {
+                    std::cerr << "Loader and asset exists but loader failed to Load Asset." << std::endl;
+                    return;
+                }
+
                 // Initial setup
                 newdata->SetPath(sourcePath);
                 newdata->SetMetaPath(metaPath);
@@ -94,7 +100,7 @@ namespace gbe {
             // Phase 1: Cleanup orphaned meta files
             for (const auto& filepath : filepaths) {
                 for (const auto& cat : GetInstance().m_categories) {
-                    if (EndsWith(filepath.string(), cat.metaSuffix)) {
+                    if (EndsWithPath(filepath, cat.metaSuffix)) {
                         fs::path expectedSource = GetSourcePathFromMeta(filepath, cat);
                         if (!fs::exists(expectedSource)) {
                             std::cout << "[BATCHLOADER] Removing orphaned metafile: " << filepath << std::endl;
@@ -164,7 +170,15 @@ namespace gbe {
             std::vector<fs::path> filepaths;
             for (const auto& entry : fs::recursive_directory_iterator(directory)) {
                 if (entry.is_regular_file()) {
-                    filepaths.push_back(entry.path());
+                    try {
+                        // Verify the filename can be safely converted to UTF-8 std::string
+                        std::string testConversion = entry.path().filename().string();
+                        filepaths.push_back(entry.path());
+                    }
+                    catch (const std::exception& e) {
+                        std::cerr << "[BATCHLOADER] Skipping file with invalid name (likely non-UTF8): " 
+                                  << entry.path().parent_path().string() << " - Error: " << e.what() << std::endl;
+                    }
                 }
             }
             return filepaths;
@@ -172,7 +186,9 @@ namespace gbe {
 
         static fs::path BuildMetaPath(const fs::path& sourcePath, const CategoryConfig& cat) {
             if (cat.namingStrategy == MetaNamingStrategy::AppendToFilename) {
-                return sourcePath.string() + cat.metaSuffix;
+                fs::path result = sourcePath;
+                result += cat.metaSuffix;
+                return result;
             }
             else {
                 return sourcePath.parent_path() / (sourcePath.stem().string() + cat.metaSuffix);
@@ -180,9 +196,10 @@ namespace gbe {
         }
 
         static fs::path GetSourcePathFromMeta(const fs::path& metaPath, const CategoryConfig& cat) {
-            std::string metaStr = metaPath.string();
             if (cat.namingStrategy == MetaNamingStrategy::AppendToFilename) {
-                return metaStr.substr(0, metaStr.length() - cat.metaSuffix.length());
+                std::string metaStr = metaPath.filename().string();
+                std::string sourceStr = metaStr.substr(0, metaStr.length() - cat.metaSuffix.length());
+                return metaPath.parent_path() / sourceStr;
             }
             else {
                 for (const auto& ext : cat.sourceExtensions) {
@@ -196,6 +213,12 @@ namespace gbe {
         static bool EndsWith(const std::string& str, const std::string& suffix) {
             return str.size() >= suffix.size() &&
                 str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+        }
+
+        static bool EndsWithPath(const fs::path& path, const std::string& suffix) {
+            std::string pathStr = path.filename().string();
+            return pathStr.size() >= suffix.size() &&
+                pathStr.compare(pathStr.size() - suffix.size(), suffix.size(), suffix) == 0;
         }
 
         static bool EqualIgnoreCase(std::string_view a, std::string_view b) {

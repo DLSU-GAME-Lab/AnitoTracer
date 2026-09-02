@@ -4,10 +4,16 @@
 #include <memory>
 #include <string>
 
+
 #include "HierarchyObject.hpp"
 #include "Components/ComponentBase.hpp"
+#include "PropertyDrawers/componentbase_drawer.hpp" // should come after #include "Components/ComponentBase.hpp"
+
+
 #include "Components/Transform.hpp"
 #include "Components/Camera.hpp"
+#include "Components/EditorCamera.hpp"
+#include "Components/GameCamera.hpp"
 #include "Components/ModelComponent.hpp"
 #include "Models/ModelStructs.hpp"
 
@@ -41,6 +47,24 @@ public:
     // Removes a root object by its exact pointer address and transfers ownership back to the caller.
     std::unique_ptr<HierarchyObject> RemoveRootObject(HierarchyObject::Ref rootToRemove);
 
+    // Queues an object and its entire subtree for removal at the next commit.
+    void QueueObjectDeletion(HierarchyObject::Ref object);
+
+    // Commits all object deletions queued since the previous commit.
+    // Returns the number of queued objects that were found and removed.
+    size_t CommitDeferredDeletions();
+
+    // Moves an existing object under a new parent, or to the root when parent is empty.
+    bool ReparentObject(HierarchyObject::Ref object, HierarchyObject::Ref parent);
+
+    // Copies an object and its serialized subtree into the in-memory clipboard.
+    bool CopyObject(HierarchyObject::Ref object);
+
+    // Pastes the clipboard as a child of parent, or as a root when parent is empty.
+    HierarchyObject::Ref PasteObject(HierarchyObject::Ref parent = nullptr);
+
+    bool HasCopiedObject() const { return m_hasCopiedObject; }
+
     // Retrieves all active root nodes in the hierarchy tree.
     const std::vector<std::unique_ptr<HierarchyObject>>& GetRootObjects() const {
         return m_rootNodes;
@@ -58,8 +82,11 @@ public:
     // Removes a component from a specific HierarchyObject and returns ownership.
     std::unique_ptr<ComponentBase> RemoveComponentFromObject(HierarchyObject::Ref object, ComponentBase* componentToRemove);
 
-    // Retrieves the current main camera.
-    CameraComponent* GetMainCamera() const { return gbe::IInstanceManager<CameraComponent>::getOldest(); }
+    // Retrieves the current active game camera.
+    CameraComponent* GetMainCamera() const;
+
+    // Retrieves the current editor camera for editor-only tooling.
+    EditorCamera* GetEditorCamera() const { return gbe::IInstanceManager<EditorCamera>::getOldest(); }
 
     bool GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
 
@@ -80,8 +107,16 @@ public:
      */
     template <typename TEvent>
     void DispatchEventData(const TEvent& event) {
-        for (auto& root : m_rootNodes) {
+        std::vector<HierarchyObject::Ref> rootsToDispatch;
+        rootsToDispatch.reserve(m_rootNodes.size());
+        for (const auto& root : m_rootNodes) {
             if (root) {
+                rootsToDispatch.push_back(root->getRef());
+            }
+        }
+
+        for (const HierarchyObject::Ref rootRef : rootsToDispatch) {
+            if (HierarchyObject* root = rootRef.GetPtr()) {
                 root->DispatchEventData(event, /*recursive=*/true);
             }
         }
@@ -100,12 +135,26 @@ public:
     virtual gbe::SerializedData Serialize() override;
     virtual void Deserialize(gbe::SerializedData& data) override;
 
+    // Ensures editor tooling always has a valid editor camera after scene loads.
+    void EnsureEditorCameraExists();
+
+    void LoadScene(std::filesystem::path filepath);
+    std::filesystem::path GetCurrentScene();
+    std::filesystem::path GetSceneFile() const { return m_sceneFile; }
+    void QuickSave();
+
 private:
     HierarchyManager() = default;
     ~HierarchyManager() = default;
 
+    std::filesystem::path m_sceneFile = "";
+
     std::vector<std::unique_ptr<HierarchyObject>> m_rootNodes;
     GBE_SERIALIZE_FIELD(m_rootNodes);
+
+    std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> m_deferredDeletionIds;
+    gbe::SerializedData m_copiedObject;
+    bool m_hasCopiedObject = false;
 
 public:
     

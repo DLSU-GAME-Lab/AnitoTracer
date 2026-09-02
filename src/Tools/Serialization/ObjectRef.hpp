@@ -4,8 +4,9 @@
 #include "SceneRegistry.hpp"
 
 #include "AutoSerializer.hpp"
-#include "ObjectRef.hpp"
 #include "File/Parser.hpp"
+
+#include <cstddef>
 
 namespace gbe {
 
@@ -13,6 +14,8 @@ namespace gbe {
     class ObjectRef {
     public:
         ObjectRef() = default;
+
+        ObjectRef(std::nullptr_t) {}
 
         ObjectRef(T* instance) {
             Set(instance);
@@ -22,22 +25,18 @@ namespace gbe {
 
         // Sets or updates the referenced object
         void Set(T* instance) {
-            m_cachedPtr = instance;
             m_targetGuid = instance ? instance->GetGUID() : GUID::Empty();
         }
 
-        // Sets the target GUID and invalidates cached pointer for re-resolution
+        // Sets the target GUID for lazy resolution through the live scene registry
         void SetGUID(const GUID& guid) {
             m_targetGuid = guid;
-            m_cachedPtr = nullptr;
         }
 
-        // Lazy-resolves target pointer via SceneRegistry
+        // Resolve on every access so destroyed or replaced objects cannot leave a
+        // stale cached pointer behind.
         T* Get() const {
-            if (!m_cachedPtr && m_targetGuid != GUID::Empty()) {
-                m_cachedPtr = SceneRegistry::GetInstance().Resolve<T>(m_targetGuid);
-            }
-            return m_cachedPtr;
+            return SceneRegistry::GetInstance().Resolve<T>(m_targetGuid);
         }
 
         T* operator->() const { return Get(); }
@@ -51,7 +50,6 @@ namespace gbe {
 
     private:
         GUID m_targetGuid = GUID::Empty();
-        mutable T* m_cachedPtr = nullptr;
     };
 
 } // namespace gbe

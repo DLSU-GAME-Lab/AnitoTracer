@@ -30,8 +30,13 @@ namespace gbe {
         }
 
         static EventSystem& Instance() {
-            static EventSystem instance;
-            return instance;
+            static EventSystem* instance = new EventSystem();
+            return *instance;
+        }
+
+        static void Shutdown() {
+            EventSystem* instance = &Instance();
+            delete instance;
         }
 
         // Publicly accessible so standalone functions can subscribe without the EventHandler base class
@@ -45,7 +50,7 @@ namespace gbe {
         // Publicly accessible so standalone functions can clean up after themselves
         void Unsubscribe(const std::string& eventName, SubscriptionID id) {
             std::lock_guard<std::mutex> lock(mutex_);
-            auto it = listeners_.find(eventName);
+            auto it = listeners_.find(eventName); 
             if (it != listeners_.end()) {
                 it->second.erase(id);
                 if (it->second.empty()) {

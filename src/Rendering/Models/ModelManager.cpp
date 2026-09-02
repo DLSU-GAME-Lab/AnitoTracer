@@ -294,6 +294,9 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
 
     m_pDevice->CreateBLAS(ASDesc, &pModel->pBLAS);
 
+    if(!pModel->pBLAS)
+        return nullptr;
+
     // 5. Query Scratch Size & Allocate Scratch Buffer
     ScratchBufferSizes ScratchSizes = pModel->pBLAS->GetScratchBufferSizes();
 

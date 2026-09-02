@@ -1,5 +1,12 @@
 #include "HierarchyManager.hpp"
 
+#include "../AppConfig.hpp"
+#include "ObjectFactory.hpp"
+
+CameraComponent* HierarchyManager::GetMainCamera() const {
+    return gbe::IInstanceManager<GameCamera>::getOldest();
+}
+
 HierarchyObject::Ref HierarchyManager::AddRootObject(std::unique_ptr<HierarchyObject> rootObj) {
     if (!rootObj) return nullptr;
 
@@ -19,6 +26,115 @@ std::unique_ptr<HierarchyObject> HierarchyManager::RemoveRootObject(HierarchyObj
     return nullptr;
 }
 
+void HierarchyManager::QueueObjectDeletion(HierarchyObject::Ref object) {
+    if (!object) return;
+
+    const auto objectId = object.GetID();
+    for (const auto queuedId : m_deferredDeletionIds) {
+        if (queuedId == objectId) return;
+    }
+
+    m_deferredDeletionIds.push_back(objectId);
+}
+
+bool HierarchyManager::ReparentObject(HierarchyObject::Ref object, HierarchyObject::Ref parent) {
+    HierarchyObject* objectPtr = object.GetPtr();
+    HierarchyObject* parentPtr = parent.GetPtr();
+    if (!objectPtr || objectPtr == parentPtr) return false;
+
+    // A node cannot become a child of itself or one of its descendants.
+    for (HierarchyObject* ancestor = parentPtr; ancestor != nullptr;) {
+        if (ancestor == objectPtr) return false;
+        ancestor = ancestor->GetParent().GetPtr();
+    }
+
+    if (objectPtr->GetParent() == parent) return true;
+
+    std::unique_ptr<HierarchyObject> detachedObject;
+    if (HierarchyObject::Ref oldParent = objectPtr->GetParent()) {
+        detachedObject = oldParent.GetPtr()->RemoveChild(object);
+    }
+    else {
+        detachedObject = RemoveRootObject(object);
+    }
+
+    if (!detachedObject) return false;
+
+    if (parentPtr) {
+        parentPtr->AddChild(std::move(detachedObject));
+    }
+    else {
+        AddRootObject(std::move(detachedObject));
+    }
+    return true;
+}
+
+bool HierarchyManager::CopyObject(HierarchyObject::Ref object) {
+    HierarchyObject* objectPtr = object.GetPtr();
+    if (!objectPtr) return false;
+
+    m_copiedObject = objectPtr->Serialize();
+    for (auto it = m_copiedObject.serialized_variables.begin();
+         it != m_copiedObject.serialized_variables.end();) {
+        const std::string& key = it->first;
+        if (key == "m_guid" ||
+            (key.size() > 7 && key.compare(key.size() - 7, 7, ".m_guid") == 0)) {
+            it = m_copiedObject.serialized_variables.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+    m_copiedObject.label = "HierarchyObjectClipboard";
+    m_hasCopiedObject = true;
+    return true;
+}
+
+HierarchyObject::Ref HierarchyManager::PasteObject(HierarchyObject::Ref parent) {
+    if (!m_hasCopiedObject) return nullptr;
+
+    gbe::SerializedData pasteData = m_copiedObject;
+    gbe::ISerializable* rawObject = gbe::TypeRegistry::Instantiate(
+        typeid(HierarchyObject).name(), pasteData);
+    auto* pastedObject = dynamic_cast<HierarchyObject*>(rawObject);
+    if (!pastedObject) {
+        delete rawObject;
+        return nullptr;
+    }
+
+    pastedObject->Deserialize(pasteData);
+
+    std::unique_ptr<HierarchyObject> ownedObject(pastedObject);
+    if (parent) {
+        return parent.GetPtr()->AddChild(std::move(ownedObject));
+    }
+
+    return AddRootObject(std::move(ownedObject));
+}
+
+size_t HierarchyManager::CommitDeferredDeletions() {
+    std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> pendingDeletions;
+    pendingDeletions.swap(m_deferredDeletionIds);
+
+    size_t removedCount = 0;
+    for (const auto objectId : pendingDeletions) {
+        HierarchyObject::Ref object(objectId);
+        HierarchyObject* objectPtr = object.GetPtr();
+        if (!objectPtr) continue;
+
+        if (HierarchyObject::Ref parent = objectPtr->GetParent()) {
+            if (parent.GetPtr()->RemoveChild(object)) {
+                ++removedCount;
+            }
+        }
+        else if (RemoveRootObject(object)) {
+            ++removedCount;
+        }
+    }
+
+    return removedCount;
+}
+
 void HierarchyManager::AddComponentToObject(HierarchyObject::Ref object, std::unique_ptr<ComponentBase> component) {
     if (!object || !component) return;
     //Moved it to object
@@ -33,15 +149,26 @@ std::unique_ptr<ComponentBase> HierarchyManager::RemoveComponentFromObject(Hiera
 }
 
 bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix) {
-    if (GetMainCamera() != nullptr)
+    CameraComponent* activeCamera = nullptr;
+    if (AppConfig::release) {
+        activeCamera = GetMainCamera();
+    }
+    else {
+        activeCamera = GetEditorCamera();
+        if (!activeCamera) {
+            activeCamera = GetMainCamera();
+        }
+    }
+
+    if (activeCamera != nullptr)
     {
         // Ensure the matrices are up-to-date with the current Transform data
-        GetMainCamera()->UpdateViewMatrix();
-        GetMainCamera()->UpdateProjectionMatrix();
+        activeCamera->UpdateViewMatrix();
+        activeCamera->UpdateProjectionMatrix();
 
         // Extract the required matrices for the rendering pipeline
-        outViewMatrix = GetMainCamera()->GetViewMatrix();
-        outProjectionMatrix = GetMainCamera()->GetProjectionMatrix();
+        outViewMatrix = activeCamera->GetViewMatrix();
+        outProjectionMatrix = activeCamera->GetProjectionMatrix();
 
         return true;
     }
@@ -173,8 +300,19 @@ void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) cons
 }
 
 bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
-    if (GetMainCamera() != nullptr) {
-        if (HierarchyObject::Ref camOwner = GetMainCamera()->GetOwner()) {
+    CameraComponent* activeCamera = nullptr;
+    if (AppConfig::release) {
+        activeCamera = GetMainCamera();
+    }
+    else {
+        activeCamera = GetEditorCamera();
+        if (!activeCamera) {
+            activeCamera = GetMainCamera();
+        }
+    }
+
+    if (activeCamera != nullptr) {
+        if (HierarchyObject::Ref camOwner = activeCamera->GetOwner()) {
             if (Transform* camTransform = camOwner.GetPtr()->GetComponent<Transform>()) {
                 outPosition = camTransform->GetPosition();
                 return true;
@@ -187,7 +325,7 @@ bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
 
 gbe::SerializedData HierarchyManager::Serialize()
 {
-    return gbe::SerializedData();
+    return gbe::ISerializable::Serialize();
 }
 
 void HierarchyManager::Deserialize(gbe::SerializedData& data)
@@ -198,4 +336,33 @@ void HierarchyManager::Deserialize(gbe::SerializedData& data)
     );
 
     gbe::ISerializable::Deserialize(data);
+    EnsureEditorCameraExists();
+}
+
+void HierarchyManager::EnsureEditorCameraExists()
+{
+    if (GetEditorCamera() != nullptr) {
+        return;
+    }
+
+    HierarchyObject::Ref editorCamObject = ObjectFactory::GetInstance().CreateRootCameraObject("Main Camera");
+    if (editorCamObject && editorCamObject.GetPtr()->GetTransform()) {
+        editorCamObject.GetPtr()->GetTransform()->SetPosition(glm::vec3(0.0f, 0.0f, -10.0f));
+    }
+}
+
+void HierarchyManager::LoadScene(std::filesystem::path filepath)
+{
+    m_sceneFile = filepath;
+    this->DeserializeFromFile(filepath);
+    EnsureEditorCameraExists();
+}
+
+void HierarchyManager::QuickSave()
+{
+    if(m_sceneFile.empty()){
+        return;
+    }
+    
+    this->SerializeToFile(m_sceneFile);
 }
