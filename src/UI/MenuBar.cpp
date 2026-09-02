@@ -6,7 +6,6 @@
 #include "FileDialogue.hpp"
 #include "RendererManager.hpp"
 
-
 namespace Diligent {
 
     void MenuBar::Draw(bool& appRunning, const std::vector<std::unique_ptr<BasePanel>>& panels)
@@ -66,7 +65,6 @@ namespace Diligent {
 
                 if (ImGui::MenuItem("Load Model"))
                 {
-                    // Use the static method from the new FileDialog class
                     std::string filepath = FileDialog::OpenModelFile();
 
                     if (!filepath.empty())
@@ -90,8 +88,14 @@ namespace Diligent {
                     );
                 }
 
-                // The last parameter of MenuItem acts as the "enabled" flag.
-                // If rtSupported is false, the menu item will be greyed out and unclickable!
+                if (ImGui::MenuItem("Deferred Pipeline"))
+                {
+                    gbe::EventSystem::DispatchTo(
+                        EVENT_RENDER_CHANGE,
+                        std::make_unique<RendererChangeArgs>(RendererChangeArgs::DEFERRED)
+                    );
+                }
+
                 if (ImGui::MenuItem("Hybrid Pipeline (RayTraced)", nullptr, false, rtSupported))
                 {
                     gbe::EventSystem::DispatchTo(
@@ -103,7 +107,6 @@ namespace Diligent {
                 ImGui::EndMenu();
             }
 
-            // Dynamically populate the Windows menu based on registered panels
             if (ImGui::BeginMenu("Windows"))
             {
                 for (const auto& panel : panels)

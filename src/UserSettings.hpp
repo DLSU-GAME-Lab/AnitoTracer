@@ -45,7 +45,8 @@ namespace Diligent {
         // Data Storage
         // ------------------------------------------------------------------
         ShadowSettings m_ShadowSettings;
-        bool m_EnableMSAA = true; // Added MSAA toggle state
+        //False for now for deferred- TODO- Fix for deferred
+        bool m_EnableMSAA = false; // Added MSAA toggle state
 
         // GraphicsSettings m_GraphicsSettings;
         // AudioSettings m_AudioSettings;

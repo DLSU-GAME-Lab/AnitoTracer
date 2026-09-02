@@ -1,5 +1,6 @@
 #include "RendererManager.hpp"
 #include <iostream>
+#include <type_traits>
 
 void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, bool supportsRayTracing)
 {
@@ -8,7 +9,6 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
     m_pSwapChain = pSwapChain;
     m_SupportsRayTracing = supportsRayTracing;
 
-    // Allocate pipeline based on ray tracing support feature state
     if (supportsRayTracing)
     {
         m_bLitPipeline.emplace<Diligent::HybridPipeline>();
@@ -19,7 +19,7 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
         m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
         std::cout << "[Warn] Hardware Ray Tracing not available. Falling back to BasicLitPipeline." << std::endl;
     }
-    
+
     m_LastMSAAState = Diligent::UserSettings::GetInstance().GetEnableMSAA();
     CreateMSAABuffers();
 
@@ -32,7 +32,26 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
 
 void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
 {
-    if (args->targetPipeline == RendererChangeArgs::HYBRID && m_SupportsRayTracing)
+    bool isMSAAEnabled = Diligent::UserSettings::GetInstance().GetEnableMSAA();
+
+    if (args->targetPipeline == RendererChangeArgs::DEFERRED)
+    {
+        if (isMSAAEnabled)
+        {
+            std::cout << "[Warn] Deferred rendering does not support MSAA with current setup. Reverting to Hybrid/Basic Lit." << std::endl;
+            // Fall back to ray-traced hybrid or basic lit if MSAA is on
+            if (m_SupportsRayTracing)
+                m_bLitPipeline.emplace<Diligent::HybridPipeline>();
+            else
+                m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
+        }
+        else
+        {
+            m_bLitPipeline.emplace<Diligent::DeferredPipeline>();
+            std::cout << "[RendererManager] Swapped to Deferred Pipeline." << std::endl;
+        }
+    }
+    else if (args->targetPipeline == RendererChangeArgs::HYBRID && m_SupportsRayTracing)
     {
         m_bLitPipeline.emplace<Diligent::HybridPipeline>();
         std::cout << "[RendererManager] Swapped to Hybrid Pipeline." << std::endl;
@@ -43,7 +62,6 @@ void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
         std::cout << "[RendererManager] Swapped to Basic Lit Pipeline." << std::endl;
     }
 
-    // Immediately reinitialize the newly emplaced pipeline
     InitializePipelines();
 }
 
@@ -89,6 +107,11 @@ void RendererManager::OnResize(Diligent::Uint32 width, Diligent::Uint32 height)
     if (m_pSwapChain)
     {
         m_pSwapChain->Resize(width, height);
+
+        if (auto* pDeferred = std::get_if<Diligent::DeferredPipeline>(&m_bLitPipeline))
+        {
+            pDeferred->OnWindowResize(m_pDevice, width, height);
+        }
     }
 }
 
@@ -99,7 +122,6 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
 
     bool isMSAAEnabled = UserSettings::GetInstance().GetEnableMSAA();
 
-    // Recreate MSAA buffers and reinitialize pipelines if MSAA state or window dimensions change
     if (m_pMSAATarget->GetDesc().Width != SCDesc.Width ||
         m_pMSAATarget->GetDesc().Height != SCDesc.Height ||
         m_LastMSAAState != isMSAAEnabled)
@@ -108,6 +130,16 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
 
         if (m_LastMSAAState != isMSAAEnabled)
         {
+            //TODO Fix this for deffered later
+            // If deferred is active and MSAA was just turned ON, force a switch to a compatible pipeline
+            if (isMSAAEnabled && std::holds_alternative<Diligent::DeferredPipeline>(m_bLitPipeline))
+            {
+                if (m_SupportsRayTracing)
+                    m_bLitPipeline.emplace<Diligent::HybridPipeline>();
+                else
+                    m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
+            }
+
             InitializePipelines();
             m_LastMSAAState = isMSAAEnabled;
         }
@@ -126,12 +158,17 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
         pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
         pipeline.RenderModels(m_pImmediateContext, renderData, true);
+
+        using T = std::decay_t<decltype(pipeline)>;
+        if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>)
+        {
+            pipeline.RenderLightingPass(m_pImmediateContext);
+        }
         }, m_bLitPipeline);
 
     auto* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
     auto* pDefaultDSV = m_pSwapChain->GetDepthBufferDSV();
 
-    // Resolve MSAA to back buffer if enabled
     if (isMSAAEnabled)
     {
         Diligent::ResolveTextureSubresourceAttribs ResolveAttribs;
@@ -145,7 +182,6 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
         );
     }
 
-    // Set render targets back for ImGui/Post-processing
     m_pImmediateContext->SetRenderTargets(1, &pBackBufferRTV, pDefaultDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 

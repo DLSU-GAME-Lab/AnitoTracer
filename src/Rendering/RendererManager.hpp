@@ -8,6 +8,7 @@
 
 #include "Pipelines/BasicLitPipeline.hpp"
 #include "Pipelines/HybridPipeline.hpp"
+#include "Pipelines/DeferredPipeline.hpp"
 #include "RenderData.hpp"
 
 #include "../UserSettings.hpp"
@@ -48,7 +49,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAARTV;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAADSV;
 
-    std::variant<Diligent::HybridPipeline, Diligent::BasicLitPipeline> m_bLitPipeline;
+    std::variant<Diligent::HybridPipeline, Diligent::BasicLitPipeline, Diligent::DeferredPipeline> m_bLitPipeline;
     bool m_LastMSAAState = false;
     bool m_SupportsRayTracing = false;
 
