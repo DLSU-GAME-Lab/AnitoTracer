@@ -16,10 +16,14 @@ int main(int argc, char** argv)
     freopen_s(&fDummy, "CONOUT$", "w", stdout);
 #endif
 
+    std::vector<std::string> args = {};
+
 #if PLATFORM_WIN32
-    if (app.Initialize(hInstance, nCmdShow))
+    args = std::vector<std::string>(__argv, __argv + __argc);
+    if (app.Initialize(static_cast<void*>(hInstance), nCmdShow, args))
 #else
-    if (app.Initialize(nullptr, 0)) // Adjust according to platform needs
+    args = std::vector<std::string>(argv, argv + argc);
+    if (app.Initialize(nullptr, 0, args))
 #endif
     {
         app.Run();

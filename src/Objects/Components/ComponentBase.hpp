@@ -44,6 +44,7 @@ protected:
 
     gbe::IInstanceManager<HierarchyObject>::Ref m_owner;
 
+    virtual inline void GBE_Init() {};
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ComponentBase, gbe::ISerializable);
 public:
     virtual std::string GetLabel() override;

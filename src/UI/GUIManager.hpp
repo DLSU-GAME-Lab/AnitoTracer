@@ -12,12 +12,14 @@
 #include "Panels/HierarchyPanel.hpp"
 #include "Panels/UserSettingsPanel.hpp"
 #include "Panels/ProfilerPanel.hpp"
+#include "Panels/FileExplorerPanel.hpp"
 #include "Panels/InspectorPanel/InspectorPanel.hpp"
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"
 #include "Panels/InspectorPanel/Components/CameraUI.hpp"
 #include "Panels/InspectorPanel/Components/DirectionalLightUI.hpp"
 #include "Panels/InspectorPanel/Components/PointLightUI.hpp"
+#include "Panels/InspectorPanel/Components/ModelUI.hpp"
 
 namespace Diligent {
 
@@ -55,6 +57,8 @@ namespace Diligent {
         GizmoDrawer& GetGizmoDrawer() { return m_GizmoDrawer; }
         void DrawGizmos(CameraComponent* pActiveCamera, float x, float y, float width, float height);
 
+        void RegisterFileOpener(FileExplorerPanel::Opener opener);
+
     private:
         GUIManager() = default;
         ~GUIManager();
@@ -66,6 +70,8 @@ namespace Diligent {
 
         //Cache ref for laters
         HierarchyPanel* m_pHierarchyPanel = nullptr;
+        FileExplorerPanel* m_pFileExplorerPanel = nullptr;
+        std::vector<FileExplorerPanel::Opener> m_FileOpeners;
 
         // Manage all UI windows dynamically
         std::vector<std::unique_ptr<BasePanel>> m_Panels;

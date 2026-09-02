@@ -22,6 +22,8 @@ set(${CUR_TARGET_NAME}_src
 	Panels/UserSettingsPanel.hpp
 	Panels/ProfilerPanel.cpp
 	Panels/ProfilerPanel.hpp
+	Panels/FileExplorerPanel.cpp
+	Panels/FileExplorerPanel.hpp
 
 	MenuBar.hpp
 	MenuBar.cpp
@@ -57,7 +59,6 @@ target_link_libraries(${CUR_TARGET_NAME}
 
 	anito::serialization
 	gbe::filedialogue
-	gbe::tools
 	anito::event
 	anito::rendering
 	anito::objects
@@ -72,6 +73,8 @@ target_link_libraries(${CUR_TARGET_NAME}
 	Diligent-Imgui
 
 	anito::common
+
+	gbe::tools
 )
 
 #ADDITIONAL STUFF

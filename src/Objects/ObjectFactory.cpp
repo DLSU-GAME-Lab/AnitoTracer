@@ -23,15 +23,15 @@ HierarchyObject::Ref ObjectFactory::CreateRootObjectWithTransform(const std::str
 }
 
 HierarchyObject::Ref ObjectFactory::CreateRootCameraObject(const std::string& name) {
-    if (HierarchyManager::GetInstance().GetMainCamera() != nullptr)
-        return HierarchyManager::GetInstance().GetMainCamera()->GetOwner();
+    if (HierarchyManager::GetInstance().GetEditorCamera() != nullptr)
+        return HierarchyManager::GetInstance().GetEditorCamera()->GetOwner();
 
     HierarchyObject::Ref newObject = CreateRootObject(name);
 
     auto transform = std::make_unique<Transform>();
 
-    // Fix: Use .get() to extract the raw pointer from the unique_ptr for the constructor
-    auto camera = std::make_unique<CameraComponent>(transform.get(), newObject);
+    // Default root camera is editor-only; runtime camera is selected from GameCamera instances.
+    auto camera = std::make_unique<EditorCamera>(transform.get(), newObject);
 
     HierarchyManager::GetInstance().AddComponentToObject(newObject, std::move(camera));
     HierarchyManager::GetInstance().AddComponentToObject(newObject, std::move(transform));

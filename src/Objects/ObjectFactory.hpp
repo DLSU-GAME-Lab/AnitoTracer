@@ -8,6 +8,8 @@
 #include "HierarchyManager.hpp"
 #include "Components/Transform.hpp"
 #include "Components/Camera.hpp"
+#include "Components/EditorCamera.hpp"
+#include "Components/GameCamera.hpp"
 #include "Components/ModelComponent.hpp"
 #include "Components/Lights/DirectionLight.hpp"
 #include "Components/Lights/PointLight.hpp"

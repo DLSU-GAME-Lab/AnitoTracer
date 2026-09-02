@@ -15,6 +15,27 @@
 #include "UserSettings.hpp"
 #include "UI/ObjectPicker.hpp"
 #include "Asset/AssetPipeline.hpp"
+#include "InputSystem.hpp"
+
+#include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
+#include "Asset/ProjectLoader.hpp"
+
+#include "AppConfig.hpp"
+#include "Input/ImguiBridge.hpp"
+
+#include "UI/CursorManager.hpp"
+#include "Objects/Components/EditorCamera.hpp"
+
+#include ANITO_EVENT_INCLUDES
+#include ANITO_COMPONENT_INCLUDES
+
+#include "AssignableEvent/MethodRegistry.hpp"
+#include "AssignableEvent/AssignableEvent.hpp"
+
+#include "PropertyDrawers/objectref_drawer.hpp"
+#include "PropertyDrawers/event_drawer.hpp"
+
+#include "ObjectSystems/Scene/SceneManager.hpp"
 
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
 
@@ -30,6 +51,11 @@ static AnitoTracer_App* g_pAppInstance = nullptr;
 #if PLATFORM_WIN32
 LRESULT CALLBACK EngineWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (message == WM_LBUTTONDOWN)
+    {
+        CursorManager::GetInstance().OnMouseButtonDown();
+    }
+
     if (ImGui::GetCurrentContext() != nullptr)
     {
         extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -39,6 +65,12 @@ LRESULT CALLBACK EngineWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 
     switch (message)
     {
+    case WM_ACTIVATEAPP:
+        CursorManager::GetInstance().OnFocusChanged(wParam != FALSE);
+        return 0;
+    case WM_ACTIVATE:
+        CursorManager::GetInstance().OnFocusChanged(LOWORD(wParam) != WA_INACTIVE);
+        return 0;
     case WM_SIZE:
         if (g_pAppInstance)
         {
@@ -90,6 +122,23 @@ bool AnitoTracer_App::Initialize(HINSTANCE hInstance, int nCmdShow)
     return true;
 }
 
+bool AnitoTracer_App::Initialize(void* hInstance, int nCmdShow, const std::vector<std::string>& args)
+{
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (args[i] == "-release" || args[i] == "--release") {
+            AppConfig::release = true;
+        }
+        else if ((args[i] == "--project" || args[i] == "-project") && (i + 1 < args.size())) {
+            AppConfig::entry_project = args[++i]; // Read the path and skip to next token
+        }
+        else if ((args[i] == "--scene" || args[i] == "-scene") && (i + 1 < args.size())) {
+            AppConfig::entry_scene = args[++i]; // Read the path and skip to next token
+        }
+    }
+
+    return AnitoTracer_App::Initialize(static_cast<HINSTANCE>(hInstance), nCmdShow);
+}
+
 bool AnitoTracer_App::InitWindow(HINSTANCE hInstance, int nCmdShow)
 {
 #if PLATFORM_WIN32
@@ -119,11 +168,13 @@ bool AnitoTracer_App::InitWindow(HINSTANCE hInstance, int nCmdShow)
 
     ShowWindow(hWnd, nCmdShow);
     m_NativeWindow.hWnd = hWnd;
+    CursorManager::GetInstance().Initialize(hWnd);
     return true;
 #else
 #error Platform window creation logic must be declared for non-Windows builds.
     return false;
 #endif
+
 }
 
 bool AnitoTracer_App::InitEngine()
@@ -187,14 +238,22 @@ void AnitoTracer_App::SubscribeToStandardEvents()
 
 void AnitoTracer_App::InitManagers()
 {
+
     Diligent::ShaderManager::GetInstance().Initialize(m_pDevice, "Shaders");
     ModelManager::GetInstance().Initialize(m_pDevice, m_pImmediateContext);
     
     AssetPipeline::IncludeFolder("Assets");
 
+    if (AppConfig::entry_project.size() > 0)
+        ProjectLoader::LoadProject(AppConfig::entry_project);
+    if (AppConfig::entry_scene.size() > 0)
+        HierarchyManager::GetInstance().LoadScene(AppConfig::entry_scene);
+
     ObjectFactory& objFactory = ObjectFactory::GetInstance();
     m_MainCam = objFactory.CreateRootCameraObject("Main Camera");
     m_MainCam.GetPtr()->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
+
+    PlayerInput::RegisterDefaultKeybinds();
 }
 
 void AnitoTracer_App::OnResize(short width, short height)
@@ -258,28 +317,43 @@ void AnitoTracer_App::Update()
     io.DisplaySize = ImVec2(static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height));
 
     imguiManager.NewFrame(SCDesc.Width, SCDesc.Height, transform);
-    UpdateCameraControls();
-    imguiManager.DrawUI(m_AppRunning);
+    //UpdateCameraControls();
 
-    //Draw Gizmos
-    if (m_MainCam.GetPtr()) {
-        imguiManager.DrawGizmos(
-            m_MainCam.GetPtr()->GetComponent<CameraComponent>(),
-            0.0f, 0.0f,
-            static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height)
-        );
-    }
+    if (!AppConfig::release)
+        imguiManager.DrawUI(m_AppRunning);
 
     //===============//EVENTS//===============//
+    SceneManager::GetInstance().ProcessPendingSceneChange();
 
-	static double s_LastTime = ImGui::GetTime();
+    ForwardImGuiInputToSystem();
+    gbe::InputSystem::Update();
+    
+    static double s_LastTime = ImGui::GetTime();
 	double currentTime = ImGui::GetTime();
 	float deltaTime = static_cast<float>(currentTime - s_LastTime);
 	s_LastTime = currentTime;
 
-	PhysicsEngine::GetInstance().Get().Step(deltaTime);
-    HierarchyManager::GetInstance().DispatchEvent<FixedUpdateTrigger>(deltaTime);
-    HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(0.016f); //test delta frame
+    if (!AppConfig::release){
+        //Editor update
+        HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(deltaTime); //test delta frame
+        HierarchyManager::GetInstance().DispatchEvent<OnGUI_Editor>(deltaTime);
+        //Draw Gizmos
+        if (IInstanceManager<EditorCamera>::getOldest()) {
+            imguiManager.DrawGizmos(
+                IInstanceManager<EditorCamera>::getOldest(),
+                0.0f, 0.0f,
+                static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height)
+            );
+        }
+    }
+    if (AppConfig::release){
+        HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame
+        HierarchyManager::GetInstance().DispatchEvent<OnGUI_Release>(deltaTime);
+        PhysicsEngine::GetInstance().Get().Step(deltaTime);
+        HierarchyManager::GetInstance().DispatchEvent<FixedUpdateTrigger>(deltaTime);
+    }
+
+    HierarchyManager::GetInstance().CommitDeferredDeletions();
 }
 
 void AnitoTracer_App::Render()
@@ -301,55 +375,6 @@ void AnitoTracer_App::Render()
     m_pSwapChain->Present(1);
 
     EventSystem::DispatchTo(EVENT_RENDER_END, std::make_unique<EventArgs>());
-}
-
-void AnitoTracer_App::UpdateCameraControls()
-{
-    ImGuiIO& io = ImGui::GetIO();
-    static double s_LastTime = ImGui::GetTime();
-    double currentTime = ImGui::GetTime();
-    float deltaTime = static_cast<float>(currentTime - s_LastTime);
-    s_LastTime = currentTime;
-
-    if (!io.WantCaptureKeyboard && m_MainCam.GetPtr())
-    {
-        float mod = 1.f;
-        float mov_mod = 4.f;
-        if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
-        {
-            mod = 4.f;
-            mov_mod = 10.f;
-        }
-
-        float moveSpeed = 10.0f * deltaTime * mov_mod;
-        float rotSpeed = 8.0f * deltaTime * mod;
-
-        auto* camTransform = m_MainCam.GetPtr()->GetTransform();
-        glm::vec3 pos = camTransform->GetPosition();
-        glm::vec3 rot = camTransform->GetEulerAnglesDegrees();
-
-        glm::vec3 rotRad = glm::radians(rot);
-        glm::quat orientation = glm::quat(rotRad);
-
-        glm::vec3 forward = orientation * glm::vec3(0.0f, 0.0f, 1.0f);
-        glm::vec3 right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
-        glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
-
-        if (ImGui::IsKeyDown(ImGuiKey_W)) pos += forward * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_S)) pos -= forward * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_A)) pos -= right * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_D)) pos += right * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_Q)) pos -= up * moveSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_E)) pos += up * moveSpeed;
-
-        if (ImGui::IsKeyDown(ImGuiKey_I)) rot.x -= rotSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_K)) rot.x += rotSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_J)) rot.y -= rotSpeed;
-        if (ImGui::IsKeyDown(ImGuiKey_L)) rot.y += rotSpeed;
-
-        camTransform->SetPosition(pos);
-        camTransform->SetEulerAnglesDegrees(rot);
-    }
 }
 
 void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const RenderData& renderData)

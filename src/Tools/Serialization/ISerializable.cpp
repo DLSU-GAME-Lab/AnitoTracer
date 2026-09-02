@@ -11,9 +11,10 @@ gbe::ISerializable::ISerializable()
 
 gbe::ISerializable::ISerializable(gbe::SerializedData& data)
 {
-	// Register before deserialization
+	// Registration must happen during construction, but deserialization must wait
+	// until derived-class AutoSerializer members have been constructed.
+	(void)data;
 	SceneRegistry::GetInstance().Register(m_guid, this);
-	Deserialize(data);
 }
 
 gbe::ISerializable::~ISerializable()

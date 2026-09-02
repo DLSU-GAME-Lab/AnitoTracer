@@ -50,6 +50,7 @@ public:
     ~AnitoTracer_App();
 
     bool Initialize(HINSTANCE hInstance, int nCmdShow);
+    bool Initialize(void* hInstance, int nCmdShow, const std::vector<std::string>& args);
     void Run();
     void Shutdown();
 

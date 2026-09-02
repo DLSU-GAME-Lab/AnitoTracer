@@ -1,4 +1,9 @@
 #include "InspectorPanel.hpp"
+#include "TypeRegistry.hpp"
+#include "SerializedData.hpp"
+#include "../../../Objects/Components/EditorCamera.hpp"
+
+#include <cstring>
 
 void Diligent::InspectorPanel::Draw()
 {
@@ -10,6 +15,13 @@ void Diligent::InspectorPanel::Draw()
 
         if (selected.GetPtr())
         {
+            if (selected.GetPtr()->GetComponent<EditorCamera>() != nullptr)
+            {
+                ImGui::Text("Editor camera is protected and cannot be edited here.");
+                ImGui::End();
+                return;
+            }
+
             // --- Gizmo Control Toolbar ---
             auto& gizmoDrawer = GUIManager::GetInstance().GetGizmoDrawer();
             ImGuizmo::OPERATION currentOp = gizmoDrawer.GetOperation();
@@ -41,10 +53,24 @@ void Diligent::InspectorPanel::Draw()
             ImGui::Separator();
             ImGui::Spacing();
 
-            // Display the object's name
-            ImGui::TextDisabled("Name:");
-            ImGui::SameLine();
-            ImGui::Text("%s", selected.GetPtr()->GetName().c_str());
+            // Rename selected object
+            if (m_NameBufferObject != selected)
+            {
+                m_NameBufferObject = selected;
+                std::strncpy(m_NameBuffer, selected.GetPtr()->GetName().c_str(), sizeof(m_NameBuffer) - 1);
+                m_NameBuffer[sizeof(m_NameBuffer) - 1] = '\0';
+            }
+
+            ImGui::SetNextItemWidth(-1.0f);
+            if (ImGui::InputText("Name", m_NameBuffer, sizeof(m_NameBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                selected.GetPtr()->SetName(m_NameBuffer);
+            }
+
+            if (ImGui::IsItemDeactivatedAfterEdit())
+            {
+                selected.GetPtr()->SetName(m_NameBuffer);
+            }
 
             ImGui::Separator();
             ImGui::Spacing();
@@ -54,29 +80,55 @@ void Diligent::InspectorPanel::Draw()
             {
                 if (component)
                 {
-                    //Skip name and use it to collapse
-                    if (ImGui::CollapsingHeader(component->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+                    // Scope all widgets within this component to its memory address
+                    ImGui::PushID(component.get());
 
-                        // Loop through the public properties vector from ISerializable
-                        for (auto* property : component->properties) {
+                    InspectorRegistry::GetInstance().DrawComponent(component.get());
 
-                            //Skip name
-                            if (property->m_id == "m_name") {
-                                continue;
-                            }
-
-                            // Draw all other properties normally
-                            if (!property->DrawInspector()) {
-                                //Sanity check to see if something is there even if the draw did not happen
-								std::string fallBackTxt = "No UI for " + property->m_display_name;
-								ImGui::Text(fallBackTxt.c_str());
-                            }
-                        }
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Remove")) {
+                        selected.GetPtr()->RemoveComponent(component.get());
+                        ImGui::PopID();
+                        break;
                     }
-                    //TODO: Add specialty component laters desu
-                    /*InspectorRegistry::GetInstance().DrawComponent(component.get());*/
+
+                    ImGui::PopID(); // Pop ID scope after drawing component
                     ImGui::Spacing();
                 }
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            // --- ADD COMPONENT BUTTON & POPUP ---
+            if (ImGui::Button("Add Component", ImVec2(-1, 0))) {
+                ImGui::OpenPopup("AddComponentPopup");
+            }
+
+            if (ImGui::BeginPopup("AddComponentPopup")) {
+                for (const auto& entry : gbe::TypeRegistry::GetEntries()) {
+                    std::string label = entry.name;
+                    if (label.rfind("class ", 0) == 0) label.erase(0, 6);
+                    if (label.rfind("struct ", 0) == 0) label.erase(0, 7);
+
+                    // Ensure popup labels are non-empty and uniquely identified
+                    std::string popupItemLabel = (label.empty() ? "Unknown Type" : label) + "##" + entry.name;
+
+                    if (ImGui::Selectable(popupItemLabel.c_str())) {
+                        gbe::SerializedData emptyData;
+                        gbe::ISerializable* rawInstance = gbe::TypeRegistry::Instantiate(entry.name, emptyData);
+
+                        if (auto* newComponent = dynamic_cast<ComponentBase*>(rawInstance)) {
+                            newComponent->SetOwner(selected);
+                            selected.GetPtr()->AddComponent(std::unique_ptr<ComponentBase>(newComponent));
+                        }
+                        else {
+                            delete rawInstance;
+                        }
+                    }
+                }
+                ImGui::EndPopup();
             }
         }
         else

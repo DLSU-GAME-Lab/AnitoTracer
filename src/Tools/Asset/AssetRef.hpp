@@ -15,7 +15,6 @@ namespace gbe {
 
     private:
         GUID m_guid = GUID::Empty();
-        mutable T* m_cachedPtr = nullptr; // Transient runtime cache
 
     public:
         // Default Constructor (Empty/Null reference)
@@ -26,31 +25,15 @@ namespace gbe {
 
         // Construct directly from Raw Asset Pointer
         AssetRef(T* asset)
-            : m_guid(asset ? asset->GetGUID() : GUID::Empty()),
-            m_cachedPtr(asset) {}
+            : m_guid(asset ? asset->GetGUID() : GUID::Empty()) {}
 
         // Copy & Move Operators
         AssetRef(const AssetRef& other) = default;
         AssetRef& operator=(const AssetRef& other) = default;
 
-        AssetRef(AssetRef&& other) noexcept
-            : m_guid(std::move(other.m_guid)), m_cachedPtr(other.m_cachedPtr) {
-            other.m_cachedPtr = nullptr;
-        }
-
-        AssetRef& operator=(AssetRef&& other) noexcept {
-            if (this != &other) {
-                m_guid = std::move(other.m_guid);
-                m_cachedPtr = other.m_cachedPtr;
-                other.m_cachedPtr = nullptr;
-            }
-            return *this;
-        }
-
         // Assign from Raw Asset Pointer
         AssetRef& operator=(T* asset) {
             m_guid = asset ? asset->GetGUID() : GUID::Empty();
-            m_cachedPtr = asset;
             return *this;
         }
 
@@ -58,10 +41,7 @@ namespace gbe {
         GUID GetGUID() const { return m_guid; }
 
         void SetGUID(const GUID& guid) {
-            if (m_guid != guid) {
-                m_guid = guid;
-                m_cachedPtr = nullptr; // Invalidate cache
-            }
+            m_guid = guid;
         }
 
         // Check if reference is populated
@@ -73,13 +53,7 @@ namespace gbe {
         // Pointer Accessors
         T* Get() const {
             if (m_guid == GUID::Empty()) return nullptr;
-
-            // Resolve cached pointer or fetch from AssetDatabase
-            if (!m_cachedPtr) {
-                IAsset* baseAsset = AssetDatabase::GetAssetByGUID(m_guid);
-                m_cachedPtr = dynamic_cast<T*>(baseAsset);
-            }
-            return m_cachedPtr;
+            return dynamic_cast<T*>(AssetDatabase::GetAssetByGUID(m_guid));
         }
 
         T* operator->() const { return Get(); }

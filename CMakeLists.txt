@@ -69,7 +69,8 @@ add_subdirectory(src/Rendering)
 add_subdirectory(src/Tools)
 
 # Add source to this project's executable.
-add_executable (AnitoTracer_Rebuild WIN32 "src/UserSettings.hpp" "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h" "src/AnitoTracer_App.hpp" "src/AnitoTracer_App.cpp")
+add_executable (AnitoTracer_Rebuild WIN32 "src/UserSettings.hpp" "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h" "src/AnitoTracer_App.hpp" "src/AnitoTracer_App.cpp"
+  src/UI/Panels/FileExplorerPanel.cpp)
 set_property(TARGET AnitoTracer_Rebuild PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -97,6 +98,8 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 assimp::assimp
 				Diligent-GraphicsEngineVk-shared
 				Diligent-Imgui
+
+                gbe::tools
 
                 $<LINK_LIBRARY:WHOLE_ARCHIVE,anito::objects>
                 anito::common 

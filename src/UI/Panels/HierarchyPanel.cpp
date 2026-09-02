@@ -3,6 +3,11 @@
 
 namespace Diligent {
 
+    bool HierarchyPanel::IsEditorCameraObject(HierarchyObject::Ref obj) const
+    {
+        return obj && obj.GetPtr()->GetComponent<EditorCamera>() != nullptr;
+    }
+
     HierarchyPanel::HierarchyPanel(const std::string& name)
         : BasePanel(name)
     {}
@@ -21,7 +26,45 @@ namespace Diligent {
             // Iterate and draw each root node
             for (const auto& root : rootObjects)
             {
-                DrawNode(root.get());
+                if (!IsEditorCameraObject(root.get())) {
+                    DrawNode(root.get());
+                }
+            }
+
+            if (m_pendingDraggedObject) {
+                HierarchyManager::GetInstance().ReparentObject(
+                    m_pendingDraggedObject, m_pendingDropParent);
+                m_pendingDraggedObject = nullptr;
+                m_pendingDropParent = nullptr;
+            }
+
+            if (ImGui::IsWindowHovered() &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !ImGui::IsAnyItemHovered())
+            {
+                SetSelectedObject(nullptr);
+            }
+
+            if (m_SelectedObject && ImGui::IsKeyPressed(ImGuiKey_Delete) &&
+                !ImGui::GetIO().WantTextInput)
+            {
+                HierarchyManager::GetInstance().QueueObjectDeletion(m_SelectedObject);
+                SetSelectedObject(nullptr);
+            }
+
+            if (!ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl &&
+                ImGui::IsKeyPressed(ImGuiKey_C) && m_SelectedObject)
+            {
+                HierarchyManager::GetInstance().CopyObject(m_SelectedObject);
+            }
+
+            if (!ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl &&
+                ImGui::IsKeyPressed(ImGuiKey_V) &&
+                HierarchyManager::GetInstance().HasCopiedObject())
+            {
+                HierarchyObject::Ref pastedObject =
+                    HierarchyManager::GetInstance().PasteObject(m_SelectedObject);
+                if (pastedObject) SetSelectedObject(pastedObject);
             }
         }
         ImGui::End();
@@ -29,12 +72,17 @@ namespace Diligent {
 
     void HierarchyPanel::SetSelectedObject(HierarchyObject::Ref obj)
     {
+        if (IsEditorCameraObject(obj)) {
+            m_SelectedObject = nullptr;
+            return;
+        }
         m_SelectedObject = obj;
     }
 
     void HierarchyPanel::DrawNode(HierarchyObject::Ref node)
     {
         if (!node) return;
+        if (IsEditorCameraObject(node)) return;
 
         // Configure default behavior for the tree nodes
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
@@ -69,10 +117,52 @@ namespace Diligent {
             ImGui::EndDragDropSource();
         }
 
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_HIERARCHY_OBJ"))
+            {
+                auto* draggedObject = *static_cast<HierarchyObject* const*>(payload->Data);
+                if (draggedObject) {
+                    m_pendingDraggedObject = draggedObject;
+                    m_pendingDropParent = node;
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         // Update the selected object when clicked
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
             SetSelectedObject(node);
+        }
+
+        if (ImGui::BeginPopupContextItem("ObjectContextMenu"))
+        {
+            if (ImGui::MenuItem("Copy Object", "Ctrl+C"))
+            {
+                SetSelectedObject(node);
+                HierarchyManager::GetInstance().CopyObject(node);
+            }
+
+            if (ImGui::MenuItem("Paste Object", "Ctrl+V",
+                false, HierarchyManager::GetInstance().HasCopiedObject()))
+            {
+                SetSelectedObject(node);
+                HierarchyObject::Ref pastedObject =
+                    HierarchyManager::GetInstance().PasteObject(node);
+                if (pastedObject) SetSelectedObject(pastedObject);
+            }
+
+            ImGui::Separator();
+            if (ImGui::MenuItem("Delete Object", "Del"))
+            {
+                HierarchyManager::GetInstance().QueueObjectDeletion(node);
+                if (m_SelectedObject == node)
+                {
+                    SetSelectedObject(nullptr);
+                }
+            }
+            ImGui::EndPopup();
         }
 
         // If the tree node is expanded by the user, recursively draw its children
@@ -81,7 +171,9 @@ namespace Diligent {
             const auto& children = node.GetPtr()->GetChildren();
             for (const auto& child : children)
             {
-                DrawNode(child.get());
+                if (!IsEditorCameraObject(child.get())) {
+                    DrawNode(child.get());
+                }
             }
             ImGui::TreePop();
         }
