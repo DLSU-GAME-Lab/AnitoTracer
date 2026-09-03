@@ -13,8 +13,10 @@ namespace Diligent {
 
         // Remove padding so the render target sits flush with the window borders
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        //Prevent jitters
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 
-        if (ImGui::Begin(m_Name.c_str(), &m_IsVisible)) {
+        if (ImGui::Begin(m_Name.c_str(), &m_IsVisible, flags)) {
             ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 
             // We use the screen cursor pos to perfectly align ImGuizmo over the image

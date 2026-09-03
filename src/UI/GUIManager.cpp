@@ -47,6 +47,8 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     //Docking support
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    //So you can drag the gizmo not the windows itself
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
 
     // Enable saving of window layout (positions and sizes)
     io.IniFilename = "imgui.ini";
