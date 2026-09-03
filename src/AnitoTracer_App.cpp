@@ -429,13 +429,27 @@ void AnitoTracer_App::Render()
 
 void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const RenderData& renderData)
 {
-    uint32_t pickedID = ObjectPicker::ProcessObjectPicking(renderData, SCDesc.Width, SCDesc.Height);
+    auto& gui = GUIManager::GetInstance();
 
-    if (pickedID != 0) {
-        HierarchyObject* selectedObj = HierarchyObject::getById(pickedID);
-        if (selectedObj) {
-            std::cout << "Clicked on Model owned by: " << selectedObj->GetName() << std::endl;
-            GUIManager::GetInstance().SetSelectedObject(selectedObj);
+    // Only pick if we hover the Viewport image, click the left mouse, AND aren't clicking a Gizmo
+    if (gui.IsEditorViewportHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGuizmo::IsOver())
+    {
+        ImVec2 mousePos = ImGui::GetMousePos();
+        ImVec2 viewPos = gui.GetEditorViewportPos();
+        ImVec2 viewSize = gui.GetEditorViewportSize();
+
+        // Convert absolute screen coordinates to viewport-local coordinates
+        float localX = mousePos.x - viewPos.x;
+        float localY = mousePos.y - viewPos.y;
+
+        uint64_t pickedID = ObjectPicker::ProcessObjectPicking(renderData, localX, localY, viewSize.x, viewSize.y);
+
+        if (pickedID != 0) {
+            HierarchyObject* selectedObj = HierarchyObject::getById(pickedID);
+            if (selectedObj) {
+                std::cout << "Clicked on Model owned by: " << selectedObj->GetName() << std::endl;
+                gui.SetSelectedObject(selectedObj);
+            }
         }
     }
 }

@@ -26,6 +26,10 @@ namespace Diligent {
             if (pSRV) {
                 // Diligent accepts ITextureView* cast to ImTextureID
                 ImGui::Image(reinterpret_cast<ImTextureID>(pSRV), viewportSize);
+
+                if (m_DrawGizmos) {
+                    GUIManager::GetInstance().SetEditorViewportInfo(cursorPos, viewportSize, ImGui::IsItemHovered());
+                }
             }
 
             // Render Gizmos directly on top of this panel's image

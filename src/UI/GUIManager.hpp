@@ -61,6 +61,16 @@ namespace Diligent {
         void RegisterFileOpener(FileExplorerPanel::Opener opener);
 
         void RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter);
+        
+        void SetEditorViewportInfo(ImVec2 pos, ImVec2 size, bool hovered) {
+            m_EditorViewportPos = pos;
+            m_EditorViewportSize = size;
+            m_IsEditorViewportHovered = hovered;
+        }
+
+        ImVec2 GetEditorViewportPos() const { return m_EditorViewportPos; }
+        ImVec2 GetEditorViewportSize() const { return m_EditorViewportSize; }
+        bool IsEditorViewportHovered() const { return m_IsEditorViewportHovered; }
 
     private:
         GUIManager() = default;
@@ -87,6 +97,10 @@ namespace Diligent {
 
         //Gizmo Drawer instance
         GizmoDrawer m_GizmoDrawer;
+
+        ImVec2 m_EditorViewportPos = { 0, 0 };
+        ImVec2 m_EditorViewportSize = { 0, 0 };
+        bool m_IsEditorViewportHovered = false;
     };
 
 }
