@@ -148,6 +148,12 @@ void Diligent::GUIManager::DrawGizmos(CameraComponent* pActiveCamera, float x, f
 
 }
 
+void Diligent::GUIManager::RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter)
+{
+    AddPanel(std::make_unique<ViewportPanel>("Game Camera", std::move(gameSrvGetter), false));
+    AddPanel(std::make_unique<ViewportPanel>("Editor Camera", std::move(editorSrvGetter), true));
+}
+
 Diligent::GUIManager::~GUIManager() = default;
 void Diligent::GUIManager::RegisterFileOpener(FileExplorerPanel::Opener opener)
 {

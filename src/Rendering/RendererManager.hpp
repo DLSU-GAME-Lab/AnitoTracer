@@ -13,6 +13,7 @@
 
 #include "../UserSettings.hpp"
 #include "RendererEvents.hpp"
+#include "RenderTarget.hpp"
 
 class RendererManager {
 public:
@@ -32,6 +33,10 @@ public:
     void Shutdown();
 
     bool IsRayTracingSupported() const { return m_SupportsRayTracing; }
+
+    Diligent::RenderTarget* CreateRenderTarget(const std::string& name);
+    //Off screen rendering to tex
+    void RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData);
 
 private:
     RendererManager() = default;
@@ -54,4 +59,7 @@ private:
     bool m_SupportsRayTracing = false;
 
     gbe::ScopedSubscription m_OnRendererChangeSub;
+
+    //Render targets
+    std::vector<std::unique_ptr<Diligent::RenderTarget>> m_RenderTargets;
 };

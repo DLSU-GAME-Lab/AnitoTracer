@@ -253,6 +253,10 @@ void AnitoTracer_App::InitManagers()
     m_MainCam = objFactory.CreateRootCameraObject("Main Camera");
     m_MainCam.GetPtr()->GetTransform()->SetPosition(glm::vec3(0, 0, -10.f));
 
+    //Create Render Targets
+    m_pGameTarget = RendererManager::GetInstance().CreateRenderTarget("GameView");
+    m_pEditorTarget = RendererManager::GetInstance().CreateRenderTarget("EditorView");
+
     PlayerInput::RegisterDefaultKeybinds();
 }
 
@@ -302,6 +306,11 @@ void AnitoTracer_App::Update()
     {
         imguiManager.Initialize(m_pDevice, SCDesc, m_NativeWindow);
         RendererManager::GetInstance().InitializePipelines();
+
+        imguiManager.RegisterViewportPanels(
+            [this]() { return m_pGameTarget ? m_pGameTarget->GetSRV() : nullptr; },
+            [this]() { return m_pEditorTarget ? m_pEditorTarget->GetSRV() : nullptr; }
+        );
     }
 
     if (!imguiManager.IsInitialized() || !(SCDesc.Width > 0 && SCDesc.Height > 0))
@@ -319,8 +328,31 @@ void AnitoTracer_App::Update()
     imguiManager.NewFrame(SCDesc.Width, SCDesc.Height, transform);
     //UpdateCameraControls();
 
-    if (!AppConfig::release)
+    if (!AppConfig::release) {
         imguiManager.DrawUI(m_AppRunning);
+
+        // Debug: Display the rendered Game Target fullscreen
+        //if (m_pEditorTarget && m_pEditorTarget->GetSRV()) {
+        //    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+        //    ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
+        //    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        //    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+        //    // Create a borderless, non-interactable window that sits in the background
+        //    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
+        //        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
+        //        ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+        //    ImGui::Begin("DebugFullScreenTarget", nullptr, flags);
+
+        //    // Diligent's ImGui implementation accepts ITextureView* cast to ImTextureID
+        //    ImGui::Image(reinterpret_cast<ImTextureID>(m_pEditorTarget->GetSRV()), ImGui::GetIO().DisplaySize);
+
+        //    ImGui::End();
+        //    ImGui::PopStyleVar(2);
+        //}
+    }
+        
 
     //===============//EVENTS//===============//
     SceneManager::GetInstance().ProcessPendingSceneChange();
@@ -337,14 +369,6 @@ void AnitoTracer_App::Update()
         //Editor update
         HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(deltaTime); //test delta frame
         HierarchyManager::GetInstance().DispatchEvent<OnGUI_Editor>(deltaTime);
-        //Draw Gizmos
-        if (IInstanceManager<EditorCamera>::getOldest()) {
-            imguiManager.DrawGizmos(
-                IInstanceManager<EditorCamera>::getOldest(),
-                0.0f, 0.0f,
-                static_cast<float>(SCDesc.Width), static_cast<float>(SCDesc.Height)
-            );
-        }
     }
     if (AppConfig::release){
         HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame
@@ -365,11 +389,37 @@ void AnitoTracer_App::Render()
     HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
     HierarchyManager::GetInstance().GatherLightData(renderData.Lights);
 
-    // Pass the render data to the new manager to handle frame execution
-    RendererManager::GetInstance().RenderFrame(renderData);
-
     const auto& SCDesc = m_pSwapChain->GetDesc();
-    HandleObjectPicking(SCDesc, renderData);
+
+    if (AppConfig::release)
+    {
+        RendererManager::GetInstance().RenderFrame(renderData);
+        //For testing
+        //HandleObjectPicking(SCDesc, renderData);
+    }
+    else
+    {
+        m_pGameTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        RendererManager::GetInstance().RenderToTarget(m_pGameTarget, renderData);
+
+        RenderData editorRenderData;
+        HierarchyManager::GetInstance().GetEditorCameraMatrices(editorRenderData.ViewMatrix, editorRenderData.ProjectionMatrix);
+        editorRenderData.Models = renderData.Models;
+        editorRenderData.Lights = renderData.Lights;
+
+        m_pEditorTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        RendererManager::GetInstance().RenderToTarget(m_pEditorTarget, editorRenderData);
+
+        // Clear the main window backbuffer so ImGui has a clean background
+        ITextureView* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
+        ITextureView* pDefaultDSV = m_pSwapChain->GetDepthBufferDSV();
+        const float clearColor[] = { 0.1f, 0.1f, 0.1f, 1.0f };
+        m_pImmediateContext->SetRenderTargets(1, &pBackBufferRTV, pDefaultDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_pImmediateContext->ClearRenderTarget(pBackBufferRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_pImmediateContext->ClearDepthStencil(pDefaultDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        HandleObjectPicking(SCDesc, editorRenderData);
+    }
 
     GUIManager::GetInstance().Render(m_pImmediateContext);
     m_pSwapChain->Present(1);

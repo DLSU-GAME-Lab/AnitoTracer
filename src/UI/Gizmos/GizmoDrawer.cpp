@@ -27,7 +27,9 @@ namespace Diligent {
         // Setup ImGuizmo workspace bounds
         ImGuizmo::SetOrthographic(false);
         //For whole window drawing- change for dockables later
-        ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
+        //ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
+        //This is for dockables- keeping above for posterity
+        ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
         ImGuizmo::SetRect(x, y, width, height);
 
         // Fetch required matrices

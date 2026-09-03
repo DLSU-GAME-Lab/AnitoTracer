@@ -20,6 +20,7 @@
 #include "Panels/InspectorPanel/Components/DirectionalLightUI.hpp"
 #include "Panels/InspectorPanel/Components/PointLightUI.hpp"
 #include "Panels/InspectorPanel/Components/ModelUI.hpp"
+#include "Panels/ViewportPanel.hpp"
 
 namespace Diligent {
 
@@ -58,6 +59,8 @@ namespace Diligent {
         void DrawGizmos(CameraComponent* pActiveCamera, float x, float y, float width, float height);
 
         void RegisterFileOpener(FileExplorerPanel::Opener opener);
+
+        void RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter);
 
     private:
         GUIManager() = default;
