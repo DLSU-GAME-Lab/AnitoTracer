@@ -7,7 +7,6 @@
 #include "SerializedData.hpp"
 #include "File/Parser.hpp"
 
-#include "PropertyDrawer.hpp"
 #include "IAutoSerializer.hpp"
 
 #include <typeinfo>
@@ -39,15 +38,14 @@ namespace gbe {
         }
     };
 
-    // --- Explicit Specialization Declarations ---
-    // INT
+    // --- Explicit Primitive Specializations ---
     template<>
-    void AutoSerializer<int>::Serialize(SerializedData& data) {
+    inline void AutoSerializer<int>::Serialize(SerializedData& data) {
         data.serialized_variables.insert_or_assign(m_id, std::to_string(m_target));
     }
 
     template<>
-    void AutoSerializer<int>::Deserialize(SerializedData& data) {
+    inline void AutoSerializer<int>::Deserialize(SerializedData& data) {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
             m_target = std::stoi(data.serialized_variables[m_id]);
         }
@@ -56,14 +54,13 @@ namespace gbe {
         }
     }
 
-    // BOOL
     template<>
-    void AutoSerializer<bool>::Serialize(SerializedData& data) {
+    inline void AutoSerializer<bool>::Serialize(SerializedData& data) {
         data.serialized_variables.insert_or_assign(m_id, m_target ? "1" : "0");
     }
 
     template<>
-    void AutoSerializer<bool>::Deserialize(SerializedData& data) {
+    inline void AutoSerializer<bool>::Deserialize(SerializedData& data) {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
             std::string val = data.serialized_variables[m_id];
             m_target = (val == "1" || val == "true");
@@ -73,14 +70,13 @@ namespace gbe {
         }
     }
 
-    // FLOAT
     template<>
-    void AutoSerializer<float>::Serialize(SerializedData& data) {
+    inline void AutoSerializer<float>::Serialize(SerializedData& data) {
         data.serialized_variables.insert_or_assign(m_id, std::to_string(m_target));
     }
 
     template<>
-    void AutoSerializer<float>::Deserialize(SerializedData& data) {
+    inline void AutoSerializer<float>::Deserialize(SerializedData& data) {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
             m_target = std::stof(data.serialized_variables[m_id]);
         }
@@ -89,14 +85,13 @@ namespace gbe {
         }
     }
 
-    // STRING
     template<>
-    void AutoSerializer<std::string>::Serialize(SerializedData& data) {
+    inline void AutoSerializer<std::string>::Serialize(SerializedData& data) {
         data.serialized_variables.insert_or_assign(m_id, m_target);
     }
 
     template<>
-    void AutoSerializer<std::string>::Deserialize(SerializedData& data) {
+    inline void AutoSerializer<std::string>::Deserialize(SerializedData& data) {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
             m_target = data.serialized_variables[m_id];
         }

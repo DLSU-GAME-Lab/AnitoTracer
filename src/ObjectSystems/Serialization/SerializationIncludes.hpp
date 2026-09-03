@@ -1,3 +1,4 @@
+#pragma once
 
 #include "Meta/glm_meta.hpp"
 
