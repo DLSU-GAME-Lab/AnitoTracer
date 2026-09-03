@@ -53,6 +53,9 @@ set(${CUR_TARGET_NAME}_src
 	HierarchyManager.hpp
 	HierarchyManager.cpp
 
+	HierarchyFeatures/PrefabFeature.hpp
+	HierarchyFeatures/PrefabFeature.cpp
+
 	ObjectFactory.hpp
 	ObjectFactory.cpp
 )

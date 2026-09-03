@@ -13,11 +13,12 @@ project ("AnitoTracer_Rebuild" LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # For CLANG-TIDY
 
-set(FETCHCONTENT_QUIET OFF)
-include(FetchContent)
 
 #=================#DEPENDENCIES#=================#
+set(FETCHCONTENT_QUIET OFF)
+include(FetchContent)
 include(deps.cmake)
 
 if(MSVC)
@@ -71,7 +72,7 @@ target_compile_options(AnitoTracer_Rebuild PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus /Zc:preprocessor /W4 /WX- /MP>
     $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
     )
-
+    
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET AnitoTracer_Rebuild PROPERTY CXX_STANDARD 20)
 endif()

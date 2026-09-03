@@ -18,13 +18,13 @@ namespace gbe {
         using AutoSerializerBase<std::vector<std::unique_ptr<T>>>::AutoSerializerBase;
 
         void Serialize(SerializedData& data) override {
-            data.serialized_variables.insert_or_assign(this->m_id + ".count", std::to_string(this->m_target.size()));
+            data.serialized_variables.insert_or_assign(this->m_id + ".count", std::to_string(this->Get().size()));
 
-            for (size_t i = 0; i < this->m_target.size(); ++i) {
-                if (!this->m_target[i]) continue;
+            for (size_t i = 0; i < this->Get().size(); ++i) {
+                if (!this->Get()[i]) continue;
 
-                SerializedData child_data = this->m_target[i]->Serialize();
-                std::string type_name = typeid(*this->m_target[i]).name();
+                SerializedData child_data = this->Get()[i]->Serialize();
+                std::string type_name = typeid(*this->Get()[i]).name();
                 child_data.serialized_variables.insert_or_assign("__type", type_name);
 
                 std::string prefix = this->m_id + "[" + std::to_string(i) + "].";
@@ -40,8 +40,8 @@ namespace gbe {
 
             size_t count = std::stoul(count_it->second);
 
-            this->m_target.clear();
-            this->m_target.reserve(count);
+            this->Get().clear();
+            this->Get().reserve(count);
 
             for (size_t i = 0; i < count; ++i) {
                 std::string prefix = this->m_id + "[" + std::to_string(i) + "].";
@@ -62,12 +62,12 @@ namespace gbe {
                     raw_obj->Deserialize(child_data);
 
                     if constexpr (std::is_same_v<T, ISerializable>) {
-                        this->m_target.emplace_back(raw_obj);
+                        this->Get().emplace_back(raw_obj);
                     }
                     else {
                         T* typed_obj = dynamic_cast<T*>(raw_obj);
                         if (typed_obj) {
-                            this->m_target.emplace_back(typed_obj);
+                            this->Get().emplace_back(typed_obj);
                         }
                         else {
                             delete raw_obj;
@@ -77,7 +77,7 @@ namespace gbe {
             }
 
             if (this->m_on_init) {
-                this->m_on_init(this->m_target);
+                this->m_on_init(this->Get());
             }
         }
     };

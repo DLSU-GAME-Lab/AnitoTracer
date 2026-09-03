@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <filesystem>
 
 
 #include "HierarchyObject.hpp"
@@ -26,6 +27,10 @@
 
 #include "Initializer/ObjectInitializer.hpp" //Needed for object creation setup
 #include "Initializer/ComponentInitializer.hpp" //Needed for component creation setup
+
+namespace HierarchyFeatures {
+    class PrefabFeature;
+}
 
 class HierarchyManager : public gbe::ISerializable {
 public:
@@ -152,6 +157,8 @@ private:
     std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> m_deferredDeletionIds;
     gbe::SerializedData m_copiedObject;
     bool m_hasCopiedObject = false;
+
+    friend class PrefabFeature;
 
     // Internal Adder
     HierarchyObject::Ref AddRootObject(std::unique_ptr<HierarchyObject> rootObj);
