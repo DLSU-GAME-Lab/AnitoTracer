@@ -45,6 +45,8 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
     ImGuiIO& io = ImGui::GetIO();
     // Enable Keyboard Controls (optional but recommended)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    //Docking support
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     // Enable saving of window layout (positions and sizes)
     io.IniFilename = "imgui.ini";
