@@ -8,12 +8,6 @@
 
 namespace gbe {
 
-    static bool DrawSubDrawer(gbe::ObjectRef<ISerializable> target) {
-        return PropertyDrawer<gbe::ObjectRef<ISerializable>>::Draw("Target Object", target);
-
-        return false;
-    }
-
     template <>
     struct PropertyDrawer<UnityEvent> {
         static bool Draw(const std::string& label, UnityEvent& eventTarget) {

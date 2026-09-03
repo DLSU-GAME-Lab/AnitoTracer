@@ -26,7 +26,7 @@ public:
     PlayerLookComponent(PlayerLookComponent&&) = default;
     PlayerLookComponent& operator=(PlayerLookComponent&&) = default;
 
-    void OnUpdate(float deltaTime) override {
+    void OnUpdate(float) override {
         Transform* transform = m_targetTransform.Get();
         if (!transform) {
             return;

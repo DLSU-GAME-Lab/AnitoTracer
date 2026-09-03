@@ -4,7 +4,9 @@
 #include <variant>
 
 // Ensure Unicode Windows API
-#define UNICODE
+#ifndef UNICODE
+    #define UNICODE
+#endif
 #define _UNICODE
 
 // Diligent Engine Core
@@ -68,7 +70,7 @@ private:
     void Update();
     void Render();
     void UpdateCameraControls();
-    void HandleObjectPicking(const Diligent::SwapChainDesc& SCDesc, const struct RenderData& renderData);
+    void HandleObjectPicking(const Diligent::SwapChainDesc& SCDesc, const class RenderData& renderData);
 
     //Event handlers
     void HandleInitializeEvent(const gbe::EventArgs* args);

@@ -3,6 +3,7 @@ set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 #========Diligent========#
 FetchContent_Declare(
     DiligentCore
+    SYSTEM
     GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentCore.git
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentCore"
     GIT_TAG 7cd667b06703516ac210779cd1919bd174afd0b9
@@ -11,6 +12,7 @@ FetchContent_Declare(
 )
 FetchContent_Declare(
     DiligentTools
+    SYSTEM
     GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentTools.git
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentTools"
     GIT_TAG a65fe94e0f12e680c81ea86fe2ebe0de6b867b4b
@@ -19,6 +21,7 @@ FetchContent_Declare(
 )
 FetchContent_Declare(
     DiligentFX
+    SYSTEM
     GIT_REPOSITORY https://github.com/DiligentGraphics/DiligentFX.git
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentFX"
     GIT_TAG eb616a8e30efa5193baba71ff1edae85bc6230a1
@@ -32,6 +35,7 @@ FetchContent_MakeAvailable(DiligentCore DiligentTools DiligentFX)
 
 #========glaze========#
 FetchContent_Declare(glaze
+    SYSTEM
     GIT_REPOSITORY https://github.com/stephenberry/glaze.git
     GIT_TAG v2.6.9
     UPDATE_COMMAND "" 

@@ -379,7 +379,7 @@ void AnitoTracer_App::Render()
 
 void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const RenderData& renderData)
 {
-    uint32_t pickedID = ObjectPicker::ProcessObjectPicking(renderData, SCDesc.Width, SCDesc.Height);
+    uint32_t pickedID = static_cast<uint32_t>(ObjectPicker::ProcessObjectPicking(renderData, SCDesc.Width, SCDesc.Height));
 
     if (pickedID != 0) {
         HierarchyObject* selectedObj = HierarchyObject::getById(pickedID);
@@ -390,18 +390,18 @@ void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const Ren
     }
 }
 
-void AnitoTracer_App::HandleInitializeEvent(const gbe::EventArgs* args)
+void AnitoTracer_App::HandleInitializeEvent(const gbe::EventArgs*)
 {
     std::cout << "Engine Initialized" << std::endl;
 }
 
-void AnitoTracer_App::HandleRenderStartEvent(const gbe::EventArgs * args)
+void AnitoTracer_App::HandleRenderStartEvent(const gbe::EventArgs *)
 {
     //Avoid Spam- uncomment if necessary desu
     //std::cout << "Engine Render Start" << std::endl;
 }
 
-void AnitoTracer_App::HandleRenderEndEvent(const gbe::EventArgs * args)
+void AnitoTracer_App::HandleRenderEndEvent(const gbe::EventArgs *)
 {
     //Avoid Spam- uncomment if necessary desu
     //std::cout << "Engine Render End" << std::endl;
