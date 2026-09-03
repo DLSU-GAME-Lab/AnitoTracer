@@ -18,6 +18,7 @@
 #include "InputSystem.hpp"
 
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
+#include "ObjectSystems/Event/Example/Print_OnObjectAny.hpp"
 #include "Asset/ProjectLoader.hpp"
 
 #include "AppConfig.hpp"
@@ -273,6 +274,7 @@ void AnitoTracer_App::Run()
 {
     //LifeCycle objects
     Print_OnSceneLoad print_OnSceneLoad; //test
+    Print_OnObjectAny print_OnObjectAny; //test
 
     while (m_AppRunning)
     {

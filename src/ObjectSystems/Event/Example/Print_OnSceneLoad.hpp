@@ -3,6 +3,8 @@
 #include "../EventDefines.hpp"
 #include "EventHandler.hpp"
 
+#include "../Args/SceneLoadArgs.hpp"
+
 // 3. Create an EventHandler that listens for scene load events
 class Print_OnSceneLoad : public gbe::EventHandler {
 public:
@@ -13,6 +15,14 @@ public:
             auto sceneArgs = dynamic_cast<const SceneLoadArgs*>(args.get());
             if (sceneArgs) {
                 std::cout << "[SceneManager] Scene loaded: " << sceneArgs->name << std::endl;
+            }
+            });
+
+        this->SubscribeTo(EVENT_ONSCENEUNLOAD, [](const std::unique_ptr<gbe::EventArgs>& args) {
+            // Cast base pointer to our specific event payload
+            auto sceneArgs = dynamic_cast<const SceneLoadArgs*>(args.get());
+            if (sceneArgs) {
+                std::cout << "[SceneManager] Scene unloaded: " << sceneArgs->name << std::endl;
             }
             });
     }
