@@ -1,7 +1,5 @@
 #pragma once
 
-#include ANITO_SERIALIZATION_INCLUDES
-
 #include "ISerializable.hpp"
 
 #include <imgui.h>

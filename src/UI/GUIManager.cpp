@@ -16,6 +16,8 @@
 #include "../Objects/Components/GameCamera.hpp"
 #include <utility>
 
+#include "Theme.hpp"
+
 GUIManager& Diligent::GUIManager::GetInstance()
 {
     static GUIManager instance;
@@ -54,6 +56,7 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
     io.IniFilename = "imgui.ini";
 
     ImGui::StyleColorsDark();
+    ApplyTheme();
 
     InitializeDefaultPanels();
     InitializeComponentDrawers();

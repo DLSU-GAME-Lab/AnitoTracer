@@ -41,18 +41,14 @@ public:
     HierarchyManager(HierarchyManager&&) = delete;
     HierarchyManager& operator=(HierarchyManager&&) = delete;
 
-    // Adds an existing root object and takes ownership.
-    HierarchyObject::Ref AddRootObject(std::unique_ptr<HierarchyObject> rootObj);
-
-    // Removes a root object by its exact pointer address and transfers ownership back to the caller.
-    std::unique_ptr<HierarchyObject> RemoveRootObject(HierarchyObject::Ref rootToRemove);
-
     // Queues an object and its entire subtree for removal at the next commit.
     void QueueObjectDeletion(HierarchyObject::Ref object);
 
     // Commits all object deletions queued since the previous commit.
     // Returns the number of queued objects that were found and removed.
     size_t CommitDeferredDeletions();
+
+    HierarchyObject::Ref CreateNewEmpty(std::string name = "");
 
     // Moves an existing object under a new parent, or to the root when parent is empty.
     bool ReparentObject(HierarchyObject::Ref object, HierarchyObject::Ref parent);
@@ -148,6 +144,7 @@ private:
     HierarchyManager() = default;
     ~HierarchyManager() = default;
 
+    std::string m_sceneLabel = "";
     std::filesystem::path m_sceneFile = "";
 
     std::vector<std::unique_ptr<HierarchyObject>> m_rootNodes;
@@ -156,6 +153,11 @@ private:
     std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> m_deferredDeletionIds;
     gbe::SerializedData m_copiedObject;
     bool m_hasCopiedObject = false;
+
+    // Internal Adder
+    HierarchyObject::Ref AddRootObject(std::unique_ptr<HierarchyObject> rootObj);
+    // Internal Remover
+    std::unique_ptr<HierarchyObject> RemoveRootObject(HierarchyObject::Ref rootToRemove);
 
 public:
     

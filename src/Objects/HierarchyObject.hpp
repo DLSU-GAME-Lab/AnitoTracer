@@ -31,17 +31,6 @@ public:
     HierarchyObject(HierarchyObject&&) = default;
     HierarchyObject& operator=(HierarchyObject&&) = default;
 
-    // Adds an existing child object and takes ownership.
-    // Returns a raw pointer to the added child for immediate access.
-    HierarchyObject::Ref AddChild(std::unique_ptr<HierarchyObject> child);
-
-    // Helper method to instantiate and add a child directly by name.
-    HierarchyObject::Ref CreateChild(const std::string& childName);
-
-    // Removes a child by its exact pointer address.
-    // Returns the unique_ptr, transferring ownership back to the caller.
-    std::unique_ptr<HierarchyObject> RemoveChild(HierarchyObject::Ref childToRemove);
-
     // Core getters for object traversal and identification.
     const std::string& GetName() const { return m_name; }
     void SetName(const std::string& name) { m_name = name; }

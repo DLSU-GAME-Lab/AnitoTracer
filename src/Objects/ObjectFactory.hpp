@@ -26,7 +26,6 @@ public:
     ObjectFactory(ObjectFactory&&) = delete;
     ObjectFactory& operator=(ObjectFactory&&) = delete;
 
-    HierarchyObject::Ref CreateRootObject(const std::string& name);
     HierarchyObject::Ref CreateRootObjectWithTransform(const std::string& name);
     HierarchyObject::Ref CreateRootCameraObject(const std::string& name);
     HierarchyObject::Ref CreateModelObject(const std::string& name, const std::string& filepath);

@@ -12,6 +12,7 @@
 //ARG TYPES
 #include "Args/SceneLoadArgs.hpp"
 #include "Args/DefaultEventArgs.hpp"
+#include "Args/HierarchyObjectArgs.hpp"
 
 #include "ScopedSubscription.hpp"
 #include "TriggerDispatcher.hpp"

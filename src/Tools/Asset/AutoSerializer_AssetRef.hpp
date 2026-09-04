@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IAutoSerializer.hpp"
+#include "AutoSerializer.hpp"
 #include "AssetRef.hpp"
 
 namespace gbe {

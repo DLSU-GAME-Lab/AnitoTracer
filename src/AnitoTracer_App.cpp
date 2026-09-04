@@ -18,6 +18,7 @@
 #include "InputSystem.hpp"
 
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
+#include "ObjectSystems/Event/Example/Print_OnObjectAny.hpp"
 #include "Asset/ProjectLoader.hpp"
 
 #include "AppConfig.hpp"
@@ -277,6 +278,7 @@ void AnitoTracer_App::Run()
 {
     //LifeCycle objects
     Print_OnSceneLoad print_OnSceneLoad; //test
+    Print_OnObjectAny print_OnObjectAny; //test
 
     while (m_AppRunning)
     {
@@ -454,18 +456,18 @@ void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const Ren
     }
 }
 
-void AnitoTracer_App::HandleInitializeEvent(const gbe::EventArgs* args)
+void AnitoTracer_App::HandleInitializeEvent(const gbe::EventArgs*)
 {
     std::cout << "Engine Initialized" << std::endl;
 }
 
-void AnitoTracer_App::HandleRenderStartEvent(const gbe::EventArgs * args)
+void AnitoTracer_App::HandleRenderStartEvent(const gbe::EventArgs *)
 {
     //Avoid Spam- uncomment if necessary desu
     //std::cout << "Engine Render Start" << std::endl;
 }
 
-void AnitoTracer_App::HandleRenderEndEvent(const gbe::EventArgs * args)
+void AnitoTracer_App::HandleRenderEndEvent(const gbe::EventArgs *)
 {
     //Avoid Spam- uncomment if necessary desu
     //std::cout << "Engine Render End" << std::endl;

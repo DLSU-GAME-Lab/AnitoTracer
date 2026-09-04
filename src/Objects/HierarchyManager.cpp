@@ -11,15 +11,21 @@ CameraComponent* HierarchyManager::GetMainCamera() const {
 HierarchyObject::Ref HierarchyManager::AddRootObject(std::unique_ptr<HierarchyObject> rootObj) {
     if (!rootObj) return nullptr;
 
-    m_rootNodes.push_back(std::move(rootObj));
+    rootObj->m_parent = nullptr;
 
-    return  m_rootNodes.back().get();
+    m_rootNodes.push_back(std::move(rootObj));
+    auto newref = m_rootNodes.back()->getRef();
+
+    gbe::EventSystem::DispatchTo(EVENT_ONOBJECTCREATED,std::make_unique<HierarchyObjectArgs>(newref));
+
+    return newref;
 }
 
 std::unique_ptr<HierarchyObject> HierarchyManager::RemoveRootObject(HierarchyObject::Ref rootToRemove) {
     for (auto it = m_rootNodes.begin(); it != m_rootNodes.end(); ++it) {
         if (it->get() == rootToRemove.GetPtr()) {
             std::unique_ptr<HierarchyObject> detachedRoot = std::move(*it);
+            detachedRoot->m_parent = nullptr;
             m_rootNodes.erase(it);
             return detachedRoot;
         }
@@ -53,7 +59,14 @@ bool HierarchyManager::ReparentObject(HierarchyObject::Ref object, HierarchyObje
 
     std::unique_ptr<HierarchyObject> detachedObject;
     if (HierarchyObject::Ref oldParent = objectPtr->GetParent()) {
-        detachedObject = oldParent.GetPtr()->RemoveChild(object);
+        auto& siblings = oldParent.GetPtr()->m_children;
+        for (auto it = siblings.begin(); it != siblings.end(); ++it) {
+            if (it->get() == objectPtr) {
+                detachedObject = std::move(*it);
+                siblings.erase(it);
+                break;
+            }
+        }
     }
     else {
         detachedObject = RemoveRootObject(object);
@@ -61,11 +74,12 @@ bool HierarchyManager::ReparentObject(HierarchyObject::Ref object, HierarchyObje
 
     if (!detachedObject) return false;
 
+    detachedObject->m_parent = parentPtr;
     if (parentPtr) {
-        parentPtr->AddChild(std::move(detachedObject));
+        parentPtr->m_children.push_back(std::move(detachedObject));
     }
     else {
-        AddRootObject(std::move(detachedObject));
+        m_rootNodes.push_back(std::move(detachedObject));
     }
     return true;
 }
@@ -106,11 +120,17 @@ HierarchyObject::Ref HierarchyManager::PasteObject(HierarchyObject::Ref parent) 
     pastedObject->Deserialize(pasteData);
 
     std::unique_ptr<HierarchyObject> ownedObject(pastedObject);
-    if (parent) {
-        return parent.GetPtr()->AddChild(std::move(ownedObject));
+    HierarchyObject::Ref pastedRef = AddRootObject(std::move(ownedObject));
+    if (!pastedRef) return nullptr;
+
+    //If parent assigned, but reparenting fails, do not continue pasting.
+    if (parent && !ReparentObject(pastedRef, parent)) {
+        RemoveRootObject(pastedRef);
+        std::cerr << "Pasting to an invalid parent." << std::endl;
+        return nullptr;
     }
 
-    return AddRootObject(std::move(ownedObject));
+    return pastedRef;
 }
 
 size_t HierarchyManager::CommitDeferredDeletions() {
@@ -123,17 +143,27 @@ size_t HierarchyManager::CommitDeferredDeletions() {
         HierarchyObject* objectPtr = object.GetPtr();
         if (!objectPtr) continue;
 
-        if (HierarchyObject::Ref parent = objectPtr->GetParent()) {
-            if (parent.GetPtr()->RemoveChild(object)) {
-                ++removedCount;
-            }
+        gbe::EventSystem::DispatchTo(EVENT_ONOBJECTDESTROYED,std::make_unique<HierarchyObjectArgs>(object));
+
+        if (objectPtr->GetParent() && !ReparentObject(objectPtr, nullptr)) {
+            continue;
         }
-        else if (RemoveRootObject(object)) {
+
+        if (RemoveRootObject(object)) {
             ++removedCount;
         }
     }
 
     return removedCount;
+}
+
+HierarchyObject::Ref HierarchyManager::CreateNewEmpty(std::string name)
+{
+    if(name.size() == 0 || name.empty())
+        name = "New Object";
+
+    auto root = std::make_unique<HierarchyObject>(name);
+    return HierarchyManager::GetInstance().AddRootObject(std::move(root));
 }
 
 void HierarchyManager::AddComponentToObject(HierarchyObject::Ref object, std::unique_ptr<ComponentBase> component) {
@@ -351,11 +381,7 @@ gbe::SerializedData HierarchyManager::Serialize()
 
 void HierarchyManager::Deserialize(gbe::SerializedData& data)
 {
-    gbe::EventSystem::DispatchTo(
-        EVENT_ONSCENELOAD,
-        std::make_unique<SceneLoadArgs>(data.label)
-    );
-
+    this->m_sceneLabel = data.label;
     gbe::ISerializable::Deserialize(data);
     EnsureEditorCameraExists();
 }
@@ -374,9 +400,20 @@ void HierarchyManager::EnsureEditorCameraExists()
 
 void HierarchyManager::LoadScene(std::filesystem::path filepath)
 {
+    //Call on unload BEFORE scene load commit
+    gbe::EventSystem::DispatchTo(
+        EVENT_ONSCENEUNLOAD,
+        std::make_unique<SceneLoadArgs>(m_sceneLabel)
+    );
+
     m_sceneFile = filepath;
     this->DeserializeFromFile(filepath);
-    EnsureEditorCameraExists();
+
+    //Call on load AFTER scene load commit
+    gbe::EventSystem::DispatchTo(
+        EVENT_ONSCENELOAD,
+        std::make_unique<SceneLoadArgs>(m_sceneLabel)
+    );
 }
 
 void HierarchyManager::QuickSave()

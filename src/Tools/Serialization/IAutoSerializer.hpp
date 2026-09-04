@@ -1,13 +1,14 @@
 #pragma once
 
+#include <functional>
+#include <string>
+#include <utility>
+
+#include "ISerializable.hpp"
 #include "SerializedData.hpp"
-#include "File/Parser.hpp"
 #include "PropertyDrawer.hpp"
 
 namespace gbe {
-
-    class ISerializable;
-
     struct IAutoSerializer {
 
         std::string m_id;
