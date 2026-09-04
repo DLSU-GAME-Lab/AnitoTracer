@@ -21,8 +21,6 @@ include(FetchContent)
 include(deps.cmake)
 
 if(MSVC)
-    # Compiler flags for modern C++ and warnings
-    add_compile_options(/Zc:__cplusplus /Zc:preprocessor /W4 /WX- /MP)
     
     # Set runtime library to Multi-threaded DLL for both Debug and Release
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
@@ -40,11 +38,6 @@ if(MSVC)
     
     # Disable specific warnings
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-endif()
-
-# GCC/Clang specific settings
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 find_package(glm CONFIG REQUIRED)
@@ -72,6 +65,12 @@ add_subdirectory(src/Tools)
 add_executable (AnitoTracer_Rebuild WIN32 "src/UserSettings.hpp" "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h" "src/AnitoTracer_App.hpp" "src/AnitoTracer_App.cpp"
   src/UI/Panels/FileExplorerPanel.cpp)
 set_property(TARGET AnitoTracer_Rebuild PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+
+# Compile flags only to the target executable.
+target_compile_options(AnitoTracer_Rebuild PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus /Zc:preprocessor /W4 /WX- /MP>
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+    )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET AnitoTracer_Rebuild PROPERTY CXX_STANDARD 20)

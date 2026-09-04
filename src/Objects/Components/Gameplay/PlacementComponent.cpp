@@ -52,7 +52,7 @@ void PlacementComponent::OnGUI_ReleaseEvent(float /*deltaTime*/) {
 }
 
 void PlacementComponent::OnGUI_EditorEvent(float /*deltaTime*/) {
-    DrawPlacementOverlay(true);
+    
 }
 
 bool PlacementComponent::CanInteract(const glm::vec3& cameraPos, const glm::vec3& cameraForward, float& outDistance) const {
