@@ -1,4 +1,5 @@
 #include "HierarchyManager.hpp"
+#include "HierarchyManager.hpp"
 
 #include "../AppConfig.hpp"
 #include "ObjectFactory.hpp"
@@ -204,6 +205,26 @@ bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4
     }
 
     // Return false if no main camera has been assigned
+    return false;
+}
+
+bool HierarchyManager::GetEditorCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix)
+{
+    CameraComponent* editorCamera = GetEditorCamera();
+
+    if (editorCamera!= nullptr) {
+
+        // Ensure the matrices are up-to-date with the current Transform data
+        editorCamera->UpdateViewMatrix();
+        editorCamera->UpdateProjectionMatrix();
+
+        // Extract the required matrices for the rendering pipeline
+        outViewMatrix = editorCamera->GetViewMatrix();
+        outProjectionMatrix = editorCamera->GetProjectionMatrix();
+
+        return true;
+    }
+
     return false;
 }
 

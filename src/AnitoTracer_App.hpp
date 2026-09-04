@@ -98,4 +98,7 @@ private:
 
     gbe::ScopedSubscription m_OnWindowResizeSub;
     void HandleWindowResizeEvent(const WindowResizeArgs* args);
+
+    Diligent::RenderTarget* m_pGameTarget = nullptr;
+    Diligent::RenderTarget* m_pEditorTarget = nullptr;
 };
