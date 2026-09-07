@@ -8,7 +8,7 @@ namespace Diligent {
         void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
 
         void OnWindowResize(IRenderDevice* pDevice, Uint32 Width, Uint32 Height);
-        void RenderLightingPass(IDeviceContext* pContext);
+        void RenderLightingPass(IDeviceContext* pContext, ITextureView* pTargetRTV);
 
     private:
         void CreateGBuffers(IRenderDevice* pDevice, Uint32 Width, Uint32 Height);

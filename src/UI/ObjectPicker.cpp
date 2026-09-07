@@ -48,55 +48,46 @@ bool ObjectPicker::RayIntersectsAABB(
 
 uint64_t ObjectPicker::ProcessObjectPicking(
     const RenderData& renderData,
-    Diligent::Uint32 screenWidth,
-    Diligent::Uint32 screenHeight)
+    float localMouseX,
+    float localMouseY,
+    float viewportWidth,
+    float viewportHeight)
 {
-    ImGuiIO& io = ImGui::GetIO();
+    // Generate the 3D ray based on the viewport's local mouse coordinates
+    Ray worldRay = CreateWorldRayFromScreen(
+        ImVec2(localMouseX, localMouseY),
+        viewportWidth,
+        viewportHeight,
+        renderData.ViewMatrix,
+        renderData.ProjectionMatrix
+    );
 
-    // Only process picking if the user clicked the Left Mouse Button AND ImGui isn't using the mouse
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse)
+    uint64_t closestObjectID = 0;
+    float closestDistance = std::numeric_limits<float>::max();
+
+    // Loop through all rendered models to check for collisions
+    for (const auto& modelInstance : renderData.Models)
     {
-        ImVec2 mousePos = ImGui::GetMousePos();
+        if (!modelInstance.ModelData || modelInstance.OwnerID == 0) continue;
 
-        // Generate the 3D ray based on the current camera matrices
-        Ray worldRay = CreateWorldRayFromScreen(
-            mousePos,
-            static_cast<float>(screenWidth),
-            static_cast<float>(screenHeight),
-            renderData.ViewMatrix,
-            renderData.ProjectionMatrix
-        );
+        // Transform the World Ray into the Model's Local Space
+        glm::mat4 invWorld = glm::inverse(modelInstance.WorldTransform);
 
-        uint64_t closestObjectID = 0;
-        float closestDistance = std::numeric_limits<float>::max();
+        Ray localRay;
+        localRay.Origin = glm::vec3(invWorld * glm::vec4(worldRay.Origin, 1.0f));
+        localRay.Direction = glm::normalize(glm::vec3(invWorld * glm::vec4(worldRay.Direction, 0.0f)));
 
-        // Loop through all rendered models to check for collisions
-        for (const auto& modelInstance : renderData.Models)
+        float hitDistance = 0.0f;
+        if (RayIntersectsAABB(localRay, modelInstance.ModelData->AABBMin, modelInstance.ModelData->AABBMax, hitDistance))
         {
-            if (!modelInstance.ModelData || modelInstance.OwnerID == 0) continue;
-
-            // Transform the World Ray into the Model's Local Space
-            glm::mat4 invWorld = glm::inverse(modelInstance.WorldTransform);
-
-            Ray localRay;
-            localRay.Origin = glm::vec3(invWorld * glm::vec4(worldRay.Origin, 1.0f));
-            localRay.Direction = glm::normalize(glm::vec3(invWorld * glm::vec4(worldRay.Direction, 0.0f)));
-
-            float hitDistance = 0.0f;
-            if (RayIntersectsAABB(localRay, modelInstance.ModelData->AABBMin, modelInstance.ModelData->AABBMax, hitDistance))
+            // If this object is closer to the camera than the previous closest hit, select it
+            if (hitDistance < closestDistance)
             {
-                // If this object is closer to the camera than the previous closest hit, select it
-                if (hitDistance < closestDistance)
-                {
-                    closestDistance = hitDistance;
-                    closestObjectID = modelInstance.OwnerID;
-                }
+                closestDistance = hitDistance;
+                closestObjectID = modelInstance.OwnerID;
             }
         }
-
-        return closestObjectID;
     }
 
-    // Return 0 if there was no click, or no object was hit
-    return 0;
+    return closestObjectID;
 }

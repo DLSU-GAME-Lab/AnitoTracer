@@ -17,7 +17,7 @@ FetchContent_Declare(
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DiligentEngine/DiligentTools"
     GIT_TAG a65fe94e0f12e680c81ea86fe2ebe0de6b867b4b
     GIT_SHALLOW OFF
-    UPDATE_COMMAND "" 
+    GIT_SUBMODULES_RECURSE ON
 )
 FetchContent_Declare(
     DiligentFX
@@ -31,7 +31,27 @@ FetchContent_Declare(
 # FORCE DILIGENT ENGINE TO USE DYNAMIC CRT
 set(DILIGENT_MSVC_CRT_LINKAGE "Dynamic" CACHE STRING "Force Diligent to use dynamic CRT" FORCE)
 
-FetchContent_MakeAvailable(DiligentCore DiligentTools DiligentFX)
+#FetchContent_MakeAvailable(DiligentCore DiligentTools DiligentFX)
+
+FetchContent_MakeAvailable(DiligentCore)
+
+FetchContent_GetProperties(DiligentTools)
+#All this just to get the docking functionality of imgui GDI
+if(NOT diligenttools_POPULATED)
+    FetchContent_Populate(DiligentTools)
+    
+    file(REMOVE_RECURSE "${diligenttools_SOURCE_DIR}/ThirdParty/imgui")
+    
+    execute_process(
+        COMMAND git clone --branch docking --depth 1 https://github.com/ocornut/imgui.git ThirdParty/imgui
+        WORKING_DIRECTORY ${diligenttools_SOURCE_DIR}
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+
+    add_subdirectory(${diligenttools_SOURCE_DIR} ${diligenttools_BINARY_DIR})
+endif()
+
+FetchContent_MakeAvailable(DiligentFX)
 
 #========glaze========#
 FetchContent_Declare(glaze

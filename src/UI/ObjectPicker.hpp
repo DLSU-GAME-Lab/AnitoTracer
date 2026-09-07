@@ -48,6 +48,8 @@ public:
      */
     static uint64_t ProcessObjectPicking(
         const RenderData& renderData,
-        Diligent::Uint32 screenWidth,
-        Diligent::Uint32 screenHeight);
+        float localMouseX,
+        float localMouseY,
+        float viewportWidth,
+        float viewportHeight);
 };

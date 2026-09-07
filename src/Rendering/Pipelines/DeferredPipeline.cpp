@@ -199,13 +199,10 @@ void Diligent::DeferredPipeline::StartFrameRender(IDeviceContext* pContext, Rend
     pContext->SetPipelineState(m_pPSO);
 }
 
-void Diligent::DeferredPipeline::RenderLightingPass(IDeviceContext* pContext)
+void Diligent::DeferredPipeline::RenderLightingPass(IDeviceContext* pContext, ITextureView* pTargetRTV)
 {
-    auto* pRTV = pSwapChain->GetCurrentBackBufferRTV();
+    auto* pRTV = pTargetRTV ? pTargetRTV : pSwapChain->GetCurrentBackBufferRTV();
     pContext->SetRenderTargets(1, &pRTV, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    const float ClearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    //pContext->ClearRenderTarget(pRTV, ClearColor, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     pContext->SetPipelineState(m_pLightingPSO);
     pContext->CommitShaderResources(m_pLightingSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

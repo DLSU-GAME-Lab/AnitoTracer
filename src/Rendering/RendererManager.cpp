@@ -1,4 +1,6 @@
 #include "RendererManager.hpp"
+#include "RendererManager.hpp"
+#include "RendererManager.hpp"
 #include <iostream>
 #include <type_traits>
 
@@ -188,7 +190,7 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
         using T = std::decay_t<decltype(pipeline)>;
         if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>)
         {
-            pipeline.RenderLightingPass(m_pImmediateContext);
+            pipeline.RenderLightingPass(m_pImmediateContext, nullptr);
         }
         }, m_bLitPipeline);
 
@@ -220,4 +222,64 @@ void RendererManager::Shutdown()
     m_pSwapChain.Release();
     m_pImmediateContext.Release();
     m_pDevice.Release();
+}
+
+Diligent::RenderTarget* RendererManager::CreateRenderTarget(const std::string& name)
+{
+    auto rt = std::make_unique<Diligent::RenderTarget>(name);
+    Diligent::RenderTarget* ptr = rt.get();
+    m_RenderTargets.push_back(std::move(rt));
+    return ptr;
+}
+
+void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
+{
+    if (!pTarget || !pTarget->GetRTV() || !pTarget->GetDSV()) return;
+
+    bool isMSAAEnabled = UserSettings::GetInstance().GetEnableMSAA();
+
+    // 1. Route to MSAA buffers if enabled, to match the Pipeline's expected SampleCount
+    Diligent::ITextureView* pActiveRTV = isMSAAEnabled ? m_pMSAARTV : pTarget->GetRTV();
+    Diligent::ITextureView* pActiveDSV = isMSAAEnabled ? m_pMSAADSV : pTarget->GetDSV();
+
+    const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
+    m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_pImmediateContext->ClearRenderTarget(pActiveRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_pImmediateContext->ClearDepthStencil(pActiveDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // 2. EXPLICITLY set the Viewport! Without this, Vulkan won't know where to draw.
+    Diligent::Viewport Viewport;
+    Viewport.Width = static_cast<float>(pTarget->GetWidth());
+    Viewport.Height = static_cast<float>(pTarget->GetHeight());
+    Viewport.TopLeftX = 0;
+    Viewport.TopLeftY = 0;
+    Viewport.MinDepth = 0.0f;
+    Viewport.MaxDepth = 1.0f;
+    m_pImmediateContext->SetViewports(1, &Viewport, pTarget->GetWidth(), pTarget->GetHeight());
+
+    std::visit([&](auto& pipeline) {
+        pipeline.StartFrameRender(m_pImmediateContext, renderData);
+        pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
+        pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
+        pipeline.RenderModels(m_pImmediateContext, renderData, true);
+
+        using T = std::decay_t<decltype(pipeline)>;
+        if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>) {
+            pipeline.RenderLightingPass(m_pImmediateContext, pActiveRTV);
+        }
+        }, m_bLitPipeline);
+
+    // 3. Resolve the MSAA buffer into the target's actual 1-sample texture for ImGui
+    if (isMSAAEnabled)
+    {
+        Diligent::ResolveTextureSubresourceAttribs ResolveAttribs;
+        ResolveAttribs.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+        ResolveAttribs.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+
+        m_pImmediateContext->ResolveTextureSubresource(
+            m_pMSAATarget,
+            pTarget->GetRTV()->GetTexture(),
+            ResolveAttribs
+        );
+    }
 }
