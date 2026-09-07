@@ -85,6 +85,7 @@ public:
     EditorCamera* GetEditorCamera() const { return gbe::IInstanceManager<EditorCamera>::getOldest(); }
 
     bool GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
+    bool GetEditorCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
 
     // Gathers all Models and their evaluated world transforms
     void GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const;

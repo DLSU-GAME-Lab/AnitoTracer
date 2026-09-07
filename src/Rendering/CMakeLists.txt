@@ -12,6 +12,9 @@ set(${CUR_TARGET_NAME}_src
 
 	RendererEvents.hpp
 
+	RenderTarget.hpp
+	RenderTarget.cpp
+
 	RendererManager.hpp
 	RendererManager.cpp
 

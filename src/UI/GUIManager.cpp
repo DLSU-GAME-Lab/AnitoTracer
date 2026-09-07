@@ -47,6 +47,10 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
     ImGuiIO& io = ImGui::GetIO();
     // Enable Keyboard Controls (optional but recommended)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    //Docking support
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    //So you can drag the gizmo not the windows itself
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
 
     // Enable saving of window layout (positions and sizes)
     io.IniFilename = "imgui.ini";
@@ -147,6 +151,12 @@ void Diligent::GUIManager::DrawGizmos(CameraComponent* pActiveCamera, float x, f
         m_GizmoDrawer.Draw(pActiveCamera, selectedObj, x, y, width, height);
     }
 
+}
+
+void Diligent::GUIManager::RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter)
+{
+    AddPanel(std::make_unique<ViewportPanel>("Game Camera", std::move(gameSrvGetter), false));
+    AddPanel(std::make_unique<ViewportPanel>("Editor Camera", std::move(editorSrvGetter), true));
 }
 
 Diligent::GUIManager::~GUIManager() = default;
