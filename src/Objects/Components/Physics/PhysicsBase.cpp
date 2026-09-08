@@ -13,6 +13,13 @@ PhysicsBase::~PhysicsBase() {
 	DestroyBody();
 }
 
+void PhysicsBase::SetRestitution(float restitution) {
+	mRestitution = restitution;
+	if (mBody) {
+		PhysicsEngine::GetInstance().Get().SetRestitution(mBody.get(), mRestitution);
+	}
+}
+
 void PhysicsBase::Teleport(const glm::vec3& position, const glm::quat& rotation) {
 	// For debugging purposes, you can uncomment the following line to see when teleportation occurs.
 	// std::cout << "[DEBUG] Teleport called!\n";

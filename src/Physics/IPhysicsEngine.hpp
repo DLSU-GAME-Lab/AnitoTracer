@@ -47,10 +47,14 @@ public:
 		const glm::vec3& position,
 		const glm::quat& rotation,
 		float mass,
-		const std::vector<ColliderShape>& shapes = {}
+		const std::vector<ColliderShape>& shapes = {},
+		float restitution = 0.0f
 	) = 0;
 	virtual void DestroyRigidBody(std::shared_ptr<IPhysicsBody> body) = 0;
+
 	virtual bool SetShapes(IPhysicsBody* body, const std::vector<ColliderShape>& shapes) = 0;
+	virtual bool SetRestitution(IPhysicsBody* body, float restitution) = 0;
+	virtual bool SetFriction(IPhysicsBody* body, float friction) = 0;
 
 	// Collision callback
 	virtual void RegisterCollisionCallback(IPhysicsBody* body, CollisionCallback callback) = 0;

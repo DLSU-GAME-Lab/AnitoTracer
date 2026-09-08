@@ -17,13 +17,16 @@ public:
 	// World management
 	void SetGravity(const glm::vec3& gravity) override;
 	glm::vec3 GetGravity() const override;
+	bool SetRestitution(IPhysicsBody* body, float restitution) override;
+	bool SetFriction(IPhysicsBody* body, float friction) override;
 
 	// Body management
 	std::shared_ptr<IPhysicsBody> CreateRigidBody(
 		const glm::vec3& position,
 		const glm::quat& rotation,
 		float mass,
-		const std::vector<ColliderShape>& shapes = {}
+		const std::vector<ColliderShape>& shapes = {},
+		float restitution = 0.0f
 	) override;
 	void DestroyRigidBody(std::shared_ptr<IPhysicsBody> body) override;
 	bool SetShapes(IPhysicsBody* body, const std::vector<ColliderShape>& shapes) override;

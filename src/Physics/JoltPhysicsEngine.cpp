@@ -163,12 +163,20 @@ std::shared_ptr<IPhysicsBody> JoltPhysicsEngine::CreateRigidBody(
 	const glm::vec3& position, 
 	const glm::quat& rotation, 
 	float mass, 
-	const std::vector<ColliderShape>& shapes) {
+	const std::vector<ColliderShape>& shapes,
+	float restitution) {
 	if (!mPhysicsSystem)
 	{
 		std::cerr << "[JoltPhysicsEngine] Error: Physics system is not initialized.\n";
 		return nullptr;
 	}
+	std::cout << "[DEBUG] CreateRigidBody called for body-to-be, shapes.size()=" << shapes.size();
+	for (const auto& s : shapes) {
+		std::cout << " [type=" << static_cast<int>(s.type)
+			<< " params=(" << s.params.v.x << "," << s.params.v.y << "," << s.params.v.z << ")"
+			<< " offset=(" << s.offset.x << "," << s.offset.y << "," << s.offset.z << ")]";
+	}
+	std::cout << std::endl;
 
 	JPH::RefConst<JPH::Shape> shape = BuildCompoundShape(shapes);
 	if (!shape) return nullptr;
@@ -181,6 +189,7 @@ std::shared_ptr<IPhysicsBody> JoltPhysicsEngine::CreateRigidBody(
 		mass > 0.0f ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
 		DEFAULT_LAYER
 	);
+	bodySettings.mRestitution = restitution;
 
 	// Create body
 	JPH::Body* body = mPhysicsSystem->GetBodyInterface().CreateBody(bodySettings);
@@ -192,6 +201,8 @@ std::shared_ptr<IPhysicsBody> JoltPhysicsEngine::CreateRigidBody(
 	// Create wrapper
 	auto physicsBody = std::make_shared<JoltPhysicsBody>(bodyID, &mPhysicsSystem->GetBodyInterface(), &mPhysicsSystem->GetBodyLockInterface(), mass);
 	mBodies[bodyID] = physicsBody; 
+
+	std::cout << "[DEBUG] CreateRigidBody called, shapes.size()=" << shapes.size() << std::endl;
 
 	return physicsBody;
 }
@@ -226,6 +237,20 @@ bool JoltPhysicsEngine::SetShapes(IPhysicsBody* body, const std::vector<Collider
 	if (!shape) return false;
 
 	mPhysicsSystem->GetBodyInterface().SetShape(bodyID, shape, true, JPH::EActivation::Activate);
+	return true;
+}
+
+bool JoltPhysicsEngine::SetRestitution(IPhysicsBody* body, float restitution) {
+	if (!body || !mPhysicsSystem) return false;
+	JPH::BodyID bodyID = static_cast<JoltPhysicsBody*>(body)->GetBodyID();
+	mPhysicsSystem->GetBodyInterface().SetRestitution(bodyID, restitution);
+	return true;
+}
+
+bool JoltPhysicsEngine::SetFriction(IPhysicsBody* body, float friction) {
+	if (!body || !mPhysicsSystem) return false;
+	JPH::BodyID bodyID = static_cast<JoltPhysicsBody*>(body)->GetBodyID();
+	mPhysicsSystem->GetBodyInterface().SetFriction(bodyID, friction);
 	return true;
 }
 

@@ -29,6 +29,10 @@ public:
 	// Access body for raycasting, etc
 	IPhysicsBody* GetBody() const { return mBody.get(); }
 
+	// Get/Set elasticity
+	float GetRestitution() const { return mRestitution; }
+	void SetRestitution(float restitution);
+
 	// Directly move the body (bypasses simulation)
 	void Teleport(const glm::vec3& position, const glm::quat& rotation) override;
 
@@ -58,6 +62,10 @@ protected:
 
 	std::shared_ptr<IPhysicsBody> mBody;
 	std::vector<Collider*> mColliders;
+	float mRestitution = 0.0f;
+	GBE_SERIALIZE_FIELD_W_CB(mRestitution, [this](float&) {
+		if (mBody) PhysicsEngine::GetInstance().Get().SetRestitution(mBody.get(), mRestitution);
+	});
 
 	GBE_GENERATE_SERIALIZER_CONSTRUCTOR(PhysicsBase, ComponentBase);
 };
