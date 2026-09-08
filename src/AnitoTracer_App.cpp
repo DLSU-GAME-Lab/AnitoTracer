@@ -320,6 +320,12 @@ void AnitoTracer_App::Update()
         return;
     }
 
+    //============//TIME//============//
+    static double s_LastTime = ImGui::GetTime();
+	double currentTime = ImGui::GetTime();
+	float deltaTime = static_cast<float>(currentTime - s_LastTime);
+	s_LastTime = currentTime;
+
     auto transform = SCDesc.PreTransform;
     if (transform == SURFACE_TRANSFORM_OPTIMAL)
         transform = SURFACE_TRANSFORM_IDENTITY;
@@ -361,16 +367,10 @@ void AnitoTracer_App::Update()
 
     ForwardImGuiInputToSystem();
     gbe::InputSystem::Update();
-    
-    static double s_LastTime = ImGui::GetTime();
-	double currentTime = ImGui::GetTime();
-	float deltaTime = static_cast<float>(currentTime - s_LastTime);
-	s_LastTime = currentTime;
 
     if (!AppConfig::release){
         //Editor update
         HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(deltaTime); //test delta frame
-        HierarchyManager::GetInstance().DispatchEvent<OnGUI_Editor>(deltaTime);
     }
     if (AppConfig::release){
         HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame

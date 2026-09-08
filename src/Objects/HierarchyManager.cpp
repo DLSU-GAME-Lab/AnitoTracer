@@ -193,15 +193,9 @@ std::unique_ptr<ComponentBase> HierarchyManager::RemoveComponentFromObject(Hiera
 }
 
 bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix) {
-    CameraComponent* activeCamera = nullptr;
-    if (AppConfig::release) {
-        activeCamera = GetMainCamera();
-    }
-    else {
+    CameraComponent* activeCamera = GetMainCamera();
+    if (!activeCamera) {
         activeCamera = GetEditorCamera();
-        if (!activeCamera) {
-            activeCamera = GetMainCamera();
-        }
     }
 
     if (activeCamera != nullptr)
@@ -364,15 +358,9 @@ void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) cons
 }
 
 bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
-    CameraComponent* activeCamera = nullptr;
-    if (AppConfig::release) {
-        activeCamera = GetMainCamera();
-    }
-    else {
+    CameraComponent* activeCamera = GetMainCamera();
+    if (!activeCamera) {
         activeCamera = GetEditorCamera();
-        if (!activeCamera) {
-            activeCamera = GetMainCamera();
-        }
     }
 
     if (activeCamera != nullptr) {
