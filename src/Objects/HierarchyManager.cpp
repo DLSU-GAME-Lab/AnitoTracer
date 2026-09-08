@@ -431,6 +431,26 @@ void HierarchyManager::LoadScene(std::filesystem::path filepath)
     );
 }
 
+void HierarchyManager::CreateNewScene()
+{
+    // Call on unload BEFORE replacing the current hierarchy.
+    gbe::EventSystem::DispatchTo(
+        EVENT_ONSCENEUNLOAD,
+        std::make_unique<SceneLoadArgs>(m_sceneLabel)
+    );
+
+    m_rootNodes.clear();
+    m_sceneFile.clear();
+    m_sceneLabel = "Untitled";
+    EnsureEditorCameraExists();
+
+    // Call on load AFTER the new blank scene is ready.
+    gbe::EventSystem::DispatchTo(
+        EVENT_ONSCENELOAD,
+        std::make_unique<SceneLoadArgs>(m_sceneLabel)
+    );
+}
+
 std::filesystem::path HierarchyManager::GetCurrentScene()
 {
     return m_sceneFile;

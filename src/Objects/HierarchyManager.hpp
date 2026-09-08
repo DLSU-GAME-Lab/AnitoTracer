@@ -141,6 +141,7 @@ public:
     void EnsureEditorCameraExists();
 
     void LoadScene(std::filesystem::path filepath);
+    void CreateNewScene();
     std::filesystem::path GetCurrentScene();
     std::filesystem::path GetSceneFile() const { return m_sceneFile; }
     void QuickSave();
