@@ -100,7 +100,7 @@ glm::vec3 JoltPhysicsEngine::GetGravity() const {
 JPH::ShapeSettings::ShapeResult JoltPhysicsEngine::BuildShapeSettings(ShapeType type, const ShapeParams& params) {
 	switch (type) {
 	case ShapeType::Box: {
-		JPH::BoxShapeSettings boxSettings(JPH::Vec3(params.v.x * 0.5f, params.v.y * 0.5f, params.v.z * 0.5f));
+		JPH::BoxShapeSettings boxSettings(JPH::Vec3(params.v.x, params.v.y, params.v.z));
 		return boxSettings.Create();
 	}
 	case ShapeType::Sphere: {
