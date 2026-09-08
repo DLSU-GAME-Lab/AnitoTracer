@@ -23,6 +23,11 @@ public:
     // derived class destructors are called correctly.
     virtual ~ComponentBase() = default;
 
+    // Allows a component to hide specific serialized fields from the inspector
+    // (e.g. StaticBody hiding its inherited "mass" field). Return the field's
+    // m_id (the variable name, unless overridden via GBE_SERIALIZE_FIELD_W_NAME).
+    virtual std::vector<std::string> GetHiddenProperties() const { return {}; }
+
     // Delete copy constructor and assignment operator to prevent object slicing.
     ComponentBase(const ComponentBase&) = delete;
     ComponentBase& operator=(const ComponentBase&) = delete;
