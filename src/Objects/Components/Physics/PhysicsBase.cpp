@@ -41,6 +41,10 @@ void PhysicsBase::RegisterCollider(Collider* collider) {
 	if (!collider) return;
 	if (std::find(mColliders.begin(), mColliders.end(), collider) != mColliders.end()) return;
 	mColliders.push_back(collider);
+
+	std::cout << "[DEBUG] Collider registered on body " << this
+		<< ". Total colliders: " << mColliders.size() << std::endl;
+
 	RebuildShapes();
 }
 
@@ -54,6 +58,10 @@ void PhysicsBase::UnregisterCollider(Collider* collider) {
 }
 
 void PhysicsBase::RebuildShapes() {
+	std::cout << "[DEBUG] RebuildShapes on " << this
+		<< " (type=" << typeid(*this).name() << ")"
+		<< ", mBody=" << mBody.get()
+		<< ", mColliders.size()=" << mColliders.size() << std::endl;
 	if (!mBody) return;
 
 	std::vector<IPhysicsEngine::ColliderShape> shapes;
@@ -91,11 +99,13 @@ void PhysicsBase::CreateBody(
 	}
 
 	// Create the physics body using the PhysicsEngine singleton
-	mBody = engine.CreateRigidBody(position, rotation, mass, shapes);
+	mBody = engine.CreateRigidBody(position, rotation, mass, shapes, mRestitution);
 	if (!mBody) {
 		std::cerr << "[PhysicsBase] Error: Failed to create physics body.\n";
 		return;
 	}
+
+	std::cout << "[DEBUG] Physics body created successfully" << std::endl;
 
 	engine.RegisterCollisionCallback(
 		mBody.get(),
@@ -128,4 +138,23 @@ void PhysicsBase::HandleCollision(
 
 	CollisionEnterTrigger event{ self, other, contactPoint };
 	owner->DispatchEventData<CollisionEnterTrigger>(event);
+}
+
+void PhysicsBase::AbsorbFrom(PhysicsBase* other) {
+	if (!other || other == this) return;
+
+	std::vector<Collider*> taken = other->TakeColliders();
+	if (taken.empty()) return;
+
+	for (Collider* c : taken) {
+		if (!c) continue;
+		c->Reparent(this);
+		mColliders.push_back(c);
+	}
+
+	std::cout << "[DEBUG] Absorbed " << taken.size()
+		<< " collider(s) from auto-created body " << other
+		<< " into body " << this << std::endl;
+
+	RebuildShapes();
 }

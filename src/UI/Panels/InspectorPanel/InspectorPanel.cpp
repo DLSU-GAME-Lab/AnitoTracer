@@ -2,6 +2,7 @@
 #include "TypeRegistry.hpp"
 #include "SerializedData.hpp"
 #include "../../../Objects/Components/EditorCamera.hpp"
+#include "../../../Objects/Components/Physics/Collider.hpp"
 
 #include <cstring>
 
@@ -121,6 +122,10 @@ void Diligent::InspectorPanel::Draw()
 
                         if (auto* newComponent = dynamic_cast<ComponentBase*>(rawInstance)) {
                             newComponent->SetOwner(selected);
+                            // Ensure collider component is attached
+                            if (auto* collider = dynamic_cast<Collider*>(newComponent)) {
+                                collider->EnsureAttached();
+                            }
                             selected.GetPtr()->AddComponent(std::unique_ptr<ComponentBase>(newComponent));
                         }
                         else {

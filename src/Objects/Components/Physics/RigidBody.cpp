@@ -14,33 +14,22 @@ RigidBody::RigidBody(
 	, mShapeType(shapeType)
 	, mShapeParams(shapeParams)
 {
-	glm::vec3 startPos(0.0f);
-	glm::quat startRot(1.0f, 0.0f, 0.0f, 0.0f);
-
-	HierarchyObject* o = m_owner.GetPtr();
-
-	if (o) {
-		if (Transform* t = o->GetTransform()) {
-			startPos = t->GetPosition();
-			startRot = t->GetRotation();
-		}
+	// std::cout << "[DEBUG] RigidBody created.
+	if (HierarchyObject* o = m_owner.GetPtr()) {
+		TakeOverAutoStaticBody(o);
 	}
-
-	if (o) {
-		if (StaticBody* existing = o->GetComponent<StaticBody>()) {
-			for (Collider* c : existing->TakeColliders()) {
-				mColliders.push_back(c);
-				c->Reparent(this);
-			}
-			o->RemoveComponent(existing);
-		}
-	}
-
-	CreateBody(startPos, startRot, mMass);
 }
 
 void RigidBody::OnFixedUpdate(float deltaTime) {
+	InitializeBody();
+
 	if (!mBody) return;
+
+	for (Collider* c : mColliders) {
+		if (c) {
+			c->EnsureAttached();
+		}
+	}
 
 	HierarchyObject* owner = m_owner.GetPtr();
 	if (!owner) return;
@@ -114,4 +103,41 @@ void RigidBody::Rebuild(
 
 	DestroyBody();
 	CreateBody(pos, rot, mMass);
+}
+
+void RigidBody::InitializeBody() {
+	if (mBody) return;  // Already initialized
+
+	glm::vec3 startPos(0.0f);
+	glm::quat startRot(1.0f, 0.0f, 0.0f, 0.0f);
+
+	HierarchyObject* o = m_owner.GetPtr();
+	if (o && o->GetTransform()) {
+		startPos = o->GetTransform()->GetPosition();
+		startRot = o->GetTransform()->GetRotation();
+	}
+
+	CreateBody(startPos, startRot, mMass);
+	std::cout << "[DEBUG] RigidBody body initialized with mass=" << mMass << std::endl;
+}
+
+
+void RigidBody::TakeOverAutoStaticBody(HierarchyObject* owner) {
+	PhysicsBase* existing = owner->GetComponent<PhysicsBase>();
+	if (!existing || existing == this) return;
+
+	StaticBody* autoBody = dynamic_cast<StaticBody*>(existing);
+	if (!autoBody || !autoBody->WasAutoCreated()) {
+		// Either no prior body, or a StaticBody the caller added deliberately.
+		return;
+	}
+
+	AbsorbFrom(autoBody);
+	owner->RemoveComponent(autoBody);
+}
+
+void RigidBody::OnOwnerAttached() {
+	if (HierarchyObject* o = m_owner.GetPtr()) {
+		TakeOverAutoStaticBody(o);
+	}
 }

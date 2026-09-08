@@ -16,7 +16,9 @@ class Collider;
 class PhysicsBase : public ComponentBase, public gbe::IInstanceManager<PhysicsBase>, public ITeleportable {
 public:
 	PhysicsBase(const std::string& name, gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
-		: ComponentBase(name, owner) {}
+		: ComponentBase(name, owner) {
+		std::cout << "[DEBUG] PhysicsBase constructor called for: " << name << std::endl;
+	}
 
 	~PhysicsBase() override;
 
@@ -59,6 +61,8 @@ protected:
 		std::shared_ptr<IPhysicsBody> other,
 		const glm::vec3& contactPoint
 	);
+
+	void AbsorbFrom(PhysicsBase* other);
 
 	std::shared_ptr<IPhysicsBody> mBody;
 	std::vector<Collider*> mColliders;

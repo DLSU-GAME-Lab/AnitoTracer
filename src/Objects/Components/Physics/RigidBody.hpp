@@ -34,11 +34,13 @@ public:
 	void SetAngularVelocity(const glm::vec3& angularVelocity);
 	glm::vec3 GetAngularVelocity() const;
 
-	void SetMass(float mass);
+	virtual void SetMass(float mass);
 	float GetMass() const;
 
 	// Recreate body with new shape at runtime
 	void Rebuild(IPhysicsEngine::ShapeType shapeType, IPhysicsEngine::ShapeParams shapeParams);
+
+	void InitializeBody();
 
 	virtual std::string GetLabel() override { return "RigidBody"; }
 
@@ -52,6 +54,9 @@ protected:
 	});
 
 	GBE_GENERATE_SERIALIZER_CONSTRUCTOR(RigidBody, PhysicsBase);
+
+	void TakeOverAutoStaticBody(HierarchyObject* owner);
+	void OnOwnerAttached() override;
 };
 
 GBE_REGISTER_SERIALIZED_TYPE(RigidBody, PhysicsBase);

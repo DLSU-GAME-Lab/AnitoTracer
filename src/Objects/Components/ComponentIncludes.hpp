@@ -4,3 +4,6 @@
 #include "Gameplay/CameraProximityTrigger.hpp"
 #include "Gameplay/PlacementComponent.hpp"
 #include "Gameplay/PlayerController.hpp"
+#include "Components/Physics/RigidBody.hpp"
+#include "Components/Physics/StaticBody.hpp"
+#include "Components/Physics/Collider.hpp"
