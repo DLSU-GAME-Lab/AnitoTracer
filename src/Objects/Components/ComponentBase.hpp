@@ -41,7 +41,12 @@ public:
     gbe::IInstanceManager<HierarchyObject>::Ref GetOwner() const { return m_owner; }
 
     // Sets or updates the owning HierarchyObject.
-    void SetOwner(gbe::IInstanceManager<HierarchyObject>::Ref owner) { m_owner = owner; }
+    void SetOwner(gbe::IInstanceManager<HierarchyObject>::Ref owner) { 
+        m_owner = owner; 
+        if (m_owner.GetPtr() != nullptr) {
+            OnOwnerAttached();
+        }
+    }
 
 protected:
     std::string m_name;
@@ -51,6 +56,8 @@ protected:
 
     virtual inline void GBE_Init() {};
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ComponentBase, gbe::ISerializable);
+
+    virtual void OnOwnerAttached() {}
 public:
     virtual std::string GetLabel() override;
 };
