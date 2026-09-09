@@ -46,6 +46,8 @@ set(${CUR_TARGET_NAME}_src
 	
 	Components/Global/SceneChanger.cpp
 	Components/Global/SceneChanger.hpp
+	Components/Global/TeleportMainCamera.cpp
+	Components/Global/TeleportMainCamera.hpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp
