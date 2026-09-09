@@ -4,4 +4,5 @@ struct AppConfig {
     inline static bool release = false;
     inline static std::string entry_project = "";
     inline static std::string entry_scene = "";
+    inline static int renderer = -1; //-1 = no override
 } appConfig;

@@ -130,13 +130,17 @@ namespace Diligent {
             // Dynamically populate the Windows menu based on registered panels
             if (ImGui::BeginMenu("Launch"))
             {
+                std::string default_args = std::string(" -release --project ") + 
+                "\"" + ProjectLoader::GetCurrentProjectFile().string() + "\"" +
+                " --renderer " + std::to_string(static_cast<int>(UserSettings::GetInstance().GetRendererType()));
+
                 if (ImGui::MenuItem("Play Project"))
                 {
-                    gbe::CreateInstance(" -release --project \"" + ProjectLoader::GetCurrentProjectFile().string() + "\"");
+                    gbe::CreateInstance(default_args);
                 }
                 if (ImGui::MenuItem("Play Scene"))
                 {
-                    gbe::CreateInstance(" -release --project \"" + ProjectLoader::GetCurrentProjectFile().string() + "\"" + " --scene \"" + HierarchyManager::GetInstance().GetSceneFile().string() + "\"");
+                    gbe::CreateInstance(default_args + " --scene \"" + HierarchyManager::GetInstance().GetSceneFile().string() + "\"");
                 }
                 ImGui::EndMenu();
             }
