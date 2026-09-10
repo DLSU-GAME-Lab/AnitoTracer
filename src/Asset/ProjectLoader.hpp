@@ -6,6 +6,7 @@
 #include <string>
 
 #include "AssetPipeline.hpp"
+#include "FileDialogue.hpp"
 #include "HierarchyManager.hpp"
 
 class ProjectLoader {
@@ -18,6 +19,7 @@ class ProjectLoader {
 	inline static std::filesystem::path currentProjectFile;
 	// TODO: Replace static loader state with an instance/service that owns the active project session.
 	inline static std::filesystem::path pendingSceneFile;
+	inline static bool pendingNewScene = false;
 	inline static gbe::SerializedData savedSceneData;
 	inline static bool hasSavedSceneData = false;
 
@@ -25,6 +27,7 @@ public:
 	inline static std::filesystem::path GetCurrentProjectDir() { return currentProjectDir; }
 	inline static std::filesystem::path GetCurrentSceneFile() { return currentSceneFile; }
 	inline static std::filesystem::path GetCurrentProjectFile() { return currentProjectFile; }
+	inline static bool CanQuickSave() { return !currentSceneFile.empty(); }
 
 	inline static std::filesystem::path GetAbsolutePath(const std::filesystem::path& relativePath) {
 		return std::filesystem::absolute(currentProjectDir / relativePath);
@@ -38,7 +41,13 @@ public:
 	}
 
 	inline static bool QuickSave() {
-		if (currentSceneFile.empty()) return false;
+		if (currentSceneFile.empty()) {
+			const std::string outPath = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::SAVE, "ascene");
+			if (outPath.empty()) {
+				return false;
+			}
+			return SaveSceneAs(outPath);
+		}
 		HierarchyManager::GetInstance().QuickSave();
 		savedSceneData = HierarchyManager::GetInstance().Serialize();
 		hasSavedSceneData = true;
@@ -59,24 +68,48 @@ public:
 		if (path.empty()) return;
 		const auto target = path.is_absolute() ? path.lexically_normal() : GetAbsolutePath(path);
 		if (target != currentSceneFile && IsCurrentSceneDirty()) {
+			pendingNewScene = false;
 			pendingSceneFile = target;
 			return;
 		}
 		LoadSceneNow(target);
 	}
 
-	inline static bool HasPendingSceneLoad() { return !pendingSceneFile.empty(); }
+	inline static void RequestCreateNewScene() {
+		if (IsCurrentSceneDirty()) {
+			pendingSceneFile.clear();
+			pendingNewScene = true;
+			return;
+		}
+		CreateNewSceneNow();
+	}
+
+	inline static void CreateNewScene() {
+		RequestCreateNewScene();
+	}
+
+	inline static bool HasPendingSceneLoad() { return !pendingSceneFile.empty() || pendingNewScene; }
 	inline static std::filesystem::path GetPendingSceneFile() { return pendingSceneFile; }
+	inline static bool IsPendingNewScene() { return pendingNewScene; }
 
 	inline static void ResolvePendingSceneLoad(bool saveChanges) {
-		if (pendingSceneFile.empty()) return;
+		if (!HasPendingSceneLoad()) return;
 		const auto target = pendingSceneFile;
+		const bool shouldCreateNewScene = pendingNewScene;
 		pendingSceneFile.clear();
+		pendingNewScene = false;
 		if (saveChanges) QuickSave();
+		if (shouldCreateNewScene) {
+			CreateNewSceneNow();
+			return;
+		}
 		LoadSceneNow(target);
 	}
 
-	inline static void CancelPendingSceneLoad() { pendingSceneFile.clear(); }
+	inline static void CancelPendingSceneLoad() {
+		pendingSceneFile.clear();
+		pendingNewScene = false;
+	}
 
 	static inline void LoadProject(std::filesystem::path path) {
 		ProjectInfo newinfo;
@@ -93,6 +126,13 @@ public:
 	}
 
 private:
+	inline static void CreateNewSceneNow() {
+		HierarchyManager::GetInstance().CreateNewScene();
+		currentSceneFile.clear();
+		savedSceneData = HierarchyManager::GetInstance().Serialize();
+		hasSavedSceneData = true;
+	}
+
 	inline static void LoadSceneNow(const std::filesystem::path& path) {
 		currentSceneFile = path.lexically_normal();
 		HierarchyManager::GetInstance().LoadScene(currentSceneFile);

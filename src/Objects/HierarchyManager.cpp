@@ -3,6 +3,15 @@
 
 #include "../AppConfig.hpp"
 #include "ObjectFactory.hpp"
+#include "HierarchyFeatures/PrefabFeature.hpp"
+
+namespace {
+    std::filesystem::path NormalizePath(const std::filesystem::path& path) {
+        std::error_code error;
+        const auto absolute = std::filesystem::absolute(path, error);
+        return error ? path.lexically_normal() : absolute.lexically_normal();
+    }
+}
 
 CameraComponent* HierarchyManager::GetMainCamera() const {
     return gbe::IInstanceManager<GameCamera>::getOldest();
@@ -11,7 +20,7 @@ CameraComponent* HierarchyManager::GetMainCamera() const {
 HierarchyObject::Ref HierarchyManager::AddRootObject(std::unique_ptr<HierarchyObject> rootObj) {
     if (!rootObj) return nullptr;
 
-    rootObj->m_parent = nullptr;
+    rootObj->SetParent(nullptr);
 
     m_rootNodes.push_back(std::move(rootObj));
     auto newref = m_rootNodes.back()->getRef();
@@ -25,7 +34,7 @@ std::unique_ptr<HierarchyObject> HierarchyManager::RemoveRootObject(HierarchyObj
     for (auto it = m_rootNodes.begin(); it != m_rootNodes.end(); ++it) {
         if (it->get() == rootToRemove.GetPtr()) {
             std::unique_ptr<HierarchyObject> detachedRoot = std::move(*it);
-            detachedRoot->m_parent = nullptr;
+            detachedRoot->SetParent(nullptr);
             m_rootNodes.erase(it);
             return detachedRoot;
         }
@@ -59,7 +68,7 @@ bool HierarchyManager::ReparentObject(HierarchyObject::Ref object, HierarchyObje
 
     std::unique_ptr<HierarchyObject> detachedObject;
     if (HierarchyObject::Ref oldParent = objectPtr->GetParent()) {
-        auto& siblings = oldParent.GetPtr()->m_children;
+        auto& siblings = oldParent.GetPtr()->MutableChildren();
         for (auto it = siblings.begin(); it != siblings.end(); ++it) {
             if (it->get() == objectPtr) {
                 detachedObject = std::move(*it);
@@ -74,9 +83,9 @@ bool HierarchyManager::ReparentObject(HierarchyObject::Ref object, HierarchyObje
 
     if (!detachedObject) return false;
 
-    detachedObject->m_parent = parentPtr;
+    detachedObject->SetParent(parentPtr);
     if (parentPtr) {
-        parentPtr->m_children.push_back(std::move(detachedObject));
+        parentPtr->MutableChildren().push_back(std::move(detachedObject));
     }
     else {
         m_rootNodes.push_back(std::move(detachedObject));
@@ -130,6 +139,10 @@ HierarchyObject::Ref HierarchyManager::PasteObject(HierarchyObject::Ref parent) 
         return nullptr;
     }
 
+    if (pastedRef.GetPtr()->IsPrefabInstance()) {
+        PrefabFeature::RefreshPrefabInstance(pastedRef);
+    }
+
     return pastedRef;
 }
 
@@ -180,15 +193,9 @@ std::unique_ptr<ComponentBase> HierarchyManager::RemoveComponentFromObject(Hiera
 }
 
 bool HierarchyManager::GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix) {
-    CameraComponent* activeCamera = nullptr;
-    if (AppConfig::release) {
-        activeCamera = GetMainCamera();
-    }
-    else {
+    CameraComponent* activeCamera = GetMainCamera();
+    if (!activeCamera) {
         activeCamera = GetEditorCamera();
-        if (!activeCamera) {
-            activeCamera = GetMainCamera();
-        }
     }
 
     if (activeCamera != nullptr)
@@ -351,15 +358,9 @@ void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) cons
 }
 
 bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
-    CameraComponent* activeCamera = nullptr;
-    if (AppConfig::release) {
-        activeCamera = GetMainCamera();
-    }
-    else {
+    CameraComponent* activeCamera = GetMainCamera();
+    if (!activeCamera) {
         activeCamera = GetEditorCamera();
-        if (!activeCamera) {
-            activeCamera = GetMainCamera();
-        }
     }
 
     if (activeCamera != nullptr) {
@@ -376,6 +377,7 @@ bool HierarchyManager::GetMainCameraPosition(glm::vec3& outPosition) const {
 
 gbe::SerializedData HierarchyManager::Serialize()
 {
+    PrefabFeature::SyncPrefabOverridesBeforeSave();
     return gbe::ISerializable::Serialize();
 }
 
@@ -383,6 +385,7 @@ void HierarchyManager::Deserialize(gbe::SerializedData& data)
 {
     this->m_sceneLabel = data.label;
     gbe::ISerializable::Deserialize(data);
+    PrefabFeature::RefreshPrefabInstancesAfterLoad();
     EnsureEditorCameraExists();
 }
 
@@ -406,14 +409,39 @@ void HierarchyManager::LoadScene(std::filesystem::path filepath)
         std::make_unique<SceneLoadArgs>(m_sceneLabel)
     );
 
-    m_sceneFile = filepath;
-    this->DeserializeFromFile(filepath);
+    m_sceneFile = NormalizePath(filepath);
+    this->DeserializeFromFile(m_sceneFile);
 
     //Call on load AFTER scene load commit
     gbe::EventSystem::DispatchTo(
         EVENT_ONSCENELOAD,
         std::make_unique<SceneLoadArgs>(m_sceneLabel)
     );
+}
+
+void HierarchyManager::CreateNewScene()
+{
+    // Call on unload BEFORE replacing the current hierarchy.
+    gbe::EventSystem::DispatchTo(
+        EVENT_ONSCENEUNLOAD,
+        std::make_unique<SceneLoadArgs>(m_sceneLabel)
+    );
+
+    m_rootNodes.clear();
+    m_sceneFile.clear();
+    m_sceneLabel = "Untitled";
+    EnsureEditorCameraExists();
+
+    // Call on load AFTER the new blank scene is ready.
+    gbe::EventSystem::DispatchTo(
+        EVENT_ONSCENELOAD,
+        std::make_unique<SceneLoadArgs>(m_sceneLabel)
+    );
+}
+
+std::filesystem::path HierarchyManager::GetCurrentScene()
+{
+    return m_sceneFile;
 }
 
 void HierarchyManager::QuickSave()

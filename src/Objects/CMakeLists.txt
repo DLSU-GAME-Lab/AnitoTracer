@@ -46,12 +46,17 @@ set(${CUR_TARGET_NAME}_src
 	
 	Components/Global/SceneChanger.cpp
 	Components/Global/SceneChanger.hpp
+	Components/Global/TeleportMainCamera.cpp
+	Components/Global/TeleportMainCamera.hpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp
 
 	HierarchyManager.hpp
 	HierarchyManager.cpp
+
+	HierarchyFeatures/PrefabFeature.hpp
+	HierarchyFeatures/PrefabFeature.cpp
 
 	ObjectFactory.hpp
 	ObjectFactory.cpp

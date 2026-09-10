@@ -23,17 +23,17 @@ namespace gbe {
         using AutoSerializerBase<T>::AutoSerializerBase;
 
         inline void Serialize(SerializedData& data) override {
-            data.serialized_variables.insert_or_assign(this->m_id, Parser::ExportClassStr(this->m_target));
+            data.serialized_variables.insert_or_assign(this->m_id, Parser::ExportClassStr(this->Get()));
         }
 
         inline void Deserialize(SerializedData& data) override {
             auto it = data.serialized_variables.find(this->m_id);
             if (it != data.serialized_variables.end()) {
-                Parser::PopulateClassStr(this->m_target, it->second);
+                Parser::PopulateClassStr(this->Get(), it->second);
             }
 
             if (this->m_on_init) {
-                this->m_on_init(this->m_target);
+                this->m_on_init(this->Get());
             }
         }
     };
@@ -41,62 +41,62 @@ namespace gbe {
     // --- Explicit Primitive Specializations ---
     template<>
     inline void AutoSerializer<int>::Serialize(SerializedData& data) {
-        data.serialized_variables.insert_or_assign(m_id, std::to_string(m_target));
+        data.serialized_variables.insert_or_assign(m_id, std::to_string(this->Get()));
     }
 
     template<>
     inline void AutoSerializer<int>::Deserialize(SerializedData& data) {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
-            m_target = std::stoi(data.serialized_variables[m_id]);
+            this->Get() = std::stoi(data.serialized_variables[m_id]);
         }
         if (m_on_init) {
-            m_on_init(m_target);
+            m_on_init(this->Get());
         }
     }
 
     template<>
     inline void AutoSerializer<bool>::Serialize(SerializedData& data) {
-        data.serialized_variables.insert_or_assign(m_id, m_target ? "1" : "0");
+        data.serialized_variables.insert_or_assign(m_id, this->Get() ? "1" : "0");
     }
 
     template<>
     inline void AutoSerializer<bool>::Deserialize(SerializedData& data) {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
             std::string val = data.serialized_variables[m_id];
-            m_target = (val == "1" || val == "true");
+            this->Get() = (val == "1" || val == "true");
         }
         if (m_on_init) {
-            m_on_init(m_target);
+            m_on_init(this->Get());
         }
     }
 
     template<>
     inline void AutoSerializer<float>::Serialize(SerializedData& data) {
-        data.serialized_variables.insert_or_assign(m_id, std::to_string(m_target));
+        data.serialized_variables.insert_or_assign(m_id, std::to_string(this->Get()));
     }
 
     template<>
     inline void AutoSerializer<float>::Deserialize(SerializedData& data) {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
-            m_target = std::stof(data.serialized_variables[m_id]);
+            this->Get() = std::stof(data.serialized_variables[m_id]);
         }
         if (m_on_init) {
-            m_on_init(m_target);
+            m_on_init(this->Get());
         }
     }
 
     template<>
     inline void AutoSerializer<std::string>::Serialize(SerializedData& data) {
-        data.serialized_variables.insert_or_assign(m_id, m_target);
+        data.serialized_variables.insert_or_assign(m_id, this->Get());
     }
 
     template<>
     inline void AutoSerializer<std::string>::Deserialize(SerializedData& data) {
         if (data.serialized_variables.find(m_id) != data.serialized_variables.end()) {
-            m_target = data.serialized_variables[m_id];
+            this->Get() = data.serialized_variables[m_id];
         }
         if (m_on_init) {
-            m_on_init(m_target);
+            m_on_init(this->Get());
         }
     }
 

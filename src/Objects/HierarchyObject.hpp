@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <unordered_map>
+#include <filesystem>
 
 #include "Components/ComponentBase.hpp"
 #include "PropertyDrawers/componentbase_drawer.hpp" // should come after #include "Components/ComponentBase.hpp"
@@ -37,6 +39,14 @@ public:
     HierarchyObject::Ref GetParent() const { return m_parent; }
     const std::vector<std::unique_ptr<HierarchyObject>>& GetChildren() const { return m_children; }
     const std::vector<std::unique_ptr<ComponentBase>>& GetComponents() const { return m_components; }
+    bool IsPrefabInstance() const { return !m_prefabAssetPath.empty(); }
+    const std::string& GetPrefabAssetPath() const { return m_prefabAssetPath; }
+    const std::unordered_map<std::string, std::string>& GetPrefabOverrides() const { return m_prefabOverrides; }
+    std::vector<std::unique_ptr<HierarchyObject>>& MutableChildren() { return m_children; }
+    void SetParent(HierarchyObject::Ref parent) { m_parent = parent; }
+    std::string& MutablePrefabAssetPath() { return m_prefabAssetPath; }
+    std::unordered_map<std::string, std::string>& MutablePrefabOverrides() { return m_prefabOverrides; }
+    void ClearPrefabLink() { m_prefabAssetPath.clear(); m_prefabOverrides.clear(); }
 
     /**
      * @brief Generic method to search for and return an attached component of type T.
@@ -123,6 +133,12 @@ private:
     std::vector<std::unique_ptr<ComponentBase>> m_components;
     void InitializeChildren(std::vector < std::unique_ptr<ComponentBase>>& target);
     GBE_SERIALIZE_FIELD_W_CB(m_components, std::bind_front(&HierarchyObject::InitializeChildren, this));
+
+    std::string m_prefabAssetPath;
+    GBE_SERIALIZE_FIELD(m_prefabAssetPath);
+
+    std::unordered_map<std::string, std::string> m_prefabOverrides;
+    GBE_SERIALIZE_FIELD(m_prefabOverrides);
 
     friend class HierarchyManager;
 

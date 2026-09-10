@@ -7,6 +7,7 @@
 
 #include "EditorCamera.hpp"
 #include "HierarchyObject.hpp"
+#include "GUIManager.hpp"
 #include "imgui.h"
 
 GameCamera::GameCamera(Transform* transform, gbe::IInstanceManager<HierarchyObject>::Ref owner)
@@ -52,10 +53,17 @@ void GameCamera::OnGUI_EditorEvent(float deltaTime)
     const glm::vec3 gameRight = gameCamRot * glm::vec3(1.0f, 0.0f, 0.0f);
     const glm::vec3 gameUp = gameCamRot * glm::vec3(0.0f, 1.0f, 0.0f);
 
+    const auto& gui = Diligent::GUIManager::GetInstance();
+    const ImVec2 viewportPos = gui.GetEditorViewportPos();
+    const ImVec2 viewportSize = gui.GetEditorViewportSize();
+    if (viewportSize.x <= 1.0f || viewportSize.y <= 1.0f) {
+        return;
+    }
+
     constexpr float kFulcrumDistance = 3.0f;
     const glm::vec3 fulcrumWorldPos = gameCamPos + gameForward * kFulcrumDistance;
 
-    const auto ProjectToScreen = [&vp](const glm::vec3& worldPos, ImVec2& outScreen) -> bool {
+    const auto ProjectToScreen = [&vp, &viewportPos, &viewportSize](const glm::vec3& worldPos, ImVec2& outScreen) -> bool {
         const glm::vec4 clip = vp * glm::vec4(worldPos, 1.0f);
         if (clip.w <= 0.0001f) {
             return false;
@@ -66,9 +74,8 @@ void GameCamera::OnGUI_EditorEvent(float deltaTime)
             return false;
         }
 
-        const ImVec2 displaySize = ImGui::GetIO().DisplaySize;
-        outScreen.x = (ndc.x * 0.5f + 0.5f) * displaySize.x;
-        outScreen.y = (1.0f - (ndc.y * 0.5f + 0.5f)) * displaySize.y;
+        outScreen.x = viewportPos.x + (ndc.x * 0.5f + 0.5f) * viewportSize.x;
+        outScreen.y = viewportPos.y + (1.0f - (ndc.y * 0.5f + 0.5f)) * viewportSize.y;
         return true;
     };
 
@@ -78,7 +85,7 @@ void GameCamera::OnGUI_EditorEvent(float deltaTime)
         return;
     }
 
-    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
     constexpr ImU32 kLineColor = IM_COL32(255, 180, 60, 230);
     constexpr ImU32 kNearPlaneColor = IM_COL32(80, 220, 140, 220);
     constexpr ImU32 kFarPlaneColor = IM_COL32(80, 140, 255, 220);

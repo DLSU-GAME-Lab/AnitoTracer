@@ -3,6 +3,8 @@
 #include "SerializedData.hpp"
 #include "../../../Objects/Components/EditorCamera.hpp"
 
+#include "HierarchyFeatures/PrefabFeature.hpp"
+
 #include <cstring>
 
 void Diligent::InspectorPanel::Draw()
@@ -70,6 +72,35 @@ void Diligent::InspectorPanel::Draw()
             if (ImGui::IsItemDeactivatedAfterEdit())
             {
                 selected.GetPtr()->SetName(m_NameBuffer);
+            }
+
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            if (selected.GetPtr()->IsPrefabInstance())
+            {
+                ImGui::TextWrapped("Prefab: %s", selected.GetPtr()->GetPrefabAssetPath().c_str());
+
+                if (ImGui::Button("Apply to Prefab"))
+                {
+                    PrefabFeature::GetInstance().ApplyPrefabToAsset(selected);
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("Revert from Prefab"))
+                {
+                    PrefabFeature::GetInstance().RevertPrefabInstance(selected);
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("Unpack"))
+                {
+                    PrefabFeature::GetInstance().UnpackPrefabInstance(selected);
+                }
+            }
+            else if (ImGui::Button("Create Prefab Asset"))
+            {
+                PrefabFeature::GetInstance().CreatePrefabAsset(selected);
             }
 
             ImGui::Separator();

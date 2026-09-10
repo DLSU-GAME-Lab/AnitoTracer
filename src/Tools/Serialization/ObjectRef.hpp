@@ -64,7 +64,7 @@ namespace gbe {
 
         void Serialize(SerializedData& data) override {
             // Serialize the target object's GUID as a string
-            GUID targetGuid = this->m_target.GetTargetGUID();
+            GUID targetGuid = this->Get().GetTargetGUID();
             data.serialized_variables.insert_or_assign(this->m_id, Parser::ExportClassStr(targetGuid));
         }
 
@@ -73,11 +73,11 @@ namespace gbe {
             if (it != data.serialized_variables.end()) {
                 GUID restoredGuid = GUID::Empty();
                 Parser::PopulateClassStr(restoredGuid, it->second);
-                this->m_target.SetGUID(restoredGuid);
+                this->Get().SetGUID(restoredGuid);
             }
 
             if (this->m_on_init) {
-                this->m_on_init(this->m_target);
+                this->m_on_init(this->Get());
             }
         }
     };

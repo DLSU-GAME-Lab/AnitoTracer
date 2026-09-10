@@ -120,6 +120,15 @@ bool AnitoTracer_App::Initialize(HINSTANCE hInstance, int nCmdShow)
     //Dispatch with empty EventArgs
     EventSystem::DispatchTo(EVENT_ON_APP_INITIALIZE, std::make_unique<EventArgs>());
 
+    if(AppConfig::renderer >=  0){
+        Diligent::PipelineType chosen = static_cast<Diligent::PipelineType>(AppConfig::renderer);
+
+        gbe::EventSystem::DispatchTo(
+                        EVENT_RENDER_CHANGE,
+                        std::make_unique<RendererChangeArgs>(chosen)
+                    );
+    }
+
     return true;
 }
 
@@ -134,6 +143,9 @@ bool AnitoTracer_App::Initialize(void* hInstance, int nCmdShow, const std::vecto
         }
         else if ((args[i] == "--scene" || args[i] == "-scene") && (i + 1 < args.size())) {
             AppConfig::entry_scene = args[++i]; // Read the path and skip to next token
+        }
+        else if ((args[i] == "--renderer" || args[i] == "-renderer") && (i + 1 < args.size())) {
+            AppConfig::renderer= std::stoi(args[++i]); // Read the path and skip to next token
         }
     }
 
@@ -320,6 +332,12 @@ void AnitoTracer_App::Update()
         return;
     }
 
+    //============//TIME//============//
+    static double s_LastTime = ImGui::GetTime();
+	double currentTime = ImGui::GetTime();
+	float deltaTime = static_cast<float>(currentTime - s_LastTime);
+	s_LastTime = currentTime;
+
     auto transform = SCDesc.PreTransform;
     if (transform == SURFACE_TRANSFORM_OPTIMAL)
         transform = SURFACE_TRANSFORM_IDENTITY;
@@ -361,16 +379,10 @@ void AnitoTracer_App::Update()
 
     ForwardImGuiInputToSystem();
     gbe::InputSystem::Update();
-    
-    static double s_LastTime = ImGui::GetTime();
-	double currentTime = ImGui::GetTime();
-	float deltaTime = static_cast<float>(currentTime - s_LastTime);
-	s_LastTime = currentTime;
 
     if (!AppConfig::release){
         //Editor update
         HierarchyManager::GetInstance().DispatchEvent<EditorUpdateTrigger>(deltaTime); //test delta frame
-        HierarchyManager::GetInstance().DispatchEvent<OnGUI_Editor>(deltaTime);
     }
     if (AppConfig::release){
         HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame

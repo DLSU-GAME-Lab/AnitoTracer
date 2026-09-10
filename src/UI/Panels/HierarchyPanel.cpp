@@ -1,5 +1,6 @@
 #include "HierarchyPanel.hpp"
-#include "HierarchyPanel.hpp"
+
+#include "HierarchyFeatures/PrefabFeature.hpp"
 
 namespace Diligent {
 
@@ -102,7 +103,11 @@ namespace Diligent {
         }
 
         // Render the node using the object's memory address as a unique ID
-        bool nodeOpen = ImGui::TreeNodeEx((void*)node.GetID(), flags, "%s", node.GetPtr()->GetName().c_str());
+        const bool isPrefabInstance = node.GetPtr()->IsPrefabInstance();
+        bool nodeOpen = ImGui::TreeNodeEx(
+            (void*)node.GetID(), flags, "%s%s",
+            node.GetPtr()->GetName().c_str(),
+            isPrefabInstance ? " [Prefab]" : "");
 
         //For drag drop hierarchy / component references
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
@@ -151,6 +156,31 @@ namespace Diligent {
                 HierarchyObject::Ref pastedObject =
                     HierarchyManager::GetInstance().PasteObject(node);
                 if (pastedObject) SetSelectedObject(pastedObject);
+            }
+
+            if (ImGui::MenuItem("Create Prefab Asset"))
+            {
+                PrefabFeature::GetInstance().CreatePrefabAsset(node);
+                SetSelectedObject(node);
+            }
+
+            if (node.GetPtr()->IsPrefabInstance())
+            {
+                if (ImGui::MenuItem("Apply Prefab"))
+                {
+                    PrefabFeature::GetInstance().ApplyPrefabToAsset(node);
+                }
+
+                if (ImGui::MenuItem("Revert Prefab"))
+                {
+                    PrefabFeature::GetInstance().RevertPrefabInstance(node);
+                    SetSelectedObject(node);
+                }
+
+                if (ImGui::MenuItem("Unpack Prefab"))
+                {
+                    PrefabFeature::GetInstance().UnpackPrefabInstance(node);
+                }
             }
 
             ImGui::Separator();

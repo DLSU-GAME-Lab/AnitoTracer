@@ -20,12 +20,16 @@ namespace Diligent {
                 {
                     appRunning = false;
                 }
+                if (ImGui::MenuItem("Create New Scene", "Ctrl+N"))
+                {
+                    ProjectLoader::CreateNewScene();
+                }
                 if (ImGui::MenuItem("Load Project", "Alt+F4"))
                 {
                     std::string outPath = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, "aproject");
                     ProjectLoader::LoadProject(outPath);
                 }
-                if (ImGui::MenuItem("Quick Save", "Ctrl+S", false, !ProjectLoader::GetCurrentSceneFile().empty()))
+                if (ImGui::MenuItem("Quick Save", "Ctrl+S", false, ProjectLoader::CanQuickSave()))
                 {
                     ProjectLoader::QuickSave();
                 }
@@ -126,13 +130,17 @@ namespace Diligent {
             // Dynamically populate the Windows menu based on registered panels
             if (ImGui::BeginMenu("Launch"))
             {
+                std::string default_args = std::string(" -release --project ") + 
+                "\"" + ProjectLoader::GetCurrentProjectFile().string() + "\"" +
+                " --renderer " + std::to_string(static_cast<int>(UserSettings::GetInstance().GetRendererType()));
+
                 if (ImGui::MenuItem("Play Project"))
                 {
-                    gbe::CreateInstance(" -release --project \"" + ProjectLoader::GetCurrentProjectFile().string() + "\"");
+                    gbe::CreateInstance(default_args);
                 }
                 if (ImGui::MenuItem("Play Scene"))
                 {
-                    gbe::CreateInstance(" -release --project \"" + ProjectLoader::GetCurrentProjectFile().string() + "\"" + " --scene \"" + HierarchyManager::GetInstance().GetSceneFile().string() + "\"");
+                    gbe::CreateInstance(default_args + " --scene \"" + HierarchyManager::GetInstance().GetSceneFile().string() + "\"");
                 }
                 ImGui::EndMenu();
             }
@@ -145,6 +153,12 @@ namespace Diligent {
             ProjectLoader::QuickSave();
         }
 
+        if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N) &&
+            !ImGui::GetIO().WantTextInput)
+        {
+            ProjectLoader::CreateNewScene();
+        }
+
         // TODO: Move scene-load confirmation into a reusable modal/service so non-menu callers
         // can request guarded loads without depending on MenuBar rendering.
         if (ProjectLoader::HasPendingSceneLoad())
@@ -155,14 +169,21 @@ namespace Diligent {
             ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::TextWrapped("The current scene has unsaved changes.");
-            ImGui::TextWrapped("Load %s anyway?", ProjectLoader::GetPendingSceneFile().filename().string().c_str());
-            if (ImGui::Button("Save and Load"))
+            if (ProjectLoader::IsPendingNewScene())
+            {
+                ImGui::TextWrapped("Create a new blank scene anyway?");
+            }
+            else
+            {
+                ImGui::TextWrapped("Load %s anyway?", ProjectLoader::GetPendingSceneFile().filename().string().c_str());
+            }
+            if (ImGui::Button("Save and Continue"))
             {
                 ProjectLoader::ResolvePendingSceneLoad(true);
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Load Without Saving"))
+            if (ImGui::Button("Continue Without Saving"))
             {
                 ProjectLoader::ResolvePendingSceneLoad(false);
                 ImGui::CloseCurrentPopup();

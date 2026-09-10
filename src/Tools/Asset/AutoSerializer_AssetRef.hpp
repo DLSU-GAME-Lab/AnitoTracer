@@ -12,17 +12,17 @@ namespace gbe {
         using AutoSerializerBase<AssetRef<T>>::AutoSerializerBase;
 
         inline void Serialize(SerializedData& data) override {
-            data.serialized_variables.insert_or_assign(this->m_id, this->m_target.GetGUID().ToString());
+            data.serialized_variables.insert_or_assign(this->m_id, this->Get().GetGUID().ToString());
         }
 
         inline void Deserialize(SerializedData& data) override {
             auto it = data.serialized_variables.find(this->m_id);
             if (it != data.serialized_variables.end()) {
-                this->m_target.SetGUID(GUID::FromString(it->second));
+                this->Get().SetGUID(GUID::FromString(it->second));
             }
 
             if (this->m_on_init) {
-                this->m_on_init(this->m_target);
+                this->m_on_init(this->Get());
             }
         }
     };

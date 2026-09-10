@@ -9,6 +9,8 @@
 #include <cstring>
 #include <system_error>
 
+#include "HierarchyFeatures/PrefabFeature.hpp"
+
 namespace Diligent
 {
     namespace
@@ -27,6 +29,14 @@ namespace Diligent
                 [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
             return extension == ".ascene";
         }
+
+        bool IsPrefabFile(const std::filesystem::path& path)
+        {
+            std::string extension = path.extension().string();
+            std::transform(extension.begin(), extension.end(), extension.begin(),
+                [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+            return extension == ".aprefab";
+        }
     }
 
     FileExplorerPanel::FileExplorerPanel(const std::string& name) : BasePanel(name)
@@ -37,6 +47,16 @@ namespace Diligent
         RegisterOpener([](const std::filesystem::path& path) {
             if (IsSceneFile(path))
                 ProjectLoader::RequestSceneLoad(Normalize(path));
+        });
+
+        RegisterOpener([this](const std::filesystem::path& path) {
+            if (!IsPrefabFile(path)) {
+                return;
+            }
+
+            HierarchyObject::Ref created =
+                PrefabFeature::GetInstance().InstantiatePrefab(Normalize(path));
+            m_Status = created ? "Prefab instantiated." : "Failed to instantiate prefab.";
         });
     }
 
@@ -180,7 +200,16 @@ namespace Diligent
     {
         if (ImGui::BeginPopupContextWindow("##file_context", ImGuiPopupFlags_MouseButtonRight))
         {
+            const bool hasSingleSelection = m_Selection.size() == 1;
+            const bool canInstantiatePrefab = hasSingleSelection &&
+                PrefabFeature::GetInstance().IsPrefabFile(m_Selection.front());
+
             if (ImGui::MenuItem("Open", nullptr, false, m_Selection.size() == 1)) OpenSelected();
+            if (ImGui::MenuItem("Instantiate Prefab", nullptr, false, canInstantiatePrefab))
+            {
+                HierarchyObject::Ref created = PrefabFeature::GetInstance().InstantiatePrefab(m_Selection.front());
+                m_Status = created ? "Prefab instantiated." : "Failed to instantiate prefab.";
+            }
             if (ImGui::MenuItem("Copy", "Ctrl+C", false, !m_Selection.empty())) CopySelection(false);
             if (ImGui::MenuItem("Cut", "Ctrl+X", false, !m_Selection.empty())) CopySelection(true);
             if (ImGui::MenuItem("Paste", "Ctrl+V", false, !m_Clipboard.empty())) PasteClipboard();
