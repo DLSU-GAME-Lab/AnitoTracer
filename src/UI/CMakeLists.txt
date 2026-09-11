@@ -24,8 +24,8 @@ set(${CUR_TARGET_NAME}_src
 	Panels/ProfilerPanel.hpp
 	Panels/FileExplorerPanel.cpp
 	Panels/FileExplorerPanel.hpp
-	Panels/ViewportPanel.cpp
-	Panels/ViewportPanel.hpp
+	Panels/ViewportPanel/ViewportPanel.cpp
+	Panels/ViewportPanel/ViewportPanel.hpp
 
 	MenuBar.hpp
 	MenuBar.cpp
