@@ -332,6 +332,12 @@ void AnitoTracer_App::Update()
         return;
     }
 
+    if (!AppConfig::release)
+    {
+        m_pGameTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        m_pEditorTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+    }
+
     //============//TIME//============//
     static double s_LastTime = ImGui::GetTime();
 	double currentTime = ImGui::GetTime();
@@ -413,7 +419,6 @@ void AnitoTracer_App::Render()
     }
     else
     {
-        m_pGameTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
         RendererManager::GetInstance().RenderToTarget(m_pGameTarget, renderData);
 
         RenderData editorRenderData;
@@ -421,7 +426,6 @@ void AnitoTracer_App::Render()
         editorRenderData.Models = renderData.Models;
         editorRenderData.Lights = renderData.Lights;
 
-        m_pEditorTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
         RendererManager::GetInstance().RenderToTarget(m_pEditorTarget, editorRenderData);
 
         // Clear the main window backbuffer so ImGui has a clean background

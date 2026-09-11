@@ -165,9 +165,18 @@ void Diligent::DeferredPipeline::OnWindowResize(IRenderDevice* pDevice, Uint32 W
 
     CreateGBuffers(pDevice, Width, Height);
 
-    m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_GBufferAlbedo")->Set(m_pGBufferAlbedo->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
-    m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_GBufferNormal")->Set(m_pGBufferNormal->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
-    m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_GBufferWorldPos")->Set(m_pGBufferWorldPos->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+    m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_GBufferAlbedo")->Set(
+        m_pGBufferAlbedo->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
+        SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE
+    );
+    m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_GBufferNormal")->Set(
+        m_pGBufferNormal->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
+        SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE
+    );
+    m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_GBufferWorldPos")->Set(
+        m_pGBufferWorldPos->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
+        SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE
+    );
 }
 
 void Diligent::DeferredPipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)

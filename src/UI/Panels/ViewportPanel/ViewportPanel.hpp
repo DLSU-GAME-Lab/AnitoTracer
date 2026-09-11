@@ -13,7 +13,13 @@ namespace Diligent {
         ~ViewportPanel() override = default;
 
         void Draw() override;
-    private:
+    protected:
+        //For menu bar
+        virtual void DrawTopBar() {}
+
+        ImVec4 m_barColor = ImVec4(1.0f, 0.25f, 0.15f, 1.0f);
+
+        ImGuiWindowFlags m_WindowFlags = 0;
         SRVGetter m_GetSRV;
         bool m_DrawGizmos;
     };

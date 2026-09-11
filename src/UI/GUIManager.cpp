@@ -66,9 +66,14 @@ void Diligent::GUIManager::Initialize(IRenderDevice* pDevice, const SwapChainDes
 void Diligent::GUIManager::NewFrame(Uint32 width, Uint32 height, SURFACE_TRANSFORM transform)
 {
     if (!m_pImGuiRenderer) return;
-    m_pImGuiRenderer->NewFrame(width, height, transform);
 
+    // Prevent starting a frame with invalid dimensions
+    if (width == 0 || height == 0) return;
+
+    m_pImGuiRenderer->NewFrame(width, height, transform);
     ImGuizmo::BeginFrame();
+
+    m_FrameStarted = true;
 }
 
 void Diligent::GUIManager::DrawUI(bool& appRunning)
@@ -91,8 +96,12 @@ void Diligent::GUIManager::DrawUI(bool& appRunning)
 // Render ImGui draw data to the Diligent context
 void Diligent::GUIManager::Render(IDeviceContext* pContext)
 {
-    if (!m_pImGuiRenderer) return;
+    // Abort if no frame was started to prevent ImGui assertion crashes
+    if (!m_pImGuiRenderer || !m_FrameStarted) return;
+
     m_pImGuiRenderer->Render(pContext);
+
+    m_FrameStarted = false; // Reset for the next frame
 }
 
 // Cleanup resources
@@ -155,8 +164,8 @@ void Diligent::GUIManager::DrawGizmos(CameraComponent* pActiveCamera, float x, f
 
 void Diligent::GUIManager::RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter)
 {
-    AddPanel(std::make_unique<ViewportPanel>("Game Camera", std::move(gameSrvGetter), false));
-    AddPanel(std::make_unique<ViewportPanel>("Editor Camera", std::move(editorSrvGetter), true));
+    AddPanel(std::make_unique<GamePanel>("Game Camera", std::move(gameSrvGetter)));
+    AddPanel(std::make_unique<EditorPanel>("Editor Camera", std::move(editorSrvGetter)));
 }
 
 Diligent::GUIManager::~GUIManager() = default;

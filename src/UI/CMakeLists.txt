@@ -24,8 +24,13 @@ set(${CUR_TARGET_NAME}_src
 	Panels/ProfilerPanel.hpp
 	Panels/FileExplorerPanel.cpp
 	Panels/FileExplorerPanel.hpp
+
 	Panels/ViewportPanel/ViewportPanel.cpp
 	Panels/ViewportPanel/ViewportPanel.hpp
+	Panels/ViewportPanel/EditorPanel.cpp
+	Panels/ViewportPanel/EditorPanel.hpp
+	Panels/ViewportPanel/GamePanel.cpp
+	Panels/ViewportPanel/GamePanel.hpp
 
 	MenuBar.hpp
 	MenuBar.cpp

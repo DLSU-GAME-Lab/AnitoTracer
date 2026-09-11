@@ -134,11 +134,19 @@ void RendererManager::OnResize(Diligent::Uint32 width, Diligent::Uint32 height)
 {
     if (m_pSwapChain)
     {
+        // Let the swap chain handle the raw dimensions
         m_pSwapChain->Resize(width, height);
+
+        // Fetch the actual resolved dimensions
+        const auto& SCDesc = m_pSwapChain->GetDesc();
+
+        // Prevent creating 0-sized G-Buffers when minimized or transitioning
+        if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
 
         if (auto* pDeferred = std::get_if<Diligent::DeferredPipeline>(&m_bLitPipeline))
         {
-            pDeferred->OnWindowResize(m_pDevice, width, height);
+            // Use the safe SwapChain descriptor dimensions
+            pDeferred->OnWindowResize(m_pDevice, SCDesc.Width, SCDesc.Height);
         }
     }
 }
