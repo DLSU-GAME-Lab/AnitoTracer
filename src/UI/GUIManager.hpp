@@ -20,7 +20,9 @@
 #include "Panels/InspectorPanel/Components/DirectionalLightUI.hpp"
 #include "Panels/InspectorPanel/Components/PointLightUI.hpp"
 #include "Panels/InspectorPanel/Components/ModelUI.hpp"
-#include "Panels/ViewportPanel.hpp"
+
+#include "Panels/ViewportPanel/EditorPanel.hpp"
+#include "Panels/ViewportPanel/GamePanel.hpp"
 
 namespace Diligent {
 
@@ -104,6 +106,7 @@ namespace Diligent {
         ImVec2 m_EditorViewportSize = { 0, 0 };
         bool m_IsEditorViewportHovered = false;
         bool m_IsEditorViewportFocused = false;
+        bool m_FrameStarted = false;
     };
 
 }
