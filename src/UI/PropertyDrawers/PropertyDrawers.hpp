@@ -4,3 +4,4 @@
 #include "PropertyDrawers/glm_drawer.hpp"
 #include "PropertyDrawers/asset_drawer.hpp"
 #include "PropertyDrawers/objectref_drawer.hpp"
+#include "PropertyDrawers/physics_drawer.hpp"

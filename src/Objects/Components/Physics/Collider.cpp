@@ -12,7 +12,10 @@ Collider::Collider(
 	, mShapeParams(shapeParams)
 	, mOffset(offset)
 {
-	AttachToOwner();
+	// Owner may already be valid here; OnOwnerSet() also runs again when
+	// AddComponent() re-assigns the same owner, but is a no-op past the
+	// first call since mOwnerBody is already set.
+	OnOwnerSet();
 }
 
 Collider::~Collider() {

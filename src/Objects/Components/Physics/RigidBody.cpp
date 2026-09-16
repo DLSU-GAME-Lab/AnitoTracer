@@ -14,26 +14,32 @@ RigidBody::RigidBody(
 	, mShapeType(shapeType)
 	, mShapeParams(shapeParams)
 {
+	// Owner may already be valid here (passed directly above); OnOwnerSet()
+	// also runs again when AddComponent() re-assigns the same owner, but it
+	// is a no-op past the first call since mBody already exists.
+	OnOwnerSet();
+}
+
+void RigidBody::OnOwnerSet() {
+	if (mBody) return;
+
+	HierarchyObject* o = m_owner.GetPtr();
+	if (!o) return;
+
 	glm::vec3 startPos(0.0f);
 	glm::quat startRot(1.0f, 0.0f, 0.0f, 0.0f);
 
-	HierarchyObject* o = m_owner.GetPtr();
-
-	if (o) {
-		if (Transform* t = o->GetTransform()) {
-			startPos = t->GetPosition();
-			startRot = t->GetRotation();
-		}
+	if (Transform* t = o->GetTransform()) {
+		startPos = t->GetPosition();
+		startRot = t->GetRotation();
 	}
 
-	if (o) {
-		if (StaticBody* existing = o->GetComponent<StaticBody>()) {
-			for (Collider* c : existing->TakeColliders()) {
-				mColliders.push_back(c);
-				c->Reparent(this);
-			}
-			o->RemoveComponent(existing);
+	if (StaticBody* existing = o->GetComponent<StaticBody>()) {
+		for (Collider* c : existing->TakeColliders()) {
+			mColliders.push_back(c);
+			c->Reparent(this);
 		}
+		o->RemoveComponent(existing);
 	}
 
 	CreateBody(startPos, startRot, mMass);

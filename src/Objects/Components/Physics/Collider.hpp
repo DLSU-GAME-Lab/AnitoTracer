@@ -47,6 +47,24 @@ private:
 	void AttachToOwner();
 	void DetachFromOwner();
 
+	GBE_SERIALIZE_FIELD_W_NAME_CB(mShapeType, "Shape Type", [this](IPhysicsEngine::ShapeType) {
+		if (mOwnerBody) mOwnerBody->RebuildShapes();
+	});
+	GBE_SERIALIZE_FIELD_W_NAME_CB(mShapeParams, "Shape Params", [this](IPhysicsEngine::ShapeParams) {
+		if (mOwnerBody) mOwnerBody->RebuildShapes();
+	});
+	GBE_SERIALIZE_FIELD_W_NAME_CB(mOffset, "Offset", [this](glm::vec3) {
+		if (mOwnerBody) mOwnerBody->RebuildShapes();
+	});
+
+protected:
+	// Attaches to the owning PhysicsBase (auto-creating a StaticBody if
+	// needed) once an owner is available.
+	void OnOwnerSet() override {
+		if (mOwnerBody) return;
+		AttachToOwner();
+	}
+
 	GBE_GENERATE_SERIALIZER_CONSTRUCTOR(Collider, ComponentBase);
 };
 

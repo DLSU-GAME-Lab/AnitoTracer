@@ -43,6 +43,10 @@ public:
 	virtual std::string GetLabel() override { return "RigidBody"; }
 
 protected:
+	// Creates the physics body once an owner (and its Transform) is available.
+	// Safe to call multiple times: no-ops if the body already exists.
+	void OnOwnerSet() override;
+
 	float mMass = 1.0f;
 	IPhysicsEngine::ShapeType mShapeType = IPhysicsEngine::ShapeType::Box;
 	IPhysicsEngine::ShapeParams mShapeParams = {};

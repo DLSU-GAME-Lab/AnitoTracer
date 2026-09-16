@@ -35,8 +35,19 @@ public:
     const std::string& GetName() const { return m_name; }
     gbe::IInstanceManager<HierarchyObject>::Ref GetOwner() const { return m_owner; }
 
-    // Sets or updates the owning HierarchyObject.
-    void SetOwner(gbe::IInstanceManager<HierarchyObject>::Ref owner) { m_owner = owner; }
+    // Sets or updates the owning HierarchyObject. This is the single point
+    // both construction paths converge on (direct C++ construction with an
+    // owner argument, and reflection-based construction via TypeRegistry::
+    // Instantiate for the "Add Component" UI, which only runs the
+    // SerializedData constructor chain and never the normal constructor
+    // body). OnOwnerSet() lets derived components run owner-dependent setup
+    // exactly once, regardless of which path created them.
+    void SetOwner(gbe::IInstanceManager<HierarchyObject>::Ref owner) {
+        m_owner = owner;
+        if (m_owner.GetPtr()) {
+            OnOwnerSet();
+        }
+    }
 
 protected:
     std::string m_name;
@@ -45,6 +56,11 @@ protected:
     gbe::IInstanceManager<HierarchyObject>::Ref m_owner;
 
     virtual inline void GBE_Init() {};
+
+    // Called once a valid owner is assigned. Override to perform setup that
+    // requires the owning HierarchyObject (e.g. reading its Transform).
+    virtual void OnOwnerSet() {}
+
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ComponentBase, gbe::ISerializable);
 public:
     virtual std::string GetLabel() override;
