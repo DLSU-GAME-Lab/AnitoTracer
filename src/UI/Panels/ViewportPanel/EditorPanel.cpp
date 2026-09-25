@@ -1,6 +1,9 @@
 #include "EditorPanel.hpp"
 #include <iostream>
 
+#include "Event/EventSystem.hpp"
+#include "RendererEvents.hpp"
+
 namespace Diligent {
     EditorPanel::EditorPanel(const std::string& name, SRVGetter srvGetter)
         : ViewportPanel(name, std::move(srvGetter), true) // true for gizmos
@@ -31,6 +34,31 @@ namespace Diligent {
                 }
                 ImGui::EndMenu();
             }
+
+            // Our shiny new View Options dropdown!
+            bool optionsChanged = false;
+            if (ImGui::BeginMenu("View Options")) {
+                if (ImGui::Checkbox("Show Surfaces", &m_ShowSurfaces)) optionsChanged = true;
+                if (ImGui::Checkbox("Show Wireframe", &m_ShowWireframe)) optionsChanged = true;
+
+                // ColorEdit4 gives Master a beautiful color picker with an alpha channel!
+                if (ImGui::ColorEdit4("Wireframe Color", m_WireframeColor)) optionsChanged = true;
+
+                ImGui::EndMenu();
+            }
+
+            // Dispatch the payload directly to the Manager if anything was touched
+            if (optionsChanged) {
+                gbe::EventSystem::DispatchTo(
+                    EVENT_UPDATE_EDITOR_OPTIONS,
+                    std::make_unique<UpdateEditorOptionsArgs>(
+                        m_ShowWireframe,
+                        m_ShowSurfaces,
+                        glm::vec4(m_WireframeColor[0], m_WireframeColor[1], m_WireframeColor[2], m_WireframeColor[3])
+                    )
+                );
+            }
+
             ImGui::EndMenuBar();
         }
 

@@ -148,6 +148,15 @@ namespace Diligent {
                     );
                 }
 
+                // Add your shiny new Editor Pipeline button here!
+                if (ImGui::MenuItem("Editor Pipeline", nullptr, currentRenderer == Diligent::PipelineType::EDITOR))
+                {
+                    gbe::EventSystem::DispatchTo(
+                        EVENT_RENDER_CHANGE,
+                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::EDITOR)
+                    );
+                }
+
                 if (ImGui::MenuItem("Hybrid Pipeline (RayTraced)", nullptr, currentRenderer == Diligent::PipelineType::HYBRID, rtSupported))
                 {
                     gbe::EventSystem::DispatchTo(

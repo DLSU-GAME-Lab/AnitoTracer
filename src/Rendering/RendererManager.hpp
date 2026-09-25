@@ -8,7 +8,7 @@
 
 #include "Pipelines/BasicLitPipeline.hpp"
 #include "Pipelines/HybridPipeline.hpp"
-#include "Pipelines/DeferredPipeline.hpp"
+#include "Pipelines/EditorPipeline.hpp"
 #include "RenderData.hpp"
 
 #include "../UserSettings.hpp"
@@ -44,6 +44,7 @@ private:
 
     void CreateMSAABuffers();
     void HandleRendererChangeEvent(const RendererChangeArgs* args);
+    void HandleUpdateEditorOptionsEvent(const UpdateEditorOptionsArgs* args);
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice>  m_pDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> m_pImmediateContext;
@@ -54,11 +55,12 @@ private:
     Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAARTV;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAADSV;
 
-    std::variant<Diligent::HybridPipeline, Diligent::BasicLitPipeline, Diligent::DeferredPipeline> m_bLitPipeline;
+    std::variant<Diligent::HybridPipeline, Diligent::BasicLitPipeline, Diligent::DeferredPipeline, Diligent::EditorPipeline> m_bLitPipeline;
     bool m_LastMSAAState = false;
     bool m_SupportsRayTracing = false;
 
     gbe::ScopedSubscription m_OnRendererChangeSub;
+    gbe::ScopedSubscription m_OnUpdateEditorOptionsSub;
 
     //Render targets
     std::vector<std::unique_ptr<Diligent::RenderTarget>> m_RenderTargets;

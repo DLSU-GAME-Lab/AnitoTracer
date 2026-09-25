@@ -1,6 +1,7 @@
 #include "RendererManager.hpp"
 #include "RendererManager.hpp"
 #include "RendererManager.hpp"
+#include "RendererManager.hpp"
 #include <iostream>
 #include <type_traits>
 
@@ -13,7 +14,6 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
 
     auto& userSettings = Diligent::UserSettings::GetInstance();
 
-    // Initialize pipeline based on the saved user setting
     if (userSettings.GetRendererType() == Diligent::PipelineType::HYBRID && supportsRayTracing)
     {
         m_bLitPipeline.emplace<Diligent::HybridPipeline>();
@@ -23,6 +23,11 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
     {
         m_bLitPipeline.emplace<Diligent::DeferredPipeline>();
         std::cout << "[Info] Using DeferredPipeline." << std::endl;
+    }
+    else if (userSettings.GetRendererType() == Diligent::PipelineType::EDITOR)
+    {
+        m_bLitPipeline.emplace<Diligent::EditorPipeline>();
+        std::cout << "[Info] Using EditorPipeline." << std::endl;
     }
     else
     {
@@ -47,6 +52,12 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
         &RendererManager::HandleRendererChangeEvent,
         this
     );
+
+    m_OnUpdateEditorOptionsSub = gbe::ScopedSubscription::Create<UpdateEditorOptionsArgs>(
+        EVENT_UPDATE_EDITOR_OPTIONS,
+        &RendererManager::HandleUpdateEditorOptionsEvent,
+        this
+    );
 }
 
 void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
@@ -54,11 +65,12 @@ void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
     auto& userSettings = Diligent::UserSettings::GetInstance();
     bool isMSAAEnabled = userSettings.GetEnableMSAA();
 
-    if (args->targetPipeline == Diligent::PipelineType::DEFERRED)
+    // Grouping DEFERRED and EDITOR since they share the same MSAA constraints
+    if (args->targetPipeline == Diligent::PipelineType::DEFERRED || args->targetPipeline == Diligent::PipelineType::EDITOR)
     {
         if (isMSAAEnabled)
         {
-            std::cout << "[Warn] Deferred rendering does not support MSAA with current setup. Reverting to Hybrid/Basic Lit." << std::endl;
+            std::cout << "[Warn] Deferred/Editor rendering does not support MSAA with current setup. Reverting to Hybrid/Basic Lit." << std::endl;
             if (m_SupportsRayTracing)
             {
                 m_bLitPipeline.emplace<Diligent::HybridPipeline>();
@@ -72,9 +84,16 @@ void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
         }
         else
         {
-            m_bLitPipeline.emplace<Diligent::DeferredPipeline>();
-            userSettings.GetRendererType() = Diligent::PipelineType::DEFERRED;
-            std::cout << "[RendererManager] Swapped to Deferred Pipeline." << std::endl;
+            if (args->targetPipeline == Diligent::PipelineType::EDITOR) {
+                m_bLitPipeline.emplace<Diligent::EditorPipeline>();
+                userSettings.GetRendererType() = Diligent::PipelineType::EDITOR;
+                std::cout << "[RendererManager] Swapped to Editor Pipeline." << std::endl;
+            }
+            else {
+                m_bLitPipeline.emplace<Diligent::DeferredPipeline>();
+                userSettings.GetRendererType() = Diligent::PipelineType::DEFERRED;
+                std::cout << "[RendererManager] Swapped to Deferred Pipeline." << std::endl;
+            }
         }
     }
     else if (args->targetPipeline == Diligent::PipelineType::HYBRID && m_SupportsRayTracing)
@@ -91,6 +110,17 @@ void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
     }
 
     InitializePipelines();
+}
+
+void RendererManager::HandleUpdateEditorOptionsEvent(const UpdateEditorOptionsArgs* args)
+{
+    std::cout << "Changed Editor Event" << std::endl;
+    if (auto* pEditor = std::get_if<Diligent::EditorPipeline>(&m_bLitPipeline))
+    {
+        pEditor->SetWireframeMode(args->showWireFrame);
+        pEditor->SetSurfaceMode(args->showSurfaces);
+        pEditor->SetWireframeColor(args->wireFrameColor);
+    }
 }
 
 void RendererManager::InitializePipelines()
@@ -134,19 +164,19 @@ void RendererManager::OnResize(Diligent::Uint32 width, Diligent::Uint32 height)
 {
     if (m_pSwapChain)
     {
-        // Let the swap chain handle the raw dimensions
         m_pSwapChain->Resize(width, height);
-
-        // Fetch the actual resolved dimensions
         const auto& SCDesc = m_pSwapChain->GetDesc();
 
-        // Prevent creating 0-sized G-Buffers when minimized or transitioning
         if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
 
+        // Catch BOTH pipelines to ensure G-Buffers aren't destroyed without replacement
         if (auto* pDeferred = std::get_if<Diligent::DeferredPipeline>(&m_bLitPipeline))
         {
-            // Use the safe SwapChain descriptor dimensions
             pDeferred->OnWindowResize(m_pDevice, SCDesc.Width, SCDesc.Height);
+        }
+        else if (auto* pEditor = std::get_if<Diligent::EditorPipeline>(&m_bLitPipeline))
+        {
+            pEditor->OnWindowResize(m_pDevice, SCDesc.Width, SCDesc.Height);
         }
     }
 }
@@ -168,7 +198,7 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
         {
             //TODO Fix this for deffered later
             // If deferred is active and MSAA was just turned ON, force a switch to a compatible pipeline
-            if (isMSAAEnabled && std::holds_alternative<Diligent::DeferredPipeline>(m_bLitPipeline))
+            if (isMSAAEnabled && (std::holds_alternative<Diligent::DeferredPipeline>(m_bLitPipeline) || std::holds_alternative<Diligent::EditorPipeline>(m_bLitPipeline)))
             {
                 if (m_SupportsRayTracing)
                     m_bLitPipeline.emplace<Diligent::HybridPipeline>();
@@ -196,7 +226,8 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
         pipeline.RenderModels(m_pImmediateContext, renderData, true);
 
         using T = std::decay_t<decltype(pipeline)>;
-        if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>)
+        // Use std::is_base_of_v so EditorPipeline inherits the lighting pass!
+        if constexpr (std::is_base_of_v<Diligent::DeferredPipeline, T>)
         {
             pipeline.RenderLightingPass(m_pImmediateContext, nullptr);
         }
@@ -272,7 +303,8 @@ void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Dili
         pipeline.RenderModels(m_pImmediateContext, renderData, true);
 
         using T = std::decay_t<decltype(pipeline)>;
-        if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>) {
+        // Use std::is_base_of_v so EditorPipeline inherits the lighting pass!
+        if constexpr (std::is_base_of_v<Diligent::DeferredPipeline, T>) {
             pipeline.RenderLightingPass(m_pImmediateContext, pActiveRTV);
         }
         }, m_bLitPipeline);

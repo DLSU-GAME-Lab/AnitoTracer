@@ -200,6 +200,7 @@ bool AnitoTracer_App::InitEngine()
     IEngineFactoryVk* pFactoryVk = Diligent::LoadAndGetEngineFactoryVk();
     EngineVkCreateInfo engineCI;
     engineCI.Features.RayTracing = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    engineCI.Features.WireframeFill = Diligent::DEVICE_FEATURE_STATE_ENABLED;
 
 #if defined(_DEBUG) || defined(DEBUG)
     // Enable the Vulkan validation layer in debug builds so driver-specific

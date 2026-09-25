@@ -33,6 +33,14 @@ void main_ps(in FullScreenPSInput In, out float4 OutColor : SV_TARGET)
     float metallic = albedoMetal.a;
     float3 N = normalize(normalRough.xyz);
     float roughness = normalRough.a;
+    
+    //Hax for wireframe to use the same shader
+    if (roughness < 0.0)
+    {
+        OutColor = float4(albedo, 1.0);
+        return;
+    }
+    
     float3 WPos = worldPos.xyz;
 
     float3 V = normalize(g_CameraPos.xyz - WPos);
