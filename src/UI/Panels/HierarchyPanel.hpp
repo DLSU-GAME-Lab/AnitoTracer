@@ -42,6 +42,10 @@ namespace Diligent {
         HierarchyObject::Ref m_PendingRangeTarget = nullptr;
         bool m_PendingRangeAdditive = false;
 
+        HierarchyObject::Ref m_RenameTarget = nullptr;
+        bool m_RenameFocusPending = false;
+        char m_RenameBuffer[256] = {};
+
         void ResolvePendingRangeSelection();
         // Pastes the clipboard under parent and selects everything pasted.
         void PasteAndSelect(HierarchyObject::Ref parent);

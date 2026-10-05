@@ -63,3 +63,27 @@ FetchContent_Declare(glaze
 FetchContent_MakeAvailable(glaze)
 add_compile_definitions(NOMINMAX)
 
+#========ANTLR4 C++ runtime========#
+# Must match the generator jar version downloaded by setup.bat (ANTLR_VERSION).
+set(ANTLR_BUILD_CPP_TESTS OFF CACHE BOOL "" FORCE)
+set(ANTLR_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(ANTLR_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(WITH_STATIC_CRT OFF CACHE BOOL "" FORCE) # Match project's dynamic CRT
+FetchContent_Declare(antlr4
+    SYSTEM
+    GIT_REPOSITORY https://github.com/antlr/antlr4.git
+    GIT_TAG 4.13.2
+    GIT_SHALLOW ON
+    SOURCE_SUBDIR runtime/Cpp
+    UPDATE_COMMAND ""
+)
+FetchContent_MakeAvailable(antlr4)
+target_include_directories(antlr4_static SYSTEM PUBLIC "${antlr4_SOURCE_DIR}/runtime/Cpp/runtime/src")
+target_compile_definitions(antlr4_static PUBLIC ANTLR4CPP_STATIC)
+# ANTLR 4.13.2 omits <chrono> in ProfilingATNSimulator.cpp, which newer MSVC no longer includes transitively.
+if(MSVC)
+    target_compile_options(antlr4_static PRIVATE /FIchrono)
+endif()
+
+set(ANTLR_JAR "${CMAKE_SOURCE_DIR}/antlr-4.13.2-complete.jar" CACHE FILEPATH "ANTLR generator jar")
+

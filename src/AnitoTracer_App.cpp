@@ -20,6 +20,7 @@
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
 #include "ObjectSystems/Event/Example/Print_OnObjectAny.hpp"
 #include "Asset/ProjectLoader.hpp"
+#include "ScriptRegistry.hpp"
 
 #include "AppConfig.hpp"
 #include "AppState.hpp"
@@ -279,6 +280,8 @@ void AnitoTracer_App::InitManagers()
     
     AssetPipeline::IncludeFolder("Assets");
 
+    ScriptRegistry::GetInstance().Initialize();
+
     if (AppConfig::entry_project.size() > 0)
         ProjectLoader::LoadProject(AppConfig::entry_project);
     if (AppConfig::entry_scene.size() > 0)
@@ -334,6 +337,9 @@ void AnitoTracer_App::Update()
 #endif
 
     if (!m_AppRunning) return;
+
+    ScriptRegistry::GetInstance().SetProjectDirectory(ProjectLoader::GetCurrentProjectDir());
+    ScriptRegistry::GetInstance().Refresh();
 
     const auto& SCDesc = m_pSwapChain->GetDesc();
     GUIManager& imguiManager = GUIManager::GetInstance();

@@ -1,4 +1,5 @@
 #include "GUIManager.hpp"
+#include "Panels/InspectorPanel/Components/ScriptComponentUI.hpp"
 
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
@@ -144,6 +145,7 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
     InspectorRegistry::GetInstance().RegisterUI<Collider, ColliderUI>();
+    InspectorRegistry::GetInstance().RegisterUI<ScriptComponent, ScriptComponentUI>();
 }
 
 void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)

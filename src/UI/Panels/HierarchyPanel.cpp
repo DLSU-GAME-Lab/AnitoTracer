@@ -3,6 +3,8 @@
 #include "HierarchyFeatures/PrefabFeature.hpp"
 
 #include <algorithm>
+#include <cfloat>
+#include <cstdio>
 
 namespace Diligent {
 
@@ -57,6 +59,27 @@ namespace Diligent {
 
             ResolvePendingRangeSelection();
 
+            // Empty space below the tree: click deselects, dropping here unparents.
+            ImVec2 emptySize = ImGui::GetContentRegionAvail();
+            if (emptySize.x < 1.0f) emptySize.x = 1.0f;
+            if (emptySize.y < 1.0f) emptySize.y = 1.0f;
+            ImGui::InvisibleButton("##HierarchyEmptySpace", emptySize);
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+                SetSelectedObject(nullptr);
+            }
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_HIERARCHY_OBJ"))
+                {
+                    auto* draggedObject = *static_cast<HierarchyObject* const*>(payload->Data);
+                    if (draggedObject) {
+                        m_pendingDraggedObject = draggedObject;
+                        m_pendingDropParent = nullptr;
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
+
             if (m_pendingDraggedObject) {
                 // Dragging a selected node moves the whole selection.
                 if (IsSelected(m_pendingDraggedObject)) {
@@ -72,11 +95,17 @@ namespace Diligent {
                 m_pendingDropParent = nullptr;
             }
 
-            if (ImGui::IsWindowHovered() &&
-                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
-                !ImGui::IsAnyItemHovered())
+            if (m_SelectedObject && !m_RenameTarget && ImGui::IsKeyPressed(ImGuiKey_F2) &&
+                !ImGui::GetIO().WantTextInput)
             {
-                SetSelectedObject(nullptr);
+                m_RenameTarget = m_SelectedObject;
+                m_RenameFocusPending = true;
+                std::snprintf(m_RenameBuffer, sizeof(m_RenameBuffer), "%s",
+                    m_SelectedObject.GetPtr()->GetName().c_str());
+            }
+
+            if (m_RenameTarget && !m_RenameTarget.IsValid()) {
+                m_RenameTarget = nullptr;
             }
 
             if (m_SelectedObject && ImGui::IsKeyPressed(ImGuiKey_Delete) &&
@@ -248,14 +277,33 @@ namespace Diligent {
 
         // Render the node using the object's memory address as a unique ID
         const bool isPrefabInstance = node.GetPtr()->IsPrefabInstance();
+        const bool renaming = (m_RenameTarget == node);
         bool nodeOpen = ImGui::TreeNodeEx(
             (void*)node.GetID(), flags, "%s%s",
-            node.GetPtr()->GetName().c_str(),
-            isPrefabInstance ? " [Prefab]" : "");
+            renaming ? "" : node.GetPtr()->GetName().c_str(),
+            (!renaming && isPrefabInstance) ? " [Prefab]" : "");
         m_VisibleOrder.push_back(node);
 
+        if (renaming)
+        {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (m_RenameFocusPending) {
+                ImGui::SetKeyboardFocusHere();
+                m_RenameFocusPending = false;
+            }
+            const bool committed = ImGui::InputText("##RenameNode", m_RenameBuffer, sizeof(m_RenameBuffer),
+                ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+            if (committed && m_RenameBuffer[0] != '\0') {
+                node.GetPtr()->SetName(m_RenameBuffer);
+            }
+            if (committed || ImGui::IsItemDeactivated() || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                m_RenameTarget = nullptr;
+            }
+        }
+
         //For drag drop hierarchy / component references
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+        if (!renaming && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
         {
             // We pass the raw pointer address as the payload data
             HierarchyObject* objPtr = node.GetPtr();
@@ -267,7 +315,7 @@ namespace Diligent {
             ImGui::EndDragDropSource();
         }
 
-        if (ImGui::BeginDragDropTarget())
+        if (!renaming && ImGui::BeginDragDropTarget())
         {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_HIERARCHY_OBJ"))
             {
@@ -281,7 +329,7 @@ namespace Diligent {
         }
 
         // Update the selected object when clicked
-        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+        if (!renaming && ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
             const ImGuiIO& io = ImGui::GetIO();
             if (io.KeyShift)
@@ -300,7 +348,7 @@ namespace Diligent {
             }
         }
 
-        if (ImGui::BeginPopupContextItem("ObjectContextMenu"))
+        if (!renaming && ImGui::BeginPopupContextItem("ObjectContextMenu"))
         {
             if (ImGui::MenuItem("Copy Object", "Ctrl+C"))
             {
