@@ -488,7 +488,8 @@ void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const Ren
             HierarchyObject* selectedObj = HierarchyObject::getById(pickedID);
             if (selectedObj) {
                 std::cout << "Clicked on Model owned by: " << selectedObj->GetName() << std::endl;
-                gui.SetSelectedObject(selectedObj);
+                if (ImGui::GetIO().KeyCtrl) gui.ToggleSelectedObject(selectedObj);
+                else gui.SetSelectedObject(selectedObj);
             }
         }
     }

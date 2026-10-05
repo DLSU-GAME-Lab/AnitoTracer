@@ -28,6 +28,7 @@ public:
 
 	// Physics API
 	void ApplyForce(const glm::vec3& force);
+	void ApplyTorque(const glm::vec3& torque);
 	void ApplyImpulse(const glm::vec3& impulse);
 	void SetVelocity(const glm::vec3& velocity);
 	glm::vec3 GetVelocity() const;
@@ -51,6 +52,7 @@ public:
 	virtual std::string GetLabel() override { return "RigidBody"; }
 
 protected:
+	bool mPlacedFromTransform = false;
 	float mMass = 1.0f;
 	IPhysicsEngine::ShapeType mShapeType = IPhysicsEngine::ShapeType::Box;
 	IPhysicsEngine::ShapeParams mShapeParams = {};

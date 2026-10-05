@@ -156,11 +156,27 @@ void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)
     }
 }
 
+void Diligent::GUIManager::ToggleSelectedObject(HierarchyObject::Ref obj)
+{
+    if (m_pHierarchyPanel)
+    {
+        m_pHierarchyPanel->ToggleSelectedObject(obj);
+    }
+}
+
 void Diligent::GUIManager::DrawGizmos(CameraComponent* pActiveCamera, float x, float y, float width, float height) {
     
     auto selectedObj = GetSelectedObject();
-    if (selectedObj != nullptr) {
-        m_GizmoDrawer.Draw(pActiveCamera, selectedObj, x, y, width, height);
+    if (selectedObj == nullptr) {
+        return;
+    }
+
+    const auto roots = GetSelectedRoots();
+    if (roots.size() > 1) {
+        m_GizmoDrawer.DrawGroup(pActiveCamera, roots, selectedObj, x, y, width, height);
+    }
+    else {
+        m_GizmoDrawer.Draw(pActiveCamera, roots.empty() ? selectedObj : roots.front(), x, y, width, height);
     }
 
 }

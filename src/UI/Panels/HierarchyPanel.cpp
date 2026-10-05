@@ -2,6 +2,8 @@
 
 #include "HierarchyFeatures/PrefabFeature.hpp"
 
+#include <algorithm>
+
 namespace Diligent {
 
     bool HierarchyPanel::IsEditorCameraObject(HierarchyObject::Ref obj) const
@@ -43,6 +45,8 @@ namespace Diligent {
             // Retrieve the active root nodes from the singleton manager
             const auto& rootObjects = HierarchyManager::GetInstance().GetRootObjects();
 
+            m_VisibleOrder.clear();
+
             // Iterate and draw each root node
             for (const auto& root : rootObjects)
             {
@@ -51,9 +55,19 @@ namespace Diligent {
                 }
             }
 
+            ResolvePendingRangeSelection();
+
             if (m_pendingDraggedObject) {
-                HierarchyManager::GetInstance().ReparentObject(
-                    m_pendingDraggedObject, m_pendingDropParent);
+                // Dragging a selected node moves the whole selection.
+                if (IsSelected(m_pendingDraggedObject)) {
+                    for (const auto& obj : GetSelectedRoots()) {
+                        HierarchyManager::GetInstance().ReparentObject(obj, m_pendingDropParent);
+                    }
+                }
+                else {
+                    HierarchyManager::GetInstance().ReparentObject(
+                        m_pendingDraggedObject, m_pendingDropParent);
+                }
                 m_pendingDraggedObject = nullptr;
                 m_pendingDropParent = nullptr;
             }
@@ -68,7 +82,9 @@ namespace Diligent {
             if (m_SelectedObject && ImGui::IsKeyPressed(ImGuiKey_Delete) &&
                 !ImGui::GetIO().WantTextInput)
             {
-                HierarchyManager::GetInstance().QueueObjectDeletion(m_SelectedObject);
+                for (const auto& obj : GetSelectedRoots()) {
+                    HierarchyManager::GetInstance().QueueObjectDeletion(obj);
+                }
                 SetSelectedObject(nullptr);
             }
 
@@ -81,16 +97,14 @@ namespace Diligent {
             if (!ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl &&
                 ImGui::IsKeyPressed(ImGuiKey_C) && m_SelectedObject)
             {
-                HierarchyManager::GetInstance().CopyObject(m_SelectedObject);
+                HierarchyManager::GetInstance().CopyObjects(GetSelectedRoots());
             }
 
             if (!ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl &&
                 ImGui::IsKeyPressed(ImGuiKey_V) &&
                 HierarchyManager::GetInstance().HasCopiedObject())
             {
-                HierarchyObject::Ref pastedObject =
-                    HierarchyManager::GetInstance().PasteObject(m_SelectedObject);
-                if (pastedObject) SetSelectedObject(pastedObject);
+                PasteAndSelect(m_SelectedObject);
             }
         }
         ImGui::End();
@@ -98,11 +112,116 @@ namespace Diligent {
 
     void HierarchyPanel::SetSelectedObject(HierarchyObject::Ref obj)
     {
-        if (IsEditorCameraObject(obj)) {
+        m_Selection.clear();
+        if (!obj || IsEditorCameraObject(obj)) {
             m_SelectedObject = nullptr;
+            m_SelectionAnchor = nullptr;
             return;
         }
         m_SelectedObject = obj;
+        m_SelectionAnchor = obj;
+        m_Selection.push_back(obj);
+    }
+
+    std::vector<HierarchyObject::Ref> HierarchyPanel::GetSelectedObjects() const
+    {
+        std::vector<HierarchyObject::Ref> result;
+        result.reserve(m_Selection.size());
+        for (const auto& obj : m_Selection) {
+            if (obj.IsValid()) result.push_back(obj);
+        }
+        return result;
+    }
+
+    std::vector<HierarchyObject::Ref> HierarchyPanel::GetSelectedRoots() const
+    {
+        const auto selected = GetSelectedObjects();
+        std::vector<HierarchyObject::Ref> roots;
+        for (const auto& obj : selected) {
+            bool hasSelectedAncestor = false;
+            for (HierarchyObject* p = obj.GetPtr()->GetParent().GetPtr(); p != nullptr; p = p->GetParent().GetPtr()) {
+                if (IsSelected(p->getRef())) { hasSelectedAncestor = true; break; }
+            }
+            if (!hasSelectedAncestor) roots.push_back(obj);
+        }
+        return roots;
+    }
+
+    bool HierarchyPanel::IsSelected(HierarchyObject::Ref obj) const
+    {
+        if (!obj) return false;
+        for (const auto& s : m_Selection) {
+            if (s == obj) return true;
+        }
+        return false;
+    }
+
+    void HierarchyPanel::ToggleSelectedObject(HierarchyObject::Ref obj)
+    {
+        if (!obj || IsEditorCameraObject(obj)) return;
+
+        // Drop stale entries so the primary can fall back to a live object.
+        m_Selection = GetSelectedObjects();
+
+        for (auto it = m_Selection.begin(); it != m_Selection.end(); ++it) {
+            if (*it == obj) {
+                m_Selection.erase(it);
+                if (m_SelectedObject == obj) {
+                    m_SelectedObject = m_Selection.empty() ? HierarchyObject::Ref(nullptr) : m_Selection.back();
+                }
+                m_SelectionAnchor = m_SelectedObject;
+                return;
+            }
+        }
+
+        m_Selection.push_back(obj);
+        m_SelectedObject = obj;
+        m_SelectionAnchor = obj;
+    }
+
+    void HierarchyPanel::PasteAndSelect(HierarchyObject::Ref parent)
+    {
+        const auto pasted = HierarchyManager::GetInstance().PasteObjects(parent);
+        if (pasted.empty()) return;
+
+        SetSelectedObject(pasted.front());
+        for (size_t i = 1; i < pasted.size(); ++i) {
+            ToggleSelectedObject(pasted[i]);
+        }
+    }
+
+    void HierarchyPanel::ResolvePendingRangeSelection()
+    {
+        const HierarchyObject::Ref target = m_PendingRangeTarget;
+        m_PendingRangeTarget = nullptr;
+        if (!target) return;
+
+        int anchorIdx = -1, targetIdx = -1;
+        for (int i = 0; i < (int)m_VisibleOrder.size(); ++i) {
+            if (m_VisibleOrder[i] == m_SelectionAnchor) anchorIdx = i;
+            if (m_VisibleOrder[i] == target) targetIdx = i;
+        }
+        if (targetIdx < 0) return;
+        // Anchor hidden (collapsed/removed): range collapses to the clicked node.
+        if (anchorIdx < 0) anchorIdx = targetIdx;
+
+        std::vector<HierarchyObject::Ref> selection =
+            m_PendingRangeAdditive ? GetSelectedObjects() : std::vector<HierarchyObject::Ref>{};
+
+        const int lo = std::min(anchorIdx, targetIdx);
+        const int hi = std::max(anchorIdx, targetIdx);
+        for (int i = lo; i <= hi; ++i) {
+            const auto& obj = m_VisibleOrder[i];
+            if (std::find(selection.begin(), selection.end(), obj) == selection.end()) {
+                selection.push_back(obj);
+            }
+        }
+
+        // The anchor is kept so successive shift-clicks extend from the same origin.
+        const HierarchyObject::Ref anchor = m_SelectionAnchor;
+        m_Selection = std::move(selection);
+        m_SelectedObject = target;
+        m_SelectionAnchor = anchor ? anchor : target;
     }
 
     void HierarchyPanel::DrawNode(HierarchyObject::Ref node)
@@ -122,7 +241,7 @@ namespace Diligent {
         }
 
         // Highlight the node if it is the currently selected object
-        if (m_SelectedObject == node)
+        if (IsSelected(node))
         {
             flags |= ImGuiTreeNodeFlags_Selected;
         }
@@ -133,6 +252,7 @@ namespace Diligent {
             (void*)node.GetID(), flags, "%s%s",
             node.GetPtr()->GetName().c_str(),
             isPrefabInstance ? " [Prefab]" : "");
+        m_VisibleOrder.push_back(node);
 
         //For drag drop hierarchy / component references
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
@@ -163,24 +283,35 @@ namespace Diligent {
         // Update the selected object when clicked
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
         {
-            SetSelectedObject(node);
+            const ImGuiIO& io = ImGui::GetIO();
+            if (io.KeyShift)
+            {
+                // Resolved after the frame's nodes are known so the range covers visible rows only.
+                m_PendingRangeTarget = node;
+                m_PendingRangeAdditive = io.KeyCtrl;
+            }
+            else if (io.KeyCtrl)
+            {
+                ToggleSelectedObject(node);
+            }
+            else
+            {
+                SetSelectedObject(node);
+            }
         }
 
         if (ImGui::BeginPopupContextItem("ObjectContextMenu"))
         {
             if (ImGui::MenuItem("Copy Object", "Ctrl+C"))
             {
-                SetSelectedObject(node);
-                HierarchyManager::GetInstance().CopyObject(node);
+                if (!IsSelected(node)) SetSelectedObject(node);
+                HierarchyManager::GetInstance().CopyObjects(GetSelectedRoots());
             }
 
             if (ImGui::MenuItem("Paste Object", "Ctrl+V",
                 false, HierarchyManager::GetInstance().HasCopiedObject()))
             {
-                SetSelectedObject(node);
-                HierarchyObject::Ref pastedObject =
-                    HierarchyManager::GetInstance().PasteObject(node);
-                if (pastedObject) SetSelectedObject(pastedObject);
+                PasteAndSelect(node);
             }
 
             if (ImGui::MenuItem("Create Prefab Asset"))
@@ -211,10 +342,16 @@ namespace Diligent {
             ImGui::Separator();
             if (ImGui::MenuItem("Delete Object", "Del"))
             {
-                HierarchyManager::GetInstance().QueueObjectDeletion(node);
-                if (m_SelectedObject == node)
+                if (IsSelected(node))
                 {
+                    for (const auto& obj : GetSelectedRoots()) {
+                        HierarchyManager::GetInstance().QueueObjectDeletion(obj);
+                    }
                     SetSelectedObject(nullptr);
+                }
+                else
+                {
+                    HierarchyManager::GetInstance().QueueObjectDeletion(node);
                 }
             }
             ImGui::EndPopup();

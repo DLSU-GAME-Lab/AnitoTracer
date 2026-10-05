@@ -37,6 +37,15 @@ void RigidBody::OnFixedUpdate(float deltaTime) {
 	Transform* transform = owner->GetTransform();
 	if (!transform) return;
 
+	// The body may have been created during deserialization, before the Transform was loaded.
+	if (!mPlacedFromTransform) {
+		mPlacedFromTransform = true;
+		mBody->SetPositionAndRotation(transform->GetPosition(), transform->GetRotation());
+		mBody->SetVelocity(glm::vec3(0.0f));
+		mBody->SetAngularVelocity(glm::vec3(0.0f));
+		return;
+	}
+
 	transform->SetWorldPosition(mBody->GetPosition());
 	transform->SetWorldRotation(mBody->GetRotation());
 }
@@ -44,6 +53,12 @@ void RigidBody::OnFixedUpdate(float deltaTime) {
 void RigidBody::ApplyForce(const glm::vec3& force) {
 	if (mBody) {
 		mBody->ApplyForce(force);
+	}
+}
+
+void RigidBody::ApplyTorque(const glm::vec3& torque) {
+	if (mBody) {
+		mBody->ApplyTorque(torque);
 	}
 }
 
