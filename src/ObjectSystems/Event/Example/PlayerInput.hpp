@@ -33,8 +33,8 @@ public:
         gbe::InputSystem::RegisterMapping(INPUTKEY_THRUST_BACKWARD, gbe::Key::S, gbe::InputTrigger::All);
         gbe::InputSystem::RegisterMapping(INPUTKEY_ROLL_LEFT, gbe::Key::Q, gbe::InputTrigger::All);
         gbe::InputSystem::RegisterMapping(INPUTKEY_ROLL_RIGHT, gbe::Key::E, gbe::InputTrigger::All);
-        gbe::InputSystem::RegisterMapping(INPUTKEY_PITCH_DOWN, gbe::Key::Shift, gbe::InputTrigger::All);
-        gbe::InputSystem::RegisterMapping(INPUTKEY_PITCH_UP, gbe::Key::Space, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_PITCH_DOWN, gbe::Key::Space, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_PITCH_UP, gbe::Key::Shift, gbe::InputTrigger::All);
         gbe::InputSystem::RegisterMapping(INPUTKEY_YAW_LEFT, gbe::Key::D, gbe::InputTrigger::All);
         gbe::InputSystem::RegisterMapping(INPUTKEY_YAW_RIGHT, gbe::Key::A, gbe::InputTrigger::All);
         gbe::InputSystem::RegisterMapping(INPUTKEY_PRIMARY, gbe::Key::MouseLeft, gbe::InputTrigger::All);

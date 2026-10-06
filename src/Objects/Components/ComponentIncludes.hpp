@@ -1,6 +1,7 @@
 #include "Gameplay/PlayerMovementComponent.hpp"
 #include "Gameplay/PlayerController.hpp"
 #include "Gameplay/FloatingAsteroid.hpp"
+#include "Gameplay/CinematicCameraFollower.hpp"
 #include "Gameplay/PrefabSphereSpawner.hpp"
 #include "Gameplay/ShipWeapon.hpp"
 #include "Gameplay/ShipProjectile.hpp"

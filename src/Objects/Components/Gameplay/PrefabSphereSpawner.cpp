@@ -15,15 +15,48 @@ PrefabSphereSpawner::PrefabSphereSpawner(gbe::IInstanceManager<HierarchyObject>:
     : ComponentBase("PrefabSphereSpawner", owner) {}
 
 void PrefabSphereSpawner::OnStart() {
+    m_waveTimer = 0.0f;
+    m_wavesSpawned = 0;
+    m_spawned.clear();
     if (m_spawnOnStart) {
         Spawn();
     }
+}
+
+void PrefabSphereSpawner::OnUpdate(float deltaTime) {
+    if (!m_spawnByInterval) {
+        return;
+    }
+
+    m_waveTimer += deltaTime;
+    if (m_waveTimer < std::max(m_waveInterval, 0.01f)) {
+        return;
+    }
+    m_waveTimer = 0.0f;
+    Spawn();
 }
 
 void PrefabSphereSpawner::Spawn() {
     if (m_prefab.IsEmpty() || m_count <= 0) {
         return;
     }
+    if (m_maxWaves > 0 && m_wavesSpawned >= m_maxWaves) {
+        return;
+    }
+
+    m_spawned.erase(
+        std::remove_if(m_spawned.begin(), m_spawned.end(),
+            [](const HierarchyObject::Ref& ref) { return ref.GetPtr() == nullptr; }),
+        m_spawned.end());
+
+    int toSpawn = m_count;
+    if (m_maxAlive > 0) {
+        toSpawn = std::min(toSpawn, m_maxAlive - static_cast<int>(m_spawned.size()));
+    }
+    if (toSpawn <= 0) {
+        return;
+    }
+    ++m_wavesSpawned;
 
     HierarchyObject* owner = GetOwner().GetPtr();
     Transform* ownerTransform = owner ? owner->GetTransform() : nullptr;
@@ -40,7 +73,7 @@ void PrefabSphereSpawner::Spawn() {
     const float minScale = std::min(m_minScale, m_maxScale);
     const float maxScale = std::max(m_minScale, m_maxScale);
 
-    for (int i = 0; i < m_count; ++i) {
+    for (int i = 0; i < toSpawn; ++i) {
         // Uniform direction on the sphere, then cube-root radius for uniform volume density.
         const float z = unit(rng) * 2.0f - 1.0f;
         const float angle = unit(rng) * glm::two_pi<float>();
@@ -53,6 +86,7 @@ void PrefabSphereSpawner::Spawn() {
         if (!spawned) {
             return;
         }
+        m_spawned.push_back(spawnedRef);
 
         Transform* transform = spawned->GetTransform();
         if (!transform) {

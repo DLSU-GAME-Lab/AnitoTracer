@@ -2,8 +2,9 @@
 
 #include "Components/ComponentBase.hpp"
 #include "AssignableEvent/AssignableEvent.hpp"
+#include "Types/OnGUI_Release.hpp"
 
-class Health : public ComponentBase {
+class Health : public ComponentBase, public gbe::ITrigger<OnGUI_Release> {
 public:
     Health(gbe::IInstanceManager<HierarchyObject>::Ref owner = {});
     ~Health() override = default;
@@ -17,6 +18,9 @@ public:
     // Returns true if this hit depleted the health.
     bool TakeDamage(float amount);
     void Heal(float amount);
+
+    // Draws a screen-space health bar over the owner when it is inside the main camera's view.
+    void OnGUI_ReleaseEvent(float deltaTime) override;
 
     float GetCurrentHealth();
     float GetMaxHealth() const { return m_maxHealth; }
@@ -32,6 +36,15 @@ private:
 
     float m_hitRadius = 1.0f;
     GBE_SERIALIZE_FIELD_W_NAME(m_hitRadius, "Hit Radius");
+
+    bool m_showHealthBar = true;
+    GBE_SERIALIZE_FIELD_W_NAME(m_showHealthBar, "Show Health Bar");
+
+    float m_barHeightOffset = 1.5f; // world units above the owner's origin
+    GBE_SERIALIZE_FIELD_W_NAME(m_barHeightOffset, "Bar Height Offset");
+
+    float m_barWidth = 60.0f; // pixels
+    GBE_SERIALIZE_FIELD_W_NAME(m_barWidth, "Bar Width (px)");
 
     gbe::UnityEvent m_onDepleted;
     GBE_SERIALIZE_FIELD_W_NAME(m_onDepleted, "On Depleted");
