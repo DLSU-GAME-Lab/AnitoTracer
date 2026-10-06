@@ -5,7 +5,7 @@
 #include "Example/PlayerInput.hpp"
 
 // Reads ship input and forwards it to PlayerMovementComponent and ShipWeapon on the same object.
-class PlayerController : public ComponentBase, public gbe::ITrigger<UpdateTrigger> {
+class PlayerController : public ComponentBase, public gbe::ITrigger<UpdateTrigger>, public gbe::IInstanceManager<PlayerController> {
 public:
     PlayerController(gbe::IInstanceManager<HierarchyObject>::Ref owner = {});
     ~PlayerController() noexcept override = default;

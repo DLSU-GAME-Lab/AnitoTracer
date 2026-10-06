@@ -3,7 +3,6 @@
 #include "HierarchyFeatures/PrefabFeature.hpp"
 
 #include <algorithm>
-#include <cfloat>
 #include <cstdio>
 
 namespace Diligent {
@@ -49,6 +48,19 @@ namespace Diligent {
 
             m_VisibleOrder.clear();
 
+            if (m_RenameTarget && !m_RenameTarget.IsValid()) {
+                m_RenameTarget = nullptr;
+            }
+            if (m_SelectedObject && !m_RenameTarget &&
+                ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+                ImGui::IsKeyPressed(ImGuiKey_F2) && !ImGui::GetIO().WantTextInput)
+            {
+                m_RenameTarget = m_SelectedObject;
+                m_RenameFocusPending = true;
+                std::snprintf(m_RenameBuffer, sizeof(m_RenameBuffer), "%s",
+                    m_SelectedObject.GetPtr()->GetName().c_str());
+            }
+
             // Iterate and draw each root node
             for (const auto& root : rootObjects)
             {
@@ -59,18 +71,15 @@ namespace Diligent {
 
             ResolvePendingRangeSelection();
 
-            // Empty space below the tree: click deselects, dropping here unparents.
-            ImVec2 emptySize = ImGui::GetContentRegionAvail();
-            if (emptySize.x < 1.0f) emptySize.x = 1.0f;
-            if (emptySize.y < 1.0f) emptySize.y = 1.0f;
-            ImGui::InvisibleButton("##HierarchyEmptySpace", emptySize);
+            ImVec2 emptySpaceSize = ImGui::GetContentRegionAvail();
+            if (emptySpaceSize.x < 1.0f) emptySpaceSize.x = 1.0f;
+            if (emptySpaceSize.y < 1.0f) emptySpaceSize.y = 1.0f;
+            ImGui::InvisibleButton("##HierarchyEmptySpace", emptySpaceSize);
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
                 SetSelectedObject(nullptr);
             }
-            if (ImGui::BeginDragDropTarget())
-            {
-                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_HIERARCHY_OBJ"))
-                {
+            if (ImGui::BeginDragDropTarget()) {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_HIERARCHY_OBJ")) {
                     auto* draggedObject = *static_cast<HierarchyObject* const*>(payload->Data);
                     if (draggedObject) {
                         m_pendingDraggedObject = draggedObject;
@@ -95,17 +104,11 @@ namespace Diligent {
                 m_pendingDropParent = nullptr;
             }
 
-            if (m_SelectedObject && !m_RenameTarget && ImGui::IsKeyPressed(ImGuiKey_F2) &&
-                !ImGui::GetIO().WantTextInput)
+            if (ImGui::IsWindowHovered() &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !ImGui::IsAnyItemHovered())
             {
-                m_RenameTarget = m_SelectedObject;
-                m_RenameFocusPending = true;
-                std::snprintf(m_RenameBuffer, sizeof(m_RenameBuffer), "%s",
-                    m_SelectedObject.GetPtr()->GetName().c_str());
-            }
-
-            if (m_RenameTarget && !m_RenameTarget.IsValid()) {
-                m_RenameTarget = nullptr;
+                SetSelectedObject(nullptr);
             }
 
             if (m_SelectedObject && ImGui::IsKeyPressed(ImGuiKey_Delete) &&
@@ -277,27 +280,32 @@ namespace Diligent {
 
         // Render the node using the object's memory address as a unique ID
         const bool isPrefabInstance = node.GetPtr()->IsPrefabInstance();
-        const bool renaming = (m_RenameTarget == node);
+        const bool renaming = m_RenameTarget == node;
         bool nodeOpen = ImGui::TreeNodeEx(
             (void*)node.GetID(), flags, "%s%s",
-            renaming ? "" : node.GetPtr()->GetName().c_str(),
+            renaming ? "##RenameNode" : node.GetPtr()->GetName().c_str(),
             (!renaming && isPrefabInstance) ? " [Prefab]" : "");
         m_VisibleOrder.push_back(node);
+        const bool nodeClicked = !renaming && ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen();
 
-        if (renaming)
-        {
+        if (renaming) {
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(-FLT_MIN);
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
             if (m_RenameFocusPending) {
                 ImGui::SetKeyboardFocusHere();
                 m_RenameFocusPending = false;
             }
-            const bool committed = ImGui::InputText("##RenameNode", m_RenameBuffer, sizeof(m_RenameBuffer),
-                ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
-            if (committed && m_RenameBuffer[0] != '\0') {
-                node.GetPtr()->SetName(m_RenameBuffer);
+            const bool committed = ImGui::InputText("##RenameNodeInput", m_RenameBuffer,
+                sizeof(m_RenameBuffer), ImGuiInputTextFlags_EnterReturnsTrue |
+                ImGuiInputTextFlags_AutoSelectAll);
+            const bool canceled = ImGui::IsKeyPressed(ImGuiKey_Escape);
+            if (committed || ImGui::IsItemDeactivatedAfterEdit()) {
+                if (!canceled && m_RenameBuffer[0] != '\0') {
+                    node.GetPtr()->SetName(m_RenameBuffer);
+                }
+                m_RenameTarget = nullptr;
             }
-            if (committed || ImGui::IsItemDeactivated() || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            else if (canceled || ImGui::IsItemDeactivated()) {
                 m_RenameTarget = nullptr;
             }
         }
@@ -329,7 +337,7 @@ namespace Diligent {
         }
 
         // Update the selected object when clicked
-        if (!renaming && ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+        if (nodeClicked)
         {
             const ImGuiIO& io = ImGui::GetIO();
             if (io.KeyShift)

@@ -19,13 +19,17 @@ public:
     PrefabSphereSpawner(PrefabSphereSpawner&&) = default;
     PrefabSphereSpawner& operator=(PrefabSphereSpawner&&) = default;
 
-    void OnUpdate(float deltaTime) override {}
+    void OnUpdate(float deltaTime) override;
     void OnStart() override;
 
-    // Exposed as a UnityFunction; spawns the configured batch.
+    // Exposed as a UnityFunction; spawns the configured batch (one wave).
     void Spawn();
 
 private:
+    std::vector<gbe::IInstanceManager<HierarchyObject>::Ref> m_spawned;
+    float m_waveTimer = 0.0f;
+    int m_wavesSpawned = 0;
+
     PrefabRef m_prefab;
     GBE_SERIALIZE_FIELD_W_NAME(m_prefab, "Prefab");
 
@@ -49,6 +53,18 @@ private:
 
     bool m_spawnOnStart = true;
     GBE_SERIALIZE_FIELD_W_NAME(m_spawnOnStart, "Spawn On Start");
+
+    bool m_spawnByInterval = false;
+    GBE_SERIALIZE_FIELD_W_NAME(m_spawnByInterval, "Spawn By Interval");
+
+    float m_waveInterval = 10.0f;
+    GBE_SERIALIZE_FIELD_W_NAME(m_waveInterval, "Wave Interval (s)");
+
+    int m_maxAlive = 0; // 0 = unlimited
+    GBE_SERIALIZE_FIELD_W_NAME(m_maxAlive, "Max Alive (0 = unlimited)");
+
+    int m_maxWaves = 0; // 0 = unlimited
+    GBE_SERIALIZE_FIELD_W_NAME(m_maxWaves, "Max Waves (0 = unlimited)");
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(PrefabSphereSpawner, ComponentBase);
 };

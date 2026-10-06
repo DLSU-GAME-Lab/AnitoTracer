@@ -34,12 +34,16 @@ set(${CUR_TARGET_NAME}_src
 	Components/Gameplay/PlayerMovementComponent.hpp
 	Components/Gameplay/PlayerController.hpp
 	Components/Gameplay/PlayerController.cpp
+	Components/Gameplay/EnemyShipController.hpp
+	Components/Gameplay/EnemyShipController.cpp
 	Components/Gameplay/FloatingAsteroid.hpp
 	Components/Gameplay/FloatingAsteroid.cpp
 	Components/Gameplay/ShipWeapon.hpp
 	Components/Gameplay/ShipWeapon.cpp
 	Components/Gameplay/ShipProjectile.hpp
 	Components/Gameplay/ShipProjectile.cpp
+	Components/Gameplay/CinematicCameraFollower.hpp
+	Components/Gameplay/CinematicCameraFollower.cpp
 	Components/Gameplay/Health.hpp
 	Components/Gameplay/Health.cpp
 	Components/Gameplay/ParticleSpawnerComponent.cpp
