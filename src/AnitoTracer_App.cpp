@@ -21,6 +21,7 @@
 #include "ObjectSystems/Event/Example/Print_OnObjectAny.hpp"
 #include "Asset/ProjectLoader.hpp"
 #include "ScriptRegistry.hpp"
+#include "ScriptModule.hpp"
 
 #include "AppConfig.hpp"
 #include "AppState.hpp"
@@ -340,6 +341,7 @@ void AnitoTracer_App::Update()
 
     ScriptRegistry::GetInstance().SetProjectDirectory(ProjectLoader::GetCurrentProjectDir());
     ScriptRegistry::GetInstance().Refresh();
+    ScriptModule::GetInstance().Poll();
 
     const auto& SCDesc = m_pSwapChain->GetDesc();
     GUIManager& imguiManager = GUIManager::GetInstance();

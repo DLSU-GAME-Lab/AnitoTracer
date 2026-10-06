@@ -1,5 +1,7 @@
 #include "ScriptParser.hpp"
 
+#include "ScriptAnalyzer.hpp"
+
 #include "AnitoScriptLexer.h"
 #include "AnitoScriptParser.h"
 
@@ -190,6 +192,7 @@ std::vector<ScriptDescriptor> ScriptParser::Parse(const std::string& source,
 
     // ANTLR recovers from syntax errors, so declarations before the error are still reported.
     Parser::ScriptContext* tree = parser.script();
+    const bool syntaxClean = errors.empty();
 
     std::vector<ScriptDescriptor> result;
     for (auto* component : tree->componentDecl()) {
@@ -211,6 +214,15 @@ std::vector<ScriptDescriptor> ScriptParser::Parse(const std::string& source,
             }
         }
         result.push_back(std::move(desc));
+    }
+
+    // Recovered trees can be incomplete, so semantic checks only run on clean syntax.
+    if (syntaxClean) {
+        const auto code = AnalyzeScript(tree, path, errors);
+        for (auto& desc : result) {
+            const auto it = code.find(desc.name);
+            if (it != code.end()) desc.cppSource = it->second;
+        }
     }
     return result;
 }

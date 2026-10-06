@@ -1,6 +1,7 @@
 #include "ScriptComponent.hpp"
 
 #include "ScriptDescriptor.hpp"
+#include "ScriptModule.hpp"
 #include "ScriptRegistry.hpp"
 
 namespace {
@@ -10,6 +11,8 @@ class ScriptFieldHolder final : public ScriptFieldBase {
 public:
     ScriptFieldHolder(gbe::ISerializable* owner, const std::string& id, const std::string& display, T initial)
         : m_value(std::move(initial)), m_serializer(owner, id, display, m_value) {}
+
+    void* Data() override { return &m_value; }
 
 private:
     T m_value;
@@ -24,9 +27,46 @@ std::string FieldId(const ScriptField& field) { return "script." + field.name; }
 ScriptComponent::ScriptComponent(gbe::IInstanceManager<HierarchyObject>::Ref owner)
     : ComponentBase("ScriptComponent", owner) {}
 
-ScriptComponent::~ScriptComponent() = default;
+ScriptComponent::~ScriptComponent() { ReleaseInstance(); }
+
+void ScriptComponent::ReleaseInstance() {
+    if (!m_instance) return;
+    ScriptModule::GetInstance().Unregister(this);
+    m_entry->destroy(m_instance);
+    m_instance = nullptr;
+    m_entry = nullptr;
+}
+
+void ScriptComponent::EnsureInstance() {
+    ScriptModule& module = ScriptModule::GetInstance();
+    if (m_instance && m_instanceGeneration == module.Generation()) return;
+    ReleaseInstance();
+    m_instanceGeneration = module.Generation();
+
+    const ScriptDescriptor* descriptor = ScriptRegistry::GetInstance().Find(m_scriptName);
+    if (!descriptor || descriptor->revision != m_boundRevision) return;
+    const anito::ScriptEntry* entry = module.FindEntry(*descriptor);
+    if (!entry || m_fields.size() != entry->fieldCount) return;
+
+    m_fieldPtrs.clear();
+    for (const auto& field : m_fields) m_fieldPtrs.push_back(field->Data());
+
+    const anito::ScriptContext context{module.GetHostAPI(), static_cast<ComponentBase*>(this), m_fieldPtrs.data()};
+    m_instance = entry->create(context);
+    m_entry = entry;
+    // Only components holding native code need to be released before a reload.
+    module.Register(this);
+    m_instance->OnStart();
+}
+
+void ScriptComponent::OnUpdate(float deltaTime) {
+    Refresh();
+    EnsureInstance();
+    if (m_instance) m_instance->OnUpdate(deltaTime);
+}
 
 void ScriptComponent::BindScript(const std::string& scriptName) {
+    ReleaseInstance();
     m_scriptName = scriptName;
     m_fields.clear();
     m_boundRevision = 0;
@@ -64,6 +104,7 @@ void ScriptComponent::Refresh() {
     const ScriptDescriptor* descriptor = ScriptRegistry::GetInstance().Find(m_scriptName);
     if (!descriptor || descriptor->revision == m_boundRevision) return;
 
+    ReleaseInstance();
     gbe::SerializedData saved = Serialize();
     m_fields.clear();
     CreateFields(*descriptor);

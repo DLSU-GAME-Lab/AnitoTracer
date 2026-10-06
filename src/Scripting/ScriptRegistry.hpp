@@ -23,14 +23,20 @@ public:
     bool Refresh();
 
     const ScriptDescriptor* Find(const std::string& name) const;
+
+    // Parse errors from the last scan of the file; empty if clean or unknown.
+    const std::vector<std::string>& GetErrors(const std::filesystem::path& path) const;
     const std::map<std::string, ScriptDescriptor>& GetScripts() const { return m_scripts; }
 
 private:
     ScriptRegistry() = default;
 
+    void WriteGeneratedSource();
+
     struct FileEntry {
         std::filesystem::file_time_type writeTime;
         std::vector<ScriptDescriptor> scripts;
+        std::vector<std::string> errors;
     };
 
     std::filesystem::path m_scriptsDir;

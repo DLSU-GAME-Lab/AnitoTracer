@@ -33,35 +33,53 @@ add_custom_command(
 	VERBATIM
 )
 
-set(${CUR_TARGET_NAME}_src
+# Language core: parser, analyzer, transpiler. No engine dependencies so the CLI compiler can reuse it.
+set(LANG_TARGET anito_scriptlang)
+add_library(${LANG_TARGET} STATIC
 	ScriptDescriptor.hpp
 	ScriptParser.cpp
 	ScriptParser.hpp
-	ScriptRegistry.cpp
-	ScriptRegistry.hpp
-	ScriptComponent.cpp
-	ScriptComponent.hpp
+	ScriptAnalyzer.cpp
+	ScriptAnalyzer.hpp
+	ScriptTranspiler.cpp
+	ScriptTranspiler.hpp
 	${ANTLR_GRAMMARS}
 	${ANTLR_GEN_SRC}
 )
+add_library(anito::scriptlang ALIAS ${LANG_TARGET})
 set_source_files_properties(${ANTLR_GRAMMARS} PROPERTIES HEADER_FILE_ONLY TRUE)
-
-add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
-add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
-target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(${CUR_TARGET_NAME} SYSTEM PRIVATE "${ANTLR_GEN_DIR}")
+target_include_directories(${LANG_TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${LANG_TARGET} SYSTEM PRIVATE "${ANTLR_GEN_DIR}")
+target_link_libraries(${LANG_TARGET} PUBLIC glm::glm PRIVATE antlr4_static)
 
 # Warnings in generated code are not ours to fix.
 set_source_files_properties(${ANTLR_GEN_SRC} PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/w>")
 
+# Command-line compiler: scriptc <out.cpp> <script.ascript>...
+add_executable(anito_scriptc tools/scriptc.cpp)
+target_link_libraries(anito_scriptc PRIVATE anito::scriptlang)
+set_target_properties(anito_scriptc PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ScriptTools")
+
+set(${CUR_TARGET_NAME}_src
+	ScriptRegistry.cpp
+	ScriptRegistry.hpp
+	ScriptComponent.cpp
+	ScriptComponent.hpp
+	ScriptModule.cpp
+	ScriptModule.hpp
+	sdk/AnitoScriptSDK.hpp
+)
+
+add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
+add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
+target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
+
 target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC
+	anito::scriptlang
 	glm::glm
 	anito::objects
 	anito::serialization
 	gbe::tools
 )
-target_link_libraries(${CUR_TARGET_NAME}
-	PRIVATE
-	antlr4_static
-)
+include(sdk/sample_module.cmake)

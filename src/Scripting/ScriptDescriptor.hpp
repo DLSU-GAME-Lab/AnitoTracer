@@ -27,4 +27,5 @@ struct ScriptDescriptor {
     std::vector<std::string> events;   // `on Update(...)` handlers
     std::vector<std::string> methods;  // `@method fn` entries
     uint64_t revision = 0;             // Bumped whenever the file is re-parsed
+    std::string cppSource;             // Transpiled class; empty if the file had errors
 };
