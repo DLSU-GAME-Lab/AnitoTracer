@@ -64,6 +64,15 @@ ScriptModule::~ScriptModule() { Unload(); }
 
 const anito::HostAPI* ScriptModule::GetHostAPI() const { return &kHostAPI; }
 
+void ScriptModule::SetModulePath(const std::filesystem::path& path) {
+    if (path == m_modulePath) return;
+    ReleaseAllInstances();
+    Unload();
+    m_modulePath = path;
+    m_lastWrite = {};
+    m_lastPoll = {};
+}
+
 void ScriptModule::ReleaseAllInstances() {
     // ReleaseInstance unregisters the component, so iterate a copy.
     const std::set<ScriptComponent*> components = m_components;

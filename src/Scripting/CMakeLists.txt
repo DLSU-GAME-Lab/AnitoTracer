@@ -60,7 +60,14 @@ add_executable(anito_scriptc tools/scriptc.cpp)
 target_link_libraries(anito_scriptc PRIVATE anito::scriptlang)
 set_target_properties(anito_scriptc PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ScriptTools")
 
+file(TO_CMAKE_PATH "${CMAKE_CXX_COMPILER}" ANITO_SCRIPT_COMPILER)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sdk" ANITO_SCRIPT_SDK_INCLUDE)
+configure_file(ScriptBuildConfig.hpp.in ScriptBuildConfig.hpp @ONLY)
+
 set(${CUR_TARGET_NAME}_src
+	ScriptBuildDriver.cpp
+	ScriptBuildDriver.hpp
+	ScriptBuildConfig.hpp.in
 	ScriptRegistry.cpp
 	ScriptRegistry.hpp
 	ScriptComponent.cpp
@@ -73,6 +80,7 @@ set(${CUR_TARGET_NAME}_src
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
 target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
+target_include_directories(${CUR_TARGET_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
 target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC
@@ -82,4 +90,3 @@ target_link_libraries(${CUR_TARGET_NAME}
 	anito::serialization
 	gbe::tools
 )
-include(sdk/sample_module.cmake)

@@ -22,6 +22,7 @@
 #include "Asset/ProjectLoader.hpp"
 #include "ScriptRegistry.hpp"
 #include "ScriptModule.hpp"
+#include "ScriptBuildDriver.hpp"
 
 #include "AppConfig.hpp"
 #include "AppState.hpp"
@@ -339,8 +340,14 @@ void AnitoTracer_App::Update()
 
     if (!m_AppRunning) return;
 
-    ScriptRegistry::GetInstance().SetProjectDirectory(ProjectLoader::GetCurrentProjectDir());
+    const auto projectDirectory = ProjectLoader::GetCurrentProjectDir();
+    ScriptRegistry::GetInstance().SetProjectDirectory(projectDirectory);
     ScriptRegistry::GetInstance().Refresh();
+    ScriptBuildDriver::GetInstance().SetProjectDirectory(projectDirectory);
+    ScriptBuildDriver::GetInstance().Poll();
+    ScriptModule::GetInstance().SetModulePath(projectDirectory.empty()
+        ? std::filesystem::path{}
+        : projectDirectory / "Library" / "Scripts" / "Scripts.dll");
     ScriptModule::GetInstance().Poll();
 
     const auto& SCDesc = m_pSwapChain->GetDesc();

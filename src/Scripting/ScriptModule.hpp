@@ -16,7 +16,7 @@ class ScriptModule {
 public:
     static ScriptModule& GetInstance();
 
-    void SetModulePath(const std::filesystem::path& path) { m_modulePath = path; }
+    void SetModulePath(const std::filesystem::path& path);
 
     // Throttled; reloads when the DLL's write time changes. Returns true if a (re)load happened.
     bool Poll();

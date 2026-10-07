@@ -67,7 +67,6 @@ add_subdirectory(src/Tools)
 add_executable (AnitoTracer_Rebuild WIN32 "src/UserSettings.hpp" "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h" "src/AnitoTracer_App.hpp" "src/AnitoTracer_App.cpp"
   src/UI/Panels/FileExplorerPanel.cpp)
 set_property(TARGET AnitoTracer_Rebuild PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-add_dependencies(AnitoTracer_Rebuild anito_script_sample)
 
 # Compile flags only to the target executable.
 target_compile_options(AnitoTracer_Rebuild PRIVATE
