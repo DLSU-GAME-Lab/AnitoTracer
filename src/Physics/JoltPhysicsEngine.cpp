@@ -7,6 +7,9 @@
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
+#include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
+#include <Jolt/Physics/Collision/Shape/ScaledShape.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
@@ -97,30 +100,91 @@ glm::vec3 JoltPhysicsEngine::GetGravity() const {
 	return mGravity;
 }
 
-JPH::ShapeSettings::ShapeResult JoltPhysicsEngine::BuildShapeSettings(ShapeType type, const ShapeParams& params) {
-	switch (type) {
+// .cpp
+JPH::ShapeSettings::ShapeResult JoltPhysicsEngine::BuildShapeSettings(const ColliderShape& shape) {
+	switch (shape.type) {
 	case ShapeType::Box: {
-		JPH::BoxShapeSettings boxSettings(JPH::Vec3(params.v.x, params.v.y, params.v.z));
+		JPH::BoxShapeSettings boxSettings(JPH::Vec3(shape.params.v.x, shape.params.v.y, shape.params.v.z));
 		return boxSettings.Create();
 	}
 	case ShapeType::Sphere: {
-		float radius = params.v.x;
-		if (radius <= 0.0f) {
-			std::cerr << "[JoltPhysicsEngine] Error: Sphere radius must be greater than zero.\n";
-			return JPH::ShapeSettings::ShapeResult();
-		}
-		JPH::SphereShapeSettings sphereSettings(radius);
-		return sphereSettings.Create();
+		float radius = shape.params.v.x;
+		if (radius <= 0.0f) { std::cerr << "[JoltPhysicsEngine] Error: Sphere radius must be greater than zero.\n"; return JPH::ShapeSettings::ShapeResult(); }
+		return JPH::SphereShapeSettings(radius).Create();
 	}
 	case ShapeType::Capsule: {
-		float radius = params.v.x;
-		float halfHeight = params.v.y;
-		if (radius <= 0.0f || halfHeight <= 0.0f) {
-			std::cerr << "[JoltPhysicsEngine] Error: Capsule radius and half-height must be greater than zero.\n";
+		float radius = shape.params.v.x;
+		float halfHeight = shape.params.v.y;
+		if (radius <= 0.0f || halfHeight <= 0.0f) { std::cerr << "[JoltPhysicsEngine] Error: Capsule radius and half-height must be greater than zero.\n"; return JPH::ShapeSettings::ShapeResult(); }
+		return JPH::CapsuleShapeSettings(halfHeight, radius).Create();
+	}
+	case ShapeType::Mesh: {
+		if (!shape.meshData || shape.meshData->vertices.empty() || shape.meshData->indices.size() < 3) {
+			std::cerr << "[JoltPhysicsEngine] Error: Mesh collider has no geometry.\n";
 			return JPH::ShapeSettings::ShapeResult();
 		}
-		JPH::CapsuleShapeSettings capsuleSettings(halfHeight, radius);
-		return capsuleSettings.Create();
+
+		JPH::VertexList vertexList;
+		vertexList.reserve(shape.meshData->vertices.size());
+		for (const glm::vec3& v : shape.meshData->vertices) {
+			vertexList.push_back(JPH::Float3(v.x, v.y, -v.z));
+		}
+
+		JPH::IndexedTriangleList triList;
+		const auto& idx = shape.meshData->indices;
+		triList.reserve(idx.size() / 3);
+		for (size_t i = 0; i + 2 < idx.size(); i += 3) {
+			// Negating Z mirrors the mesh, which reverses triangle winding.
+			// Swap two indices per triangle to keep normals facing outward.
+			triList.push_back(JPH::IndexedTriangle(idx[i], idx[i + 2], idx[i + 1]));
+		}
+
+		JPH::MeshShapeSettings meshSettings(vertexList, triList);
+		JPH::ShapeSettings::ShapeResult meshResult = meshSettings.Create();
+		if (!meshResult.IsValid() || shape.scale == glm::vec3(1.0f)) {
+			return meshResult;
+		}
+
+		// Mesh vertices aren't pre-scaled (unlike box/sphere/capsule params),
+		// so wrap in a ScaledShape instead of rebuilding triangle data.
+		JPH::ScaledShapeSettings scaled(meshResult.Get(), JPH::Vec3(shape.scale.x, shape.scale.y, shape.scale.z));
+		return scaled.Create();
+	}
+	case ShapeType::ConvexHull: {
+		if (!shape.meshData || shape.meshData->vertices.empty()) {
+			std::cerr << "[JoltPhysicsEngine] Error: Convex hull collider has no geometry.\n";
+			return JPH::ShapeSettings::ShapeResult();
+		}
+
+		JPH::Array<JPH::Vec3> points;
+		const std::vector<glm::vec3>& src = shape.meshData->vertices;
+
+		if (src.size() <= JPH::ConvexHullShape::cMaxPointsInHull) {
+			points.reserve(src.size());
+			for (const glm::vec3& v : src) {
+				points.push_back(JPH::Vec3(v.x, v.y, -v.z)); // same LH->RH flip as elsewhere
+			}
+		}
+		else {
+			// Too many source vertices for Jolt's hull limit so we downsample
+			// evenly rather than just truncating so the hull still
+			// approximates the full mesh instead of one region of it.
+			points.reserve(JPH::ConvexHullShape::cMaxPointsInHull);
+			float stride = static_cast<float>(src.size()) / JPH::ConvexHullShape::cMaxPointsInHull;
+			for (int i = 0; i < JPH::ConvexHullShape::cMaxPointsInHull; ++i) {
+				const glm::vec3& v = src[static_cast<size_t>(i * stride)];
+				points.push_back(JPH::Vec3(v.x, v.y, -v.z));
+			}
+		}
+
+		JPH::ConvexHullShapeSettings hullSettings(points);
+		JPH::ShapeSettings::ShapeResult hullResult = hullSettings.Create();
+		if (!hullResult.IsValid() || shape.scale == glm::vec3(1.0f)) {
+			return hullResult;
+		}
+
+		JPH::ScaledShapeSettings scaled(hullResult.Get(), JPH::Vec3(shape.scale.x, shape.scale.y, shape.scale.z));
+		return scaled.Create();
 	}
 	default:
 		std::cerr << "[JoltPhysicsEngine] Error: Unknown shape type.\n";
@@ -137,13 +201,13 @@ JPH::RefConst<JPH::Shape> JoltPhysicsEngine::BuildCompoundShape(const std::vecto
 	}
 
 	if (shapes.size() == 1 && shapes[0].offset == glm::vec3(0.0f)) {
-		auto result = BuildShapeSettings(shapes[0].type, shapes[0].params);
+		auto result = BuildShapeSettings(shapes[0]);
 		return result.IsValid() ? result.Get() : nullptr;
 	}
 
 	JPH::StaticCompoundShapeSettings compound;
 	for (const ColliderShape& s : shapes) {
-		auto sub = BuildShapeSettings(s.type, s.params);
+		auto sub = BuildShapeSettings(s);
 		if (!sub.IsValid()) {
 			std::cerr << "[JoltPhysicsEngine] Error: Failed to create sub-shape for compound collider.\n";
 			continue;
@@ -171,6 +235,15 @@ std::shared_ptr<IPhysicsBody> JoltPhysicsEngine::CreateRigidBody(
 		return nullptr;
 	}
 	std::cout << "[DEBUG] CreateRigidBody called for body-to-be, shapes.size()=" << shapes.size();
+	// Enforce static-only for mesh colliders
+	if (mass > 0.0f) {
+		for (const auto& s : shapes) {
+			if (s.type == ShapeType::Mesh) {
+				std::cerr << "[JoltPhysicsEngine] Error: Mesh colliders are static-only; body must have mass <= 0.\n";
+				return nullptr;
+			}
+		}
+	}
 	for (const auto& s : shapes) {
 		std::cout << " [type=" << static_cast<int>(s.type)
 			<< " params=(" << s.params.v.x << "," << s.params.v.y << "," << s.params.v.z << ")"

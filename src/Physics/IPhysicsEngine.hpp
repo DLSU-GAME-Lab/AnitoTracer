@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IPhysicsBody.hpp"
+#include "../Common/CollisionMeshData.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <memory>
@@ -21,7 +22,9 @@ public:
 	enum class ShapeType {
 		Box,
 		Sphere,
-		Capsule
+		Capsule,
+		Mesh,
+		ConvexHull
 	};
 
 	// Generic shape parameters
@@ -33,6 +36,8 @@ public:
 		ShapeType type;
 		ShapeParams params;
 		glm::vec3 offset = glm::vec3(0.0f);
+		glm::vec3 scale = glm::vec3(0.0f);
+		std::shared_ptr<const CollisionMeshData> meshData;
 	};
 
 	// Collision callback

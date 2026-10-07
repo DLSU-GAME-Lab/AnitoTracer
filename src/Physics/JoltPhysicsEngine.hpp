@@ -53,7 +53,7 @@ public:
 	std::shared_ptr<JoltPhysicsBody> FindBodyByID(JPH::BodyID id);
 
 private:
-	JPH::ShapeSettings::ShapeResult BuildShapeSettings(ShapeType type, const ShapeParams& params);
+	JPH::ShapeSettings::ShapeResult BuildShapeSettings(const ColliderShape& shape);
 	JPH::RefConst<JPH::Shape> BuildCompoundShape(const std::vector<ColliderShape>& shapes);
 	std::unique_ptr<JPH::JobSystemThreadPool> mJobSystem;
 	std::unique_ptr<JPH::PhysicsSystem> mPhysicsSystem;

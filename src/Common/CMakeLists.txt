@@ -4,6 +4,7 @@ set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
 
 set(${CUR_TARGET_NAME}_src
 		MathDefs.hpp
+		CollisionMeshData.hpp
 		Common.cpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
