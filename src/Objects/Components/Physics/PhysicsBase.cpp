@@ -58,10 +58,10 @@ void PhysicsBase::UnregisterCollider(Collider* collider) {
 }
 
 void PhysicsBase::RebuildShapes() {
-	std::cout << "[DEBUG] RebuildShapes on " << this
-		<< " (type=" << typeid(*this).name() << ")"
-		<< ", mBody=" << mBody.get()
-		<< ", mColliders.size()=" << mColliders.size() << std::endl;
+	//std::cout << "[DEBUG] RebuildShapes on " << this
+	//	<< " (type=" << typeid(*this).name() << ")"
+	//	<< ", mBody=" << mBody.get()
+	//	<< ", mColliders.size()=" << mColliders.size() << std::endl;
 	if (!mBody) return;
 
 	std::vector<IPhysicsEngine::ColliderShape> shapes;

@@ -1,5 +1,6 @@
 #include "JoltPhysicsEngine.hpp"
 #include "JoltPhysicsBody.hpp"
+#include "JoltDebugRenderer.hpp"
 #include "JoltContactListener.hpp"
 #include <Jolt/Core/Factory.h>
 #include <Jolt/RegisterTypes.h>
@@ -77,6 +78,9 @@ JoltPhysicsEngine::JoltPhysicsEngine() : mGravity(0.0f, -9.81f, 0.0f) {
 	mContactListener = std::make_unique<JoltContactListener>(*this);
 	mPhysicsSystem->SetContactListener(mContactListener.get());
 
+	// Debug visualization
+	mDebugRenderer = std::make_unique<JoltDebugRenderer>();
+
 	mPhysicsSystem->SetGravity(JPH::Vec3(mGravity.x, mGravity.y, mGravity.z));
 }
 
@@ -100,7 +104,6 @@ glm::vec3 JoltPhysicsEngine::GetGravity() const {
 	return mGravity;
 }
 
-// .cpp
 JPH::ShapeSettings::ShapeResult JoltPhysicsEngine::BuildShapeSettings(const ColliderShape& shape) {
 	switch (shape.type) {
 	case ShapeType::Box: {
@@ -297,6 +300,8 @@ void JoltPhysicsEngine::DestroyRigidBody(std::shared_ptr<IPhysicsBody> body) {
 	mPhysicsSystem->GetBodyInterface().RemoveBody(bodyID);
 	mPhysicsSystem->GetBodyInterface().DestroyBody(bodyID);
 
+	mStaticLineCache.erase(bodyID.GetIndexAndSequenceNumber());
+
 	// Remove from tracking
 	mBodies.erase(bodyID);
 }
@@ -310,6 +315,8 @@ bool JoltPhysicsEngine::SetShapes(IPhysicsBody* body, const std::vector<Collider
 	if (!shape) return false;
 
 	mPhysicsSystem->GetBodyInterface().SetShape(bodyID, shape, true, JPH::EActivation::Activate);
+	mStaticLineCache.erase(bodyID.GetIndexAndSequenceNumber());
+
 	return true;
 }
 
@@ -424,4 +431,47 @@ void JoltPhysicsEngine::WakeBodiesAroundBody(IPhysicsBody* body) {
 			static_cast<int>(collector.mHits.size())
 		);
 	}
+}
+
+std::vector<DebugLineVertex> JoltPhysicsEngine::GetDebugLines() {
+	if (!mPhysicsSystem || !mDebugRenderer) return {};
+
+	std::vector<DebugLineVertex> out;
+
+	JPH::BodyIDVector ids;
+	mPhysicsSystem->GetBodies(ids);
+	const JPH::BodyLockInterface& lockIf = mPhysicsSystem->GetBodyLockInterfaceNoLock();
+
+	for (JPH::BodyID id : ids) {
+		JPH::BodyLockRead lock(lockIf, id);
+		if (!lock.Succeeded()) continue;
+		const JPH::Body& body = lock.GetBody();
+		const uint32_t key = id.GetIndexAndSequenceNumber();
+
+		// reuse cached lines if the body hasn't moved
+		if (body.IsStatic()) {
+			auto it = mStaticLineCache.find(key);
+			if (it != mStaticLineCache.end()
+				&& it->second.pos == body.GetPosition()
+				&& it->second.rot == body.GetRotation()) {
+				if (out.size() + it->second.lines.size() <= kMaxDebugLineVertices)
+					out.insert(out.end(), it->second.lines.begin(), it->second.lines.end());
+				continue;
+			}
+		}
+
+		JPH::Color color = JPH::Color::sGrey;
+
+		mDebugRenderer->Clear();
+		body.GetShape()->Draw(mDebugRenderer.get(), body.GetCenterOfMassTransform(),
+			JPH::Vec3::sReplicate(1.0f), color, false, true);
+		const auto& lines = mDebugRenderer->GetLines();
+
+		if (body.IsStatic())
+			mStaticLineCache[key] = { body.GetPosition(), body.GetRotation(), lines };
+
+		if (out.size() + lines.size() <= kMaxDebugLineVertices) // skip whole body if it won't fit
+			out.insert(out.end(), lines.begin(), lines.end());
+	}
+	return out;
 }

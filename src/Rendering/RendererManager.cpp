@@ -39,6 +39,8 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
         }
     }
 
+    // m_DebugLinePipeline.InitializePipeline(pDevice, pSwapChain);
+
     m_LastMSAAState = userSettings.GetEnableMSAA();
     CreateMSAABuffers();
 
@@ -98,6 +100,8 @@ void RendererManager::InitializePipelines()
     std::visit([&](auto& pipeline) {
         pipeline.InitializePipeline(m_pDevice, m_pSwapChain);
         }, m_bLitPipeline);
+
+    m_DebugLinePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
 }
 
 void RendererManager::CreateMSAABuffers()
@@ -205,6 +209,13 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
     auto* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
     auto* pDefaultDSV = m_pSwapChain->GetDepthBufferDSV();
 
+    if (!renderData.DebugLines.empty()) {
+        m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        m_DebugLinePipeline.StartFrameRender(m_pImmediateContext, renderData);
+        m_DebugLinePipeline.RenderLines(m_pImmediateContext, renderData.DebugLines);
+    }
+
     if (isMSAAEnabled)
     {
         Diligent::ResolveTextureSubresourceAttribs ResolveAttribs;
@@ -276,6 +287,14 @@ void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Dili
             pipeline.RenderLightingPass(m_pImmediateContext, pActiveRTV);
         }
         }, m_bLitPipeline);
+
+    if (!renderData.DebugLines.empty()) {
+        m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        m_pImmediateContext->SetViewports(1, &Viewport, pTarget->GetWidth(), pTarget->GetHeight());
+
+        m_DebugLinePipeline.StartFrameRender(m_pImmediateContext, renderData);
+        m_DebugLinePipeline.RenderLines(m_pImmediateContext, renderData.DebugLines);
+    }
 
     // 3. Resolve the MSAA buffer into the target's actual 1-sample texture for ImGui
     if (isMSAAEnabled)

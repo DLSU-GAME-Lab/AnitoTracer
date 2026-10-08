@@ -34,6 +34,9 @@ namespace Diligent {
             std::vector<ModelRenderInstance> Models;
             LightConstants Lights;
 
+            // Debug Data
+            std::vector<DebugLineVertex> DebugLines;
+
             //RT Data
             RefCntAutoPtr<ITopLevelAS> pTLAS;
             RefCntAutoPtr<IBuffer> pTLASScratchBuffer;

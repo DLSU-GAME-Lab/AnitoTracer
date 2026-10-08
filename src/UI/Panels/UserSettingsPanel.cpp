@@ -57,6 +57,15 @@ namespace Diligent {
                 ImGui::Checkbox("Enable MSAA (4x)", &UserSettings::GetInstance().GetEnableMSAA());
             }
 
+            if (ImGui::CollapsingHeader("Debug Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Checkbox("Show Physics Collider Wireframes", &UserSettings::GetInstance().GetShowPhysicsDebug());
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Draws Jolt collider shapes as wireframes in the editor viewport. Has no effect in the game view.");
+                }
+            }
+
             // Future settings categories (e.g., Graphics, Audio) can be added here
         }
         ImGui::End();

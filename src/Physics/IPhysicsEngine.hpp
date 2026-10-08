@@ -2,6 +2,7 @@
 
 #include "IPhysicsBody.hpp"
 #include "../Common/CollisionMeshData.hpp"
+#include "../Common/DebugLine.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <memory>
@@ -73,4 +74,9 @@ public:
 
 	// Activate bodies
 	virtual void WakeBodiesAroundBody(IPhysicsBody* body) = 0;
+
+	// Returns the current frame's debug-draw lines
+	// (collider wireframes, contact points, etc.) for the renderer to display.
+	// Returns empty when debug drawing is disabled or no bodies exist.
+	virtual std::vector<DebugLineVertex> GetDebugLines() = 0;
 };

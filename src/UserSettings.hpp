@@ -36,6 +36,9 @@ namespace Diligent {
         bool& GetEnableMSAA() { return m_EnableMSAA; }
         const bool& GetEnableMSAA() const { return m_EnableMSAA; }
 
+        bool& GetShowPhysicsDebug() { return m_ShowPhysicsDebug; }
+        const bool& GetShowPhysicsDebug() const { return m_ShowPhysicsDebug; }
+
         PipelineType& GetRendererType() { return m_RendererType; }
         const PipelineType& GetRendererType() const { return m_RendererType; }
 
@@ -50,6 +53,9 @@ namespace Diligent {
         ShadowSettings m_ShadowSettings;
         //False for now for deferred- TODO- Fix for deferred
         bool m_EnableMSAA = false; // Added MSAA toggle state
+
+        // Draws Jolt collider wireframes in the editor viewport
+        bool m_ShowPhysicsDebug = false;
 
         //Default to deferred for easy rendering
         PipelineType m_RendererType = PipelineType::DEFERRED;
