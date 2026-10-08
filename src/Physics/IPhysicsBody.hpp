@@ -22,6 +22,7 @@ public:
 	// Phsyics properties
 	virtual void SetMass(float mass) = 0;
 	virtual float GetMass() const = 0;
+	virtual void SetRotationLocks(bool lockX, bool lockY, bool lockZ) = 0;
 
 	virtual void SetVelocity(const glm::vec3& velocity) = 0;
 	virtual glm::vec3 GetVelocity() const = 0;

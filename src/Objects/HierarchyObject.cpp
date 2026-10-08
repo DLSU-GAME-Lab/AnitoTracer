@@ -29,6 +29,15 @@ void HierarchyObject::InitializeChildren(std::vector<std::unique_ptr<ComponentBa
     }
 }
 
+void HierarchyObject::InitializeParentedChildren(std::vector<std::unique_ptr<HierarchyObject>>& target) {
+    for (auto& child : target)
+    {
+        if (child) {
+            child->SetParent(this->getRef());
+        }
+    }
+}
+
 std::unique_ptr<ComponentBase> HierarchyObject::RemoveComponent(ComponentBase * componentToRemove)
 {
     if (!componentToRemove) return nullptr;

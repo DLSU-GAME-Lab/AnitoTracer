@@ -23,16 +23,19 @@ void PhysicsBase::SetRestitution(float restitution) {
 void PhysicsBase::Teleport(const glm::vec3& position, const glm::quat& rotation) {
 	// For debugging purposes, you can uncomment the following line to see when teleportation occurs.
 	// std::cout << "[DEBUG] Teleport called!\n";
-	if (!mBody) return;
 
-	mBody->SetPositionAndRotation(position, rotation);
-	mBody->SetVelocity(glm::vec3(0.0f));
-	mBody->SetAngularVelocity(glm::vec3(0.0f));
+	if (mBody) {
+		mBody->SetPositionAndRotation(position, rotation);
+		mBody->SetVelocity(glm::vec3(0.0f));
+		mBody->SetAngularVelocity(glm::vec3(0.0f));
+	}
 
+	// mBody only exists once physics has stepped at least once (play mode), but the
+	// Transform still needs to be updated in the editor/before that (e.g. gizmo drags).
 	if (HierarchyObject* owner = m_owner.GetPtr()) {
 		if (Transform* transform = owner->GetTransform()) {
-			transform->SetPosition(position);
-			transform->SetRotation(rotation);
+			transform->SetWorldPosition(position);
+			transform->SetWorldRotation(rotation);
 		}
 	}
 }

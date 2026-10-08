@@ -72,6 +72,12 @@ namespace Diligent {
                 SetSelectedObject(nullptr);
             }
 
+            if (m_SelectedObject && ImGui::IsKeyPressed(ImGuiKey_F) &&
+                !ImGui::GetIO().WantTextInput)
+            {
+                HierarchyManager::GetInstance().GetEditorCamera()->FocusOn(m_SelectedObject.GetPtr()->GetTransform()->GetPosition());
+            }
+
             if (!ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl &&
                 ImGui::IsKeyPressed(ImGuiKey_C) && m_SelectedObject)
             {

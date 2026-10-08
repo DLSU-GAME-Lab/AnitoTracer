@@ -4,6 +4,7 @@
 #include "Gameplay/CameraProximityTrigger.hpp"
 #include "Gameplay/PlacementComponent.hpp"
 #include "Gameplay/PlayerController.hpp"
+#include "Gameplay/ObjectRotatorComponent.hpp"
 
 #include "Global/TeleportMainCamera.hpp"
 #include "Components/Physics/RigidBody.hpp"

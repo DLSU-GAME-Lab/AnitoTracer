@@ -373,7 +373,7 @@ void JoltPhysicsEngine::Step(float deltaTime) {
 	mPhysicsSystem->Update(deltaTime, 1, &tempAllocator, mJobSystem.get());
 }
 
-bool JoltPhysicsEngine::Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, std::shared_ptr<IPhysicsBody>& outBody, glm::vec3& outHitPoint) {
+bool JoltPhysicsEngine::Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, std::shared_ptr<IPhysicsBody>& outBody, glm::vec3& outHitPoint, const IPhysicsBody* ignoredBody) {
 	if (!mPhysicsSystem) {
 		return false;
 	}
@@ -386,7 +386,21 @@ bool JoltPhysicsEngine::Raycast(const glm::vec3& origin, const glm::vec3& direct
 	JPH::RRayCast ray(rayOrigin, rayDirection);
 
 	JPH::RayCastResult result;
-	bool hit = mPhysicsSystem->GetNarrowPhaseQuery().CastRay(ray, result, JPH::BroadPhaseLayerFilter{}, JPH::ObjectLayerFilter{}, JPH::BodyFilter{});
+	class IgnoreBodyFilter final : public JPH::BodyFilter {
+	public:
+		explicit IgnoreBodyFilter(const IPhysicsBody* ignoredBody)
+			: mIgnoredBody(dynamic_cast<const JoltPhysicsBody*>(ignoredBody)) {}
+
+		bool ShouldCollide(const JPH::BodyID& bodyID) const override {
+			return !mIgnoredBody || bodyID != mIgnoredBody->GetBodyID();
+		}
+
+	private:
+		const JoltPhysicsBody* mIgnoredBody;
+	};
+
+	bool hit = mPhysicsSystem->GetNarrowPhaseQuery().CastRay(
+		ray, result, JPH::BroadPhaseLayerFilter{}, JPH::ObjectLayerFilter{}, IgnoreBodyFilter(ignoredBody));
 
 	if (!hit) {
 		return false;

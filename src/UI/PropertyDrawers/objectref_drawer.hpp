@@ -6,7 +6,10 @@
 #include "PropertyDrawer.hpp"
 #include "ObjectRef.hpp"
 #include "SceneRegistry.hpp"
+#include <array>
+#include <cctype>
 #include <string>
+#include <unordered_map>
 
 namespace gbe {
 
@@ -43,10 +46,26 @@ namespace gbe {
 
             // Draw ImGui Dropdown
             if (ImGui::BeginCombo(label.c_str(), previewText.c_str())) {
+                static std::unordered_map<ImGuiID, std::array<char, 256>> searchBuffers;
+                auto& searchBuffer = searchBuffers[ImGui::GetID(label.c_str())];
+                if (ImGui::IsWindowAppearing()) {
+                    searchBuffer.fill('\0');
+                    ImGui::SetKeyboardFocusHere();
+                }
+                ImGui::InputTextWithHint("##ObjectReferenceSearch", "Search...", searchBuffer.data(), searchBuffer.size());
+
+                const auto toLower = [](std::string value) {
+                    for (char& character : value) {
+                        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+                    }
+                    return value;
+                };
+                const std::string searchFilter = toLower(searchBuffer.data());
 
                 // Option 1: Unset / None
                 bool isNoneSelected = (currentGuid == GUID::Empty());
-                if (ImGui::Selectable("None", isNoneSelected)) {
+                if ((searchFilter.empty() || toLower("None").find(searchFilter) != std::string::npos) &&
+                    ImGui::Selectable("None", isNoneSelected)) {
                     if (currentGuid != GUID::Empty()) {
                         target.SetGUID(GUID::Empty());
                         changed = true;
@@ -70,6 +89,11 @@ namespace gbe {
 
                     std::string currentItemLabel = rawPtr->GetLabel();
                     std::string itemLabel = currentItemLabel.size() > 0 ? currentItemLabel : "[" + guid.ToString() + "]";
+                    const std::string searchableText = toLower(itemLabel + " " + guidId);
+                    if (!searchFilter.empty() && searchableText.find(searchFilter) == std::string::npos) {
+                        ImGui::PopID();
+                        continue;
+                    }
 
                     if (ImGui::Selectable(itemLabel.c_str(), isSelected)) {
                         if (currentGuid != guid) {

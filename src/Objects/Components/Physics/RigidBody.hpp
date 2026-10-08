@@ -36,6 +36,12 @@ public:
 
 	virtual void SetMass(float mass);
 	float GetMass() const;
+	void SetLockRotationX(bool lock) { mLockRotationX = lock; ApplyRotationLocks(); }
+	void SetLockRotationY(bool lock) { mLockRotationY = lock; ApplyRotationLocks(); }
+	void SetLockRotationZ(bool lock) { mLockRotationZ = lock; ApplyRotationLocks(); }
+	bool GetLockRotationX() const { return mLockRotationX; }
+	bool GetLockRotationY() const { return mLockRotationY; }
+	bool GetLockRotationZ() const { return mLockRotationZ; }
 
 	// Recreate body with new shape at runtime
 	void Rebuild(IPhysicsEngine::ShapeType shapeType, IPhysicsEngine::ShapeParams shapeParams);
@@ -53,9 +59,19 @@ protected:
 		if (mBody) mBody->SetMass(mMass);
 	});
 
+	bool mLockRotationX = false;
+	GBE_SERIALIZE_FIELD_W_NAME_CB(mLockRotationX, "Lock Rotation X", [this](bool) { ApplyRotationLocks(); });
+
+	bool mLockRotationY = false;
+	GBE_SERIALIZE_FIELD_W_NAME_CB(mLockRotationY, "Lock Rotation Y", [this](bool) { ApplyRotationLocks(); });
+
+	bool mLockRotationZ = false;
+	GBE_SERIALIZE_FIELD_W_NAME_CB(mLockRotationZ, "Lock Rotation Z", [this](bool) { ApplyRotationLocks(); });
+
 	GBE_GENERATE_SERIALIZER_CONSTRUCTOR(RigidBody, PhysicsBase);
 
 	void TakeOverAutoStaticBody(HierarchyObject* owner);
+	void ApplyRotationLocks();
 	void OnOwnerAttached() override;
 };
 

@@ -4,6 +4,7 @@
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/Physics/Body/BodyInterface.h>
+#include <Jolt/Physics/Body/AllowedDOFs.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -24,6 +25,7 @@ public:
 
 	void SetMass(float mass) override;
 	float GetMass() const override;
+	void SetRotationLocks(bool lockX, bool lockY, bool lockZ) override;
 
 	void SetVelocity(const glm::vec3& velocity) override;
 	glm::vec3 GetVelocity() const override;
@@ -37,11 +39,13 @@ public:
 	JPH::BodyID GetBodyID() const { return mBodyID; }
 private:
 	void WakeSurroundingBodies();
+	void ApplyMassProperties();
 
 	JPH::BodyID mBodyID;
 	JPH::BodyInterface* mBodyInterface;
 	const JPH::BodyLockInterface* mBodyLockInterface;
 	float mMass;
+	JPH::EAllowedDOFs mAllowedDOFs = JPH::EAllowedDOFs::All;
 
 	static JPH::RVec3 ToJoltVec3(const glm::vec3& value);
 	static glm::vec3 ToGlmVec3(const JPH::Vec3& value);

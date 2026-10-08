@@ -15,7 +15,24 @@ TeleportMainCamera::TeleportMainCamera(Transform* transform, gbe::IInstanceManag
     : ComponentBase("TeleportMainCamera", owner) {}
 
 void TeleportMainCamera::DoTeleport() {
-    gbe::IInstanceManager<GameCamera>::getOldest()->GetOwner().GetPtr()->GetTransform()->SetPosition(this->m_targetpos);
+    GameCamera* mainCamera = gbe::IInstanceManager<GameCamera>::getOldest();
+    if (!mainCamera) {
+        return;
+    }
+
+    HierarchyObject* cameraOwner = mainCamera->GetOwner().GetPtr();
+    if (!cameraOwner) {
+        return;
+    }
+
+    Transform* cameraTransform = cameraOwner->GetTransform();
+    if (!cameraTransform) {
+        return;
+    }
+
+    // m_targetpos is authored in world space; SetPosition writes local space directly,
+    // which breaks the teleport once the camera is parented. Use the world-aware setter.
+    cameraTransform->SetWorldPosition(this->m_targetpos);
 }
 
 void TeleportMainCamera::OnGUI_EditorEvent(float deltaTime)

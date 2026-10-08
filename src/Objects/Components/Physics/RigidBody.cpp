@@ -103,6 +103,7 @@ void RigidBody::Rebuild(
 
 	DestroyBody();
 	CreateBody(pos, rot, mMass);
+	ApplyRotationLocks();
 }
 
 void RigidBody::InitializeBody() {
@@ -118,7 +119,14 @@ void RigidBody::InitializeBody() {
 	}
 
 	CreateBody(startPos, startRot, mMass);
+	ApplyRotationLocks();
 	std::cout << "[DEBUG] RigidBody body initialized with mass=" << mMass << std::endl;
+}
+
+void RigidBody::ApplyRotationLocks() {
+	if (mBody) {
+		mBody->SetRotationLocks(mLockRotationX, mLockRotationY, mLockRotationZ);
+	}
 }
 
 

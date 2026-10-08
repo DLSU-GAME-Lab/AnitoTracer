@@ -70,7 +70,7 @@ public:
 	virtual void Step(float deltaTime) = 0;
 
 	// Ray casting
-	virtual bool Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, std::shared_ptr<IPhysicsBody>& outBody, glm::vec3& outHitPoint) = 0;
+	virtual bool Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, std::shared_ptr<IPhysicsBody>& outBody, glm::vec3& outHitPoint, const IPhysicsBody* ignoredBody = nullptr) = 0;
 
 	// Activate bodies
 	virtual void WakeBodiesAroundBody(IPhysicsBody* body) = 0;

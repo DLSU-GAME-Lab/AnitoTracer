@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include "Camera.hpp"
 #include "Types/OnGUI_Editor.hpp"
 
@@ -16,7 +17,16 @@ public:
 
     void OnGUI_EditorEvent(float deltaTime) override;
 
+    void FocusOn(const glm::vec3& position);
+
+    void SetPivotPosition(const glm::vec3& pivot) { m_pivotPosition = pivot; }
+    const glm::vec3& GetPivotPosition() const { return m_pivotPosition; }
+
 private:
+    glm::vec3 m_pivotPosition{ 0.0f, 0.0f, 0.0f };
+    float m_distance = 5.0f;
+    static constexpr float kDefaultDistance = 5.0f;
+
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(EditorCamera, CameraComponent);
 };
 

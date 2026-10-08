@@ -128,7 +128,10 @@ private:
     GBE_SERIALIZE_FIELD(m_name);
     HierarchyObject::Ref m_parent;
     std::vector<std::unique_ptr<HierarchyObject>> m_children;
-    GBE_SERIALIZE_FIELD(m_children);
+    void InitializeParentedChildren(std::vector<std::unique_ptr<HierarchyObject>>& target);
+    // m_parent itself isn't serialized, so it must be rebuilt from the m_children
+    // tree every time this object (and thus its subtree) is deserialized.
+    GBE_SERIALIZE_FIELD_W_CB(m_children, std::bind_front(&HierarchyObject::InitializeParentedChildren, this));
 
     std::vector<std::unique_ptr<ComponentBase>> m_components;
     void InitializeChildren(std::vector < std::unique_ptr<ComponentBase>>& target);

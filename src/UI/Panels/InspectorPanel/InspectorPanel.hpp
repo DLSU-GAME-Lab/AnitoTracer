@@ -25,6 +25,7 @@ namespace Diligent {
         HierarchyPanel* m_HierarchyPanel;
         HierarchyObject::Ref m_NameBufferObject = nullptr;
         char m_NameBuffer[256] = {};
+        char m_ComponentSearchBuffer[256] = {};
         bool m_WasAnyItemActive = false;
     };
 

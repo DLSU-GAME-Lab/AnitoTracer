@@ -108,21 +108,37 @@ void JoltPhysicsBody::SetMass(float mass) {
 		return;
 	}
 
-	if (mBodyInterface && mBodyLockInterface) {
-		JPH::BodyLockWrite lock(*mBodyLockInterface, mBodyID);
-		if (lock.Succeeded())
-		{
-			JPH::Body& body = lock.GetBody();
-			JPH::MotionProperties* motionProperties = body.GetMotionProperties();
-			if (motionProperties) {
-				JPH::MassProperties massProperties = body.GetShape()->GetMassProperties();
-				massProperties.ScaleToMass(mass);
-				motionProperties->SetMassProperties(JPH::EAllowedDOFs::All, massProperties);
-			}
-		}
+	mMass = mass;
+	ApplyMassProperties();
+}
+
+void JoltPhysicsBody::SetRotationLocks(bool lockX, bool lockY, bool lockZ) {
+	mAllowedDOFs = JPH::EAllowedDOFs::TranslationX |
+		JPH::EAllowedDOFs::TranslationY |
+		JPH::EAllowedDOFs::TranslationZ;
+
+	if (!lockX) mAllowedDOFs |= JPH::EAllowedDOFs::RotationX;
+	if (!lockY) mAllowedDOFs |= JPH::EAllowedDOFs::RotationY;
+	if (!lockZ) mAllowedDOFs |= JPH::EAllowedDOFs::RotationZ;
+
+	ApplyMassProperties();
+}
+
+void JoltPhysicsBody::ApplyMassProperties() {
+	if (!mBodyInterface || !mBodyLockInterface || mMass <= 0.0f) {
+		return;
 	}
 
-	mMass = mass;
+	JPH::BodyLockWrite lock(*mBodyLockInterface, mBodyID);
+	if (lock.Succeeded()) {
+		JPH::Body& body = lock.GetBody();
+		JPH::MotionProperties* motionProperties = body.GetMotionProperties();
+		if (motionProperties) {
+			JPH::MassProperties massProperties = body.GetShape()->GetMassProperties();
+			massProperties.ScaleToMass(mMass);
+			motionProperties->SetMassProperties(mAllowedDOFs, massProperties);
+		}
+	}
 }
 
 float JoltPhysicsBody::GetMass() const {

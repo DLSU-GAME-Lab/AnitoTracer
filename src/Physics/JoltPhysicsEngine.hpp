@@ -40,7 +40,7 @@ public:
 	void Step(float deltaTime) override;
 
 	// Raycasting
-	bool Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, std::shared_ptr<IPhysicsBody>& outBody, glm::vec3& outHitPoint) override;
+	bool Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, std::shared_ptr<IPhysicsBody>& outBody, glm::vec3& outHitPoint, const IPhysicsBody* ignoredBody = nullptr) override;
 
 	// Activate bodies
 	void WakeBodiesAroundBody(IPhysicsBody* body) override;

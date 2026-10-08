@@ -6,6 +6,7 @@
 
 #include "HierarchyFeatures/PrefabFeature.hpp"
 
+#include <cctype>
 #include <cstring>
 
 void Diligent::InspectorPanel::Draw()
@@ -141,14 +142,30 @@ void Diligent::InspectorPanel::Draw()
 
             // --- ADD COMPONENT BUTTON & POPUP ---
             if (ImGui::Button("Add Component", ImVec2(-1, 0))) {
+                m_ComponentSearchBuffer[0] = '\0';
                 ImGui::OpenPopup("AddComponentPopup");
             }
 
             if (ImGui::BeginPopup("AddComponentPopup")) {
+                ImGui::SetNextItemWidth(-1.0f);
+                ImGui::InputTextWithHint("##AddComponentSearch", "Search components...", m_ComponentSearchBuffer, sizeof(m_ComponentSearchBuffer));
+
+                const auto toLower = [](std::string value) {
+                    for (char& character : value) {
+                        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+                    }
+                    return value;
+                };
+                const std::string searchFilter = toLower(m_ComponentSearchBuffer);
+
                 for (const auto& entry : gbe::TypeRegistry::GetEntries()) {
                     std::string label = entry.name;
                     if (label.rfind("class ", 0) == 0) label.erase(0, 6);
                     if (label.rfind("struct ", 0) == 0) label.erase(0, 7);
+
+                    if (!searchFilter.empty() && toLower(label).find(searchFilter) == std::string::npos) {
+                        continue;
+                    }
 
                     // Ensure popup labels are non-empty and uniquely identified
                     std::string popupItemLabel = (label.empty() ? "Unknown Type" : label) + "##" + entry.name;
