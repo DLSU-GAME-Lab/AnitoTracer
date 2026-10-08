@@ -7,6 +7,9 @@
     "glm",
     "vulkan",
     "vulkan-headers",
-    "joltphysics"
+    {
+      "name": "joltphysics",
+      "features": [ "debugrenderer" ]
+    }
   ]
 }

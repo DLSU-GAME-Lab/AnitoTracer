@@ -448,6 +448,10 @@ void AnitoTracer_App::Render()
         editorRenderData.Models = renderData.Models;
         editorRenderData.Lights = renderData.Lights;
 
+        if (UserSettings::GetInstance().GetShowPhysicsDebug()) {
+            editorRenderData.DebugLines = PhysicsEngine::GetInstance().Get().GetDebugLines();
+        }
+
         RendererManager::GetInstance().RenderToTarget(m_pEditorTarget, editorRenderData);
 
         // Clear the main window backbuffer so ImGui has a clean background

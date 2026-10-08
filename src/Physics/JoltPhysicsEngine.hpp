@@ -8,6 +8,7 @@
 
 class JoltPhysicsBody;
 class JoltContactListener;
+class JoltDebugRenderer;
 
 class JoltPhysicsEngine : public IPhysicsEngine {
 public:
@@ -44,6 +45,8 @@ public:
 	// Activate bodies
 	void WakeBodiesAroundBody(IPhysicsBody* body) override;
 
+	std::vector<DebugLineVertex> GetDebugLines() override;
+
 	// Internal access for JoltPhysicsBody
 	JPH::PhysicsSystem* GetPhysicsSystem() { return mPhysicsSystem.get(); }
 	JPH::BodyInterface& GetBodyInterface() { return mPhysicsSystem->GetBodyInterface(); }
@@ -53,14 +56,22 @@ public:
 	std::shared_ptr<JoltPhysicsBody> FindBodyByID(JPH::BodyID id);
 
 private:
-	JPH::ShapeSettings::ShapeResult BuildShapeSettings(ShapeType type, const ShapeParams& params);
+	JPH::ShapeSettings::ShapeResult BuildShapeSettings(const ColliderShape& shape);
 	JPH::RefConst<JPH::Shape> BuildCompoundShape(const std::vector<ColliderShape>& shapes);
 	std::unique_ptr<JPH::JobSystemThreadPool> mJobSystem;
 	std::unique_ptr<JPH::PhysicsSystem> mPhysicsSystem;
 	std::unique_ptr<JoltContactListener> mContactListener;
+	std::unique_ptr<JoltDebugRenderer> mDebugRenderer;
 
 	std::map<JPH::BodyID, std::shared_ptr<JoltPhysicsBody>> mBodies;
 	glm::vec3 mGravity;
 
 	std::map<IPhysicsBody*, CollisionCallback> mCollisionCallbacks;
+
+	struct CachedLines {
+		JPH::RVec3 pos;
+		JPH::Quat rot;
+		std::vector<DebugLineVertex> lines;
+	};
+	std::unordered_map<uint32_t, CachedLines> mStaticLineCache; // key is BodyID index+sequence
 };
