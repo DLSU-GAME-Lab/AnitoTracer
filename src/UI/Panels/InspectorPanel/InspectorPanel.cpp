@@ -5,6 +5,8 @@
 #include "../../../Objects/Components/Physics/Collider.hpp"
 
 #include "HierarchyFeatures/PrefabFeature.hpp"
+#include "ScriptComponent.hpp"
+#include "ScriptRegistry.hpp"
 
 #include <cctype>
 #include <cstring>
@@ -159,6 +161,8 @@ void Diligent::InspectorPanel::Draw()
                 const std::string searchFilter = toLower(m_ComponentSearchBuffer);
 
                 for (const auto& entry : gbe::TypeRegistry::GetEntries()) {
+                    if (entry.name == typeid(ScriptComponent).name()) continue; // Listed per script below
+
                     std::string label = entry.name;
                     if (label.rfind("class ", 0) == 0) label.erase(0, 6);
                     if (label.rfind("struct ", 0) == 0) label.erase(0, 7);
@@ -185,6 +189,26 @@ void Diligent::InspectorPanel::Draw()
                         else {
                             delete rawInstance;
                         }
+                    }
+                }
+
+                bool firstScript = true;
+                for (const auto& [scriptName, descriptor] : ScriptRegistry::GetInstance().GetScripts()) {
+                    if (!searchFilter.empty() && toLower(scriptName).find(searchFilter) == std::string::npos) {
+                        continue;
+                    }
+                    if (firstScript) {
+                        ImGui::Separator();
+                        ImGui::TextDisabled("Scripts");
+                        firstScript = false;
+                    }
+
+                    const std::string scriptItemLabel = scriptName + "##script_" + scriptName;
+                    if (ImGui::Selectable(scriptItemLabel.c_str())) {
+                        auto newScript = std::make_unique<ScriptComponent>();
+                        newScript->BindScript(scriptName);
+                        newScript->SetOwner(selected);
+                        selected.GetPtr()->AddComponent(std::move(newScript));
                     }
                 }
                 ImGui::EndPopup();

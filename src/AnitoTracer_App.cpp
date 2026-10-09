@@ -20,6 +20,9 @@
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
 #include "ObjectSystems/Event/Example/Print_OnObjectAny.hpp"
 #include "Asset/ProjectLoader.hpp"
+#include "ScriptRegistry.hpp"
+#include "ScriptModule.hpp"
+#include "ScriptBuildDriver.hpp"
 
 #include "AppConfig.hpp"
 #include "AppState.hpp"
@@ -279,6 +282,8 @@ void AnitoTracer_App::InitManagers()
     
     AssetPipeline::IncludeFolder("Assets");
 
+    ScriptRegistry::GetInstance().Initialize();
+
     if (AppConfig::entry_project.size() > 0)
         ProjectLoader::LoadProject(AppConfig::entry_project);
     if (AppConfig::entry_scene.size() > 0)
@@ -334,6 +339,16 @@ void AnitoTracer_App::Update()
 #endif
 
     if (!m_AppRunning) return;
+
+    const auto projectDirectory = ProjectLoader::GetCurrentProjectDir();
+    ScriptRegistry::GetInstance().SetProjectDirectory(projectDirectory);
+    ScriptRegistry::GetInstance().Refresh();
+    ScriptBuildDriver::GetInstance().SetProjectDirectory(projectDirectory);
+    ScriptBuildDriver::GetInstance().Poll();
+    ScriptModule::GetInstance().SetModulePath(projectDirectory.empty()
+        ? std::filesystem::path{}
+        : projectDirectory / "Library" / "Scripts" / "Scripts.dll");
+    ScriptModule::GetInstance().Poll();
 
     const auto& SCDesc = m_pSwapChain->GetDesc();
     GUIManager& imguiManager = GUIManager::GetInstance();
@@ -488,7 +503,8 @@ void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const Ren
             HierarchyObject* selectedObj = HierarchyObject::getById(pickedID);
             if (selectedObj) {
                 std::cout << "Clicked on Model owned by: " << selectedObj->GetName() << std::endl;
-                gui.SetSelectedObject(selectedObj);
+                if (ImGui::GetIO().KeyCtrl) gui.ToggleSelectedObject(selectedObj);
+                else gui.SetSelectedObject(selectedObj);
             }
         }
     }

@@ -53,7 +53,12 @@ namespace Diligent {
 
         //Bridge function to set the selected object
         void SetSelectedObject(HierarchyObject::Ref obj);
-        //Bridge to get selected object
+        //Bridge for ctrl+click style add/remove from the selection
+        void ToggleSelectedObject(HierarchyObject::Ref obj);
+        //Bridge to get every selected object (top-level only, no selected ancestors)
+        std::vector<HierarchyObject::Ref> GetSelectedRoots() const {
+            return m_pHierarchyPanel ? m_pHierarchyPanel->GetSelectedRoots() : std::vector<HierarchyObject::Ref>{};
+        }        //Bridge to get selected object
         HierarchyObject::Ref GetSelectedObject() const {
             return m_pHierarchyPanel ? m_pHierarchyPanel->GetSelectedObject() : nullptr;
         }
