@@ -58,6 +58,7 @@ inline void ForwardImGuiInputToSystem() {
 	gbe::InputSystem::SetRawModifierState(gbe::KeyModifier::Shift, io.KeyShift);
 	gbe::InputSystem::SetRawModifierState(gbe::KeyModifier::Ctrl, io.KeyCtrl);
 	gbe::InputSystem::SetRawModifierState(gbe::KeyModifier::Alt, io.KeyAlt);
+	gbe::InputSystem::SetRawKeyState(gbe::Key::Shift, io.KeyShift);
 
 	// 2. Pass mouse position and delta via native structs
 	ImVec2 mouseDelta = CursorManager::GetInstance().ProcessMouseDelta(io.MouseDelta);

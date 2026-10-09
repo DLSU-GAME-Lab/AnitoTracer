@@ -2,13 +2,14 @@
 #include "InputMappedBool.hpp"
 #include "InputSystem.hpp"
 
-#define INPUTKEY_DOWN "INPUT_KEY_DOWN"
-#define INPUTKEY_UP "INPUT_KEY_UP"
-#define INPUTKEY_RIGHT "INPUT_KEY_RIGHT"
-#define INPUTKEY_LEFT "INPUT_KEY_LEFT"
-#define INPUTKEY_JUMP "INPUT_KEY_JUMP"
-#define INPUTKEY_SPRINT "INPUT_KEY_SPRINT"
-#define INPUTKEY_CROUCH "INPUT_KEY_CROUCH"
+#define INPUTKEY_THRUST_FORWARD "INPUT_KEY_THRUST_FORWARD"
+#define INPUTKEY_THRUST_BACKWARD "INPUT_KEY_THRUST_BACKWARD"
+#define INPUTKEY_ROLL_LEFT "INPUT_KEY_ROLL_LEFT"
+#define INPUTKEY_ROLL_RIGHT "INPUT_KEY_ROLL_RIGHT"
+#define INPUTKEY_PITCH_DOWN "INPUT_KEY_PITCH_DOWN"
+#define INPUTKEY_PITCH_UP "INPUT_KEY_PITCH_UP"
+#define INPUTKEY_YAW_LEFT "INPUT_KEY_YAW_LEFT"
+#define INPUTKEY_YAW_RIGHT "INPUT_KEY_YAW_RIGHT"
 #define INPUTKEY_PRIMARY "INPUT_KEY_PRIMARY"
 #define INPUTKEY_SECONDARY "INPUT_KEY_SECONDARY"
 
@@ -16,29 +17,26 @@
 
 class PlayerInput {
 public:
-    // Declare member bools bound directly to action triggers
-    GBE_INPUT_BOOL(isDown, INPUTKEY_DOWN);
-    GBE_INPUT_BOOL(isUp, INPUTKEY_UP);
-    GBE_INPUT_BOOL(isRight, INPUTKEY_RIGHT);
-    GBE_INPUT_BOOL(isLeft, INPUTKEY_LEFT);
-    GBE_INPUT_BOOL(isJumping, INPUTKEY_JUMP);
-    GBE_INPUT_BOOL(isSprinting, INPUTKEY_SPRINT);
-    GBE_INPUT_BOOL(isCrouching, INPUTKEY_CROUCH);
+    GBE_INPUT_BOOL(isThrustingForward, INPUTKEY_THRUST_FORWARD);
+    GBE_INPUT_BOOL(isThrustingBackward, INPUTKEY_THRUST_BACKWARD);
+    GBE_INPUT_BOOL(isRollingLeft, INPUTKEY_ROLL_LEFT);
+    GBE_INPUT_BOOL(isRollingRight, INPUTKEY_ROLL_RIGHT);
+    GBE_INPUT_BOOL(isPitchingDown, INPUTKEY_PITCH_DOWN);
+    GBE_INPUT_BOOL(isPitchingUp, INPUTKEY_PITCH_UP);
+    GBE_INPUT_BOOL(isYawingLeft, INPUTKEY_YAW_LEFT);
+    GBE_INPUT_BOOL(isYawingRight, INPUTKEY_YAW_RIGHT);
     GBE_INPUT_BOOL(isPrimary, INPUTKEY_PRIMARY);
     GBE_INPUT_BOOL(isSecondary, INPUTKEY_SECONDARY);
 
-	glm::vec2 GetMovementVector() const {
-		float x = static_cast<float>(isRight) - static_cast<float>(isLeft);
-		float y = static_cast<float>(isUp) - static_cast<float>(isDown);
-        return glm::vec2(x, y);
-	}
-
     static inline void RegisterDefaultKeybinds() {
-        gbe::InputSystem::RegisterMapping(INPUTKEY_DOWN, gbe::Key::S, gbe::InputTrigger::All);
-        gbe::InputSystem::RegisterMapping(INPUTKEY_UP, gbe::Key::W, gbe::InputTrigger::All);
-        gbe::InputSystem::RegisterMapping(INPUTKEY_RIGHT, gbe::Key::D, gbe::InputTrigger::All);
-        gbe::InputSystem::RegisterMapping(INPUTKEY_LEFT, gbe::Key::A, gbe::InputTrigger::All);
-        gbe::InputSystem::RegisterMapping(INPUTKEY_JUMP, gbe::Key::Space, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_THRUST_FORWARD, gbe::Key::W, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_THRUST_BACKWARD, gbe::Key::S, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_ROLL_LEFT, gbe::Key::Q, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_ROLL_RIGHT, gbe::Key::E, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_PITCH_DOWN, gbe::Key::Space, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_PITCH_UP, gbe::Key::Shift, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_YAW_LEFT, gbe::Key::D, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_YAW_RIGHT, gbe::Key::A, gbe::InputTrigger::All);
         gbe::InputSystem::RegisterMapping(INPUTKEY_PRIMARY, gbe::Key::MouseLeft, gbe::InputTrigger::All);
         gbe::InputSystem::RegisterMapping(INPUTKEY_SECONDARY, gbe::Key::MouseRight, gbe::InputTrigger::All);
     }

@@ -177,6 +177,12 @@ void JoltPhysicsBody::ApplyForce(const glm::vec3& force) {
 	}
 }
 
+void JoltPhysicsBody::ApplyTorque(const glm::vec3& torque) {
+	if (mBodyInterface) {
+		mBodyInterface->AddTorque(mBodyID, ToJoltVec3(torque));
+	}
+}
+
 void JoltPhysicsBody::ApplyImpulse(const glm::vec3& impulse) {
 	if (mBodyInterface) {
 		mBodyInterface->AddImpulse(mBodyID, ToJoltVec3(impulse));

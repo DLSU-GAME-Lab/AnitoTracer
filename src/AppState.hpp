@@ -13,4 +13,4 @@ struct AppState {
     // this process was launched as a standalone player, so isPlaying is
     // perpetually true and can never be stopped back to editor mode.
     inline static bool isReleaseBuild = false;
-} appState;
+};

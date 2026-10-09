@@ -60,9 +60,13 @@ public:
 
     // Copies an object and its serialized subtree into the in-memory clipboard.
     bool CopyObject(HierarchyObject::Ref object);
+    // Copies several objects (and their subtrees) into the clipboard, replacing it.
+    bool CopyObjects(const std::vector<HierarchyObject::Ref>& objects);
 
     // Pastes the clipboard as a child of parent, or as a root when parent is empty.
     HierarchyObject::Ref PasteObject(HierarchyObject::Ref parent = nullptr);
+    // Pastes every clipboard entry; returns the new objects in clipboard order.
+    std::vector<HierarchyObject::Ref> PasteObjects(HierarchyObject::Ref parent = nullptr);
 
     bool HasCopiedObject() const { return m_hasCopiedObject; }
 
@@ -173,7 +177,7 @@ private:
     GBE_SERIALIZE_FIELD(m_rootNodes);
 
     std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> m_deferredDeletionIds;
-    gbe::SerializedData m_copiedObject;
+    std::vector<gbe::SerializedData> m_copiedObjects;
     bool m_hasCopiedObject = false;
 
     friend class PrefabFeature;
