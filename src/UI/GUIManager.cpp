@@ -144,6 +144,7 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
     InspectorRegistry::GetInstance().RegisterUI<Collider, ColliderUI>();
+    InspectorRegistry::GetInstance().RegisterUI<AudioSourceComponent, AudioSourceUI>();
 }
 
 void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)

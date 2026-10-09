@@ -14,6 +14,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	PRIVATE
 	anito::serialization
 	anito::rendering
+	anito::audio
 )
 
 #PUBLIC
