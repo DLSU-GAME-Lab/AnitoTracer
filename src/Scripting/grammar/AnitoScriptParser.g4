@@ -2,9 +2,11 @@ parser grammar AnitoScriptParser;
 
 options { tokenVocab = AnitoScriptLexer; }
 
+// A script is a collection of components. This grammar describes shape only; type rules,
+// supported engine operations, and C++ lowering live in ScriptAnalyzer.
 script : componentDecl* EOF ;
 
-// component Name : Trigger, Trigger { ... }
+// Optional triggers declare which runtime events a component participates in.
 componentDecl
     : COMPONENT name=ID (COLON ID (COMMA ID)*)? LBRACE member* RBRACE
     ;
@@ -72,7 +74,8 @@ assignment
     : lhs=expr op=(ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_ASSIGN) rhs=expr
     ;
 
-// Alternatives are ordered from highest to lowest precedence.
+// ANTLR's left-recursive alternatives encode precedence from highest to lowest.
+// Keep this order aligned with the operators accepted by ScriptAnalyzer.
 expr
     : expr DOT name=ID                                   # memberExpr
     | expr LPAREN argList? RPAREN                        # callExpr
@@ -84,7 +87,7 @@ expr
     | expr op=(EQ | NEQ) expr                            # eqExpr
     | expr AND expr                                      # andExpr
     | expr OR expr                                       # orExpr
-    | <assoc=right> expr QUESTION expr COLON expr        # ternaryExpr
+    | expr QUESTION expr COLON expr                      # ternaryExpr
     | primary                                            # primaryExpr
     ;
 

@@ -46,7 +46,8 @@ std::string Unquote(const std::string& literal) {
     return out;
 }
 
-// Constants are evaluated as float/int/bool/string/vec3, then coerced to the field type.
+// Inspector defaults must be evaluable without executing script code, so only a small
+// side-effect-free constant subset is accepted here.
 std::optional<ScriptValue> EvalConst(Parser::ExprContext* expr) {
     if (auto* primaryExpr = dynamic_cast<Parser::PrimaryExprContext*>(expr)) {
         antlr4::ParserRuleContext* primary = primaryExpr->primary();
@@ -150,6 +151,7 @@ Parser::AnnotationContext* FindAnnotation(const std::vector<Parser::AnnotationCo
 
 void ReadField(Parser::FieldDeclContext* decl, const std::filesystem::path& path,
                ScriptDescriptor& desc, std::vector<std::string>& errors) {
+    // Only annotated fields cross into editor-owned storage; private script state stays native.
     auto* fieldAnnotation = FindAnnotation(decl->annotation(), "field");
     if (!fieldAnnotation) return; // Not exposed to the editor
 
@@ -179,6 +181,7 @@ void ReadField(Parser::FieldDeclContext* decl, const std::filesystem::path& path
 std::vector<ScriptDescriptor> ScriptParser::Parse(const std::string& source,
                                                   const std::filesystem::path& path,
                                                   std::vector<std::string>& errors) {
+    // Keep lexer and parser diagnostics in the same source-aware error list consumed by the editor.
     antlr4::ANTLRInputStream input(source);
     anito_script::AnitoScriptLexer lexer(&input);
     ErrorCollector listener(path, errors);
@@ -194,6 +197,7 @@ std::vector<ScriptDescriptor> ScriptParser::Parse(const std::string& source,
     Parser::ScriptContext* tree = parser.script();
     const bool syntaxClean = errors.empty();
 
+    // Extract declarations even from a recovered tree so the editor can still show partial metadata.
     std::vector<ScriptDescriptor> result;
     for (auto* component : tree->componentDecl()) {
         if (!component->name) continue;
@@ -216,7 +220,7 @@ std::vector<ScriptDescriptor> ScriptParser::Parse(const std::string& source,
         result.push_back(std::move(desc));
     }
 
-    // Recovered trees can be incomplete, so semantic checks only run on clean syntax.
+    // Recovered trees can be incomplete; only clean syntax is safe for type-checking and codegen.
     if (syntaxClean) {
         const auto code = AnalyzeScript(tree, path, errors);
         for (auto& desc : result) {

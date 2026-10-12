@@ -40,3 +40,7 @@ DiligentEngine
 /build
 /src/.rag_cache
 /.vscode
+src/Scripting/grammar/AnitoScript_CFG_Paper.aux
+src/Scripting/grammar/AnitoScript_CFG_Paper.log
+src/Scripting/grammar/AnitoScript_CFG_Paper.pdf
+src/Scripting/grammar/AnitoScript_CFG_Paper.md

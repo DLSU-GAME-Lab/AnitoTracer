@@ -10,6 +10,7 @@ public:
     static ScriptBuildDriver& GetInstance();
 
     void SetProjectDirectory(const std::filesystem::path& projectDirectory);
+    // Debounces generated-source changes and runs the platform compiler off the editor thread.
     void Poll();
     ~ScriptBuildDriver();
 

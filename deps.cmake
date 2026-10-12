@@ -53,6 +53,22 @@ endif()
 
 FetchContent_MakeAvailable(DiligentFX)
 
+#========Native File Dialog Extended========#
+FetchContent_Declare(nfd
+    SYSTEM
+    GIT_REPOSITORY https://github.com/btzy/nativefiledialog-extended.git
+    GIT_TAG v1.2.1
+    GIT_SHALLOW ON
+    UPDATE_COMMAND ""
+)
+# Built manually: nfd's own CMake compares against "PLATFORM_WIN32", which Diligent defines as a variable, leaving the target empty.
+FetchContent_GetProperties(nfd)
+if(NOT nfd_POPULATED)
+    FetchContent_Populate(nfd)
+endif()
+add_library(nfd STATIC "${nfd_SOURCE_DIR}/src/nfd_win.cpp")
+target_include_directories(nfd PUBLIC "${nfd_SOURCE_DIR}/src/include")
+
 #========glaze========#
 FetchContent_Declare(glaze
     SYSTEM

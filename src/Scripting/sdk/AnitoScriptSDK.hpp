@@ -1,6 +1,7 @@
 #pragma once
 
-// Boundary between the editor and compiled script modules. Must not include any engine header.
+// The complete cross-DLL contract: keep this header independent of engine headers so generated
+// modules can be compiled and unloaded without linking against engine implementation details.
 
 #include <cstdint>
 #include <string>
@@ -33,7 +34,7 @@ inline bool operator!=(Vec3 a, Vec3 b) { return !(a == b); }
 // Same order as the host's ScriptFieldType.
 enum class FieldType : int32_t { Float, Int, Bool, String, Vec3 };
 
-// Engine services available to scripts; every call goes through the host so the DLL shares no engine statics.
+// Engine services available to scripts; callbacks keep engine objects and statics on the host side.
 struct HostAPI {
     void (*Log)(const char* message);
     void (*GetPosition)(void* owner, Vec3* out);
@@ -44,7 +45,7 @@ struct HostAPI {
 struct ScriptContext {
     const HostAPI* host;
     void* owner;
-    // Host-owned storage for exposed fields, one pointer per field in declaration order.
+    // Host-owned storage for exposed fields, one pointer per field in descriptor declaration order.
     void* const* fields;
 };
 

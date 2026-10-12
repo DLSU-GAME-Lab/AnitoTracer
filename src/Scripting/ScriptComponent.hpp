@@ -17,7 +17,8 @@ public:
     virtual void* Data() = 0;
 };
 
-// Generic component whose fields come from a script descriptor instead of C++ members.
+// Host-side component wrapper: serialized/editor fields remain native, while behavior is supplied
+// by a separately compiled script instance.
 class ScriptComponent : public ComponentBase, public gbe::ITrigger<UpdateTrigger> {
 public:
     ScriptComponent(gbe::IInstanceManager<HierarchyObject>::Ref owner = {});

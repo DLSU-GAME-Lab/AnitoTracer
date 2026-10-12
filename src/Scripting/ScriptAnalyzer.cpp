@@ -9,6 +9,8 @@ namespace {
 
 using P = anito_script::AnitoScriptParser;
 
+// Script-level types include host concepts (Object/Transform) that are lowered through SDK calls,
+// rather than represented as C++ values crossing the DLL boundary.
 enum class T { Error, Void, Float, Int, Bool, String, Vec3, Object, Transform };
 
 const char* Name(T t) {
@@ -39,7 +41,7 @@ const char* Cpp(T t) {
 bool Numeric(T t) { return t == T::Float || t == T::Int; }
 bool Convertible(T to, T from) { return to == from || (to == T::Float && from == T::Int); }
 
-// A checked expression: its type and the C++ that computes it.
+// Analysis carries a source type alongside its emitted C++ expression, avoiding a second AST pass.
 struct V {
     T t = T::Error;
     std::string c;
@@ -83,6 +85,7 @@ public:
         const size_t before = m_errors.size();
         std::set<std::string> seen;
         std::map<std::string, std::string> result;
+        // A semantic error invalidates the compilation unit, so callers never build a partial module.
         for (auto* component : script->componentDecl()) {
             CheckName(component, component->name->getText());
             if (!seen.insert(component->name->getText()).second) {
@@ -155,7 +158,7 @@ private:
             }
         }
 
-        // Declarations first so members can refer to each other regardless of order.
+        // Collect signatures before bodies so fields and methods can be referenced regardless of order.
         std::set<std::string> handlers;
         for (auto* member : component->member()) {
             if (auto* field = member->fieldDecl()) {
@@ -188,6 +191,8 @@ private:
             }
         }
 
+        // Separate output buffers let class layout follow C++ declaration order requirements while
+        // retaining source-order processing for diagnostics and method bodies.
         std::string members;   // handlers and methods
         std::string data;      // field declarations
         std::string init;      // constructor initialisers for exposed fields
@@ -210,6 +215,8 @@ private:
 
         const std::string cls = component->name->getText();
         std::string out;
+        // The generated type is a thin SDK behaviour: editor fields are references, while private
+        // state belongs to the native instance and is recreated when the module reloads.
         out += "class " + cls + " final : public anito::ScriptBehaviour {\n";
         out += "public:\n";
         out += "    explicit " + cls + "(const anito::ScriptContext& ctx)\n";
@@ -226,7 +233,8 @@ private:
         if (declared == T::Error) return;
 
         if (IsExposed(field)) {
-            // Exposed fields live in host storage so the Inspector and serializer own the values.
+            // Exposed fields live in host storage so the Inspector and serializer own the values;
+            // declaration order must match the descriptor and module field table.
             init += ",\n          " + name + "(*static_cast<" + Cpp(declared) + "*>(ctx.fields[" + std::to_string(exposedIndex++) + "]))";
             Emit(std::string(Cpp(declared)) + "& " + name + ";");
             return;
@@ -270,6 +278,7 @@ private:
         std::vector<std::pair<std::string, T>> params;
         std::string list;
         std::string cppName = "OnUnknown";
+        // Handler names/signatures are a fixed runtime contract, mapped to SDK virtual callbacks.
         const auto it = kHandlers.find(handler->name->getText());
         if (it == kHandlers.end()) {
             ReportAt(handler->name, "unknown event handler '" + handler->name->getText() + "'");
@@ -367,6 +376,7 @@ private:
         m_scopes.pop_back();
     }
 
+    // Each statement is validated as it is lowered, keeping diagnostics tied to original tokens.
     void CheckStmt(P::StmtContext* stmt) {
         if (auto* s = dynamic_cast<P::BlockStmtContext*>(stmt)) {
             Emit("{");
@@ -544,6 +554,7 @@ private:
         return {};
     }
 
+    // Expression checking is also code generation: each successful result carries its C++ form.
     V Check(P::ExprContext* expr) {
         if (auto* e = dynamic_cast<P::PrimaryExprContext*>(expr)) return CheckPrimary(e->primary());
         if (auto* e = dynamic_cast<P::MemberExprContext*>(expr)) return CheckMember(e);

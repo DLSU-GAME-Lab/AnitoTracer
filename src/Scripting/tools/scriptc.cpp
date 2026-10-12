@@ -13,6 +13,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    // Reuse the editor's parser/analyzer/transpiler pipeline so CLI output follows identical rules.
     std::vector<ScriptDescriptor> scripts;
     std::vector<std::string> errors;
     for (int i = 2; i < argc; ++i) {

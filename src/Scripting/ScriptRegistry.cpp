@@ -43,6 +43,7 @@ bool ScriptRegistry::Refresh() {
     m_lastScan = now;
 
     std::error_code ec;
+    // Cache by normalized path and write time so unchanged source is not reparsed every frame.
     std::set<std::filesystem::path> seen;
     bool changed = false;
 
@@ -84,6 +85,8 @@ bool ScriptRegistry::Refresh() {
     }
 
     if (changed) {
+        // Rebuild the name index from the file cache, then regenerate only when the full source set
+        // is valid; this preserves the last working DLL input while an edit has errors.
         m_scripts.clear();
         for (const auto& [path, file] : m_files) {
             for (const auto& script : file.scripts) {
@@ -98,7 +101,8 @@ bool ScriptRegistry::Refresh() {
 }
 
 void ScriptRegistry::WriteGeneratedSource() {
-    // Keep the last good output while any script has errors.
+    // Keep the last good output while any script has errors; otherwise the build watcher could
+    // replace a working module with code from an incomplete edit.
     for (const auto& [path, file] : m_files) {
         if (!file.errors.empty()) return;
     }

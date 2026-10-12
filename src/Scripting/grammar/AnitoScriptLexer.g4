@@ -1,5 +1,8 @@
 lexer grammar AnitoScriptLexer;
 
+// The lexer reserves language words before the general identifier rule; punctuation and
+// literals stay deliberately small because the analyzer defines which combinations have meaning.
+
 // Keywords
 COMPONENT : 'component';
 ON        : 'on';

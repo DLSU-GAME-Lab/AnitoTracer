@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-// ANTLR-based reader for .ascript files (grammar in grammar/*.g4). Currently extracts
-// component declarations only; function bodies are parsed for syntax but not yet used.
+// Front end for .ascript files: ANTLR supplies the parse tree, this layer extracts editor-facing
+// component metadata, and clean trees continue to semantic analysis and C++ generation.
 class ScriptParser {
 public:
     static std::vector<ScriptDescriptor> Parse(const std::string& source,

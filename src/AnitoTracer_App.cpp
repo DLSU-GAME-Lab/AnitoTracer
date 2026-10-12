@@ -341,6 +341,8 @@ void AnitoTracer_App::Update()
     if (!m_AppRunning) return;
 
     const auto projectDirectory = ProjectLoader::GetCurrentProjectDir();
+    // Drive the live-script pipeline from the editor update: discover source, build generated C++,
+    // then poll the module so successful builds become active without restarting the editor.
     ScriptRegistry::GetInstance().SetProjectDirectory(projectDirectory);
     ScriptRegistry::GetInstance().Refresh();
     ScriptBuildDriver::GetInstance().SetProjectDirectory(projectDirectory);

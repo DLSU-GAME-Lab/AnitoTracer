@@ -1,4 +1,5 @@
-// Hand-written stand-in for the transpiler output of SpinAndBob.ascript.
+// Hand-written stand-in for transpiler output: exposed state aliases host storage, while time and
+// baseY are instance-local native state; the entry table mirrors BuildModuleSource's DLL contract.
 #include "AnitoScriptSDK.hpp"
 
 #include <cmath>

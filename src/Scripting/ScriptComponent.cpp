@@ -43,6 +43,8 @@ void ScriptComponent::EnsureInstance() {
     ReleaseInstance();
     m_instanceGeneration = module.Generation();
 
+    // A module generation change invalidates every native pointer; recreate only when the parsed
+    // descriptor and the loaded DLL agree on both component name and field layout.
     const ScriptDescriptor* descriptor = ScriptRegistry::GetInstance().Find(m_scriptName);
     if (!descriptor || descriptor->revision != m_boundRevision) return;
     const anito::ScriptEntry* entry = module.FindEntry(*descriptor);
@@ -77,6 +79,7 @@ void ScriptComponent::BindScript(const std::string& scriptName) {
 }
 
 void ScriptComponent::CreateFields(const ScriptDescriptor& descriptor) {
+    // Keep host-owned values in descriptor order: generated constructors receive these exact addresses.
     for (const ScriptField& field : descriptor.fields) {
         const std::string id = FieldId(field);
         switch (field.type) {
@@ -105,6 +108,8 @@ void ScriptComponent::Refresh() {
     if (!descriptor || descriptor->revision == m_boundRevision) return;
 
     ReleaseInstance();
+    // Rebuild the reflected property set for a new source revision, then deserialize the saved
+    // values so compatible edits do not reset inspector-authored data.
     gbe::SerializedData saved = Serialize();
     m_fields.clear();
     CreateFields(*descriptor);

@@ -11,6 +11,7 @@ class ScriptComponentUI : public IComponentUI {
 public:
     void Draw(ComponentBase* component) override {
         auto* script = static_cast<ScriptComponent*>(component);
+        // Refresh first so inspector properties always match the latest parsed descriptor revision.
         script->Refresh();
 
         const std::string header = script->GetScriptName() + " (Script)";

@@ -100,7 +100,8 @@ bool ScriptModule::Poll() {
     const auto writeTime = std::filesystem::last_write_time(m_modulePath, ec);
     if (ec || writeTime == m_lastWrite) return false;
 
-    // Instances must die before their code is unmapped.
+    // Instances must die before their code is unmapped; otherwise their virtual tables point into
+    // the DLL being replaced.
     ReleaseAllInstances();
     Unload();
 
@@ -115,7 +116,8 @@ bool ScriptModule::Load() {
     const std::filesystem::path liveDir = m_modulePath.parent_path() / "live";
     if (m_loadCounter == 0) std::filesystem::remove_all(liveDir, ec); // Leftovers from earlier sessions
 
-    // The original and its PDB stay unlocked so the compiler can overwrite them while the editor runs.
+    // Load a versioned copy so Windows can keep the active image mapped while the compiler replaces
+    // the original DLL and PDB for the next generation.
     const std::filesystem::path loadDir = liveDir / std::to_string(++m_loadCounter);
     std::filesystem::create_directories(loadDir, ec);
     m_loadedCopy = loadDir / m_modulePath.filename();
@@ -172,6 +174,7 @@ const anito::ScriptEntry* ScriptModule::FindEntry(const ScriptDescriptor& descri
     for (uint32_t i = 0; i < m_info->entryCount; ++i) {
         const anito::ScriptEntry& entry = m_info->entries[i];
         if (descriptor.name != entry.name) continue;
+        // Count and type order are the shared-memory layout contract for ctx.fields.
         if (entry.fieldCount != descriptor.fields.size()) return nullptr;
         for (uint32_t f = 0; f < entry.fieldCount; ++f) {
             if (static_cast<int32_t>(entry.fieldTypes[f]) != static_cast<int32_t>(descriptor.fields[f].type)) return nullptr;

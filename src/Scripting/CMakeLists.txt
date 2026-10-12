@@ -33,7 +33,8 @@ add_custom_command(
 	VERBATIM
 )
 
-# Language core: parser, analyzer, transpiler. No engine dependencies so the CLI compiler can reuse it.
+# Language core: grammar, parser, analyzer, and transpiler. Keeping this layer engine-independent
+# lets both the editor and scriptc compile scripts through the same implementation.
 set(LANG_TARGET anito_scriptlang)
 add_library(${LANG_TARGET} STATIC
 	ScriptDescriptor.hpp

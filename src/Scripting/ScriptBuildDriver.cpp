@@ -86,6 +86,7 @@ void ScriptBuildDriver::Poll() {
     const auto writeTime = std::filesystem::last_write_time(m_sourcePath, ec);
     if (ec || writeTime == m_builtWrite) return;
 
+    // Wait for a quiet interval so a burst of parser output becomes one DLL build.
     if (writeTime != m_observedWrite) {
         m_observedWrite = writeTime;
         m_changedAt = now;
@@ -153,6 +154,7 @@ void ScriptBuildDriver::FinishBuild() {
     const std::string output = ReadText(m_logPath);
     if (!output.empty()) std::cerr << output;
     if (m_buildSucceeded) {
+        // Polling the module after a successful build hands replacement to its normal unload/reload path.
         std::cerr << "[Script] Build succeeded; DLL will reload automatically." << std::endl;
         ScriptModule::GetInstance().Poll();
     } else {
