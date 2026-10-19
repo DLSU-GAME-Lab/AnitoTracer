@@ -121,6 +121,14 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     ProcessMeshes(pScene, pModel.get(), vertices, indices);
     CreateHardwareBuffers(pModel.get(), vertices, indices);
 
+    // CPU-side data for physics mesh colliders
+    pModel->CollisionData = std::make_shared<CollisionMeshData>();
+    pModel->CollisionData->vertices.reserve(vertices.size());
+    for (const Vertex& v : vertices) {
+        pModel->CollisionData->vertices.emplace_back(v.pos.x, v.pos.y, v.pos.z);
+    }
+    pModel->CollisionData->indices.assign(indices.begin(), indices.end());
+
     // Only build if raytracing is enabled
     if (m_isRayTracingEnabled) {
         BuildBLAS(pModel.get());

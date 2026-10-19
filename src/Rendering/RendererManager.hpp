@@ -9,6 +9,7 @@
 #include "Pipelines/BasicLitPipeline.hpp"
 #include "Pipelines/HybridPipeline.hpp"
 #include "Pipelines/DeferredPipeline.hpp"
+#include "Pipelines/DebugLinePipeline.hpp"
 #include "RenderData.hpp"
 
 #include "../UserSettings.hpp"
@@ -57,6 +58,8 @@ private:
     std::variant<Diligent::HybridPipeline, Diligent::BasicLitPipeline, Diligent::DeferredPipeline> m_bLitPipeline;
     bool m_LastMSAAState = false;
     bool m_SupportsRayTracing = false;
+
+    Diligent::DebugLinePipeline m_DebugLinePipeline;
 
     gbe::ScopedSubscription m_OnRendererChangeSub;
 

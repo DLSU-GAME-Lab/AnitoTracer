@@ -25,6 +25,15 @@ namespace Diligent {
             };
         }
 
+        static std::vector<LayoutElement> GetDebugLineLayout() {
+            return {
+                // Position
+                LayoutElement{0, 0, 3, VT_FLOAT32, False},
+                // Color (RGBA)
+                LayoutElement{1, 0, 4, VT_FLOAT32, False}
+            };
+        }
+
         // You can add more layouts here later, for example:
         // static std::vector<LayoutElement> GetPositionOnlyLayout() { ... }
     };

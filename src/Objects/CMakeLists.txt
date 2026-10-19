@@ -46,14 +46,20 @@ set(${CUR_TARGET_NAME}_src
 	Components/Gameplay/CinematicCameraFollower.cpp
 	Components/Gameplay/Health.hpp
 	Components/Gameplay/Health.cpp
-	Components/Gameplay/ParticleSpawnerComponent.cpp
 	Components/Gameplay/PrefabSphereSpawner.hpp
 	Components/Gameplay/PrefabSphereSpawner.cpp
+	Components/Gameplay/Auxiliary/VelocityAxisScaler.hpp
+	Components/Gameplay/Auxiliary/VelocityAxisScaler.cpp
 	
 	Components/Global/SceneChanger.cpp
 	Components/Global/SceneChanger.hpp
 	Components/Global/TeleportMainCamera.cpp
 	Components/Global/TeleportMainCamera.hpp
+
+	Components/Audio/AudioSourceComponent.hpp
+	Components/Audio/AudioSourceComponent.cpp
+	Components/Audio/AudioListenerComponent.hpp
+	Components/Audio/AudioListenerComponent.cpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp
@@ -82,6 +88,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	anito::asset
 	anito::common
 	anito::event
+	anito::audio
 )
 
 #PRIVATE

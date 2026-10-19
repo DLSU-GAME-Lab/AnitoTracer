@@ -6,7 +6,7 @@
 #include "Gameplay/ShipWeapon.hpp"
 #include "Gameplay/ShipProjectile.hpp"
 #include "Gameplay/Health.hpp"
-#include "Gameplay/ObjectRotatorComponent.hpp"
+#include "Gameplay/Auxiliary/VelocityAxisScaler.hpp"
 
 #include "Global/TeleportMainCamera.hpp"
 #include "Components/Physics/RigidBody.hpp"

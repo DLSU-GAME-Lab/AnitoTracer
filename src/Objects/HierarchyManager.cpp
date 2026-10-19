@@ -2,6 +2,7 @@
 #include "HierarchyManager.hpp"
 
 #include "../AppConfig.hpp"
+#include "../AppState.hpp"
 #include "ObjectFactory.hpp"
 #include "HierarchyFeatures/PrefabFeature.hpp"
 
@@ -21,28 +22,33 @@ namespace {
     };
 }
 
+// Play mode is discarded on stop (scene reload), so no undo bookkeeping while playing.
 void HierarchyManager::BeginUndoableAction() {
+    if (AppState::isPlaying) return;
     gbe::UndoRedoManager::GetInstance().BeginAction(GetGUID());
 }
 
 void HierarchyManager::EndUndoableAction() {
+    if (AppState::isPlaying) return;
     gbe::UndoRedoManager::GetInstance().EndAction();
 }
 
 void HierarchyManager::Undo() {
+    if (AppState::isPlaying) return;
     gbe::UndoRedoManager::GetInstance().Undo();
 }
 
 void HierarchyManager::Redo() {
+    if (AppState::isPlaying) return;
     gbe::UndoRedoManager::GetInstance().Redo();
 }
 
 bool HierarchyManager::CanUndo() const {
-    return gbe::UndoRedoManager::GetInstance().CanUndo();
+    return !AppState::isPlaying && gbe::UndoRedoManager::GetInstance().CanUndo();
 }
 
 bool HierarchyManager::CanRedo() const {
-    return gbe::UndoRedoManager::GetInstance().CanRedo();
+    return !AppState::isPlaying && gbe::UndoRedoManager::GetInstance().CanRedo();
 }
 
 CameraComponent* HierarchyManager::GetMainCamera() const {

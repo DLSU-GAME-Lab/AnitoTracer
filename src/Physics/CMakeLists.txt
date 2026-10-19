@@ -10,6 +10,8 @@ set(${CUR_TARGET_NAME}_src
 	JoltPhysicsEngine.cpp
 	JoltPhysicsBody.hpp
 	JoltPhysicsBody.cpp
+	JoltDebugRenderer.hpp
+	JoltDebugRenderer.cpp
 	JoltContactListener.hpp
 	JoltContactListener.cpp)
 
@@ -17,6 +19,7 @@ add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
 
 target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${jolt_SOURCE_DIR})
+target_compile_definitions(${CUR_TARGET_NAME} PUBLIC JPH_DEBUG_RENDERER)
 
 find_package(Jolt CONFIG QUIET)
 find_package(joltphysics CONFIG QUIET)

@@ -145,6 +145,7 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
     InspectorRegistry::GetInstance().RegisterUI<Collider, ColliderUI>();
+    InspectorRegistry::GetInstance().RegisterUI<AudioSourceComponent, AudioSourceUI>();
     InspectorRegistry::GetInstance().RegisterUI<ScriptComponent, ScriptComponentUI>();
 }
 

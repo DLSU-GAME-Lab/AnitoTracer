@@ -7,6 +7,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "../../Common/DebugLine.hpp"
+
 namespace Diligent {
 
     static constexpr uint32_t MAX_DIR_LIGHTS = 4;

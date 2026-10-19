@@ -9,6 +9,7 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Common/interface/BasicMath.hpp"
+#include "../../Common/CollisionMeshData.hpp"
 #include "TextureLoader/interface/TextureUtilities.h"
 #include "Graphics/GraphicsEngine/interface/TextureView.h"
 #include "Graphics/GraphicsEngine/interface/BottomLevelAS.h"
@@ -83,4 +84,7 @@ struct Model : public IModel {
     //For local raytrace obj picking
     glm::vec3 AABBMin = glm::vec3(std::numeric_limits<float>::max());
     glm::vec3 AABBMax = glm::vec3(std::numeric_limits<float>::lowest());
+
+    // For physics mesh colliders
+    std::shared_ptr<CollisionMeshData> CollisionData;
 };
