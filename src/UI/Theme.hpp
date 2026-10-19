@@ -86,9 +86,6 @@ inline void ApplyTheme()
 
     style.Colors[ImGuiCol_Tab] = ImVec4(0.063f, 0.063f, 0.063f, 1.0f);
     style.Colors[ImGuiCol_TabHovered] = ImVec4(0.118f, 0.118f, 0.118f, 1.0f);
-    style.Colors[ImGuiCol_TabActive] = ImVec4(0.235f, 0.235f, 0.235f, 1.0f);
-    style.Colors[ImGuiCol_TabUnfocused] = ImVec4(0.063f, 0.063f, 0.063f, 1.0f);
-    style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.235f, 0.235f, 0.235f, 1.0f);
 
     style.Colors[ImGuiCol_PlotLines] = ImVec4(0.486f, 0.095f, 0.095f, 1.0f);
     style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.486f, 0.095f, 0.095f, 1.0f);
