@@ -30,6 +30,9 @@ public:
     // normal maps), causing incorrect lighting/normals.
     ITextureView* LoadTexture(const std::string& filepath, bool isSRGB = false);
 
+    // Ideally for Skyboxes
+    ITextureView* LoadCubemap(const std::string& filepath, bool isSRGB = true);
+
     // Clears the cache and releases Vulkan resources
     void ClearCache();
 

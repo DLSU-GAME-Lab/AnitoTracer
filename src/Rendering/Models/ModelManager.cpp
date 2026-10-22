@@ -68,6 +68,58 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB
     return pSRV;
 }
 
+ITextureView* ModelManager::LoadCubemap(const std::string& filepath, bool isSRGB)
+{
+    // Check cache first, using a unique cubemap identifier to avoid collisions with 2D textures
+    std::string cacheKey = filepath + (isSRGB ? "|cubemap_srgb" : "|cubemap_linear");
+    auto it = m_TextureCache.find(cacheKey);
+    if (it != m_TextureCache.end()) {
+        return it->second;
+    }
+
+    std::filesystem::path modelFilePath(filepath);
+    std::string fullPath = modelFilePath.string();
+
+    // Ensure the file actually exists before sending it to Diligent[cite: 20]
+    if (!std::filesystem::exists(modelFilePath)) {
+        std::cerr << "[ModelManager] Master, the skybox file is missing! " << fullPath << std::endl;
+        return nullptr;
+    }
+
+    RefCntAutoPtr<ITexture> pTexture;
+    TextureLoadInfo loadInfo{};
+    loadInfo.IsSRGB = isSRGB;
+
+    // ✨ Maid's Fix: Do NOT force RGBA8! 
+    // Setting it to UNKNOWN lets Diligent read the native compressed format directly from the DDS header.
+    loadInfo.Format = Diligent::TEX_FORMAT_UNKNOWN;
+
+    // DDS cubemaps should ideally have mipmaps baked in during export. 
+    // We let Diligent generate them just in case they are missing!
+    loadInfo.GenerateMips = true;
+
+    // Diligent's utility parses the .dds header and automatically assigns RESOURCE_DIM_TEX_CUBE[cite: 20]
+    CreateTextureFromFile(fullPath.c_str(), loadInfo, m_pDevice, &pTexture);
+
+    if (!pTexture) {
+        std::cerr << "[ModelManager] Failed to load cubemap (Check if it's a valid DDS!): " << fullPath << std::endl;
+        return nullptr;
+    }
+
+    // ✨ Maid's Safety Check: Ensure the engine actually created a TextureCube![cite: 20]
+    if (pTexture->GetDesc().Type != RESOURCE_DIM_TEX_CUBE) {
+        std::cerr << "[ModelManager] Error: Texture is not a cubemap! Did you use a standard 2D image? " << fullPath << std::endl;
+        return nullptr;
+    }
+
+    RefCntAutoPtr<ITextureView> pSRV(pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+
+    // Optimized cache insertion[cite: 20]
+    m_TextureCache.emplace(std::move(cacheKey), pSRV);
+
+    return pSRV;
+}
+
 ITextureView* ModelManager::LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty, bool isSRGB) {
     aiString texPath;
     if (material->GetTextureCount(type) > 0) {

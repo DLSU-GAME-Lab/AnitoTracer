@@ -9,6 +9,7 @@
 #include "Pipelines/BasicLitPipeline.hpp"
 #include "Pipelines/HybridPipeline.hpp"
 #include "Pipelines/DeferredPipeline.hpp"
+#include "Pipelines/SkyboxPipeline.hpp"
 #include "Pipelines/DebugLinePipeline.hpp"
 #include "RenderData.hpp"
 
@@ -65,4 +66,8 @@ private:
 
     //Render targets
     std::vector<std::unique_ptr<Diligent::RenderTarget>> m_RenderTargets;
+
+    //Skyboxes
+    Diligent::SkyboxPipeline m_SkyboxPipeline;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pSkyboxSRV; 
 };

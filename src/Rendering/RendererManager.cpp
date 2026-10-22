@@ -98,11 +98,28 @@ void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
 
 void RendererManager::InitializePipelines()
 {
+    const auto& SCDesc = m_pSwapChain->GetDesc();
+
     std::visit([&](auto& pipeline) {
         pipeline.InitializePipeline(m_pDevice, m_pSwapChain);
         }, m_bLitPipeline);
 
     m_DebugLinePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
+    
+    TEXTURE_FORMAT RTVFormat = SCDesc.ColorBufferFormat;
+    TEXTURE_FORMAT DSVFormat = SCDesc.DepthBufferFormat;
+    m_SkyboxPipeline.Initialize(m_pDevice, RTVFormat, DSVFormat);
+
+    // Load your default skybox texture (Make sure it is a compiled .dds cubemap!)
+    // FOR TESTING
+    auto* pDefaultSkybox = ModelManager::GetInstance().LoadCubemap("Assets/Skyboxes/skybox_raw.dds", true);
+    if (pDefaultSkybox) {
+        m_SkyboxPipeline.SetCubemap(pDefaultSkybox);
+        std::cout << "[Info] Default Skybox loaded and assigned successfully." << std::endl;
+    }
+    else {
+        std::cout << "[Warn] Could not load Default Skybox." << std::endl;
+    }
 }
 
 void RendererManager::CreateMSAABuffers()
@@ -194,6 +211,8 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
     m_pImmediateContext->ClearRenderTarget(pActiveRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     m_pImmediateContext->ClearDepthStencil(pActiveDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
+    m_SkyboxPipeline.Render(m_pImmediateContext, renderData);
+
     std::visit([&](auto& pipeline) {
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
@@ -276,6 +295,8 @@ void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Dili
     Viewport.MinDepth = 0.0f;
     Viewport.MaxDepth = 1.0f;
     m_pImmediateContext->SetViewports(1, &Viewport, pTarget->GetWidth(), pTarget->GetHeight());
+
+    m_SkyboxPipeline.Render(m_pImmediateContext, renderData);
 
     std::visit([&](auto& pipeline) {
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
