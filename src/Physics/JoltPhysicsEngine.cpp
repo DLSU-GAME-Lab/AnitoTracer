@@ -215,7 +215,7 @@ JPH::RefConst<JPH::Shape> JoltPhysicsEngine::BuildCompoundShape(const std::vecto
 			std::cerr << "[JoltPhysicsEngine] Error: Failed to create sub-shape for compound collider.\n";
 			continue;
 		}
-		compound.AddShape(JPH::Vec3(s.offset.x, s.offset.y, s.offset.z), JPH::Quat::sIdentity(), sub.Get());
+		compound.AddShape(JPH::Vec3(s.offset.x, s.offset.y, -s.offset.z), JPH::Quat::sIdentity(), sub.Get());
 	}
 
 	auto result = compound.Create();
@@ -260,8 +260,9 @@ std::shared_ptr<IPhysicsBody> JoltPhysicsEngine::CreateRigidBody(
 	// Create body settings
 	JPH::BodyCreationSettings bodySettings(
 		shape,
-		JPH::RVec3(position.x, position.y, position.z),
-		JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w),
+		// Same left-handed (Diligent) to right-handed (Jolt) conversion as JoltPhysicsBody
+		JPH::RVec3(position.x, position.y, -position.z),
+		JPH::Quat(-rotation.x, -rotation.y, rotation.z, rotation.w),
 		mass > 0.0f ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
 		DEFAULT_LAYER
 	);
@@ -316,6 +317,10 @@ bool JoltPhysicsEngine::SetShapes(IPhysicsBody* body, const std::vector<Collider
 
 	mPhysicsSystem->GetBodyInterface().SetShape(bodyID, shape, true, JPH::EActivation::Activate);
 	mStaticLineCache.erase(bodyID.GetIndexAndSequenceNumber());
+
+	// SetShape recomputes mass/inertia from shape density; restore the configured mass and rotation locks.
+	auto* joltBody = static_cast<JoltPhysicsBody*>(body);
+	joltBody->SetMass(joltBody->GetMass());
 
 	return true;
 }

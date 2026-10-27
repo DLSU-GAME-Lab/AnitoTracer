@@ -40,6 +40,7 @@ void RigidBody::OnFixedUpdate(float deltaTime) {
 	// The body may have been created during deserialization, before the Transform was loaded.
 	if (!mPlacedFromTransform) {
 		mPlacedFromTransform = true;
+		RebuildShapes();
 		mBody->SetPositionAndRotation(transform->GetPosition(), transform->GetRotation());
 		mBody->SetVelocity(glm::vec3(0.0f));
 		mBody->SetAngularVelocity(glm::vec3(0.0f));

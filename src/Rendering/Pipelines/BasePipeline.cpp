@@ -21,10 +21,17 @@ void Diligent::BasePipeline::UpdateLights(IDeviceContext* pContext, const LightC
     *CBData = lights;
 }
 
-void Diligent::BasePipeline::UpdateShadowSettings(IDeviceContext* pContext, const ShadowSettings& settings)
+void Diligent::BasePipeline::UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings)
 {
     MapHelper<ShadowSettings> CBData(pContext, m_pShadowCB, MAP_WRITE, MAP_FLAG_DISCARD);
-    *CBData = settings;
+    CBData->ShadowBias = settings.shadow_bias;
+    CBData->AmbientMultiplier = settings.ambient_multiplier;
+    CBData->AmbientColor = glm::vec4(
+        settings.ambient_color[0],
+        settings.ambient_color[1],
+        settings.ambient_color[2],
+        1.0f
+    );
 }
 
 void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData, bool renderOpaque)

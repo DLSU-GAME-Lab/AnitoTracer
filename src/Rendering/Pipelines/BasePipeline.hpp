@@ -20,6 +20,7 @@
 
 #include "PipelineDefs.hpp"
 #include "../RenderData.hpp"
+#include "../../Asset/ProjectSettings.hpp"
 
 namespace Diligent {
 
@@ -34,7 +35,7 @@ namespace Diligent {
         virtual void StartFrameRender(IDeviceContext* pContext, RenderData renderData);
 
         virtual void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
-        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ShadowSettings& settings);
+        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings);
 
         virtual void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model, bool renderOpaque = true);
         virtual void RenderModels(IDeviceContext* pContext, RenderData renderData, bool renderOpaque = true);

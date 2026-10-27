@@ -3,21 +3,11 @@
 #include "Health.hpp"
 #include "HierarchyManager.hpp"
 #include "HierarchyObject.hpp"
-#include "Components/Transform.hpp"
+#include "Components/Physics/RigidBody.hpp"
 
-#include <algorithm>
-#include <functional>
+#include <cmath>
 
 namespace {
-    void ForEachObject(HierarchyObject* object, const std::function<bool(HierarchyObject*)>& fn) {
-        if (!object || !fn(object)) {
-            return;
-        }
-        for (const auto& child : object->GetChildren()) {
-            ForEachObject(child.get(), fn);
-        }
-    }
-
     HierarchyObject* GetRoot(HierarchyObject* object) {
         while (object) {
             HierarchyObject* parent = object->GetParent().GetPtr();
@@ -29,12 +19,15 @@ namespace {
         return object;
     }
 
-    // Distance from point to segment [a, b].
-    float DistanceToSegment(const glm::vec3& p, const glm::vec3& a, const glm::vec3& b) {
-        const glm::vec3 ab = b - a;
-        const float lengthSq = glm::dot(ab, ab);
-        const float t = lengthSq > 0.0f ? std::clamp(glm::dot(p - a, ab) / lengthSq, 0.0f, 1.0f) : 0.0f;
-        return glm::distance(p, a + ab * t);
+    // The collided body's owner may be a child of the object that carries the Health.
+    Health* FindHealthInAncestry(HierarchyObject* object) {
+        while (object) {
+            if (Health* health = object->GetComponent<Health>()) {
+                return health;
+            }
+            object = object->GetParent().GetPtr();
+        }
+        return nullptr;
     }
 }
 
@@ -51,57 +44,54 @@ void ShipProjectile::Launch(const glm::vec3& direction, float speed, float damag
     m_instigator = instigator;
 }
 
+void ShipProjectile::OnFixedUpdate(float /*deltaTime*/) {
+    HierarchyObject* owner = GetOwner().GetPtr();
+    RigidBody* body = owner ? owner->GetComponent<RigidBody>() : nullptr;
+    if (body && body->GetBody()) {
+        // Re-asserted every tick so collisions and gravity can't deflect or slow the projectile.
+        body->SetVelocity(m_direction * m_speed);
+    }
+}
+
+void ShipProjectile::OnTrigger(const CollisionEnterTrigger& trigger) {
+    HierarchyObject* other = PhysicsBase::FindOwnerByBody(trigger.other.get());
+    if (!other) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(*m_hitMutex);
+    m_pendingHits.push_back(other->getRef());
+}
+
 void ShipProjectile::OnUpdate(float deltaTime) {
     HierarchyObject* owner = GetOwner().GetPtr();
-    Transform* transform = owner ? owner->GetTransform() : nullptr;
-    if (!transform) {
+    if (!owner) {
+        return;
+    }
+
+    std::vector<gbe::IInstanceManager<HierarchyObject>::Ref> hits;
+    {
+        std::lock_guard<std::mutex> lock(*m_hitMutex);
+        hits.swap(m_pendingHits);
+    }
+
+    HierarchyObject* instigatorRoot = GetRoot(m_instigator.GetPtr());
+    for (const auto& hitRef : hits) {
+        HierarchyObject* other = hitRef.GetPtr();
+        if (!other || other == owner || GetRoot(other) == instigatorRoot || other->GetComponent<ShipProjectile>()) {
+            continue;
+        }
+
+        Health* health = FindHealthInAncestry(other);
+        if (health && !health->IsDepleted()) {
+            health->TakeDamage(m_damage);
+        }
+        HierarchyManager::GetInstance().QueueObjectDeletion(owner->getRef());
         return;
     }
 
     m_age += deltaTime;
     if (m_age >= m_lifetime) {
-        HierarchyManager::GetInstance().QueueObjectDeletion(owner->getRef());
-        return;
-    }
-
-    const glm::vec3 start = transform->GetPosition();
-    const glm::vec3 end = start + m_direction * (m_speed * deltaTime);
-    transform->SetWorldPosition(end);
-
-    HierarchyObject* instigatorRoot = GetRoot(m_instigator.GetPtr());
-
-    Health* closestHealth = nullptr;
-    float closestDistance = 0.0f;
-
-    for (const auto& root : HierarchyManager::GetInstance().GetRootObjects()) {
-        if (!root || root.get() == instigatorRoot) {
-            continue;
-        }
-
-        ForEachObject(root.get(), [&](HierarchyObject* candidate) {
-            if (candidate == owner) {
-                return true;
-            }
-
-            Health* health = candidate->GetComponent<Health>();
-            Transform* targetTransform = candidate->GetTransform();
-            if (!health || !targetTransform || health->IsDepleted()) {
-                return true;
-            }
-
-            const glm::vec3 scale = glm::abs(targetTransform->GetScale());
-            const float hitRadius = health->GetHitRadius() * std::max({ scale.x, scale.y, scale.z }) + m_radius;
-            const float distance = DistanceToSegment(targetTransform->GetPosition(), start, end);
-            if (distance <= hitRadius && (!closestHealth || distance < closestDistance)) {
-                closestHealth = health;
-                closestDistance = distance;
-            }
-            return true;
-        });
-    }
-
-    if (closestHealth) {
-        closestHealth->TakeDamage(m_damage);
         HierarchyManager::GetInstance().QueueObjectDeletion(owner->getRef());
     }
 }

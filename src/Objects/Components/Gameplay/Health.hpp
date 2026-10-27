@@ -27,15 +27,9 @@ public:
     bool IsDepleted() const { return m_depleted; }
     gbe::UnityEvent& GetOnDepleted() { return m_onDepleted; }
 
-    // Radius used by projectiles for hit tests, scaled by the owner's largest scale axis.
-    float GetHitRadius() const { return m_hitRadius; }
-
 private:
     float m_maxHealth = 100.0f;
     GBE_SERIALIZE_FIELD_W_NAME(m_maxHealth, "Max Health");
-
-    float m_hitRadius = 1.0f;
-    GBE_SERIALIZE_FIELD_W_NAME(m_hitRadius, "Hit Radius");
 
     bool m_showHealthBar = true;
     GBE_SERIALIZE_FIELD_W_NAME(m_showHealthBar, "Show Health Bar");

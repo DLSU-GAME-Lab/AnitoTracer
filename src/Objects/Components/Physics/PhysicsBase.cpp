@@ -3,6 +3,20 @@
 #include "../Transform.hpp"
 #include "../../HierarchyObject.hpp"
 
+#include <unordered_map>
+
+namespace {
+	std::unordered_map<const IPhysicsBody*, PhysicsBase*>& BodyOwners() {
+		static std::unordered_map<const IPhysicsBody*, PhysicsBase*> owners;
+		return owners;
+	}
+}
+
+HierarchyObject* PhysicsBase::FindOwnerByBody(const IPhysicsBody* body) {
+	auto it = BodyOwners().find(body);
+	return it != BodyOwners().end() ? it->second->GetOwner().GetPtr() : nullptr;
+}
+
 PhysicsBase::~PhysicsBase() {
 	for (Collider* c : mColliders) {
 		if (c) {
@@ -36,8 +50,12 @@ void PhysicsBase::Teleport(const glm::vec3& position, const glm::quat& rotation)
 		if (Transform* transform = owner->GetTransform()) {
 			transform->SetWorldPosition(position);
 			transform->SetWorldRotation(rotation);
+			transform->SyncChildrenPhysics();
 		}
 	}
+
+	// Collider sizes derive from the world scale, which may have changed with this or an ancestor transform.
+	RebuildShapes();
 }
 
 void PhysicsBase::RegisterCollider(Collider* collider) {
@@ -109,6 +127,7 @@ void PhysicsBase::CreateBody(
 	}
 
 	std::cout << "[DEBUG] Physics body created successfully" << std::endl;
+	BodyOwners()[mBody.get()] = this;
 
 	engine.RegisterCollisionCallback(
 		mBody.get(),
@@ -126,6 +145,7 @@ void PhysicsBase::DestroyBody() {
 	if (!mBody) return;
 
 	IPhysicsEngine& engine = PhysicsEngine::GetInstance().Get();
+	BodyOwners().erase(mBody.get());
 	engine.UnregisterCollisionCallback(mBody.get());
 	engine.DestroyRigidBody(mBody);
 	mBody.reset();

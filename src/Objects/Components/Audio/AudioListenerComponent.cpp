@@ -19,6 +19,12 @@ void AudioListenerComponent::OnUpdate(float deltaTime) {
     const glm::quat audioListenRot = audioListenTransform->GetRotation();
     const glm::vec3 audioListenForward = audioListenRot * glm::vec3(0.0f, 0.0f, 1.0f);
 
+    static int frameCounter = 0;
+    if (++frameCounter % 120 == 1)
+        std::cout << "[AudioListener] update pos=(" << audioListenPos.x << "," << audioListenPos.y << ","
+            << audioListenPos.z << ") fwd=(" << audioListenForward.x << "," << audioListenForward.y << ","
+            << audioListenForward.z << ")" << std::endl;
+
     // Set listener position and direction
     AudioManager::GetInstance().SetListenerPosition(audioListenPos);
     AudioManager::GetInstance().SetListenerDirection(audioListenForward);

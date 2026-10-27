@@ -1,6 +1,8 @@
 #include "UserSettingsPanel.hpp"
 #include "../../UserSettings.hpp"
+#include "../../Asset/ProjectLoader.hpp"
 #include "imgui.h"
+#include <iostream>
 
 namespace Diligent {
 
@@ -16,29 +18,41 @@ namespace Diligent {
         // Begin the ImGui window with the panel's name and visibility state
         if (ImGui::Begin(m_Name.c_str(), &m_IsVisible))
         {
-            // Retrieve global user settings
-            auto& shadowSettings = UserSettings::GetInstance().GetShadowSettings();
+            auto& projectSettings = ProjectLoader::GetProjectSettings();
+            auto& lightingSettings = projectSettings.lighting;
+            auto saveProjectSettings = [] {
+                if (!ProjectLoader::GetCurrentProjectFile().empty() && !ProjectLoader::SaveProject()) {
+                    std::cerr << "Failed to save project settings." << std::endl;
+                }
+            };
 
             // ------------------------------------------------------------------
-            // Shadow & Lighting Settings Section
+            // Project Lighting Settings Section
             // ------------------------------------------------------------------
-            if (ImGui::CollapsingHeader("Shadow & Ambient Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            if (ImGui::CollapsingHeader("Project Lighting Settings", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::PushItemWidth(150.0f);
 
-                // Control for Shadow Bias
-                ImGui::DragFloat("Shadow Bias", &shadowSettings.ShadowBias, 0.0002f, 0.0f, 0.1f, "%.4f");
+                ImGui::DragFloat("Shadow Bias", &lightingSettings.shadow_bias, 0.0002f, 0.0f, 0.1f, "%.4f");
                 if (ImGui::IsItemHovered())
                 {
                     ImGui::SetTooltip("Epsilon offset applied to ray origin to prevent shadow acne.");
                 }
+                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
-                // Control for Ambient Light Multiplier
-                ImGui::DragFloat("Ambient Multiplier", &shadowSettings.AmbientMultiplier, 0.01f, 0.0f, 10.0f, "%.2f");
+                ImGui::ColorEdit3("Ambient Color", lightingSettings.ambient_color.data());
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Color of the constant ambient contribution.");
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+
+                ImGui::DragFloat("Ambient Multiplier", &lightingSettings.ambient_multiplier, 0.01f, 0.0f, 10.0f, "%.2f");
                 if (ImGui::IsItemHovered())
                 {
                     ImGui::SetTooltip("Scales the brightness of ambient lighting in the scene.");
                 }
+                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
                 ImGui::PopItemWidth();
 
@@ -47,8 +61,8 @@ namespace Diligent {
                 // Convenient Reset Button
                 if (ImGui::Button("Reset to Defaults"))
                 {
-                    shadowSettings.ShadowBias = 0.015f;
-                    shadowSettings.AmbientMultiplier = 1.0f;
+                    lightingSettings = ProjectLightingSettings{};
+                    saveProjectSettings();
                 }
             }
 
@@ -57,9 +71,22 @@ namespace Diligent {
                 ImGui::Checkbox("Enable MSAA (4x)", &UserSettings::GetInstance().GetEnableMSAA());
             }
 
+            if (ImGui::CollapsingHeader("Physics Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                if (ImGui::Checkbox("Enable Gravity", &projectSettings.physics.gravity_enabled)) {
+                    saveProjectSettings();
+                }
+                ImGui::BeginDisabled(!projectSettings.physics.gravity_enabled);
+                ImGui::DragFloat3("Gravity", projectSettings.physics.gravity.data(), 0.1f);
+                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                ImGui::EndDisabled();
+            }
+
             if (ImGui::CollapsingHeader("Debug Settings", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                ImGui::Checkbox("Show Physics Collider Wireframes", &UserSettings::GetInstance().GetShowPhysicsDebug());
+                if (ImGui::Checkbox("Show Physics Collider Wireframes", &projectSettings.debug.show_physics_collider_wireframes)) {
+                    saveProjectSettings();
+                }
                 if (ImGui::IsItemHovered())
                 {
                     ImGui::SetTooltip("Draws Jolt collider shapes as wireframes in the editor viewport. Has no effect in the game view.");

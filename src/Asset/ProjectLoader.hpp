@@ -9,15 +9,21 @@
 #include "AssetPipeline.hpp"
 #include "FileDialogue.hpp"
 #include "HierarchyManager.hpp"
+#include "ProjectSettings.hpp"
+
+#include <iostream>
 
 class ProjectLoader {
 	struct ProjectInfo {
 		std::string entryscene;
+		ProjectSettings settings;
 	};
 
 	inline static std::filesystem::path currentProjectDir;
 	inline static std::filesystem::path currentSceneFile;
 	inline static std::filesystem::path currentProjectFile;
+	inline static std::string projectEntryScene;
+	inline static ProjectSettings projectSettings;
 	// TODO: Replace static loader state with an instance/service that owns the active project session.
 	inline static std::filesystem::path pendingSceneFile;
 	inline static bool pendingNewScene = false;
@@ -29,10 +35,14 @@ public:
 	inline static std::filesystem::path GetCurrentProjectDir() { return currentProjectDir; }
 	inline static std::filesystem::path GetCurrentSceneFile() { return currentSceneFile; }
 	inline static std::filesystem::path GetCurrentProjectFile() { return currentProjectFile; }
+	inline static ProjectSettings& GetProjectSettings() { return projectSettings; }
 	inline static bool CanQuickSave() { return !currentSceneFile.empty(); }
 
 	inline static bool CreateProject(const std::filesystem::path& projectDirectory) {
 		if (projectDirectory.empty() || !std::filesystem::is_directory(projectDirectory)) {
+			return false;
+		}
+		if (!currentProjectFile.empty() && !SaveProject()) {
 			return false;
 		}
 
@@ -41,18 +51,21 @@ public:
 			: projectDirectory.filename().string();
 		const auto projectFile = projectDirectory / (projectName + ".aproject");
 		const auto sceneFile = projectDirectory / "Main.ascene";
-		std::ofstream projectStream(projectFile);
-		if (!projectStream) {
+
+		ProjectInfo projectInfo;
+		projectInfo.entryscene = sceneFile.filename().string();
+		projectInfo.settings = ProjectSettings{};
+		if (!WriteProjectInfo(projectFile, projectInfo)) {
 			return false;
 		}
-		projectStream << "{\n  \"entryscene\": \"Main.ascene\"\n}\n";
-		projectStream.close();
 
 		CreateNewSceneNow();
 		HierarchyManager::GetInstance().SerializeToFile(sceneFile);
 		currentProjectDir = projectDirectory;
 		currentSceneFile = sceneFile;
 		currentProjectFile = projectFile;
+		projectEntryScene = projectInfo.entryscene;
+		projectSettings = projectInfo.settings;
 		AssetPipeline::IncludeFolder(currentProjectDir);
 		savedSceneData = HierarchyManager::GetInstance().Serialize();
 		hasSavedSceneData = true;
@@ -105,7 +118,7 @@ public:
 		HierarchyManager::GetInstance().QuickSave();
 		savedSceneData = HierarchyManager::GetInstance().Serialize();
 		hasSavedSceneData = true;
-		return true;
+		return SaveProject();
 	}
 
 	inline static bool SaveSceneAs(const std::filesystem::path& path) {
@@ -114,7 +127,18 @@ public:
 		HierarchyManager::GetInstance().SerializeToFile(currentSceneFile);
 		savedSceneData = HierarchyManager::GetInstance().Serialize();
 		hasSavedSceneData = true;
-		return true;
+		return SaveProject();
+	}
+
+	inline static bool SaveProject() {
+		if (currentProjectFile.empty()) {
+			return true;
+		}
+
+		ProjectInfo projectInfo;
+		projectInfo.entryscene = projectEntryScene;
+		projectInfo.settings = projectSettings;
+		return WriteProjectInfo(currentProjectFile, projectInfo);
 	}
 
 	inline static void RequestSceneLoad(const std::filesystem::path& path) {
@@ -170,12 +194,20 @@ public:
 
 		if(path.empty()) return;
 
-		gbe::Parser::PopulateClass(newinfo, path);
+		path = std::filesystem::absolute(path).lexically_normal();
+		if (!gbe::Parser::PopulateClass(newinfo, path)) {
+			return;
+		}
 
+		if (path != currentProjectFile && !currentProjectFile.empty() && !SaveProject()) {
+			return;
+		}
 
 		currentProjectDir = path.parent_path();
 		currentSceneFile = std::filesystem::absolute(currentProjectDir / newinfo.entryscene).lexically_normal();
 		currentProjectFile = path;
+		projectEntryScene = newinfo.entryscene;
+		projectSettings = newinfo.settings;
 
 		AssetPipeline::IncludeFolder(currentProjectDir);
 		LoadSceneNow(currentSceneFile);
@@ -183,6 +215,21 @@ public:
 	}
 
 private:
+	inline static bool WriteProjectInfo(const std::filesystem::path& path, const ProjectInfo& projectInfo) {
+		std::ofstream projectStream(path);
+		if (!projectStream) {
+			std::cerr << "Failed to open project file for writing: " << path << std::endl;
+			return false;
+		}
+
+		projectStream << gbe::Parser::ExportClassStr(projectInfo) << '\n';
+		if (!projectStream) {
+			std::cerr << "Failed to write project file: " << path << std::endl;
+			return false;
+		}
+		return true;
+	}
+
 	inline static void CreateNewSceneNow() {
 		HierarchyManager::GetInstance().CreateNewScene();
 		currentSceneFile.clear();

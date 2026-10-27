@@ -4,6 +4,7 @@
 #include "HierarchyObject.hpp"
 #include "Components/Physics/RigidBody.hpp"
 #include "Health.hpp"
+#include "Components/Audio/AudioSourceComponent.hpp"
 #include "../../../Physics/PhysicsEngine.hpp"
 
 FloatingAsteroid::FloatingAsteroid(gbe::IInstanceManager<HierarchyObject>::Ref owner)
@@ -43,6 +44,9 @@ void FloatingAsteroid::OnFixedUpdate(float /*deltaTime*/) {
 
 void FloatingAsteroid::OnDestroy() {
     if (HierarchyObject* owner = GetOwner().GetPtr()) {
+        if (AudioSourceComponent* audio = owner->GetComponent<AudioSourceComponent>()) {
+            audio->PlayDetached();
+        }
         HierarchyManager::GetInstance().QueueObjectDeletion(owner->getRef());
     }
 }

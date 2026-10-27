@@ -1,5 +1,6 @@
 #include "GizmoDrawer.hpp"
 #include "../../Objects/Components/ITeleportable.hpp"
+#include "../../Objects/Components/Physics/PhysicsBase.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -47,7 +48,7 @@ namespace Diligent {
         // Fetch required matrices
         glm::mat4 viewMatrix = pActiveCamera->GetViewMatrix();
         glm::mat4 projMatrix = pActiveCamera->GetProjectionMatrix();
-        glm::mat4 objectMatrix = transformComp->GetLocalMatrix();
+        glm::mat4 objectMatrix = transformComp->GetWorldMatrix();
 
         // Draw and interact with the gizmo
         ImGuizmo::Manipulate(
@@ -79,14 +80,16 @@ namespace Diligent {
 
 			if (auto* movable = selectedObj.GetPtr()->GetComponent<ITeleportable>()) 
             {
+                // Scale first so the collider rebuild inside Teleport sees it.
+                transformComp->SetWorldScale(scale);
 				movable->Teleport(pos, rot);
-                transformComp->SetScale(scale);
 			}
             else 
             {
-                transformComp->SetPosition(pos);
-                transformComp->SetEulerAnglesDegrees(rotDegrees);
-                transformComp->SetScale(scale);
+                transformComp->SetWorldPosition(pos);
+                transformComp->SetWorldRotation(rot);
+                transformComp->SetWorldScale(scale);
+                transformComp->SyncChildrenPhysics();
             }
         }
 
@@ -179,14 +182,15 @@ namespace Diligent {
                     newScale = member.localScale * groupScale;
                 }
 
+                t->SetScale(newScale);
                 if (auto* movable = obj->GetComponent<ITeleportable>()) {
                     movable->Teleport(newPos, newRot);
                 }
                 else {
                     t->SetWorldPosition(newPos);
                     t->SetWorldRotation(newRot);
+                    t->SyncChildrenPhysics();
                 }
-                t->SetScale(newScale);
             }
         }
 

@@ -66,6 +66,6 @@ void main_ps(in FullScreenPSInput In, out float4 OutColor : SV_TARGET)
     }
 
     // Ambient Lighting
-    float3 ambient = float3(0.03, 0.03, 0.03) * albedo * g_AmbientMultiplier;
+    float3 ambient = g_AmbientColor.rgb * albedo * g_AmbientMultiplier;
     OutColor = float4(ambient + Lo, 1.0);
 }

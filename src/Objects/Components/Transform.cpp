@@ -105,10 +105,40 @@ glm::mat4 Transform::GetLocalMatrix() const {
     return model;
 }
 
+glm::mat4 Transform::GetWorldMatrix() const {
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), GetPosition());
+    model *= glm::mat4_cast(GetRotation());
+    return glm::scale(model, GetScale());
+}
+
+void Transform::SetWorldScale(const glm::vec3& worldScale) {
+    if (const Transform* parentTransform = GetParentTransform(*this)) {
+        m_scale = DivideSafe(worldScale, parentTransform->GetScale());
+        return;
+    }
+    m_scale = worldScale;
+}
+
 void Transform::SyncPhysics() {
     if (HierarchyObject* owner = m_owner.GetPtr()) {
         if (PhysicsBase* physics = owner->GetComponent<PhysicsBase>()) {
+            // Teleport also resyncs descendants.
             physics->Teleport(GetPosition(), GetRotation());
+        }
+        else {
+            SyncChildrenPhysics();
+        }
+    }
+}
+
+void Transform::SyncChildrenPhysics() {
+    HierarchyObject* owner = m_owner.GetPtr();
+    if (!owner) return;
+
+    for (const auto& child : owner->GetChildren()) {
+        Transform* childTransform = child ? child->GetTransform() : nullptr;
+        if (childTransform) {
+            childTransform->SyncPhysics();
         }
     }
 }

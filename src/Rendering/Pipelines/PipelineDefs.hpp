@@ -43,6 +43,7 @@ namespace Diligent {
         float ShadowBias = 0.015f;
         float AmbientMultiplier = 1.0f;
         float Padding[2] = { 0.0f, 0.0f }; // Pads the struct size to 16 bytes
+        glm::vec4 AmbientColor{ 0.03f, 0.03f, 0.03f, 1.0f };
     };
 
     struct alignas(16) PBRMaterialConstants {

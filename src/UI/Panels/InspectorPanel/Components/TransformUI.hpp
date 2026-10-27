@@ -31,6 +31,9 @@ public:
                     if (ITeleportable* teleportable = owner->GetComponent<ITeleportable>()) {
                         teleportable->Teleport(transform->GetPosition(), transform->GetRotation());
                     }
+                    else {
+                        transform->SyncChildrenPhysics();
+                    }
                 }
             }
         }

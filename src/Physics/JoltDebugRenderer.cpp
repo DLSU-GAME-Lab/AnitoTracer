@@ -3,8 +3,9 @@
 void JoltDebugRenderer::DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor) {
 	glm::vec4 color(inColor.r / 255.0f, inColor.g / 255.0f, inColor.b / 255.0f, inColor.a / 255.0f);
 
-	mLines.push_back({ glm::vec3(inFrom.GetX(), inFrom.GetY(), inFrom.GetZ()), color });
-	mLines.push_back({ glm::vec3(inTo.GetX(), inTo.GetY(), inTo.GetZ()), color });
+	// Jolt is right-handed; the renderer is left-handed, so flip Z.
+	mLines.push_back({ glm::vec3(inFrom.GetX(), inFrom.GetY(), -inFrom.GetZ()), color });
+	mLines.push_back({ glm::vec3(inTo.GetX(), inTo.GetY(), -inTo.GetZ()), color });
 }
 
 void JoltDebugRenderer::DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow) {

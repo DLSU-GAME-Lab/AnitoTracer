@@ -1,6 +1,7 @@
 #include "RendererManager.hpp"
 #include "RendererManager.hpp"
 #include "RendererManager.hpp"
+#include "../Asset/ProjectLoader.hpp"
 #include <iostream>
 #include <type_traits>
 
@@ -196,7 +197,7 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
     std::visit([&](auto& pipeline) {
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
-        pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
+        pipeline.UpdateShadowSettings(m_pImmediateContext, ProjectLoader::GetProjectSettings().lighting);
         pipeline.RenderModels(m_pImmediateContext, renderData, true);
 
         using T = std::decay_t<decltype(pipeline)>;
@@ -279,7 +280,7 @@ void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Dili
     std::visit([&](auto& pipeline) {
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
-        pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
+        pipeline.UpdateShadowSettings(m_pImmediateContext, ProjectLoader::GetProjectSettings().lighting);
         pipeline.RenderModels(m_pImmediateContext, renderData, true);
 
         using T = std::decay_t<decltype(pipeline)>;

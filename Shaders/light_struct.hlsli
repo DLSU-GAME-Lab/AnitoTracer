@@ -33,4 +33,5 @@ cbuffer ShadowSettings
     float g_ShadowBias;
     float g_AmbientMultiplier;
     float2 g_ShadowPadding;
+    float4 g_AmbientColor;
 };

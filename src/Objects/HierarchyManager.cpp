@@ -63,6 +63,11 @@ HierarchyObject::Ref HierarchyManager::AddRootObject(std::unique_ptr<HierarchyOb
     m_rootNodes.push_back(std::move(rootObj));
     auto newref = m_rootNodes.back()->getRef();
 
+    // Colliders may have been built mid-deserialization, before transforms/parents were final.
+    if (Transform* t = m_rootNodes.back()->GetTransform()) {
+        t->SyncPhysics();
+    }
+
     gbe::EventSystem::DispatchTo(EVENT_ONOBJECTCREATED,std::make_unique<HierarchyObjectArgs>(newref));
 
     return newref;
@@ -129,6 +134,11 @@ bool HierarchyManager::ReparentObject(HierarchyObject::Ref object, HierarchyObje
     }
     else {
         m_rootNodes.push_back(std::move(detachedObject));
+    }
+
+    // The world transform changed with the new parent, so bodies must follow.
+    if (Transform* t = objectPtr->GetTransform()) {
+        t->SyncPhysics();
     }
     return true;
 }

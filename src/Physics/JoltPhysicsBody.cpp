@@ -148,6 +148,7 @@ float JoltPhysicsBody::GetMass() const {
 void JoltPhysicsBody::SetVelocity(const glm::vec3& velocity) {
 	if (mBodyInterface) {
 		mBodyInterface->SetLinearVelocity(mBodyID, ToJoltVec3(velocity));
+		UpdateSleepPolicy();
 	}
 }
 
@@ -161,6 +162,25 @@ glm::vec3 JoltPhysicsBody::GetVelocity() const {
 void JoltPhysicsBody::SetAngularVelocity(const glm::vec3& angularVelocity) {
 	if (mBodyInterface) {
 		mBodyInterface->SetAngularVelocity(mBodyID, ToJoltVec3(angularVelocity));
+		UpdateSleepPolicy();
+	}
+}
+
+// Jolt puts a body to sleep when its velocity is below a small threshold. Without gravity
+// keeping it moving, a slowly spinning body would freeze, and setting a velocity doesn't wake it.
+void JoltPhysicsBody::UpdateSleepPolicy() {
+	if (!mBodyLockInterface || mMass <= 0.0f) return;
+
+	JPH::BodyLockWrite lock(*mBodyLockInterface, mBodyID);
+	if (!lock.Succeeded()) return;
+
+	JPH::Body& body = lock.GetBody();
+	if (!body.IsDynamic()) return;
+
+	const bool moving = !body.GetLinearVelocity().IsNearZero() || !body.GetAngularVelocity().IsNearZero();
+	body.SetAllowSleeping(!moving);
+	if (moving && !body.IsActive()) {
+		mBodyInterface->ActivateBody(mBodyID);
 	}
 }
 

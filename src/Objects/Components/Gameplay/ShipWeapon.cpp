@@ -5,6 +5,9 @@
 #include "HierarchyObject.hpp"
 #include "ObjectFactory.hpp"
 #include "Components/Transform.hpp"
+#include "Components/Physics/RigidBody.hpp"
+#include "Components/Physics/Collider.hpp"
+#include "Components/Audio/AudioSourceComponent.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -45,5 +48,17 @@ void ShipWeapon::Shoot() {
     projectileComponent->Launch(forward, m_projectileSpeed, m_damage, m_projectileLifetime, GetOwner());
     HierarchyManager::GetInstance().AddComponentToObject(projectileRef, std::move(projectileComponent));
 
+    // The RigidBody must exist before the Collider so the Collider attaches to it instead of an auto StaticBody.
+    // The primitive sphere has unit radius; Collider scales it by the transform.
+    HierarchyManager::GetInstance().AddComponentToObject(projectileRef, std::make_unique<RigidBody>(projectileRef, 1.0f));
+    IPhysicsEngine::ShapeParams sphereParams;
+    sphereParams.v = glm::vec3(1.0f);
+    HierarchyManager::GetInstance().AddComponentToObject(
+        projectileRef, std::make_unique<Collider>(projectileRef, IPhysicsEngine::ShapeType::Sphere, sphereParams));
+
     m_cooldown = m_fireInterval;
+
+    if (AudioSourceComponent* audio = owner->GetComponent<AudioSourceComponent>()) {
+        audio->Play();
+    }
 }

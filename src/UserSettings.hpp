@@ -1,9 +1,6 @@
 #pragma once
 #include "Rendering/Pipelines/PipelineDefs.hpp"
 
-// Include your math library or other dependencies if future settings need them
-// #include <glm/glm.hpp> 
-
 namespace Diligent {
     class UserSettings {
     public:
@@ -25,19 +22,8 @@ namespace Diligent {
         // ------------------------------------------------------------------
         // Settings Accessors
         // ------------------------------------------------------------------
-        // Returning by reference allows for easy, direct modification of the struct
-        ShadowSettings& GetShadowSettings() { return m_ShadowSettings; }
-        const ShadowSettings& GetShadowSettings() const { return m_ShadowSettings; }
-
-        // Example of how you can easily add more settings groups later:
-        // GraphicsSettings& GetGraphicsSettings() { return m_GraphicsSettings; }
-        // AudioSettings& GetAudioSettings() { return m_AudioSettings; }
-
         bool& GetEnableMSAA() { return m_EnableMSAA; }
         const bool& GetEnableMSAA() const { return m_EnableMSAA; }
-
-        bool& GetShowPhysicsDebug() { return m_ShowPhysicsDebug; }
-        const bool& GetShowPhysicsDebug() const { return m_ShowPhysicsDebug; }
 
         PipelineType& GetRendererType() { return m_RendererType; }
         const PipelineType& GetRendererType() const { return m_RendererType; }
@@ -50,17 +36,10 @@ namespace Diligent {
         // ------------------------------------------------------------------
         // Data Storage
         // ------------------------------------------------------------------
-        ShadowSettings m_ShadowSettings;
         //False for now for deferred- TODO- Fix for deferred
         bool m_EnableMSAA = false; // Added MSAA toggle state
 
-        // Draws Jolt collider wireframes in the editor viewport
-        bool m_ShowPhysicsDebug = false;
-
         //Default to deferred for easy rendering
         PipelineType m_RendererType = PipelineType::DEFERRED;
-
-        // GraphicsSettings m_GraphicsSettings;
-        // AudioSettings m_AudioSettings;
     };
 }

@@ -122,7 +122,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     }
 
     // 4. Ambient & Emissive Combined
-    float3 ambient = float3(0.03, 0.03, 0.03) * albedo.rgb * ao * g_AmbientMultiplier;
+    float3 ambient = g_AmbientColor.rgb * albedo.rgb * ao * g_AmbientMultiplier;
     float3 color = ambient + Lo + emissive;
 
     OutColor = float4(color, albedo.a);

@@ -52,7 +52,11 @@ public:
     void SetEulerAnglesDegrees(const glm::vec3& eulerDegrees);
     glm::mat4 GetLocalMatrix() const;
 
+    glm::mat4 GetWorldMatrix() const;
+    void SetWorldScale(const glm::vec3& worldScale);
+
     void SyncPhysics();
+    void SyncChildrenPhysics();
 
 private:
     glm::vec3 m_position;

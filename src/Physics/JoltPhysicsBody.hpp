@@ -41,6 +41,7 @@ public:
 private:
 	void WakeSurroundingBodies();
 	void ApplyMassProperties();
+	void UpdateSleepPolicy();
 
 	JPH::BodyID mBodyID;
 	JPH::BodyInterface* mBodyInterface;

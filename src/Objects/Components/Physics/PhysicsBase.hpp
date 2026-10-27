@@ -43,6 +43,9 @@ public:
 	void UnregisterCollider(Collider* collider);
 	void RebuildShapes();
 
+	// Resolves the object owning a physics body (e.g. the `other` of a CollisionEnterTrigger); null if unknown
+	static HierarchyObject* FindOwnerByBody(const IPhysicsBody* body);
+
 	// Used when a RigidBody takes over an auto-created StaticBody's colliders
 	std::vector<Collider*> TakeColliders();
 
