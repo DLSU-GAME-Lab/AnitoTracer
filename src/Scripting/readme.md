@@ -64,7 +64,7 @@ For example, adding `clamp(x, low, high)` does **not** need a grammar change: ca
 | Input / Time | `Input.getAction/mouseDelta/mousePosition`, `Time.time/deltaTime/fixedDeltaTime` |
 | Gui / Debug | `Gui.worldToScreen/fillRect/drawRect` (inside `on GUI`), `Debug.log` |
 | Math | `Mathf`, `Vector3`, `Quaternion` (degrees), `Random`, plus `vec3`/`quat` members |
-| Collections / assets | `gameobjectlist`, `prefab` and `transform` `@field`s |
+| Collections / assets | generic `array<T>` (any storable element type): `count`, `add`, `insert`, `removeAt`, `clear`, `get(i)`, `a[i]` (read/write), `contains`, `indexOf`, `prune()` (handle elements); `prefab` and `transform` `@field`s |
 
 Event handlers: `on Start()`, `on Update(dt)`, `on FixedUpdate(dt)`, `on GUI(dt)`, `on CollisionEnter(other)`. Declare the ones a component uses after the colon, e.g. `component Foo : Update, CollisionEnter`.
 

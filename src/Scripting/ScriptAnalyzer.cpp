@@ -13,13 +13,24 @@ using P = anito_script::AnitoScriptParser;
 // sdk/anito/Api.hpp by naming convention: property `foo` -> foo() / setFoo(v), method `bar` -> bar(...).
 enum class T {
     Error, Void, Float, Int, Bool, String, Vec3, Quat,
-    GameObject, Transform, Rigidbody, Collider, AudioSource, Script, Prefab, GameObjectList, RaycastHit,
+    GameObject, Transform, Rigidbody, Collider, AudioSource, Script, Prefab, RaycastHit,
     // Static API classes: only usable as the base of a member access.
     SMathf, SVector3, SQuaternion, SRandom, STime, SInput, SPhysics, SScene, SCamera, SGui, SDebug
 };
 
-bool IsStatic(T t) { return t >= T::SMathf; }
+// `array<E>` is encoded as kArrayBase + E so it stays a plain comparable enum value.
+constexpr int kArrayBase = 100;
+bool IsArray(T t) { return static_cast<int>(t) >= kArrayBase; }
+T ElementOf(T array) { return static_cast<T>(static_cast<int>(array) - kArrayBase); }
+T ArrayOf(T element) { return static_cast<T>(kArrayBase + static_cast<int>(element)); }
+
+bool IsStatic(T t) { return t >= T::SMathf && !IsArray(t); }
 bool Storable(T t) { return t != T::Error && t != T::Void && !IsStatic(t); }
+// Handle types that expose valid().
+bool HasValid(T t) {
+    return t == T::GameObject || t == T::Transform || t == T::Rigidbody || t == T::Collider || t == T::AudioSource ||
+           t == T::Script;
+}
 // Types that can cross the script-to-script boundary as a Variant.
 bool Marshalable(T t) { return t == T::Float || t == T::Int || t == T::Bool || t == T::Vec3 || t == T::String || t == T::GameObject; }
 
@@ -27,7 +38,7 @@ const std::map<std::string, T> kStorableNames = {
     {"float", T::Float}, {"int", T::Int}, {"bool", T::Bool}, {"string", T::String}, {"vec3", T::Vec3},
     {"quat", T::Quat}, {"gameobject", T::GameObject}, {"transform", T::Transform}, {"rigidbody", T::Rigidbody},
     {"collider", T::Collider}, {"audiosource", T::AudioSource}, {"script", T::Script}, {"prefab", T::Prefab},
-    {"gameobjectlist", T::GameObjectList}, {"raycasthit", T::RaycastHit}};
+    {"raycasthit", T::RaycastHit}};
 
 const std::map<std::string, T> kStaticNames = {
     {"Mathf", T::SMathf}, {"Vector3", T::SVector3}, {"Quaternion", T::SQuaternion}, {"Random", T::SRandom},
@@ -40,12 +51,14 @@ std::string Name(T t) {
     case T::Error: return "<error>";
     default: break;
     }
+    if (IsArray(t)) return "array<" + Name(ElementOf(t)) + ">";
     for (const auto& [name, type] : kStorableNames) if (type == t) return name;
     for (const auto& [name, type] : kStaticNames) if (type == t) return name;
     return "<error>";
 }
 
 std::string Cpp(T t) {
+    if (IsArray(t)) return "anito::Array<" + Cpp(ElementOf(t)) + ">";
     switch (t) {
     case T::Float: return "float";
     case T::Int: return "int";
@@ -60,7 +73,6 @@ std::string Cpp(T t) {
     case T::AudioSource: return "anito::AudioSource";
     case T::Script: return "anito::Script";
     case T::Prefab: return "anito::PrefabAsset";
-    case T::GameObjectList: return "anito::GameObjectList";
     case T::RaycastHit: return "anito::RaycastHit";
     default: return "void";
     }
@@ -99,6 +111,20 @@ const TypeInfo* Info(T t) {
     using Md = Method;
     constexpr T F = T::Float, I = T::Int, B = T::Bool, S = T::String, V3 = T::Vec3, Q = T::Quat, G = T::GameObject,
                 Vd = T::Void;
+    if (IsArray(t)) {
+        // Array<T> members depend on the element type, so each instantiation is built once per thread.
+        static thread_local std::map<T, TypeInfo> arrays;
+        auto it = arrays.find(t);
+        if (it == arrays.end()) {
+            const T e = ElementOf(t);
+            TypeInfo info{"", {{"count", I}}, {Md{"add", Vd, {e}}, Md{"insert", Vd, {I, e}}, Md{"removeAt", Vd, {I}},
+                                               Md{"clear", Vd, {}}, Md{"get", e, {I}}, Md{"contains", B, {e}},
+                                               Md{"indexOf", I, {e}}}};
+            if (HasValid(e)) info.methods.push_back(Md{"prune", Vd, {}});
+            it = arrays.emplace(t, std::move(info)).first;
+        }
+        return &it->second;
+    }
     static const std::map<T, TypeInfo> table = {
         {T::Vec3, {"", {{"length", F}, {"lengthSq", F}, {"normalized", V3}}, {Md{"dot", F, {V3}}, Md{"cross", V3, {V3}}}}},
         {T::Quat, {"", {{"normalized", Q}, {"inverse", Q}}, {Md{"dot", F, {Q}}}}},
@@ -148,10 +174,6 @@ const TypeInfo* Info(T t) {
           {Md{"valid", B, {}}, Md{"call", Vd, {S}, true}, Md{"callFloat", F, {S}, true}, Md{"callInt", I, {S}, true},
            Md{"callBool", B, {S}, true}, Md{"callVec3", V3, {S}, true}, Md{"callObject", G, {S}, true}}}},
         {T::Prefab, {"", {}, {Md{"empty", B, {}}}}},
-        {T::GameObjectList,
-         {"",
-          {{"count", I}},
-          {Md{"add", Vd, {G}}, Md{"clear", Vd, {}}, Md{"get", G, {I}}, Md{"removeAt", Vd, {I}}, Md{"prune", Vd, {}}}}},
 
         // Statics
         {T::SMathf,
@@ -307,6 +329,19 @@ private:
     // ---- declarations ----
 
     T ResolveType(P::TypeContext* type, bool allowVoid) {
+        if (type->elem) {
+            if (type->ID()->getText() != "array") {
+                Report(type, "unknown generic type '" + type->ID()->getText() + "'");
+                return T::Error;
+            }
+            const T element = ResolveType(type->elem, false);
+            if (element == T::Error) return T::Error;
+            if (IsArray(element)) {
+                Report(type, "arrays of arrays are not supported");
+                return T::Error;
+            }
+            return ArrayOf(element);
+        }
         const std::string text = type->getText();
         const auto it = kStorableNames.find(text);
         if (it != kStorableNames.end()) return it->second;
@@ -687,6 +722,10 @@ private:
             const std::string name = id->ID()->getText();
             return name != "owner" && !kStaticNames.count(name) && !m_refFields.count(name);
         }
+        if (auto* index = dynamic_cast<P::IndexExprContext*>(expr)) {
+            // Array elements are assignable references, as long as the array itself is a variable.
+            return IsLvalue(index->expr()[0]);
+        }
         if (auto* member = dynamic_cast<P::MemberExprContext*>(expr)) {
             ++m_quiet;
             const T base = Check(member->expr()).t;
@@ -704,6 +743,11 @@ private:
         if (auto* primary = dynamic_cast<P::PrimaryExprContext*>(expr)) {
             Lvalue out;
             out.ref = dynamic_cast<P::IdentifierContext*>(primary->primary())->ID()->getText();
+            return out;
+        }
+        if (auto* index = dynamic_cast<P::IndexExprContext*>(expr)) {
+            Lvalue out;
+            out.ref = Check(index).c;
             return out;
         }
         auto* member = dynamic_cast<P::MemberExprContext*>(expr);
@@ -818,9 +862,20 @@ private:
         if (auto* e = dynamic_cast<P::PrimaryExprContext*>(expr)) return CheckPrimary(e->primary());
         if (auto* e = dynamic_cast<P::MemberExprContext*>(expr)) return CheckMember(e);
         if (auto* e = dynamic_cast<P::CallExprContext*>(expr)) return CheckCall(e);
-        if (dynamic_cast<P::IndexExprContext*>(expr)) {
-            Report(expr, "indexing is not supported");
-            return {};
+        if (auto* e = dynamic_cast<P::IndexExprContext*>(expr)) {
+            const auto s = e->expr();
+            const V base = Check(s[0]);
+            const V index = Check(s[1]);
+            if (base.t == T::Error || index.t == T::Error) return {};
+            if (!IsArray(base.t)) {
+                Report(e, "only arrays can be indexed, got " + Name(base.t));
+                return {};
+            }
+            if (index.t != T::Int) {
+                Report(e, "array index must be int, got " + Name(index.t));
+                return {};
+            }
+            return {ElementOf(base.t), base.c + "[" + index.c + "]"};
         }
         if (auto* e = dynamic_cast<P::UnaryExprContext*>(expr)) {
             const V v = Check(e->expr());

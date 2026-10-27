@@ -78,26 +78,4 @@ inline RaycastHit Physics::raycast(Vec3 origin, Vec3 direction, float maxDistanc
 
 inline Transform ResolveTransformField(void* storage) { return Transform{detail::H().field.ResolveTransform(storage)}; }
 
-// Ordered list of GameObject handles, for scripts that track spawned objects.
-class GameObjectList {
-public:
-    std::vector<ObjectId> items;
-
-    void add(GameObject g) { items.push_back(g.id); }
-    int count() const { return static_cast<int>(items.size()); }
-    void clear() { items.clear(); }
-    GameObject get(int index) const {
-        return index >= 0 && index < count() ? GameObject{items[static_cast<size_t>(index)]} : GameObject{};
-    }
-    void removeAt(int index) {
-        if (index >= 0 && index < count()) items.erase(items.begin() + index);
-    }
-    // Drops handles whose objects no longer exist.
-    void prune() {
-        std::vector<ObjectId> alive;
-        for (ObjectId i : items) if (detail::H().object.IsValid(i)) alive.push_back(i);
-        items.swap(alive);
-    }
-};
-
 } // namespace anito

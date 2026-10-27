@@ -36,8 +36,10 @@ annotation
 params : param (COMMA param)* ;
 param  : name=ID (COLON type)? ;
 
+// `array<T>` is the generic, growable array; any storable element type is allowed.
 type
     : primitiveType
+    | ID LT elem=type GT
     | ID
     ;
 
