@@ -2,10 +2,7 @@
 
 #include "ScriptComponent.hpp"
 
-#include "Components/Transform.hpp"
-#include "HierarchyObject.hpp"
-
-#include <glm/gtc/quaternion.hpp>
+#include "ScriptHostAPI.hpp"
 
 #include <iostream>
 
@@ -14,43 +11,6 @@
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-
-static_assert(sizeof(anito::Vec3) == sizeof(glm::vec3), "Vec3 must match glm::vec3 layout");
-
-namespace {
-
-Transform* OwnerTransform(void* owner) {
-    auto* component = static_cast<ComponentBase*>(owner);
-    HierarchyObject* object = component->GetOwner().GetPtr();
-    return object ? object->GetComponent<Transform>() : nullptr;
-}
-
-void HostLog(const char* message) { std::cerr << "[Script] " << message << std::endl; }
-
-void HostGetPosition(void* owner, anito::Vec3* out) {
-    if (Transform* t = OwnerTransform(owner)) {
-        const glm::vec3& p = t->GetLocalPosition();
-        *out = {p.x, p.y, p.z};
-    }
-}
-
-void HostSetPosition(void* owner, anito::Vec3 value) {
-    if (Transform* t = OwnerTransform(owner)) t->SetPosition({value.x, value.y, value.z});
-}
-
-void HostRotate(void* owner, anito::Vec3 axis, float degrees) {
-    Transform* t = OwnerTransform(owner);
-    if (!t) return;
-    const glm::vec3 a{axis.x, axis.y, axis.z};
-    const float lengthSq = glm::dot(a, a);
-    if (lengthSq < 1e-8f) return;
-    const glm::quat delta = glm::angleAxis(glm::radians(degrees), a / std::sqrt(lengthSq));
-    t->SetRotation(glm::normalize(delta * t->GetLocalRotation()));
-}
-
-const anito::HostAPI kHostAPI = {HostLog, HostGetPosition, HostSetPosition, HostRotate};
-
-} // namespace
 
 ScriptModule& ScriptModule::GetInstance() {
     static ScriptModule instance;
@@ -62,7 +22,7 @@ ScriptModule& ScriptModule::GetInstance() {
 
 ScriptModule::~ScriptModule() { Unload(); }
 
-const anito::HostAPI* ScriptModule::GetHostAPI() const { return &kHostAPI; }
+const anito::HostAPI* ScriptModule::GetHostAPI() const { return ScriptHost::GetAPI(); }
 
 void ScriptModule::SetModulePath(const std::filesystem::path& path) {
     if (path == m_modulePath) return;

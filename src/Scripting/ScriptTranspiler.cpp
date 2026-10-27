@@ -9,6 +9,8 @@ const char* FieldTypeName(ScriptFieldType type) {
     case ScriptFieldType::Bool: return "anito::FieldType::Bool";
     case ScriptFieldType::String: return "anito::FieldType::String";
     case ScriptFieldType::Vec3: return "anito::FieldType::Vec3";
+    case ScriptFieldType::Prefab: return "anito::FieldType::Prefab";
+    case ScriptFieldType::Transform: return "anito::FieldType::Transform";
     }
     return "anito::FieldType::Float";
 }

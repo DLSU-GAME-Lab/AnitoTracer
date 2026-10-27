@@ -1,8 +1,15 @@
 #include "ScriptComponent.hpp"
 
 #include "ScriptDescriptor.hpp"
+#include "ScriptHostAPI.hpp"
 #include "ScriptModule.hpp"
 #include "ScriptRegistry.hpp"
+
+#include "Components/Physics/PhysicsBase.hpp"
+#include "Components/Transform.hpp"
+#include "HierarchyObject.hpp"
+#include "HierarchyFeatures/PrefabRef.hpp"
+#include "ObjectRef.hpp"
 
 namespace {
 
@@ -53,7 +60,7 @@ void ScriptComponent::EnsureInstance() {
     m_fieldPtrs.clear();
     for (const auto& field : m_fields) m_fieldPtrs.push_back(field->Data());
 
-    const anito::ScriptContext context{module.GetHostAPI(), static_cast<ComponentBase*>(this), m_fieldPtrs.data()};
+    const anito::ScriptContext context{module.GetHostAPI(), GetOwner().GetID(), m_fieldPtrs.data()};
     m_instance = entry->create(context);
     m_entry = entry;
     // Only components holding native code need to be released before a reload.
@@ -64,7 +71,45 @@ void ScriptComponent::EnsureInstance() {
 void ScriptComponent::OnUpdate(float deltaTime) {
     Refresh();
     EnsureInstance();
+    if (!m_instance) return;
+
+    ScriptHost::SetFrameDelta(deltaTime);
+
+    std::vector<anito::ObjectId> hits;
+    {
+        std::lock_guard<std::mutex> lock(*m_hitMutex);
+        hits.swap(m_pendingHits);
+    }
+    // The instance can be released by a handler (e.g. hot reload or destroy), so recheck each time.
+    for (const anito::ObjectId other : hits) {
+        if (!m_instance) return;
+        m_instance->OnCollisionEnter(anito::GameObject{other});
+    }
     if (m_instance) m_instance->OnUpdate(deltaTime);
+}
+
+void ScriptComponent::OnFixedUpdate(float deltaTime) {
+    EnsureInstance();
+    if (!m_instance) return;
+    ScriptHost::SetFixedDelta(deltaTime);
+    m_instance->OnFixedUpdate(deltaTime);
+}
+
+void ScriptComponent::OnGUI_ReleaseEvent(float deltaTime) {
+    if (m_instance) m_instance->OnGUI(deltaTime);
+}
+
+void ScriptComponent::OnTrigger(const CollisionEnterTrigger& trigger) {
+    HierarchyObject* other = PhysicsBase::FindOwnerByBody(trigger.other.get());
+    if (!other) return;
+
+    std::lock_guard<std::mutex> lock(*m_hitMutex);
+    m_pendingHits.push_back(other->getId());
+}
+
+bool ScriptComponent::CallMethod(const char* method, const anito::Variant* args, uint32_t argc, anito::Variant* ret) {
+    EnsureInstance();
+    return m_instance && m_instance->Call(method, args, argc, ret);
 }
 
 void ScriptComponent::BindScript(const std::string& scriptName) {
@@ -97,6 +142,12 @@ void ScriptComponent::CreateFields(const ScriptDescriptor& descriptor) {
             break;
         case ScriptFieldType::Vec3:
             m_fields.push_back(std::make_unique<ScriptFieldHolder<glm::vec3>>(this, id, field.displayName, std::get<glm::vec3>(field.defaultValue)));
+            break;
+        case ScriptFieldType::Prefab:
+            m_fields.push_back(std::make_unique<ScriptFieldHolder<PrefabRef>>(this, id, field.displayName, PrefabRef{}));
+            break;
+        case ScriptFieldType::Transform:
+            m_fields.push_back(std::make_unique<ScriptFieldHolder<gbe::ObjectRef<Transform>>>(this, id, field.displayName, gbe::ObjectRef<Transform>{}));
             break;
         }
     }

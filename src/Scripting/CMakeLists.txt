@@ -73,15 +73,25 @@ set(${CUR_TARGET_NAME}_src
 	ScriptRegistry.hpp
 	ScriptComponent.cpp
 	ScriptComponent.hpp
+	ScriptHostAPI.cpp
+	ScriptHostAPI.hpp
 	ScriptModule.cpp
 	ScriptModule.hpp
 	sdk/AnitoScriptSDK.hpp
+	sdk/anito/Api.hpp
+	sdk/anito/Host.hpp
+	sdk/anito/Math.hpp
 )
 
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
 target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 target_include_directories(${CUR_TARGET_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+
+target_link_libraries(${CUR_TARGET_NAME}
+	PRIVATE
+	anito::rendering
+)
 
 target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC

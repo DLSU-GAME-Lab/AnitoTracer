@@ -118,6 +118,10 @@ bool Coerce(ScriptFieldType type, const ScriptValue& in, ScriptValue& out) {
     case ScriptFieldType::Vec3:
         if (auto* v = std::get_if<glm::vec3>(&in)) { out.emplace<glm::vec3>(*v); return true; }
         return false;
+    case ScriptFieldType::Prefab:
+    case ScriptFieldType::Transform:
+        // Reference slots are assigned in the inspector; they carry no source-level default.
+        return false;
     }
     return false;
 }
@@ -126,7 +130,9 @@ ScriptValue ZeroValue(ScriptFieldType type) {
     switch (type) {
     case ScriptFieldType::Int: return ScriptValue{std::in_place_type<int>, 0};
     case ScriptFieldType::Bool: return ScriptValue{std::in_place_type<bool>, false};
-    case ScriptFieldType::String: return ScriptValue{std::in_place_type<std::string>};
+    case ScriptFieldType::String:
+    case ScriptFieldType::Prefab:
+    case ScriptFieldType::Transform: return ScriptValue{std::in_place_type<std::string>};
     case ScriptFieldType::Vec3: return ScriptValue{std::in_place_type<glm::vec3>, 0.0f};
     default: return ScriptValue{std::in_place_type<float>, 0.0f};
     }
@@ -138,6 +144,8 @@ bool FieldTypeFromName(const std::string& name, ScriptFieldType& out) {
     else if (name == "bool") out = ScriptFieldType::Bool;
     else if (name == "string") out = ScriptFieldType::String;
     else if (name == "vec3") out = ScriptFieldType::Vec3;
+    else if (name == "prefab") out = ScriptFieldType::Prefab;
+    else if (name == "transform") out = ScriptFieldType::Transform;
     else return false;
     return true;
 }

@@ -8,7 +8,8 @@
 
 #include <glm/glm.hpp>
 
-enum class ScriptFieldType { Float, Int, Bool, String, Vec3 };
+// Prefab and Transform are reference slots: the value variant holds an unused empty string for them.
+enum class ScriptFieldType { Float, Int, Bool, String, Vec3, Prefab, Transform };
 
 using ScriptValue = std::variant<float, int, bool, std::string, glm::vec3>;
 

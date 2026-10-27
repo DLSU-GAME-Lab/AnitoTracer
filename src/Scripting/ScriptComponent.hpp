@@ -2,10 +2,14 @@
 
 #include "Components/ComponentBase.hpp"
 #include "Types/UpdateTrigger.hpp"
+#include "Types/FixedUpdateTrigger.hpp"
+#include "Types/OnGUI_Release.hpp"
+#include "../Physics/IPhysicsEngine.hpp"
 #include "AnitoScriptSDK.hpp"
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -19,7 +23,12 @@ public:
 
 // Host-side component wrapper: serialized/editor fields remain native, while behavior is supplied
 // by a separately compiled script instance.
-class ScriptComponent : public ComponentBase, public gbe::ITrigger<UpdateTrigger> {
+class ScriptComponent
+    : public ComponentBase
+    , public gbe::ITrigger<UpdateTrigger>
+    , public gbe::ITrigger<FixedUpdateTrigger>
+    , public gbe::ITrigger<OnGUI_Release>
+    , public gbe::ITrigger<CollisionEnterTrigger> {
 public:
     ScriptComponent(gbe::IInstanceManager<HierarchyObject>::Ref owner = {});
     ~ScriptComponent() override;
@@ -37,7 +46,13 @@ public:
     bool IsScriptMissing() const;
 
     void OnUpdate(float deltaTime) override;
+    void OnFixedUpdate(float deltaTime) override;
+    void OnGUI_ReleaseEvent(float deltaTime) override;
+    void OnTrigger(const CollisionEnterTrigger& trigger) override;
 
+    // Calls a script method by name (creating the native instance first if needed).
+    // Returns false when the script has no such callable method.
+    bool CallMethod(const char* method, const anito::Variant* args, uint32_t argc, anito::Variant* ret);
     // Destroys the native instance (fields stay); it is recreated on the next update.
     void ReleaseInstance();
 
@@ -58,6 +73,10 @@ private:
     const anito::ScriptEntry* m_entry = nullptr;
     uint64_t m_instanceGeneration = 0;
     std::vector<void*> m_fieldPtrs;
+
+    // Collision callbacks can arrive on physics worker threads; they are queued and dispatched in OnUpdate.
+    std::unique_ptr<std::mutex> m_hitMutex = std::make_unique<std::mutex>();
+    std::vector<anito::ObjectId> m_pendingHits;
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ScriptComponent, ComponentBase);
 };

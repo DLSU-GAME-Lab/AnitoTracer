@@ -43,4 +43,29 @@ For example, adding `clamp(x, low, high)` does **not** need a grammar change: ca
 * `ScriptBuildDriver.cpp`: debounced asynchronous MSVC build.  
 * `ScriptModule.cpp`: DLL copy, load, validation, unload and reload.  
 * `ScriptComponent.cpp`: field storage, native-instance lifecycle and per-frame calls.  
-* `AnitoScriptSDK.hpp`: stable host/module ABI.
+* `AnitoScriptSDK.hpp`: umbrella include for the SDK in `sdk/anito/`.  
+* `sdk/anito/Host.hpp`: the stable host/module ABI (v2): one function table per API category.  
+* `sdk/anito/Api.hpp`: Unity-style handle classes and statics generated scripts call.  
+* `sdk/anito/Math.hpp`: `Vec3`, `Quat`, `Mathf`, `Vector3`, `Quaternion`, `Random`.  
+* `ScriptHostAPI.cpp`: engine-side implementation of every host table.  
+
+# Scripting API by category
+
+`.ascript` follows Unity's model: handles (`gameobject`, `transform`, `rigidbody`, ...) with properties and methods, plus static helper classes. A property `foo` lowers to `foo()` / `setFoo(v)` in the SDK, so a new API member is one SDK line, one host function and one row in the `Info()` table in `ScriptAnalyzer.cpp`.
+
+| Category | Script surface |
+|---|---|
+| Transform | `transform.position` (world), `localPosition`, `rotation`, `localRotation`, `localScale`, `lossyScale`, `eulerAngles`, `forward/right/up`, `rotate`, `translate`, `lookAt`, `transformPoint/Direction` |
+| Physics | `rigidbody.velocity/angularVelocity/mass/simulated/rotation`, `addForce/addTorque/addImpulse/teleport/lockRotation`, `collider`, `Physics.gravity`, `Physics.raycast` (`raycasthit`) |
+| Audio | `audiosource.play/stop/playDetached/volume/loop/pitch/spatialized/setDistance` |
+| Component / GameObject getters | `owner`, `name`, `parent`, `root`, `child(i)`, `findChild`, `transform`, `rigidbody`, `collider`, `audioSource`, `getScript/hasScript/addScript`, `hasComponent`, `addRigidbody/addBoxCollider/addSphereCollider/addCapsuleCollider`, `destroy`, `valid()` |
+| Scene / Camera | `Scene.find/findWithScript/instantiate/createEmpty/createPrimitive/none`, `Camera.main` |
+| Scripts | `script.call/callFloat/callInt/callBool/callVec3/callObject`, `gameobject.sendMessage`; every `fn` with simple parameter types is callable |
+| Input / Time | `Input.getAction/mouseDelta/mousePosition`, `Time.time/deltaTime/fixedDeltaTime` |
+| Gui / Debug | `Gui.worldToScreen/fillRect/drawRect` (inside `on GUI`), `Debug.log` |
+| Math | `Mathf`, `Vector3`, `Quaternion` (degrees), `Random`, plus `vec3`/`quat` members |
+| Collections / assets | `gameobjectlist`, `prefab` and `transform` `@field`s |
+
+Event handlers: `on Start()`, `on Update(dt)`, `on FixedUpdate(dt)`, `on GUI(dt)`, `on CollisionEnter(other)`. Declare the ones a component uses after the colon, e.g. `component Foo : Update, CollisionEnter`.
+
+Note: `transform.position` is world space; use `localPosition` for the parent-relative value.

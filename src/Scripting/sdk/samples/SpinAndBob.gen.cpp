@@ -22,10 +22,11 @@ public:
     void OnUpdate(float dt) override {
         if (!enabled) { return; }
         time = time + dt;
-        Rotate(spinAxis, spinSpeed * dt);
-        Vec3 p = GetPosition();
+        Transform t = gameObject.transform();
+        t.rotate(spinAxis, spinSpeed * dt);
+        Vec3 p = t.localPosition();
         p.y = baseY + std::sin(time * bobFrequency) * bobHeight;
-        SetPosition(p);
+        t.setLocalPosition(p);
     }
 
     bool Invoke(const char* method) override {

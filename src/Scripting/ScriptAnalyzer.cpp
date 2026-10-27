@@ -9,37 +9,214 @@ namespace {
 
 using P = anito_script::AnitoScriptParser;
 
-// Script-level types include host concepts (Object/Transform) that are lowered through SDK calls,
-// rather than represented as C++ values crossing the DLL boundary.
-enum class T { Error, Void, Float, Int, Bool, String, Vec3, Object, Transform };
+// Script-level types. Handle types and statics are lowered to calls on the SDK classes in
+// sdk/anito/Api.hpp by naming convention: property `foo` -> foo() / setFoo(v), method `bar` -> bar(...).
+enum class T {
+    Error, Void, Float, Int, Bool, String, Vec3, Quat,
+    GameObject, Transform, Rigidbody, Collider, AudioSource, Script, Prefab, GameObjectList, RaycastHit,
+    // Static API classes: only usable as the base of a member access.
+    SMathf, SVector3, SQuaternion, SRandom, STime, SInput, SPhysics, SScene, SCamera, SGui, SDebug
+};
 
-const char* Name(T t) {
+bool IsStatic(T t) { return t >= T::SMathf; }
+bool Storable(T t) { return t != T::Error && t != T::Void && !IsStatic(t); }
+// Types that can cross the script-to-script boundary as a Variant.
+bool Marshalable(T t) { return t == T::Float || t == T::Int || t == T::Bool || t == T::Vec3 || t == T::String || t == T::GameObject; }
+
+const std::map<std::string, T> kStorableNames = {
+    {"float", T::Float}, {"int", T::Int}, {"bool", T::Bool}, {"string", T::String}, {"vec3", T::Vec3},
+    {"quat", T::Quat}, {"gameobject", T::GameObject}, {"transform", T::Transform}, {"rigidbody", T::Rigidbody},
+    {"collider", T::Collider}, {"audiosource", T::AudioSource}, {"script", T::Script}, {"prefab", T::Prefab},
+    {"gameobjectlist", T::GameObjectList}, {"raycasthit", T::RaycastHit}};
+
+const std::map<std::string, T> kStaticNames = {
+    {"Mathf", T::SMathf}, {"Vector3", T::SVector3}, {"Quaternion", T::SQuaternion}, {"Random", T::SRandom},
+    {"Time", T::STime}, {"Input", T::SInput}, {"Physics", T::SPhysics}, {"Scene", T::SScene},
+    {"Camera", T::SCamera}, {"Gui", T::SGui}, {"Debug", T::SDebug}};
+
+std::string Name(T t) {
     switch (t) {
     case T::Void: return "void";
-    case T::Float: return "float";
-    case T::Int: return "int";
-    case T::Bool: return "bool";
-    case T::String: return "string";
-    case T::Vec3: return "vec3";
-    case T::Object: return "object";
-    case T::Transform: return "transform";
-    default: return "<error>";
+    case T::Error: return "<error>";
+    default: break;
     }
+    for (const auto& [name, type] : kStorableNames) if (type == t) return name;
+    for (const auto& [name, type] : kStaticNames) if (type == t) return name;
+    return "<error>";
 }
 
-const char* Cpp(T t) {
+std::string Cpp(T t) {
     switch (t) {
     case T::Float: return "float";
     case T::Int: return "int";
     case T::Bool: return "bool";
     case T::String: return "std::string";
     case T::Vec3: return "anito::Vec3";
+    case T::Quat: return "anito::Quat";
+    case T::GameObject: return "anito::GameObject";
+    case T::Transform: return "anito::Transform";
+    case T::Rigidbody: return "anito::Rigidbody";
+    case T::Collider: return "anito::Collider";
+    case T::AudioSource: return "anito::AudioSource";
+    case T::Script: return "anito::Script";
+    case T::Prefab: return "anito::PrefabAsset";
+    case T::GameObjectList: return "anito::GameObjectList";
+    case T::RaycastHit: return "anito::RaycastHit";
     default: return "void";
     }
 }
 
 bool Numeric(T t) { return t == T::Float || t == T::Int; }
 bool Convertible(T to, T from) { return to == from || (to == T::Float && from == T::Int); }
+bool Equatable(T a, T b) {
+    if (Numeric(a) && Numeric(b)) return true;
+    if (a != b) return false;
+    return a == T::Bool || a == T::String || a == T::Vec3 || a == T::GameObject;
+}
+
+// ---- API surface ------------------------------------------------------------------------------
+// One table drives type checking and lowering, so adding an SDK method is a single line here.
+struct Member {
+    std::string name;
+    T type;
+    bool settable = false;
+};
+
+struct Method {
+    std::string name;
+    T ret = T::Void;
+    std::vector<T> params;
+    bool variadic = false; // extra marshalable arguments after the listed ones
+};
+
+struct TypeInfo {
+    std::string cpp;               // class qualifier for static types
+    std::vector<Member> members;
+    std::vector<Method> methods;
+};
+
+const TypeInfo* Info(T t) {
+    using Md = Method;
+    constexpr T F = T::Float, I = T::Int, B = T::Bool, S = T::String, V3 = T::Vec3, Q = T::Quat, G = T::GameObject,
+                Vd = T::Void;
+    static const std::map<T, TypeInfo> table = {
+        {T::Vec3, {"", {{"length", F}, {"lengthSq", F}, {"normalized", V3}}, {Md{"dot", F, {V3}}, Md{"cross", V3, {V3}}}}},
+        {T::Quat, {"", {{"normalized", Q}, {"inverse", Q}}, {Md{"dot", F, {Q}}}}},
+
+        // GameObject / component getters
+        {T::GameObject,
+         {"",
+          {{"name", S, true}, {"transform", T::Transform}, {"rigidbody", T::Rigidbody}, {"collider", T::Collider},
+           {"audioSource", T::AudioSource}, {"parent", G, true}, {"root", G}, {"childCount", I}, {"componentCount", I}},
+          {Md{"valid", B, {}}, Md{"getScript", T::Script, {S}}, Md{"hasScript", B, {S}}, Md{"addScript", T::Script, {S}},
+           Md{"componentName", S, {I}}, Md{"hasComponent", B, {S}}, Md{"addRigidbody", T::Rigidbody, {F}},
+           Md{"addBoxCollider", T::Collider, {V3}}, Md{"addSphereCollider", T::Collider, {F}},
+           Md{"addCapsuleCollider", T::Collider, {F, F}}, Md{"child", G, {I}}, Md{"findChild", G, {S}},
+           Md{"destroy", Vd, {}}, Md{"sendMessage", Vd, {S}, true}}}},
+
+        // Transform
+        {T::Transform,
+         {"",
+          {{"position", V3, true}, {"localPosition", V3, true}, {"rotation", Q, true}, {"localRotation", Q, true},
+           {"localScale", V3, true}, {"lossyScale", V3}, {"eulerAngles", V3, true}, {"forward", V3}, {"right", V3},
+           {"up", V3}, {"gameObject", G}, {"parent", T::Transform}},
+          {Md{"valid", B, {}}, Md{"rotate", Vd, {V3, F}}, Md{"translate", Vd, {V3}}, Md{"lookAt", Vd, {V3, V3}},
+           Md{"transformPoint", V3, {V3}}, Md{"transformDirection", V3, {V3}}, Md{"inverseTransformDirection", V3, {V3}}}}},
+
+        // Physics
+        {T::Rigidbody,
+         {"",
+          {{"simulated", B}, {"velocity", V3, true}, {"angularVelocity", V3, true}, {"mass", F, true}, {"rotation", Q},
+           {"gameObject", G}},
+          {Md{"valid", B, {}}, Md{"addForce", Vd, {V3}}, Md{"addTorque", Vd, {V3}}, Md{"addImpulse", Vd, {V3}},
+           Md{"teleport", Vd, {V3, Q}}, Md{"lockRotation", Vd, {B, B, B}}}}},
+        {T::Collider, {"", {{"gameObject", G}}, {Md{"valid", B, {}}}}},
+        {T::RaycastHit, {"", {{"hit", B}, {"point", V3}, {"gameObject", G}}, {}}},
+
+        // Audio
+        {T::AudioSource,
+         {"",
+          {{"hasClip", B}, {"volume", F, true}, {"loop", B, true}, {"pitch", F, true}, {"spatialized", B, true},
+           {"gameObject", G}},
+          {Md{"valid", B, {}}, Md{"play", Vd, {}}, Md{"stop", Vd, {}}, Md{"playDetached", Vd, {}},
+           Md{"setDistance", Vd, {F, F}}}}},
+
+        // Scripts / assets / collections
+        {T::Script,
+         {"",
+          {{"gameObject", G}},
+          {Md{"valid", B, {}}, Md{"call", Vd, {S}, true}, Md{"callFloat", F, {S}, true}, Md{"callInt", I, {S}, true},
+           Md{"callBool", B, {S}, true}, Md{"callVec3", V3, {S}, true}, Md{"callObject", G, {S}, true}}}},
+        {T::Prefab, {"", {}, {Md{"empty", B, {}}}}},
+        {T::GameObjectList,
+         {"",
+          {{"count", I}},
+          {Md{"add", Vd, {G}}, Md{"clear", Vd, {}}, Md{"get", G, {I}}, Md{"removeAt", Vd, {I}}, Md{"prune", Vd, {}}}}},
+
+        // Statics
+        {T::SMathf,
+         {"anito::Mathf",
+          {{"pi", F}, {"deg2rad", F}, {"rad2deg", F}, {"epsilon", F}},
+          {Md{"clamp", F, {F, F, F}}, Md{"clamp01", F, {F}}, Md{"lerp", F, {F, F, F}}, Md{"sign", F, {F}},
+           Md{"sin", F, {F}}, Md{"cos", F, {F}}, Md{"tan", F, {F}}, Md{"asin", F, {F}}, Md{"acos", F, {F}},
+           Md{"atan", F, {F}}, Md{"atan2", F, {F, F}}, Md{"sqrt", F, {F}}, Md{"cbrt", F, {F}}, Md{"pow", F, {F, F}},
+           Md{"exp", F, {F}}, Md{"abs", F, {F}}, Md{"floor", F, {F}}, Md{"ceil", F, {F}}, Md{"round", F, {F}},
+           Md{"min", F, {F, F}}, Md{"max", F, {F, F}}, Md{"moveTowards", F, {F, F, F}}}}},
+        {T::SVector3,
+         {"anito::Vector3",
+          {{"zero", V3}, {"one", V3}, {"up", V3}, {"forward", V3}, {"right", V3}},
+          {Md{"dot", F, {V3, V3}}, Md{"cross", V3, {V3, V3}}, Md{"length", F, {V3}}, Md{"distance", F, {V3, V3}},
+           Md{"normalize", V3, {V3}}, Md{"lerp", V3, {V3, V3, F}}, Md{"scale", V3, {V3, V3}}}}},
+        {T::SQuaternion,
+         {"anito::Quaternion",
+          {{"identity", Q}},
+          {Md{"dot", F, {Q, Q}}, Md{"angleAxis", Q, {F, V3}}, Md{"euler", Q, {V3}}, Md{"lookRotation", Q, {V3, V3}},
+           Md{"slerp", Q, {Q, Q, F}}}}},
+        {T::SRandom,
+         {"anito::Random",
+          {},
+          {Md{"value", F, {}}, Md{"range", F, {F, F}}, Md{"onUnitSphere", V3, {}}, Md{"insideUnitSphere", V3, {}},
+           Md{"rotation", Q, {}}}}},
+        {T::STime, {"anito::Time", {{"time", F}, {"deltaTime", F}, {"fixedDeltaTime", F}}, {}}},
+        {T::SInput,
+         {"anito::Input", {{"mouseDelta", V3}, {"mousePosition", V3}}, {Md{"getAction", B, {S}}}}},
+        {T::SPhysics,
+         {"anito::Physics", {{"gravity", V3, true}}, {Md{"raycast", T::RaycastHit, {V3, V3, F, G}}}}},
+        {T::SScene,
+         {"anito::Scene",
+          {{"none", G}},
+          {Md{"createEmpty", G, {S, G}}, Md{"createPrimitive", G, {S, G}}, Md{"instantiate", G, {T::Prefab, G}},
+           Md{"find", G, {S}}, Md{"findWithScript", G, {S}}}}},
+        {T::SCamera, {"anito::Camera", {{"main", G}}, {}}},
+        {T::SGui,
+         {"anito::Gui",
+          {},
+          {Md{"worldToScreen", V3, {V3}}, Md{"fillRect", Vd, {V3, V3, V3, F}}, Md{"drawRect", Vd, {V3, V3, V3, F, F}}}}},
+        {T::SDebug, {"anito::Debug", {}, {Md{"log", Vd, {S}}}}},
+    };
+    const auto it = table.find(t);
+    return it != table.end() ? &it->second : nullptr;
+}
+
+const Member* FindMember(T t, const std::string& name) {
+    if (const TypeInfo* info = Info(t)) {
+        for (const Member& m : info->members) if (m.name == name) return &m;
+    }
+    return nullptr;
+}
+
+const Method* FindMethod(T t, const std::string& name) {
+    if (const TypeInfo* info = Info(t)) {
+        for (const Method& m : info->methods) if (m.name == name) return &m;
+    }
+    return nullptr;
+}
+
+std::string SetterName(const std::string& property) {
+    std::string out = "set" + property;
+    out[3] = static_cast<char>(std::toupper(static_cast<unsigned char>(out[3])));
+    return out;
+}
 
 // Analysis carries a source type alongside its emitted C++ expression, avoiding a second AST pass.
 struct V {
@@ -60,6 +237,9 @@ struct HandlerInfo {
 const std::map<std::string, HandlerInfo> kHandlers = {
     {"Start", {{}, "OnStart"}},
     {"Update", {{T::Float}, "OnUpdate"}},
+    {"FixedUpdate", {{T::Float}, "OnFixedUpdate"}},
+    {"GUI", {{T::Float}, "OnGUI"}},
+    {"CollisionEnter", {{T::GameObject}, "OnCollisionEnter"}},
 };
 
 // Names that would collide with C++ or with the generated class's own members.
@@ -69,11 +249,16 @@ const std::set<std::string> kReserved = {
     "enum", "explicit", "export", "extern", "friend", "goto", "inline", "long", "mutable", "namespace", "new",
     "noexcept", "not", "nullptr", "operator", "or", "private", "protected", "public", "register", "short",
     "signed", "sizeof", "static", "struct", "switch", "template", "this", "throw", "try", "typedef", "typeid",
-    "typename", "union", "unsigned", "using", "virtual", "volatile", "xor", "std", "anito", "ctx",
-    "m_ctx", "Log", "GetPosition", "SetPosition", "Rotate", "OnStart", "OnUpdate", "Invoke", "method"};
+    "typename", "union", "unsigned", "using", "virtual", "volatile", "xor", "std", "anito", "user", "ctx",
+    "m_ctx", "gameObject", "OnStart", "OnUpdate", "OnFixedUpdate", "OnGUI", "OnCollisionEnter", "Invoke", "Call",
+    "method", "args", "argc", "ret", "owner",
+    "Mathf", "Vector3", "Quaternion", "Random", "Time", "Input", "Physics", "Scene", "Camera", "Gui", "Debug"};
 
 struct Lvalue {
     std::string pre, ref, post;
+    std::string setter; // set when the target is a whole property: a plain `=` lowers to `setter(rhs)`
+    std::string rhs;
+    bool plain = false;
 };
 
 class Analyzer {
@@ -123,11 +308,8 @@ private:
 
     T ResolveType(P::TypeContext* type, bool allowVoid) {
         const std::string text = type->getText();
-        if (text == "float") return T::Float;
-        if (text == "int") return T::Int;
-        if (text == "bool") return T::Bool;
-        if (text == "string") return T::String;
-        if (text == "vec3") return T::Vec3;
+        const auto it = kStorableNames.find(text);
+        if (it != kStorableNames.end()) return it->second;
         if (text == "void" && allowVoid) return T::Void;
         Report(type, "unknown type '" + text + "'");
         return T::Error;
@@ -150,6 +332,7 @@ private:
     std::string AnalyzeComponent(P::ComponentDeclContext* component) {
         m_fields.clear();
         m_methods.clear();
+        m_refFields.clear();
 
         const auto ids = component->ID();
         for (size_t i = 1; i < ids.size(); ++i) {
@@ -197,6 +380,7 @@ private:
         std::string data;      // field declarations
         std::string init;      // constructor initialisers for exposed fields
         std::string invoke;    // @method dispatch cases
+        std::string call;      // script-to-script dispatch cases (all callable methods)
         size_t exposedIndex = 0;
         m_indent = 1;
 
@@ -206,7 +390,7 @@ private:
                 EmitField(field, exposedIndex, init);
             } else if (auto* method = member->methodDecl()) {
                 m_out = &members;
-                EmitMethod(method, invoke);
+                EmitMethod(method, invoke, call);
             } else if (auto* handler = member->eventHandler()) {
                 m_out = &members;
                 EmitHandler(handler);
@@ -222,7 +406,9 @@ private:
         out += "    explicit " + cls + "(const anito::ScriptContext& ctx)\n";
         out += "        : anito::ScriptBehaviour(ctx)" + init + " {}\n\n";
         out += members;
-        out += "    bool Invoke(const char* method) override {\n" + invoke + "        return false;\n    }\n\n";
+        out += "    bool Invoke(const char* method) override {\n        (void)method;\n" + invoke + "        return false;\n    }\n\n";
+        out += "    bool Call(const char* method, const anito::Variant* args, uint32_t argc, anito::Variant* ret) override {\n";
+        out += "        (void)method; (void)args; (void)argc; (void)ret;\n" + call + "        return false;\n    }\n\n";
         out += "private:\n" + data + "};\n";
         return out;
     }
@@ -235,8 +421,16 @@ private:
         if (IsExposed(field)) {
             // Exposed fields live in host storage so the Inspector and serializer own the values;
             // declaration order must match the descriptor and module field table.
-            init += ",\n          " + name + "(*static_cast<" + Cpp(declared) + "*>(ctx.fields[" + std::to_string(exposedIndex++) + "]))";
-            Emit(std::string(Cpp(declared)) + "& " + name + ";");
+            const std::string slot = "ctx.fields[" + std::to_string(exposedIndex++) + "]";
+            if (declared == T::Prefab || declared == T::Transform) {
+                // Reference slots are resolved on every read so inspector edits and destroyed targets are seen.
+                init += ",\n          _f_" + name + "(" + slot + ")";
+                Emit("void* _f_" + name + ";");
+                m_refFields.insert(name);
+            } else {
+                init += ",\n          " + name + "(*static_cast<" + Cpp(declared) + "*>(" + slot + "))";
+                Emit(Cpp(declared) + "& " + name + ";");
+            }
             return;
         }
 
@@ -245,14 +439,14 @@ private:
             m_scopes.clear();
             const V v = Check(field->expr());
             if (v.t != T::Error && !Convertible(declared, v.t)) {
-                Report(field, "cannot initialize " + std::string(Name(declared)) + " field '" + name + "' with " + Name(v.t));
+                Report(field, "cannot initialize " + Name(declared) + " field '" + name + "' with " + Name(v.t));
             }
             value = "= " + v.c;
         }
-        Emit(std::string(Cpp(declared)) + " " + name + " " + (value == "{}" ? "{}" : value) + ";");
+        Emit(Cpp(declared) + " " + name + " " + (value == "{}" ? "{}" : value) + ";");
     }
 
-    void EmitMethod(P::MethodDeclContext* method, std::string& invoke) {
+    void EmitMethod(P::MethodDeclContext* method, std::string& invoke, std::string& call) {
         const std::string name = method->name->getText();
         const MethodSig& sig = m_methods[name];
         std::vector<std::pair<std::string, T>> params;
@@ -264,14 +458,46 @@ private:
                 CheckName(param, pname);
                 params.emplace_back(pname, sig.params[i]);
                 if (!list.empty()) list += ", ";
-                list += std::string(Cpp(sig.params[i])) + " " + pname;
+                list += Cpp(sig.params[i]) + " " + pname;
                 ++i;
             }
         }
         if (IsMethodExposed(method) && params.empty()) {
             invoke += "        if (std::strcmp(method, \"" + name + "\") == 0) { " + name + "(); return true; }\n";
         }
-        EmitBody(method, method->block(), std::string(Cpp(sig.ret)) + " " + name + "(" + list + ")", params, sig.ret);
+        EmitCallCase(name, sig, call);
+        EmitBody(method, method->block(), Cpp(sig.ret) + " " + name + "(" + list + ")", params, sig.ret);
+    }
+
+    // Methods whose signature fits in Variants are callable from other scripts via Script.call / sendMessage.
+    static void EmitCallCase(const std::string& name, const MethodSig& sig, std::string& call) {
+        if (sig.ret != T::Void && !Marshalable(sig.ret)) return;
+        if (sig.ret == T::String) return; // Variant strings borrow memory; returning one would dangle
+        std::string args;
+        for (size_t i = 0; i < sig.params.size(); ++i) {
+            if (!Marshalable(sig.params[i])) return;
+            const std::string slot = "args[" + std::to_string(i) + "]";
+            std::string value;
+            switch (sig.params[i]) {
+            case T::Float: value = slot + ".AsFloat()"; break;
+            case T::Int: value = slot + ".AsInt()"; break;
+            case T::Bool: value = slot + ".AsBool()"; break;
+            case T::Vec3: value = slot + ".AsVec3()"; break;
+            case T::String: value = "std::string(" + slot + ".AsString())"; break;
+            default: value = "anito::GameObject{" + slot + ".AsObject()}"; break;
+            }
+            if (!args.empty()) args += ", ";
+            args += value;
+        }
+        const std::string invocation = name + "(" + args + ")";
+        std::string body;
+        switch (sig.ret) {
+        case T::Void: body = invocation + ";"; break;
+        case T::GameObject: body = "if (ret) *ret = anito::Variant::OfObject(" + invocation + ".id);"; break;
+        default: body = "if (ret) *ret = anito::Variant::Of(" + invocation + ");"; break;
+        }
+        call += "        if (std::strcmp(method, \"" + name + "\") == 0 && argc == " + std::to_string(sig.params.size()) +
+                ") { " + body + " return true; }\n";
     }
 
     void EmitHandler(P::EventHandlerContext* handler) {
@@ -296,7 +522,7 @@ private:
                     }
                     params.emplace_back(pname, it->second.params[i]);
                     if (!list.empty()) list += ", ";
-                    list += std::string(Cpp(it->second.params[i])) + " " + pname;
+                    list += Cpp(it->second.params[i]) + " " + pname;
                 }
             }
         }
@@ -316,6 +542,7 @@ private:
         Directive(owner);
         Emit(signature + " {");
         ++m_indent;
+        for (const auto& [name, type] : params) Emit("(void)" + name + ";");
         for (auto* stmt : block->stmt()) CheckStmt(stmt);
         --m_indent;
         Emit("}");
@@ -337,7 +564,9 @@ private:
         }
         const auto field = m_fields.find(name);
         if (field != m_fields.end()) { out = field->second; return true; }
-        if (name == "owner") { out = T::Object; return true; }
+        if (name == "owner") { out = T::GameObject; return true; }
+        const auto stat = kStaticNames.find(name);
+        if (stat != kStaticNames.end()) { out = stat->second; return true; }
         return false;
     }
 
@@ -347,19 +576,19 @@ private:
     std::string CheckLet(antlr4::ParserRuleContext* ctx, antlr4::Token* nameToken, P::TypeContext* type, P::ExprContext* init) {
         const V value = Check(init);
         T result = value.t;
-        if (value.t == T::Void || value.t == T::Object || value.t == T::Transform) {
-            Report(ctx, std::string("cannot store a ") + Name(value.t) + " value");
+        if (value.t == T::Void || IsStatic(value.t)) {
+            Report(ctx, "cannot store a " + Name(value.t) + " value");
             result = T::Error;
         }
         if (type) {
             const T declared = ResolveType(type, false);
             if (declared != T::Error && result != T::Error && !Convertible(declared, result)) {
-                Report(ctx, "cannot initialize " + std::string(Name(declared)) + " '" + nameToken->getText() + "' with " + Name(result));
+                Report(ctx, "cannot initialize " + Name(declared) + " '" + nameToken->getText() + "' with " + Name(result));
             }
             result = declared;
         }
         Declare(nameToken->getText(), result, ctx);
-        return std::string(Cpp(result)) + " " + nameToken->getText() + " = " + value.c;
+        return Cpp(result) + " " + nameToken->getText() + " = " + value.c;
     }
 
     std::string CheckCondition(P::ExprContext* expr) {
@@ -454,33 +683,49 @@ private:
     bool IsLvalue(P::ExprContext* expr) {
         if (auto* primary = dynamic_cast<P::PrimaryExprContext*>(expr)) {
             auto* id = dynamic_cast<P::IdentifierContext*>(primary->primary());
-            return id && id->ID()->getText() != "owner";
+            if (!id) return false;
+            const std::string name = id->ID()->getText();
+            return name != "owner" && !kStaticNames.count(name) && !m_refFields.count(name);
         }
         if (auto* member = dynamic_cast<P::MemberExprContext*>(expr)) {
             ++m_quiet;
             const T base = Check(member->expr()).t;
             --m_quiet;
-            if (base == T::Vec3) return IsLvalue(member->expr());
-            return base == T::Transform && member->name->getText() == "position";
+            const std::string name = member->name->getText();
+            if (base == T::Vec3) return (name == "x" || name == "y" || name == "z") && IsLvalue(member->expr());
+            const Member* m = FindMember(base, name);
+            return m && m->settable;
         }
         return false;
     }
 
-    // Assignable expressions that go through host calls (position) are staged in a temporary.
+    // Properties are assignable through setX(); compound and component writes stage a temporary.
     Lvalue ToLvalue(P::ExprContext* expr) {
         if (auto* primary = dynamic_cast<P::PrimaryExprContext*>(expr)) {
-            return {"", dynamic_cast<P::IdentifierContext*>(primary->primary())->ID()->getText(), ""};
+            Lvalue out;
+            out.ref = dynamic_cast<P::IdentifierContext*>(primary->primary())->ID()->getText();
+            return out;
         }
         auto* member = dynamic_cast<P::MemberExprContext*>(expr);
         ++m_quiet;
-        const T base = Check(member->expr()).t;
+        const V base = Check(member->expr());
         --m_quiet;
-        if (base == T::Vec3) {
+        const std::string name = member->name->getText();
+        if (base.t == T::Vec3) {
             Lvalue inner = ToLvalue(member->expr());
-            inner.ref += "." + member->name->getText();
+            inner.ref += "." + name;
+            inner.setter.clear();
             return inner;
         }
-        return {"anito::Vec3 _pos = GetPosition();", "_pos", "SetPosition(_pos);"};
+        const Member* m = FindMember(base.t, name);
+        const std::string sep = IsStatic(base.t) ? "::" : ".";
+        const std::string tmp = "_t" + std::to_string(m_tmp++);
+        Lvalue out;
+        out.setter = base.c + sep + SetterName(name);
+        out.pre = Cpp(m->type) + " " + tmp + " = " + base.c + sep + name + "();";
+        out.ref = tmp;
+        out.post = out.setter + "(" + tmp + ");";
+        return out;
     }
 
     // Returns `ref op rhs` and the staging statements, or false if the assignment is invalid.
@@ -495,22 +740,31 @@ private:
         if (left.t == T::Error || right.t == T::Error) return false;
 
         const size_t op = assignment->op->getType();
+        std::string rhs = right.c;
         if (op == P::ASSIGN) {
             if (!Convertible(left.t, right.t)) {
-                Report(assignment, std::string("cannot assign ") + Name(right.t) + " to " + Name(left.t));
+                Report(assignment, "cannot assign " + Name(right.t) + " to " + Name(left.t));
                 return false;
             }
+            if (left.t == T::Float && right.t == T::Int) rhs = "static_cast<float>(" + rhs + ")";
         } else {
             const char* symbol = op == P::PLUS_ASSIGN ? "+" : op == P::MINUS_ASSIGN ? "-" : op == P::STAR_ASSIGN ? "*" : "/";
             const V result = Arith(symbol, left, right, assignment);
             if (result.t == T::Error) return false;
             if (!Convertible(left.t, result.t)) {
-                Report(assignment, std::string("cannot assign ") + Name(result.t) + " to " + Name(left.t));
+                Report(assignment, "cannot assign " + Name(result.t) + " to " + Name(left.t));
                 return false;
             }
         }
         target = ToLvalue(sides[0]);
-        expression = target.ref + " " + assignment->op->getText() + " " + right.c;
+        target.plain = op == P::ASSIGN;
+        target.rhs = rhs;
+        if (op != P::ASSIGN && left.t == T::Quat) {
+            const std::string symbol = assignment->op->getText().substr(0, 1);
+            expression = target.ref + " = (" + target.ref + " " + symbol + " " + rhs + ")";
+        } else {
+            expression = target.ref + " " + assignment->op->getText() + " " + rhs;
+        }
         return true;
     }
 
@@ -518,7 +772,9 @@ private:
         Lvalue target;
         std::string expression;
         if (!BuildAssignment(assignment, target, expression)) return;
-        if (target.pre.empty()) {
+        if (target.plain && !target.setter.empty()) {
+            Emit(target.setter + "(" + target.rhs + ");");
+        } else if (target.pre.empty()) {
             Emit(expression + ";");
         } else {
             Emit("{ " + target.pre + " " + expression + "; " + target.post + " }");
@@ -529,8 +785,9 @@ private:
         Lvalue target;
         std::string expression;
         if (!BuildAssignment(assignment, target, expression)) return "";
+        if (target.plain && !target.setter.empty()) return target.setter + "(" + target.rhs + ")";
         if (!target.pre.empty()) {
-            Report(assignment, "assigning to a transform property is not supported in a for header");
+            Report(assignment, "assigning to a property component is not supported in a for header");
             return "";
         }
         return expression;
@@ -550,6 +807,8 @@ private:
         if (op == "*" && ((l.t == T::Vec3 && Numeric(r.t)) || (Numeric(l.t) && r.t == T::Vec3))) return {T::Vec3, plain};
         if (op == "/" && l.t == T::Vec3 && Numeric(r.t)) return {T::Vec3, plain};
         if (op == "+" && l.t == T::String && r.t == T::String) return {T::String, plain};
+        if (op == "*" && l.t == T::Quat && r.t == T::Quat) return {T::Quat, plain};
+        if (op == "*" && l.t == T::Quat && r.t == T::Vec3) return {T::Vec3, plain};
         Report(ctx, "operator '" + op + "' cannot be applied to " + Name(l.t) + " and " + Name(r.t));
         return {};
     }
@@ -596,7 +855,7 @@ private:
             const auto s = e->expr();
             const V l = Check(s[0]);
             const V r = Check(s[1]);
-            if (l.t != T::Error && r.t != T::Error && !(l.t == r.t || (Numeric(l.t) && Numeric(r.t)))) {
+            if (l.t != T::Error && r.t != T::Error && !(Equatable(l.t, r.t))) {
                 Report(e, std::string("cannot compare ") + Name(l.t) + " with " + Name(r.t));
             }
             return {T::Bool, "(" + l.c + " " + e->op->getText() + " " + r.c + ")"};
@@ -648,7 +907,16 @@ private:
         if (auto* id = dynamic_cast<P::IdentifierContext*>(primary)) {
             const std::string name = id->ID()->getText();
             T type = T::Error;
-            if (Lookup(name, type)) return {type, name == "owner" && type == T::Object ? "" : name};
+            if (Lookup(name, type)) {
+                if (name == "owner") return {type, "gameObject"};
+                if (const auto stat = kStaticNames.find(name); stat != kStaticNames.end() && !m_fields.count(name)) {
+                    return {type, Info(type)->cpp};
+                }
+                if (m_refFields.count(name)) {
+                    return {type, std::string(type == T::Prefab ? "anito::ResolvePrefabField(" : "anito::ResolveTransformField(") + "_f_" + name + ")"};
+                }
+                return {type, name};
+            }
             if (m_methods.count(name)) {
                 Report(primary, "'" + name + "' is a method; call it with ()");
             } else {
@@ -664,10 +932,12 @@ private:
         const V base = Check(member->expr());
         if (base.t == T::Error) return {};
         const std::string name = member->name->getText();
-        if (base.t == T::Object && name == "transform") return {T::Transform, ""};
-        if (base.t == T::Transform && name == "position") return {T::Vec3, "GetPosition()"};
         if (base.t == T::Vec3 && (name == "x" || name == "y" || name == "z")) return {T::Float, base.c + "." + name};
-        Report(member, std::string(Name(base.t)) + " has no member '" + name + "'");
+        if (const Member* m = FindMember(base.t, name)) {
+            return {m->type, base.c + (IsStatic(base.t) ? "::" : ".") + name + "()"};
+        }
+        if (FindMethod(base.t, name)) Report(member, "'" + name + "' is a method; call it with ()");
+        else Report(member, Name(base.t) + " has no member '" + name + "'");
         return {};
     }
 
@@ -716,12 +986,40 @@ private:
             const V base = Check(member->expr());
             if (base.t == T::Error) return {};
             const std::string name = member->name->getText();
-            if (base.t == T::Transform && name == "rotate") {
-                if (!ExpectArgs("rotate", {T::Vec3, T::Float}, args, call)) return {T::Void, ""};
-                return {T::Void, "Rotate(" + Join(args, false) + ")"};
+            const Method* m = FindMethod(base.t, name);
+            if (!m) {
+                Report(call, Name(base.t) + " has no method '" + name + "'");
+                return {};
             }
-            Report(call, std::string(Name(base.t)) + " has no method '" + name + "'");
-            return {};
+            const size_t fixed = m->params.size();
+            const bool countOk = m->variadic ? args.size() >= fixed : args.size() == fixed;
+            if (!countOk) {
+                Report(call, "'" + name + "' takes " + std::string(m->variadic ? "at least " : "") + std::to_string(fixed) +
+                                 " argument(s), got " + std::to_string(args.size()));
+                return {m->ret, ""};
+            }
+            bool ok = true;
+            std::string list;
+            for (size_t i = 0; i < args.size(); ++i) {
+                const V& a = args[i];
+                if (a.t == T::Error) { ok = false; continue; }
+                std::string text = a.c;
+                if (i < fixed) {
+                    if (!Convertible(m->params[i], a.t)) {
+                        Report(call, "argument " + std::to_string(i + 1) + " of '" + name + "' must be " + Name(m->params[i]) + ", got " + Name(a.t));
+                        ok = false;
+                    } else if (m->params[i] == T::Float && a.t == T::Int) {
+                        text = "static_cast<float>(" + text + ")";
+                    }
+                } else if (!Marshalable(a.t)) {
+                    Report(call, "argument " + std::to_string(i + 1) + " of '" + name + "' cannot be passed to a script");
+                    ok = false;
+                }
+                if (!list.empty()) list += ", ";
+                list += text;
+            }
+            if (!ok) return {m->ret, ""};
+            return {m->ret, base.c + (IsStatic(base.t) ? "::" : ".") + name + "(" + list + ")"};
         }
         Report(call, "expression is not callable");
         return {};
@@ -748,7 +1046,7 @@ private:
         }
         if (name == "log") {
             ExpectArgs(name, {T::String}, args, call);
-            return {T::Void, "Log((" + Join(args, false) + ").c_str())"};
+            return {T::Void, "anito::Debug::log(" + Join(args, false) + ")"};
         }
 
         T local = T::Error;
@@ -785,6 +1083,8 @@ private:
     std::string* m_out = nullptr;
     std::map<std::string, T> m_fields;
     std::map<std::string, MethodSig> m_methods;
+    std::set<std::string> m_refFields;
+    int m_tmp = 0;
     std::vector<std::map<std::string, T>> m_scopes;
     T m_ret = T::Void;
     int m_loopDepth = 0;
