@@ -12,6 +12,7 @@
 #include "Rendering/Models/ModelManager.hpp"
 #include "Objects/HierarchyManager.hpp"
 #include "Objects/ObjectFactory.hpp"
+#include "Objects/Components/Particles/ParticleGather.hpp"
 #include "UserSettings.hpp"
 #include "UI/ObjectPicker.hpp"
 #include "Asset/AssetPipeline.hpp"
@@ -457,6 +458,7 @@ void AnitoTracer_App::Render()
     HierarchyManager::GetInstance().GetMainCameraMatrices(renderData.ViewMatrix, renderData.ProjectionMatrix);
     HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
     HierarchyManager::GetInstance().GatherLightData(renderData.Lights);
+    GatherParticleBatches(renderData.Particles);
 
     const auto& SCDesc = m_pSwapChain->GetDesc();
 
@@ -474,6 +476,7 @@ void AnitoTracer_App::Render()
         HierarchyManager::GetInstance().GetEditorCameraMatrices(editorRenderData.ViewMatrix, editorRenderData.ProjectionMatrix);
         editorRenderData.Models = renderData.Models;
         editorRenderData.Lights = renderData.Lights;
+        editorRenderData.Particles = renderData.Particles;
 
         if (ProjectLoader::GetProjectSettings().debug.show_physics_collider_wireframes) {
             editorRenderData.DebugLines = PhysicsEngine::GetInstance().Get().GetDebugLines();

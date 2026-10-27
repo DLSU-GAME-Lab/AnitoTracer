@@ -176,6 +176,46 @@ bool HierarchyManager::CopyObjects(const std::vector<HierarchyObject::Ref>& obje
     return true;
 }
 
+bool HierarchyManager::CopyComponent(ComponentBase* component) {
+    if (!component) return false;
+
+    m_copiedComponent = component->Serialize();
+    for (auto it = m_copiedComponent.serialized_variables.begin();
+         it != m_copiedComponent.serialized_variables.end();) {
+        const std::string& key = it->first;
+        if (key == "m_guid") {
+            it = m_copiedComponent.serialized_variables.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+    m_copiedComponentType = typeid(*component).name();
+    m_copiedComponentName = component->GetName();
+    m_hasCopiedComponent = true;
+    return true;
+}
+
+bool HierarchyManager::PasteComponent(HierarchyObject::Ref object) {
+    if (!m_hasCopiedComponent || !object) return false;
+
+    gbe::SerializedData componentData = m_copiedComponent;
+    gbe::ISerializable* rawComponent =
+        gbe::TypeRegistry::Instantiate(m_copiedComponentType, componentData);
+    auto* component = dynamic_cast<ComponentBase*>(rawComponent);
+    if (!component) {
+        delete rawComponent;
+        std::cerr << "Unable to instantiate copied component type: "
+                  << m_copiedComponentType << std::endl;
+        return false;
+    }
+
+    component->Deserialize(componentData);
+    UndoScope undoScope;
+    object.GetPtr()->AddComponent(std::unique_ptr<ComponentBase>(component));
+    return true;
+}
+
 HierarchyObject::Ref HierarchyManager::PasteObject(HierarchyObject::Ref parent) {
     const auto pasted = PasteObjects(parent);
     return pasted.empty() ? HierarchyObject::Ref(nullptr) : pasted.front();

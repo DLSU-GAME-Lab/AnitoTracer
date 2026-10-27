@@ -37,13 +37,14 @@ private:
     float m_barHeightOffset = 1.5f; // world units above the owner's origin
     GBE_SERIALIZE_FIELD_W_NAME(m_barHeightOffset, "Bar Height Offset");
 
-    float m_barWidth = 60.0f; // pixels
+    float m_barWidth = 48.0f; // pixels
     GBE_SERIALIZE_FIELD_W_NAME(m_barWidth, "Bar Width (px)");
 
     gbe::UnityEvent m_onDepleted;
     GBE_SERIALIZE_FIELD_W_NAME(m_onDepleted, "On Depleted");
 
     float m_currentHealth = -1.0f; // lazily initialised to max health
+    float m_healthBarVisibleTime = 0.0f;
     bool m_depleted = false;
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(Health, ComponentBase);

@@ -12,6 +12,10 @@
 
 #include <glm/glm.hpp>
 
+namespace {
+constexpr float kHealthBarVisibleDuration = 3.0f;
+}
+
 Health::Health(gbe::IInstanceManager<HierarchyObject>::Ref owner)
     : ComponentBase("Health", owner) {}
 
@@ -27,7 +31,11 @@ bool Health::TakeDamage(float amount) {
         return false;
     }
 
-    m_currentHealth = std::max(0.0f, GetCurrentHealth() - amount);
+    const float previousHealth = GetCurrentHealth();
+    m_currentHealth = std::max(0.0f, previousHealth - amount);
+    if (m_currentHealth != previousHealth) {
+        m_healthBarVisibleTime = kHealthBarVisibleDuration;
+    }
     if (m_currentHealth > 0.0f) {
         return false;
     }
@@ -37,8 +45,9 @@ bool Health::TakeDamage(float amount) {
     return true;
 }
 
-void Health::OnGUI_ReleaseEvent(float /*deltaTime*/) {
-    if (!m_showHealthBar || m_depleted) {
+void Health::OnGUI_ReleaseEvent(float deltaTime) {
+    m_healthBarVisibleTime = std::max(0.0f, m_healthBarVisibleTime - std::max(deltaTime, 0.0f));
+    if (!m_showHealthBar || m_depleted || m_healthBarVisibleTime <= 0.0f) {
         return;
     }
 
@@ -77,7 +86,7 @@ void Health::OnGUI_ReleaseEvent(float /*deltaTime*/) {
 
     const float centerX = viewportPos.x + (ndc.x * 0.5f + 0.5f) * viewportSize.x;
     const float centerY = viewportPos.y + (1.0f - (ndc.y * 0.5f + 0.5f)) * viewportSize.y;
-    const float barHeight = 6.0f;
+    const float barHeight = 4.0f;
     const float fraction = std::clamp(GetCurrentHealth() / std::max(m_maxHealth, 0.0001f), 0.0f, 1.0f);
 
     const ImVec2 topLeft(centerX - m_barWidth * 0.5f, centerY - barHeight * 0.5f);
@@ -86,10 +95,13 @@ void Health::OnGUI_ReleaseEvent(float /*deltaTime*/) {
     // Foreground list so the bar also shows inside the editor's game panel; clipped to the game view.
     ImDrawList* drawList = ImGui::GetForegroundDrawList();
     drawList->PushClipRect(viewportPos, ImVec2(viewportPos.x + viewportSize.x, viewportPos.y + viewportSize.y), true);
-    drawList->AddRectFilled(topLeft, bottomRight, IM_COL32(20, 20, 20, 200));
+    drawList->AddRectFilled(topLeft, bottomRight, IM_COL32(18, 20, 22, 145));
+    const ImU32 healthColor = fraction < 0.25f ? IM_COL32(185, 92, 82, 220)
+        : fraction < 0.6f ? IM_COL32(190, 157, 88, 220)
+        : IM_COL32(112, 166, 126, 220);
     drawList->AddRectFilled(topLeft, ImVec2(topLeft.x + m_barWidth * fraction, bottomRight.y),
-        IM_COL32(static_cast<int>(255 * (1.0f - fraction)), static_cast<int>(220 * fraction), 40, 255));
-    drawList->AddRect(topLeft, bottomRight, IM_COL32(0, 0, 0, 255));
+        healthColor);
+    drawList->AddRect(topLeft, bottomRight, IM_COL32(0, 0, 0, 150));
     drawList->PopClipRect();
 }
 
@@ -97,5 +109,9 @@ void Health::Heal(float amount) {
     if (m_depleted || amount <= 0.0f) {
         return;
     }
-    m_currentHealth = std::min(m_maxHealth, GetCurrentHealth() + amount);
+    const float previousHealth = GetCurrentHealth();
+    m_currentHealth = std::min(m_maxHealth, previousHealth + amount);
+    if (m_currentHealth != previousHealth) {
+        m_healthBarVisibleTime = kHealthBarVisibleDuration;
+    }
 }

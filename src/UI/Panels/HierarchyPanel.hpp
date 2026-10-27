@@ -49,6 +49,9 @@ namespace Diligent {
         void ResolvePendingRangeSelection();
         // Pastes the clipboard under parent and selects everything pasted.
         void PasteAndSelect(HierarchyObject::Ref parent);
+        void CreateEmptyObject(HierarchyObject::Ref parent);
+        HierarchyObject::Ref m_PendingCreateParent = nullptr;
+        bool m_PendingCreateEmpty = false;
         HierarchyObject::Ref m_pendingDraggedObject = nullptr;
         HierarchyObject::Ref m_pendingDropParent = nullptr;
 

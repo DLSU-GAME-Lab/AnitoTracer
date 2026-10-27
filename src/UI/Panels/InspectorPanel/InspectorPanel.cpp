@@ -124,10 +124,22 @@ void Diligent::InspectorPanel::Draw()
                     // Scope all widgets within this component to its memory address
                     ImGui::PushID(component.get());
 
+                    ImGui::BeginGroup();
                     InspectorRegistry::GetInstance().DrawComponent(component.get());
+                    ImGui::EndGroup();
 
-                    ImGui::SameLine();
-                    if (ImGui::SmallButton("Remove")) {
+                    bool removeComponent = false;
+                    if (ImGui::BeginPopupContextItem("ComponentContextMenu", ImGuiPopupFlags_MouseButtonRight)) {
+                        if (ImGui::MenuItem("Copy Component")) {
+                            HierarchyManager::GetInstance().CopyComponent(component.get());
+                        }
+                        if (ImGui::MenuItem("Remove Component")) {
+                            removeComponent = true;
+                        }
+                        ImGui::EndPopup();
+                    }
+
+                    if (removeComponent) {
                         selected.GetPtr()->RemoveComponent(component.get());
                         ImGui::PopID();
                         break;
@@ -143,9 +155,22 @@ void Diligent::InspectorPanel::Draw()
             ImGui::Spacing();
 
             // --- ADD COMPONENT BUTTON & POPUP ---
-            if (ImGui::Button("Add Component", ImVec2(-1, 0))) {
+            HierarchyManager& hierarchyManager = HierarchyManager::GetInstance();
+            const bool hasCopiedComponent = hierarchyManager.HasCopiedComponent();
+            const float addButtonWidth = hasCopiedComponent
+                ? (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f
+                : -1.0f;
+            if (ImGui::Button("Add Component", ImVec2(addButtonWidth, 0))) {
                 m_ComponentSearchBuffer[0] = '\0';
                 ImGui::OpenPopup("AddComponentPopup");
+            }
+
+            if (hasCopiedComponent) {
+                ImGui::SameLine();
+                if (ImGui::Button("Paste Component", ImVec2(-1, 0))) {
+                    hierarchyManager.PasteComponent(selected);
+                }
+                ImGui::TextDisabled("Clipboard: %s", hierarchyManager.GetCopiedComponentName().c_str());
             }
 
             if (ImGui::BeginPopup("AddComponentPopup")) {

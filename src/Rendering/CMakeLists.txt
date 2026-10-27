@@ -45,6 +45,10 @@ set(${CUR_TARGET_NAME}_src
 
 	Pipelines/DebugLinePipeline.hpp
 	Pipelines/DebugLinePipeline.cpp
+
+	ParticleRenderData.hpp
+	Pipelines/ParticlePipeline.hpp
+	Pipelines/ParticlePipeline.cpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})

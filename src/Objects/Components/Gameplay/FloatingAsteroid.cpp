@@ -4,6 +4,7 @@
 #include "HierarchyObject.hpp"
 #include "Components/Physics/RigidBody.hpp"
 #include "Health.hpp"
+#include "Components/Particles/ParticleSystemComponent.hpp"
 #include "Components/Audio/AudioSourceComponent.hpp"
 #include "../../../Physics/PhysicsEngine.hpp"
 
@@ -46,6 +47,9 @@ void FloatingAsteroid::OnDestroy() {
     if (HierarchyObject* owner = GetOwner().GetPtr()) {
         if (AudioSourceComponent* audio = owner->GetComponent<AudioSourceComponent>()) {
             audio->PlayDetached();
+        }
+        if (ParticleSystemComponent* particles = owner->GetComponent<ParticleSystemComponent>()) {
+            particles->PlayImmediate();
         }
         HierarchyManager::GetInstance().QueueObjectDeletion(owner->getRef());
     }

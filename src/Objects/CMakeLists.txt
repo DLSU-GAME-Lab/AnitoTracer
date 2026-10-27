@@ -61,6 +61,11 @@ set(${CUR_TARGET_NAME}_src
 	Components/Audio/AudioListenerComponent.hpp
 	Components/Audio/AudioListenerComponent.cpp
 
+	Components/Particles/ParticleSystemComponent.hpp
+	Components/Particles/ParticleSystemComponent.cpp
+	Components/Particles/ParticleGather.hpp
+	Components/Particles/ParticleGather.cpp
+
 	HierarchyObject.hpp
 	HierarchyObject.cpp
 
