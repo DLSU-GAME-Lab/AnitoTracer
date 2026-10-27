@@ -33,8 +33,8 @@ add_custom_command(
 	VERBATIM
 )
 
-# Language core: grammar, parser, analyzer, and transpiler. Keeping this layer engine-independent
-# lets both the editor and scriptc compile scripts through the same implementation.
+# Language core: grammar, parser, analyzer, and transpiler. Engine-facing API metadata is compiled
+# into a separate target so neither the analyzer nor the transpiler includes component headers.
 set(LANG_TARGET anito_scriptlang)
 add_library(${LANG_TARGET} STATIC
 	ScriptDescriptor.hpp
@@ -52,6 +52,19 @@ set_source_files_properties(${ANTLR_GRAMMARS} PROPERTIES HEADER_FILE_ONLY TRUE)
 target_include_directories(${LANG_TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(${LANG_TARGET} SYSTEM PRIVATE "${ANTLR_GEN_DIR}")
 target_link_libraries(${LANG_TARGET} PUBLIC glm::glm PRIVATE antlr4_static)
+
+# Component annotations are compiled separately so the language core consumes metadata without
+# including engine component headers in ScriptAnalyzer.cpp.
+add_library(anito_scriptapi STATIC
+	ScriptApiMetadata.cpp
+	ScriptApiMetadata.hpp
+)
+add_library(anito::scriptapi ALIAS anito_scriptapi)
+target_include_directories(anito_scriptapi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# COMPILE_ONLY: the registry only needs component declarations, never the engine's link dependencies.
+target_link_libraries(anito_scriptapi PUBLIC anito::common PRIVATE $<COMPILE_ONLY:anito::objects>)
+target_compile_definitions(anito_scriptapi PRIVATE ANITO_SCRIPT_METADATA_ONLY)
+target_link_libraries(${LANG_TARGET} PRIVATE anito::scriptapi)
 
 # Warnings in generated code are not ours to fix.
 set_source_files_properties(${ANTLR_GEN_SRC} PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/w>")

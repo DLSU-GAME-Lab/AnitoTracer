@@ -1,9 +1,11 @@
 #include "ScriptAnalyzer.hpp"
+#include "ScriptApiMetadata.hpp"
 
 #include <antlr4-runtime.h>
 
 #include <map>
 #include <set>
+#include <stdexcept>
 
 namespace {
 
@@ -26,11 +28,7 @@ T ArrayOf(T element) { return static_cast<T>(kArrayBase + static_cast<int>(eleme
 
 bool IsStatic(T t) { return t >= T::SMathf && !IsArray(t); }
 bool Storable(T t) { return t != T::Error && t != T::Void && !IsStatic(t); }
-// Handle types that expose valid().
-bool HasValid(T t) {
-    return t == T::GameObject || t == T::Transform || t == T::Rigidbody || t == T::Collider || t == T::AudioSource ||
-           t == T::Script;
-}
+
 // Types that can cross the script-to-script boundary as a Variant.
 bool Marshalable(T t) { return t == T::Float || t == T::Int || t == T::Bool || t == T::Vec3 || t == T::String || t == T::GameObject; }
 
@@ -44,6 +42,22 @@ const std::map<std::string, T> kStaticNames = {
     {"Mathf", T::SMathf}, {"Vector3", T::SVector3}, {"Quaternion", T::SQuaternion}, {"Random", T::SRandom},
     {"Time", T::STime}, {"Input", T::SInput}, {"Physics", T::SPhysics}, {"Scene", T::SScene},
     {"Camera", T::SCamera}, {"Gui", T::SGui}, {"Debug", T::SDebug}};
+
+const anito::script::TypeMetadata* FindRegisteredType(T t) {
+    for (const auto& [name, type] : kStorableNames) {
+        if (type != t) continue;
+        const auto& registered = anito::script::RegisteredTypes();
+        const auto it = registered.find(name);
+        if (it != registered.end()) return &it->second;
+    }
+    return nullptr;
+}
+
+// Handle types that expose valid().
+bool HasValid(T t) {
+    if (const auto* type = FindRegisteredType(t)) return type->hasValid;
+    return t == T::GameObject || t == T::Script;
+}
 
 std::string Name(T t) {
     switch (t) {
@@ -59,6 +73,7 @@ std::string Name(T t) {
 
 std::string Cpp(T t) {
     if (IsArray(t)) return "anito::Array<" + Cpp(ElementOf(t)) + ">";
+    if (const auto* type = FindRegisteredType(t)) return type->cppType;
     switch (t) {
     case T::Float: return "float";
     case T::Int: return "int";
@@ -67,10 +82,6 @@ std::string Cpp(T t) {
     case T::Vec3: return "anito::Vec3";
     case T::Quat: return "anito::Quat";
     case T::GameObject: return "anito::GameObject";
-    case T::Transform: return "anito::Transform";
-    case T::Rigidbody: return "anito::Rigidbody";
-    case T::Collider: return "anito::Collider";
-    case T::AudioSource: return "anito::AudioSource";
     case T::Script: return "anito::Script";
     case T::Prefab: return "anito::PrefabAsset";
     case T::RaycastHit: return "anito::RaycastHit";
@@ -86,8 +97,15 @@ bool Equatable(T a, T b) {
     return a == T::Bool || a == T::String || a == T::Vec3 || a == T::GameObject;
 }
 
+T ApiType(const std::string& name) {
+    if (name == "void") return T::Void;
+    const auto it = kStorableNames.find(name);
+    if (it == kStorableNames.end()) throw std::logic_error("unmapped script API type: " + name);
+    return it->second;
+}
+
 // ---- API surface ------------------------------------------------------------------------------
-// One table drives type checking and lowering, so adding an SDK method is a single line here.
+// Component-backed APIs come from registered metadata; SDK-only APIs remain in the table below.
 struct Member {
     std::string name;
     T type;
@@ -125,6 +143,47 @@ const TypeInfo* Info(T t) {
         }
         return &it->second;
     }
+    if (FindRegisteredType(t)) {
+        static const std::map<T, TypeInfo> registeredTypes = [] {
+            std::map<T, TypeInfo> result;
+            for (const auto& [scriptName, metadata] : anito::script::RegisteredTypes()) {
+                const auto type = kStorableNames.find(scriptName);
+                if (type == kStorableNames.end()) continue;
+
+                TypeInfo info{metadata.cppType, {}, {}};
+                for (const auto& member : metadata.members) {
+                    info.members.push_back({member.name, ApiType(member.type), member.settable});
+                }
+                for (const auto& method : metadata.methods) {
+                    std::vector<T> parameters;
+                    parameters.reserve(method.parameters.size());
+                    for (const auto& parameter : method.parameters) parameters.push_back(ApiType(parameter));
+                    info.methods.push_back({method.name, ApiType(method.result), std::move(parameters)});
+                }
+                if (metadata.hasValid) info.methods.push_back({"valid", T::Bool, {}});
+
+                // These are SDK conveniences backed by object IDs rather than component accessors.
+                if (metadata.hasValid) info.members.push_back({"gameObject", T::GameObject, false});
+                if (scriptName == "transform") {
+                    info.members.insert(info.members.end(), {{"forward", T::Vec3}, {"right", T::Vec3}, {"up", T::Vec3},
+                                                             {"parent", T::Transform}});
+                    info.methods.insert(info.methods.end(), {{"rotate", T::Void, {T::Vec3, T::Float}},
+                                                             {"translate", T::Void, {T::Vec3}},
+                                                             {"lookAt", T::Void, {T::Vec3, T::Vec3}},
+                                                             {"transformPoint", T::Vec3, {T::Vec3}},
+                                                             {"transformDirection", T::Vec3, {T::Vec3}},
+                                                             {"inverseTransformDirection", T::Vec3, {T::Vec3}}});
+                } else if (scriptName == "rigidbody") {
+                    info.members.insert(info.members.end(), {{"simulated", T::Bool}, {"rotation", T::Quat}});
+                    info.methods.push_back({"lockRotation", T::Void, {T::Bool, T::Bool, T::Bool}});
+                }
+                result.emplace(type->second, std::move(info));
+            }
+            return result;
+        }();
+        const auto it = registeredTypes.find(t);
+        return it != registeredTypes.end() ? &it->second : nullptr;
+    }
     static const std::map<T, TypeInfo> table = {
         {T::Vec3, {"", {{"length", F}, {"lengthSq", F}, {"normalized", V3}}, {Md{"dot", F, {V3}}, Md{"cross", V3, {V3}}}}},
         {T::Quat, {"", {{"normalized", Q}, {"inverse", Q}}, {Md{"dot", F, {Q}}}}},
@@ -140,32 +199,7 @@ const TypeInfo* Info(T t) {
            Md{"addCapsuleCollider", T::Collider, {F, F}}, Md{"child", G, {I}}, Md{"findChild", G, {S}},
            Md{"destroy", Vd, {}}, Md{"sendMessage", Vd, {S}, true}}}},
 
-        // Transform
-        {T::Transform,
-         {"",
-          {{"position", V3, true}, {"localPosition", V3, true}, {"rotation", Q, true}, {"localRotation", Q, true},
-           {"localScale", V3, true}, {"lossyScale", V3}, {"eulerAngles", V3, true}, {"forward", V3}, {"right", V3},
-           {"up", V3}, {"gameObject", G}, {"parent", T::Transform}},
-          {Md{"valid", B, {}}, Md{"rotate", Vd, {V3, F}}, Md{"translate", Vd, {V3}}, Md{"lookAt", Vd, {V3, V3}},
-           Md{"transformPoint", V3, {V3}}, Md{"transformDirection", V3, {V3}}, Md{"inverseTransformDirection", V3, {V3}}}}},
-
-        // Physics
-        {T::Rigidbody,
-         {"",
-          {{"simulated", B}, {"velocity", V3, true}, {"angularVelocity", V3, true}, {"mass", F, true}, {"rotation", Q},
-           {"gameObject", G}},
-          {Md{"valid", B, {}}, Md{"addForce", Vd, {V3}}, Md{"addTorque", Vd, {V3}}, Md{"addImpulse", Vd, {V3}},
-           Md{"teleport", Vd, {V3, Q}}, Md{"lockRotation", Vd, {B, B, B}}}}},
-        {T::Collider, {"", {{"gameObject", G}}, {Md{"valid", B, {}}}}},
         {T::RaycastHit, {"", {{"hit", B}, {"point", V3}, {"gameObject", G}}, {}}},
-
-        // Audio
-        {T::AudioSource,
-         {"",
-          {{"hasClip", B}, {"volume", F, true}, {"loop", B, true}, {"pitch", F, true}, {"spatialized", B, true},
-           {"gameObject", G}},
-          {Md{"valid", B, {}}, Md{"play", Vd, {}}, Md{"stop", Vd, {}}, Md{"playDetached", Vd, {}},
-           Md{"setDistance", Vd, {F, F}}}}},
 
         // Scripts / assets / collections
         {T::Script,
@@ -273,8 +307,15 @@ const std::set<std::string> kReserved = {
     "signed", "sizeof", "static", "struct", "switch", "template", "this", "throw", "try", "typedef", "typeid",
     "typename", "union", "unsigned", "using", "virtual", "volatile", "xor", "std", "anito", "user", "ctx",
     "m_ctx", "gameObject", "OnStart", "OnUpdate", "OnFixedUpdate", "OnGUI", "OnCollisionEnter", "Invoke", "Call",
-    "method", "args", "argc", "ret", "owner",
-    "Mathf", "Vector3", "Quaternion", "Random", "Time", "Input", "Physics", "Scene", "Camera", "Gui", "Debug"};
+    "method", "args", "argc", "ret", "owner"};
+
+bool IsReservedName(const std::string& name) {
+    if (kReserved.count(name) || kStorableNames.count(name) || kStaticNames.count(name)) return true;
+    for (const auto& [scriptName, metadata] : anito::script::RegisteredTypes()) {
+        if (scriptName == name || metadata.cppType == name) return true;
+    }
+    return false;
+}
 
 struct Lvalue {
     std::string pre, ref, post;
@@ -314,7 +355,7 @@ private:
     }
 
     void CheckName(antlr4::ParserRuleContext* ctx, const std::string& name) {
-        if (kReserved.count(name) || name.front() == '_') Report(ctx, "'" + name + "' is a reserved name");
+        if (IsReservedName(name) || name.front() == '_') Report(ctx, "'" + name + "' is a reserved name");
     }
 
     // ---- output ----

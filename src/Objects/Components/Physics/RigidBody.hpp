@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PhysicsBase.hpp"
+#include "ScriptApiRegistry.hpp"
 #include "../../HierarchyObject.hpp"
 #include "../../../ObjectSystems/Event/Types/FixedUpdateTrigger.hpp"
 
@@ -78,3 +79,12 @@ protected:
 };
 
 GBE_REGISTER_SERIALIZED_TYPE(RigidBody, PhysicsBase);
+
+ANITO_SCRIPT_TYPE(RigidBody, "rigidbody", "anito::Rigidbody", true);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "velocity", GetVelocity, SetVelocity);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "angularVelocity", GetAngularVelocity, SetAngularVelocity);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "mass", GetMass, SetMass);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addForce", ApplyForce);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addTorque", ApplyTorque);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addImpulse", ApplyImpulse);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "teleport", Teleport);

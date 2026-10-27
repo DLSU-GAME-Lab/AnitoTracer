@@ -20,6 +20,7 @@
 
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
 #include "ObjectSystems/Event/Example/Print_OnObjectAny.hpp"
+#include "ObjectSystems/Event/Example/PlayerInput.hpp"
 #include "Asset/ProjectLoader.hpp"
 #include "ScriptRegistry.hpp"
 #include "ScriptModule.hpp"
