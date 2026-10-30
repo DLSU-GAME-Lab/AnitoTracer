@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -103,6 +104,31 @@ template <typename Result, typename Class, typename... Parameters>
 struct MemberFunctionTraits<Result (Class::*)(Parameters...) const noexcept>
     : MemberFunctionTraits<Result (Class::*)(Parameters...)> {};
 
+// Engine and SDK C++ value types may differ while representing the same script-level type.
+template <typename ComponentMethod, typename SdkMethod, std::size_t... Indices>
+constexpr bool ScriptParametersMatch(std::index_sequence<Indices...>) {
+    using ComponentParameters = typename MemberFunctionTraits<ComponentMethod>::ParameterTypes;
+    using SdkParameters = typename MemberFunctionTraits<SdkMethod>::ParameterTypes;
+    return ((std::string_view(ScriptTypeName<std::tuple_element_t<Indices, ComponentParameters>>()) ==
+             std::string_view(ScriptTypeName<std::tuple_element_t<Indices, SdkParameters>>())) &&
+            ...);
+}
+
+template <typename ComponentMethod, typename SdkMethod>
+constexpr bool ScriptSignaturesMatch() {
+    using ComponentTraits = MemberFunctionTraits<ComponentMethod>;
+    using SdkTraits = MemberFunctionTraits<SdkMethod>;
+    if constexpr (std::tuple_size_v<typename ComponentTraits::ParameterTypes> !=
+                  std::tuple_size_v<typename SdkTraits::ParameterTypes>) {
+        return false;
+    } else {
+        return std::string_view(ScriptTypeName<typename ComponentTraits::Return>()) ==
+                   std::string_view(ScriptTypeName<typename SdkTraits::Return>()) &&
+               ScriptParametersMatch<ComponentMethod, SdkMethod>(
+                   std::make_index_sequence<std::tuple_size_v<typename ComponentTraits::ParameterTypes>>{});
+    }
+}
+
 inline bool SetPropertyWritable(const char* scriptType, const char* propertyName) {
     auto& members = GetTypeRegistry()[scriptType].members;
     for (auto& member : members) {
@@ -200,3 +226,24 @@ bool RegisterMethod(const char* scriptType, const char* methodName) {
     [[maybe_unused]] const bool ANITO_SCRIPT_DETAIL_JOIN(_anito_script_method_, __COUNTER__) =          \
         ::anito::script::RegisterMethod<decltype(&ClassName::MethodName)>(ScriptType, ScriptName);       \
     }
+
+#define ANITO_SCRIPT_CONFORMS_READ_ONLY_PROPERTY(ComponentClass, ComponentGetter, SdkClass, SdkGetter) \
+    static_assert(::anito::script::ScriptSignaturesMatch<decltype(&ComponentClass::ComponentGetter),   \
+                                                         decltype(&SdkClass::SdkGetter)>(),             \
+                  "Script SDK property getter does not conform to component metadata")
+
+#define ANITO_SCRIPT_CONFORMS_PROPERTY(ComponentClass, ComponentGetter, ComponentSetter, SdkClass, \
+                                       SdkGetter, SdkSetter)                                       \
+    ANITO_SCRIPT_CONFORMS_READ_ONLY_PROPERTY(ComponentClass, ComponentGetter, SdkClass, SdkGetter); \
+    static_assert(::anito::script::ScriptSignaturesMatch<decltype(&ComponentClass::ComponentSetter), \
+                                                         decltype(&SdkClass::SdkSetter)>(),          \
+                  "Script SDK property setter does not conform to component metadata")
+
+#define ANITO_SCRIPT_CONFORMS_METHOD(ComponentClass, ComponentMethod, SdkClass, SdkMethod)           \
+    static_assert(::anito::script::ScriptSignaturesMatch<decltype(&ComponentClass::ComponentMethod), \
+                                                         decltype(&SdkClass::SdkMethod)>(),          \
+                  "Script SDK method does not conform to component metadata")
+
+#define ANITO_SCRIPT_CONFORMS_VALID(SdkClass)                                               \
+    static_assert(std::is_same_v<decltype(&SdkClass::valid), bool (SdkClass::*)() const>, \
+                  "Script SDK handle must expose bool valid() const")

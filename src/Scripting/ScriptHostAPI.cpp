@@ -4,6 +4,7 @@
 
 #include "../AppState.hpp"
 #include "Components/Audio/AudioSourceComponent.hpp"
+#include "Components/Camera.hpp"
 #include "Components/Physics/Collider.hpp"
 #include "Components/Physics/RigidBody.hpp"
 #include "Components/Transform.hpp"
@@ -45,13 +46,13 @@ Transform* TransformOf(ObjectId id) {
     HierarchyObject* o = Obj(id);
     return o ? o->GetComponent<Transform>() : nullptr;
 }
-PhysicsBase* BodyOf(ObjectId id) {
-    HierarchyObject* o = Obj(id);
-    return o ? o->GetComponent<PhysicsBase>() : nullptr;
-}
 RigidBody* RigidOf(ObjectId id) {
     HierarchyObject* o = Obj(id);
     return o ? o->GetComponent<RigidBody>() : nullptr;
+}
+CameraComponent* CameraOf(ObjectId id) {
+    HierarchyObject* o = Obj(id);
+    return o ? o->GetComponent<CameraComponent>() : nullptr;
 }
 AudioSourceComponent* AudioOf(ObjectId id) {
     HierarchyObject* o = Obj(id);
@@ -121,18 +122,30 @@ void SetGravity(anito::Vec3 g) { PhysicsEngine::GetInstance().Get().SetGravity(T
 
 void Raycast(anito::Vec3 origin, anito::Vec3 direction, float maxDistance, ObjectId ignore, anito::RaycastResult* out) {
     *out = {};
-    PhysicsBase* ignored = BodyOf(ignore);
-    std::shared_ptr<IPhysicsBody> body;
-    glm::vec3 point{0.0f};
-    const bool hit = PhysicsEngine::GetInstance().Get().Raycast(
-        ToGlm(origin), ToGlm(direction), maxDistance, body, point, ignored ? ignored->GetBody() : nullptr);
-    if (!hit) return;
-    out->hit = 1;
-    out->point = FromGlm(point);
-    out->object = IdOf(PhysicsBase::FindOwnerByBody(body.get()));
+    RigidBody* rigidBody = RigidOf(ignore);
+    if (!rigidBody) return;
+    const PhysicsRaycastHit hit = rigidBody->Raycast(ToGlm(origin), ToGlm(direction), maxDistance);
+    out->hit = hit.hit ? 1 : 0;
+    out->point = FromGlm(hit.point);
+    out->object = hit.object;
 }
 
 } // namespace physics
+
+// ---- Camera ----------------------------------------------------------------------------------------
+namespace camera {
+
+bool HasCamera(ObjectId id) { return CameraOf(id) != nullptr; }
+float GetFOV(ObjectId id) { CameraComponent* c = CameraOf(id); return c ? c->GetFOV() : 0.0f; }
+void SetFOV(ObjectId id, float value) { if (CameraComponent* c = CameraOf(id)) c->SetFOV(value); }
+float GetAspect(ObjectId id) { CameraComponent* c = CameraOf(id); return c ? c->GetAspect() : 0.0f; }
+void SetAspect(ObjectId id, float value) { if (CameraComponent* c = CameraOf(id)) c->SetAspect(value); }
+float GetNearPlane(ObjectId id) { CameraComponent* c = CameraOf(id); return c ? c->GetNearPlane() : 0.0f; }
+void SetNearPlane(ObjectId id, float value) { if (CameraComponent* c = CameraOf(id)) c->SetNearPlane(value); }
+float GetFarPlane(ObjectId id) { CameraComponent* c = CameraOf(id); return c ? c->GetFarPlane() : 0.0f; }
+void SetFarPlane(ObjectId id, float value) { if (CameraComponent* c = CameraOf(id)) c->SetFarPlane(value); }
+
+} // namespace camera
 
 // ---- Audio -----------------------------------------------------------------------------------------
 namespace audio {
@@ -457,6 +470,8 @@ const anito::HostAPI kHostAPI = {
      physics::SetAngularVelocity, physics::AddForce, physics::AddTorque, physics::AddImpulse, physics::GetMass,
      physics::SetMass, physics::GetBodyRotation, physics::Teleport, physics::SetLockRotation, physics::HasCollider,
      physics::GetGravity, physics::SetGravity, physics::Raycast},
+    {camera::HasCamera, camera::GetFOV, camera::SetFOV, camera::GetAspect, camera::SetAspect, camera::GetNearPlane,
+     camera::SetNearPlane, camera::GetFarPlane, camera::SetFarPlane},
     {audio::HasAudioSource, audio::HasClip, audio::Play, audio::Stop, audio::PlayDetached, audio::GetVolume,
      audio::SetVolume, audio::GetLoop, audio::SetLoop, audio::GetPitch, audio::SetPitch, audio::GetSpatialized,
      audio::SetSpatialized, audio::SetDistance},

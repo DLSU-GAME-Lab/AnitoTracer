@@ -2,6 +2,7 @@
 
 #include "Transform.hpp"
 #include "Physics.hpp"
+#include "Camera.hpp"
 #include "Audio.hpp"
 #include "Object.hpp"
 #include "Scene.hpp"
@@ -13,6 +14,7 @@ struct HostAPI {
     void (*Log)(const char* message);
     TransformAPI transform;
     PhysicsAPI physics;
+    CameraAPI camera;
     AudioAPI audio;
     ObjectAPI object;
     SceneAPI scene;

@@ -15,9 +15,9 @@ using P = anito_script::AnitoScriptParser;
 // sdk/anito/Api.hpp by naming convention: property `foo` -> foo() / setFoo(v), method `bar` -> bar(...).
 enum class T {
     Error, Void, Float, Int, Bool, String, Vec3, Quat,
-    GameObject, Transform, Rigidbody, Collider, AudioSource, Script, Prefab, RaycastHit,
+    GameObject, Transform, Rigidbody, Collider, AudioSource, Camera, Script, Prefab, RaycastHit,
     // Static API classes: only usable as the base of a member access.
-    SMathf, SVector3, SQuaternion, SRandom, STime, SInput, SPhysics, SScene, SCamera, SGui, SDebug
+    SMathf, SVector3, SQuaternion, SRandom, STime, SInput, SScene, SGui, SDebug
 };
 
 // `array<E>` is encoded as kArrayBase + E so it stays a plain comparable enum value.
@@ -35,13 +35,12 @@ bool Marshalable(T t) { return t == T::Float || t == T::Int || t == T::Bool || t
 const std::map<std::string, T> kStorableNames = {
     {"float", T::Float}, {"int", T::Int}, {"bool", T::Bool}, {"string", T::String}, {"vec3", T::Vec3},
     {"quat", T::Quat}, {"gameobject", T::GameObject}, {"transform", T::Transform}, {"rigidbody", T::Rigidbody},
-    {"collider", T::Collider}, {"audiosource", T::AudioSource}, {"script", T::Script}, {"prefab", T::Prefab},
+    {"collider", T::Collider}, {"audiosource", T::AudioSource}, {"camera", T::Camera}, {"script", T::Script}, {"prefab", T::Prefab},
     {"raycasthit", T::RaycastHit}};
 
 const std::map<std::string, T> kStaticNames = {
     {"Mathf", T::SMathf}, {"Vector3", T::SVector3}, {"Quaternion", T::SQuaternion}, {"Random", T::SRandom},
-    {"Time", T::STime}, {"Input", T::SInput}, {"Physics", T::SPhysics}, {"Scene", T::SScene},
-    {"Camera", T::SCamera}, {"Gui", T::SGui}, {"Debug", T::SDebug}};
+    {"Time", T::STime}, {"Input", T::SInput}, {"Scene", T::SScene}, {"Gui", T::SGui}, {"Debug", T::SDebug}};
 
 const anito::script::TypeMetadata* FindRegisteredType(T t) {
     for (const auto& [name, type] : kStorableNames) {
@@ -192,7 +191,8 @@ const TypeInfo* Info(T t) {
         {T::GameObject,
          {"",
           {{"name", S, true}, {"transform", T::Transform}, {"rigidbody", T::Rigidbody}, {"collider", T::Collider},
-           {"audioSource", T::AudioSource}, {"parent", G, true}, {"root", G}, {"childCount", I}, {"componentCount", I}},
+           {"audioSource", T::AudioSource}, {"camera", T::Camera}, {"parent", G, true}, {"root", G},
+           {"childCount", I}, {"componentCount", I}},
           {Md{"valid", B, {}}, Md{"getScript", T::Script, {S}}, Md{"hasScript", B, {S}}, Md{"addScript", T::Script, {S}},
            Md{"componentName", S, {I}}, Md{"hasComponent", B, {S}}, Md{"addRigidbody", T::Rigidbody, {F}},
            Md{"addBoxCollider", T::Collider, {V3}}, Md{"addSphereCollider", T::Collider, {F}},
@@ -236,14 +236,11 @@ const TypeInfo* Info(T t) {
         {T::STime, {"anito::Time", {{"time", F}, {"deltaTime", F}, {"fixedDeltaTime", F}}, {}}},
         {T::SInput,
          {"anito::Input", {{"mouseDelta", V3}, {"mousePosition", V3}}, {Md{"getAction", B, {S}}}}},
-        {T::SPhysics,
-         {"anito::Physics", {{"gravity", V3, true}}, {Md{"raycast", T::RaycastHit, {V3, V3, F, G}}}}},
         {T::SScene,
          {"anito::Scene",
           {{"none", G}},
           {Md{"createEmpty", G, {S, G}}, Md{"createPrimitive", G, {S, G}}, Md{"instantiate", G, {T::Prefab, G}},
-           Md{"find", G, {S}}, Md{"findWithScript", G, {S}}}}},
-        {T::SCamera, {"anito::Camera", {{"main", G}}, {}}},
+           Md{"find", G, {S}}, Md{"findWithScript", G, {S}}, Md{"mainCamera", G}}}},
         {T::SGui,
          {"anito::Gui",
           {},

@@ -16,6 +16,7 @@ public:
 
     // Component getters.
     Transform transform() const { return Transform{id}; }
+    Camera camera() const { return Camera{id}; }
     Rigidbody rigidbody() const { return Rigidbody{id}; }
     Collider collider() const { return Collider{id}; }
     AudioSource audioSource() const { return AudioSource{id}; }
@@ -59,6 +60,7 @@ inline Variant ToVariant(const GameObject& v) { return Variant::OfObject(v.id); 
 
 inline GameObject Transform::gameObject() const { return GameObject{id}; }
 inline Transform Transform::parent() const { return Transform{detail::H().object.GetParent(id)}; }
+inline GameObject Camera::gameObject() const { return GameObject{id}; }
 inline GameObject Rigidbody::gameObject() const { return GameObject{id}; }
 inline GameObject Collider::gameObject() const { return GameObject{id}; }
 inline GameObject AudioSource::gameObject() const { return GameObject{id}; }
@@ -68,12 +70,6 @@ inline GameObject RaycastHit::gameObject() const { return GameObject{result.obje
 template <class... Args>
 GameObject Script::callObject(const std::string& method, const Args&... args) const {
     return GameObject{callRaw(method, args...).AsObject()};
-}
-
-inline RaycastHit Physics::raycast(Vec3 origin, Vec3 direction, float maxDistance, GameObject ignore) {
-    RaycastHit h;
-    detail::H().physics.Raycast(origin, direction, maxDistance, ignore.id, &h.result);
-    return h;
 }
 
 inline Transform ResolveTransformField(void* storage) { return Transform{detail::H().field.ResolveTransform(storage)}; }

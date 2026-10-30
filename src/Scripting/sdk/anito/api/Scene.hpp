@@ -16,10 +16,7 @@ struct Scene {
     }
     static GameObject find(const std::string& name) { return GameObject{detail::H().scene.Find(name.c_str())}; }
     static GameObject findWithScript(const std::string& scriptName) { return GameObject{detail::H().scene.FindWithScript(scriptName.c_str())}; }
-};
-
-struct Camera {
-    static GameObject main() { return GameObject{detail::H().scene.GetMainCamera()}; }
+    static GameObject mainCamera() { return GameObject{detail::H().scene.GetMainCamera()}; }
 };
 
 } // namespace anito
