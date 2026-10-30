@@ -10,8 +10,11 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
+
+#include "../Tools/Serialization/SerializedData.hpp"
 
 struct ScriptDescriptor;
 
@@ -56,6 +59,7 @@ public:
     // Destroys the native instance (fields stay); it is recreated on the next update.
     void ReleaseInstance();
 
+    gbe::SerializedData Serialize() override;
     void Deserialize(gbe::SerializedData& data) override;
     std::vector<std::string> GetHiddenProperties() const override { return {"m_scriptName"}; }
 
@@ -67,6 +71,7 @@ private:
     GBE_SERIALIZE_FIELD_W_NAME(m_scriptName, "Script");
 
     std::vector<std::unique_ptr<ScriptFieldBase>> m_fields;
+    std::optional<gbe::SerializedData> m_deferredSerializedData;
     uint64_t m_boundRevision = 0;
 
     anito::ScriptBehaviour* m_instance = nullptr;

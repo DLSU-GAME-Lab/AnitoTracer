@@ -116,6 +116,7 @@ void ScriptComponent::BindScript(const std::string& scriptName) {
     ReleaseInstance();
     m_scriptName = scriptName;
     m_fields.clear();
+    m_deferredSerializedData.reset();
     m_boundRevision = 0;
 
     if (const ScriptDescriptor* descriptor = ScriptRegistry::GetInstance().Find(scriptName)) {
@@ -161,21 +162,45 @@ void ScriptComponent::Refresh() {
     ReleaseInstance();
     // Rebuild the reflected property set for a new source revision, then deserialize the saved
     // values so compatible edits do not reset inspector-authored data.
-    gbe::SerializedData saved = Serialize();
+    gbe::SerializedData saved = m_deferredSerializedData ? *m_deferredSerializedData : Serialize();
     m_fields.clear();
     CreateFields(*descriptor);
     ComponentBase::Deserialize(saved);
+    m_deferredSerializedData.reset();
 }
 
 bool ScriptComponent::IsScriptMissing() const {
     return ScriptRegistry::GetInstance().Find(m_scriptName) == nullptr;
 }
 
+gbe::SerializedData ScriptComponent::Serialize() {
+    gbe::SerializedData data = ComponentBase::Serialize();
+    if (m_deferredSerializedData) {
+        for (const auto& [key, value] : m_deferredSerializedData->serialized_variables) {
+            if (key.rfind("script.", 0) == 0 && data.serialized_variables.find(key) == data.serialized_variables.end()) {
+                data.serialized_variables.emplace(key, value);
+            }
+        }
+    }
+    return data;
+}
+
 void ScriptComponent::Deserialize(gbe::SerializedData& data) {
-    // Fields must exist before the base class walks the property list.
+    // Register script fields before deserialization when their descriptor is available.
     const auto it = data.serialized_variables.find("m_scriptName");
     if (it != data.serialized_variables.end() && it->second != m_scriptName) {
         BindScript(it->second);
     }
+
+    const ScriptDescriptor* descriptor = ScriptRegistry::GetInstance().Find(m_scriptName);
+    if (descriptor && descriptor->revision != m_boundRevision) {
+        BindScript(m_scriptName);
+    } else if (!descriptor) {
+        if (!m_fields.empty()) BindScript(m_scriptName);
+        m_deferredSerializedData = data;
+    } else {
+        m_deferredSerializedData.reset();
+    }
+
     ComponentBase::Deserialize(data);
 }
