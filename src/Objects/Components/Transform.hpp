@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ComponentBase.hpp"
+#include "ScriptApiRegistry.hpp"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE 
 #define GLM_FORCE_LEFT_HANDED       
@@ -80,3 +81,12 @@ private:
 };
 
 GBE_REGISTER_SERIALIZED_TYPE(Transform, ComponentBase);
+
+ANITO_SCRIPT_TYPE(Transform, "transform", "anito::Transform", true);
+ANITO_SCRIPT_PROPERTY(Transform, "transform", "position", GetPosition, SetWorldPosition);
+ANITO_SCRIPT_PROPERTY(Transform, "transform", "localPosition", GetLocalPosition, SetPosition);
+ANITO_SCRIPT_PROPERTY(Transform, "transform", "rotation", GetRotation, SetWorldRotation);
+ANITO_SCRIPT_PROPERTY(Transform, "transform", "localRotation", GetLocalRotation, SetRotation);
+ANITO_SCRIPT_PROPERTY(Transform, "transform", "localScale", GetLocalScale, SetScale);
+ANITO_SCRIPT_PROPERTY_RO(Transform, "transform", "lossyScale", GetScale);
+ANITO_SCRIPT_PROPERTY(Transform, "transform", "eulerAngles", GetEulerAnglesDegrees, SetEulerAnglesDegrees);

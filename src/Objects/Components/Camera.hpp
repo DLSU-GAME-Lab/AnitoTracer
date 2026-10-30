@@ -2,6 +2,7 @@
 
 #include "ComponentBase.hpp"
 #include "Transform.hpp" // Required for fetching position and rotation!
+#include "ScriptApiRegistry.hpp"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE 
 #define GLM_FORCE_LEFT_HANDED       
@@ -26,10 +27,10 @@ public:
     CameraComponent& operator=(CameraComponent&&) = default;
 
     // Projection parameters
-    void SetFOV(float fovDegrees) { m_FOV = fovDegrees; }
-    void SetAspect(float aspect) { m_Aspect = aspect; }
-    void SetNearPlane(float nearZ) { m_NearZ = nearZ; }
-    void SetFarPlane(float farZ) { m_FarZ = farZ; }
+    void SetFOV(float fovDegrees) { m_FOV = fovDegrees; UpdateProjectionMatrix(); }
+    void SetAspect(float aspect) { m_Aspect = aspect; UpdateProjectionMatrix(); }
+    void SetNearPlane(float nearZ) { m_NearZ = nearZ; UpdateProjectionMatrix(); }
+    void SetFarPlane(float farZ) { m_FarZ = farZ; UpdateProjectionMatrix(); }
 
     float GetFOV() const { return m_FOV; } 
     float GetAspect() const { return m_Aspect; } 
@@ -72,3 +73,9 @@ private:
 };
 
 GBE_REGISTER_SERIALIZED_TYPE(CameraComponent, ComponentBase);
+
+ANITO_SCRIPT_TYPE(CameraComponent, "camera", "anito::Camera", true);
+ANITO_SCRIPT_PROPERTY(CameraComponent, "camera", "fov", GetFOV, SetFOV);
+ANITO_SCRIPT_PROPERTY(CameraComponent, "camera", "aspect", GetAspect, SetAspect);
+ANITO_SCRIPT_PROPERTY(CameraComponent, "camera", "nearPlane", GetNearPlane, SetNearPlane);
+ANITO_SCRIPT_PROPERTY(CameraComponent, "camera", "farPlane", GetFarPlane, SetFarPlane);

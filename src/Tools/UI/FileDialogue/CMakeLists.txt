@@ -8,3 +8,4 @@ add_library(${CUR_TARGET_NAME} STATIC ${GBE_SERIALIZATION_SRC})
 add_library(gbe::filedialogue ALIAS ${CUR_TARGET_NAME})
 
 target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(${CUR_TARGET_NAME} PUBLIC nfd)

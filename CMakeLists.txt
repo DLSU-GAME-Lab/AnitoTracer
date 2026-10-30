@@ -56,6 +56,7 @@ add_subdirectory(src/ObjectSystems/Serialization)
 add_subdirectory(src/ObjectSystems/Event)
 
 add_subdirectory(src/Physics)
+add_subdirectory(src/Scripting)
 
 add_subdirectory(src/UI)
 add_subdirectory(src/Rendering)
@@ -101,6 +102,7 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 assimp::assimp
 				Diligent-GraphicsEngineVk-shared
 				Diligent-Imgui
+                antlr4_static
 
                 gbe::tools
 
@@ -110,6 +112,7 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 anito::ui
                 anito::physics
                 anito::asset
+                anito::scripting
                 anito::event
 )
 
