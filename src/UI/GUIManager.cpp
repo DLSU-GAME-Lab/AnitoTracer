@@ -1,4 +1,5 @@
 #include "GUIManager.hpp"
+#include "Panels/InspectorPanel/Components/ScriptComponentUI.hpp"
 
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
@@ -154,6 +155,7 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
     InspectorRegistry::GetInstance().RegisterUI<Collider, ColliderUI>();
     InspectorRegistry::GetInstance().RegisterUI<AudioSourceComponent, AudioSourceUI>();
+    InspectorRegistry::GetInstance().RegisterUI<ScriptComponent, ScriptComponentUI>();
     InspectorRegistry::GetInstance().RegisterUI<ParticleSystemComponent, ParticleSystemUI>();
 }
 
