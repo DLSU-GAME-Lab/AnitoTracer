@@ -3,6 +3,7 @@
 #include "RendererManager.hpp"
 #include "../Asset/ProjectLoader.hpp"
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <type_traits>
 
@@ -32,6 +33,34 @@ namespace {
         fog.LightIntensity = settings.volumetric_light_intensity;
         fog.AmbientIntensity = settings.volumetric_ambient_intensity;
         return fog;
+    }
+
+    // Scales a tint so it shifts hue without changing brightness; black/invalid tints fall back to neutral
+    glm::vec3 NormalizeTint(const std::array<float, 3>& tint)
+    {
+        const glm::vec3 color(tint[0], tint[1], tint[2]);
+        const float luminance = glm::dot(color, glm::vec3(0.2126f, 0.7152f, 0.0722f));
+        return luminance > 1e-3f ? color / luminance : glm::vec3(1.0f);
+    }
+
+    // Converts the project's color correction settings into the layout expected by Shaders/PostProcess/color_correction_ps.hlsl
+    Diligent::ColorCorrectionConstants BuildColorCorrectionConstants(const ProjectColorCorrectionSettings& settings)
+    {
+        const float temperature = glm::clamp(settings.temperature, -1.0f, 1.0f);
+        const float tint = glm::clamp(settings.tint, -1.0f, 1.0f);
+        const glm::vec3 whiteBalance = NormalizeTint({ 1.0f + 0.3f * temperature, 1.0f - 0.3f * tint, 1.0f - 0.3f * temperature });
+        const glm::vec3 filter(settings.color_filter[0], settings.color_filter[1], settings.color_filter[2]);
+
+        Diligent::ColorCorrectionConstants cc;
+        cc.ColorFilter = glm::vec4(whiteBalance * filter, std::exp2(settings.exposure));
+        cc.Shadows = glm::vec4(NormalizeTint(settings.shadows), 1.0f);
+        cc.Midtones = glm::vec4(NormalizeTint(settings.midtones), 1.0f);
+        cc.Highlights = glm::vec4(NormalizeTint(settings.highlights), 1.0f);
+        cc.Contrast = glm::max(settings.contrast, 0.0f);
+        cc.Saturation = glm::max(settings.saturation, 0.0f);
+        cc.InvGamma = 1.0f / glm::max(settings.gamma, 0.01f);
+        cc.HueShift = glm::radians(glm::clamp(settings.hue_shift, -180.0f, 180.0f));
+        return cc;
     }
 }
 
@@ -139,6 +168,7 @@ void RendererManager::InitializePipelines()
     TEXTURE_FORMAT RTVFormat = SCDesc.ColorBufferFormat;
     TEXTURE_FORMAT DSVFormat = SCDesc.DepthBufferFormat;
     m_SkyboxPipeline.Initialize(m_pDevice, RTVFormat, DSVFormat);
+    m_ColorCorrectionPipeline.Initialize(m_pDevice, RTVFormat);
 
     // Load your default skybox texture (Make sure it is a compiled .dds cubemap!)
     // FOR TESTING
@@ -233,8 +263,14 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
         }
     }
 
+    // The release build is the game itself, so color correction always applies here.
+    // When enabled, the scene is rendered into an intermediate texture and graded into the back buffer.
+    const auto& colorCorrection = ProjectLoader::GetProjectSettings().color_correction;
+    Diligent::ITextureView* pGradeRTV = colorCorrection.enabled ? m_ColorCorrectionPipeline.GetIntermediateRTV(SCDesc.Width, SCDesc.Height) : nullptr;
+    Diligent::ITextureView* pSceneRTV = pGradeRTV ? pGradeRTV : m_pSwapChain->GetCurrentBackBufferRTV();
+
     const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
-    Diligent::ITextureView* pActiveRTV = isMSAAEnabled ? m_pMSAARTV : m_pSwapChain->GetCurrentBackBufferRTV();
+    Diligent::ITextureView* pActiveRTV = isMSAAEnabled ? m_pMSAARTV : pSceneRTV;
     Diligent::ITextureView* pActiveDSV = isMSAAEnabled ? m_pMSAADSV : m_pSwapChain->GetDepthBufferDSV();
 
     m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -255,7 +291,7 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
         using T = std::decay_t<decltype(pipeline)>;
         if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>)
         {
-            pipeline.RenderLightingPass(m_pImmediateContext, nullptr);
+            pipeline.RenderLightingPass(m_pImmediateContext, pActiveRTV);
         }
         }, m_bLitPipeline);
 
@@ -277,9 +313,14 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
 
         m_pImmediateContext->ResolveTextureSubresource(
             m_pMSAATarget,
-            pBackBufferRTV->GetTexture(),
+            pSceneRTV->GetTexture(),
             ResolveAttribs
         );
+    }
+
+    if (pGradeRTV)
+    {
+        m_ColorCorrectionPipeline.Apply(m_pImmediateContext, pBackBufferRTV, BuildColorCorrectionConstants(colorCorrection));
     }
 
     m_pImmediateContext->SetRenderTargets(1, &pBackBufferRTV, pDefaultDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -304,14 +345,21 @@ Diligent::RenderTarget* RendererManager::CreateRenderTarget(const std::string& n
     return ptr;
 }
 
-void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
+void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData, bool applyColorCorrection)
 {
     if (!pTarget || !pTarget->GetRTV() || !pTarget->GetDSV()) return;
 
     bool isMSAAEnabled = UserSettings::GetInstance().GetEnableMSAA();
 
+    // When grading, the scene goes into an intermediate texture that is graded into the target at the end
+    const auto& colorCorrection = ProjectLoader::GetProjectSettings().color_correction;
+    Diligent::ITextureView* pGradeRTV = (applyColorCorrection && colorCorrection.enabled)
+        ? m_ColorCorrectionPipeline.GetIntermediateRTV(pTarget->GetWidth(), pTarget->GetHeight())
+        : nullptr;
+    Diligent::ITextureView* pSceneRTV = pGradeRTV ? pGradeRTV : pTarget->GetRTV();
+
     // 1. Route to MSAA buffers if enabled, to match the Pipeline's expected SampleCount
-    Diligent::ITextureView* pActiveRTV = isMSAAEnabled ? m_pMSAARTV : pTarget->GetRTV();
+    Diligent::ITextureView* pActiveRTV = isMSAAEnabled ? m_pMSAARTV : pSceneRTV;
     Diligent::ITextureView* pActiveDSV = isMSAAEnabled ? m_pMSAADSV : pTarget->GetDSV();
 
     const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
@@ -363,8 +411,13 @@ void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Dili
 
         m_pImmediateContext->ResolveTextureSubresource(
             m_pMSAATarget,
-            pTarget->GetRTV()->GetTexture(),
+            pSceneRTV->GetTexture(),
             ResolveAttribs
         );
+    }
+
+    if (pGradeRTV)
+    {
+        m_ColorCorrectionPipeline.Apply(m_pImmediateContext, pTarget->GetRTV(), BuildColorCorrectionConstants(colorCorrection));
     }
 }

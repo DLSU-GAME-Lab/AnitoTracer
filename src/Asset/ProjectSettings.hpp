@@ -36,6 +36,25 @@ struct ProjectFogSettings
     bool apply_to_skybox = true;
 };
 
+// Post-process color grading. Only applied to the game view / release build output, never the editor view.
+struct ProjectColorCorrectionSettings
+{
+    bool enabled = false;
+    float exposure = 0.0f;       // In stops (EV). 0 = unchanged.
+    float contrast = 1.0f;       // 1 = unchanged. Pivots around mid-grey.
+    float saturation = 1.0f;     // 0 = greyscale, 1 = unchanged.
+    float gamma = 1.0f;          // 1 = unchanged. >1 brightens midtones.
+    float temperature = 0.0f;    // -1 (cool) .. 1 (warm)
+    float tint = 0.0f;           // -1 (green) .. 1 (magenta)
+    float hue_shift = 0.0f;      // Degrees, -180 .. 180
+    std::array<float, 3> color_filter{1.0f, 1.0f, 1.0f};
+
+    // Lift / gamma / gain style three-way grading for shadows, midtones and highlights.
+    std::array<float, 3> shadows{1.0f, 1.0f, 1.0f};
+    std::array<float, 3> midtones{1.0f, 1.0f, 1.0f};
+    std::array<float, 3> highlights{1.0f, 1.0f, 1.0f};
+};
+
 struct ProjectDebugSettings
 {
     bool show_physics_collider_wireframes = false;
@@ -51,6 +70,7 @@ struct ProjectSettings
 {
     ProjectLightingSettings lighting;
     ProjectFogSettings fog;
+    ProjectColorCorrectionSettings color_correction;
     ProjectDebugSettings debug;
     ProjectPhysicsSettings physics;
 };

@@ -70,6 +70,20 @@ namespace Diligent {
     };
     static_assert(sizeof(FogConstants) % 16 == 0, "FogConstants must be 16-byte aligned for HLSL");
 
+    // Mirrors cbuffer ColorCorrectionConstants in Shaders/PostProcess/color_correction_ps.hlsl
+    struct ColorCorrectionConstants
+    {
+        glm::vec4 ColorFilter{ 1.0f };      // rgb: multiplier (white balance already folded in), a: exposure multiplier
+        glm::vec4 Shadows{ 1.0f };          // rgb: lift tint
+        glm::vec4 Midtones{ 1.0f };         // rgb: gamma tint
+        glm::vec4 Highlights{ 1.0f };       // rgb: gain tint
+        float Contrast = 1.0f;
+        float Saturation = 1.0f;
+        float InvGamma = 1.0f;
+        float HueShift = 0.0f;              // Radians
+    };
+    static_assert(sizeof(ColorCorrectionConstants) % 16 == 0, "ColorCorrectionConstants must be 16-byte aligned for HLSL");
+
     struct alignas(16) PBRMaterialConstants {
         glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };
         float MetallicFactor{ 1.0f };

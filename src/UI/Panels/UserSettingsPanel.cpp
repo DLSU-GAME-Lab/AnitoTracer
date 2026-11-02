@@ -183,6 +183,91 @@ namespace Diligent {
                 }
             }
 
+            // ------------------------------------------------------------------
+            // Project Color Correction Section (game view only)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Color Correction", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& ccSettings = projectSettings.color_correction;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::PushItemWidth(150.0f);
+
+                if (ImGui::Checkbox("Enable Color Correction", &ccSettings.enabled)) saveProjectSettings();
+                tooltip("Grades the final game image. Only affects the Game view and release builds, not the Editor view.");
+
+                ImGui::BeginDisabled(!ccSettings.enabled);
+                ImGui::Indent();
+
+                ImGui::DragFloat("Exposure", &ccSettings.exposure, 0.01f, -10.0f, 10.0f, "%.2f EV");
+                tooltip("Brightness in stops. +1 doubles the brightness, -1 halves it.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Contrast", &ccSettings.contrast, 0.0f, 2.0f, "%.2f");
+                tooltip("Spreads tones away from mid-grey. 1 = unchanged.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Saturation", &ccSettings.saturation, 0.0f, 2.0f, "%.2f");
+                tooltip("0 = greyscale, 1 = unchanged.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Gamma", &ccSettings.gamma, 0.2f, 3.0f, "%.2f");
+                tooltip("Midtone brightness. >1 brightens, <1 darkens. 1 = unchanged.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Hue Shift", &ccSettings.hue_shift, -180.0f, 180.0f, "%.0f deg");
+                tooltip("Rotates every color around the color wheel.");
+                saveAfterEdit();
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("White Balance");
+
+                ImGui::SliderFloat("Temperature", &ccSettings.temperature, -1.0f, 1.0f, "%.2f");
+                tooltip("Negative = cooler (blue), positive = warmer (orange).");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Tint", &ccSettings.tint, -1.0f, 1.0f, "%.2f");
+                tooltip("Negative = green, positive = magenta.");
+                saveAfterEdit();
+
+                ImGui::ColorEdit3("Color Filter", ccSettings.color_filter.data());
+                tooltip("Multiplies the whole image by this color. White = unchanged.");
+                saveAfterEdit();
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Shadows / Midtones / Highlights");
+
+                ImGui::ColorEdit3("Shadows", ccSettings.shadows.data());
+                tooltip("Tints the darkest parts of the image. Only the hue is used; white = unchanged.");
+                saveAfterEdit();
+
+                ImGui::ColorEdit3("Midtones", ccSettings.midtones.data());
+                tooltip("Tints the midtones. Only the hue is used; white = unchanged.");
+                saveAfterEdit();
+
+                ImGui::ColorEdit3("Highlights", ccSettings.highlights.data());
+                tooltip("Tints the brightest parts of the image. Only the hue is used; white = unchanged.");
+                saveAfterEdit();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Color Correction to Defaults"))
+                {
+                    ccSettings = ProjectColorCorrectionSettings{};
+                    saveProjectSettings();
+                }
+            }
+
             if (ImGui::CollapsingHeader("Graphics Settings", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Checkbox("Enable MSAA (4x)", &UserSettings::GetInstance().GetEnableMSAA());

@@ -451,7 +451,7 @@ void AnitoTracer_App::Render()
     }
     else
     {
-        RendererManager::GetInstance().RenderToTarget(m_pGameTarget, renderData);
+        RendererManager::GetInstance().RenderToTarget(m_pGameTarget, renderData, true);
 
         RenderData editorRenderData;
         HierarchyManager::GetInstance().GetEditorCameraMatrices(editorRenderData.ViewMatrix, editorRenderData.ProjectionMatrix);
