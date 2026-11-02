@@ -67,7 +67,6 @@ add_subdirectory(src/Audio)
 
 # Add source to this project's executable.
 add_executable (AnitoTracer_Rebuild WIN32 "src/UserSettings.hpp" "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h" "src/AnitoTracer_App.hpp" "src/AnitoTracer_App.cpp"
-  src/UI/Panels/FileExplorerPanel.cpp
   src/AudioImp.cpp)
 set_property(TARGET AnitoTracer_Rebuild PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
@@ -156,5 +155,4 @@ copy_required_dlls(AnitoTracer_Rebuild DXC_REQUIRED YES)
 #    "${SHADER_DST_DIR}"
 #    COMMENT "Copying Shaders to build directory..."
 #)
-
 
