@@ -1,9 +1,11 @@
 #include "HierarchyPanel.hpp"
 
 #include "HierarchyFeatures/PrefabFeature.hpp"
+#include "../../Objects/ObjectFactory.hpp"
 
 #include <algorithm>
 #include <cstdio>
+#include <iostream>
 
 namespace Diligent {
 
@@ -69,6 +71,13 @@ namespace Diligent {
                 }
             }
 
+            if (m_PendingCreateEmpty) {
+                const auto parent = m_PendingCreateParent;
+                m_PendingCreateParent = nullptr;
+                m_PendingCreateEmpty = false;
+                CreateEmptyObject(parent);
+            }
+
             ResolvePendingRangeSelection();
 
             ImVec2 emptySpaceSize = ImGui::GetContentRegionAvail();
@@ -77,6 +86,16 @@ namespace Diligent {
             ImGui::InvisibleButton("##HierarchyEmptySpace", emptySpaceSize);
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
                 SetSelectedObject(nullptr);
+            }
+            if (ImGui::BeginPopupContextItem("HierarchyEmptySpaceContextMenu")) {
+                if (ImGui::MenuItem("Create Empty")) {
+                    CreateEmptyObject(nullptr);
+                }
+                if (ImGui::MenuItem("Paste", "Ctrl+V",
+                    false, HierarchyManager::GetInstance().HasCopiedObject())) {
+                    PasteAndSelect(nullptr);
+                }
+                ImGui::EndPopup();
             }
             if (ImGui::BeginDragDropTarget()) {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_HIERARCHY_OBJ")) {
@@ -222,6 +241,22 @@ namespace Diligent {
         }
     }
 
+    void HierarchyPanel::CreateEmptyObject(HierarchyObject::Ref parent)
+    {
+        auto& hierarchy = HierarchyManager::GetInstance();
+        hierarchy.BeginUndoableAction();
+        const auto created = ObjectFactory::GetInstance().CreateRootObjectWithTransform("Empty Object");
+        const bool parented = !parent || hierarchy.ReparentObject(created, parent);
+        hierarchy.EndUndoableAction();
+
+        if (!parented) {
+            std::cerr << "Unable to parent the new empty object in the hierarchy." << std::endl;
+            return;
+        }
+
+        SetSelectedObject(created);
+    }
+
     void HierarchyPanel::ResolvePendingRangeSelection()
     {
         const HierarchyObject::Ref target = m_PendingRangeTarget;
@@ -358,13 +393,26 @@ namespace Diligent {
 
         if (!renaming && ImGui::BeginPopupContextItem("ObjectContextMenu"))
         {
-            if (ImGui::MenuItem("Copy Object", "Ctrl+C"))
+            if (!IsSelected(node)) SetSelectedObject(node);
+
+            if (ImGui::MenuItem("Create Empty"))
             {
-                if (!IsSelected(node)) SetSelectedObject(node);
+                m_PendingCreateParent = node;
+                m_PendingCreateEmpty = true;
+            }
+
+            if (ImGui::MenuItem("Create Empty as Sibling"))
+            {
+                m_PendingCreateParent = node.GetPtr()->GetParent();
+                m_PendingCreateEmpty = true;
+            }
+
+            if (ImGui::MenuItem("Copy", "Ctrl+C"))
+            {
                 HierarchyManager::GetInstance().CopyObjects(GetSelectedRoots());
             }
 
-            if (ImGui::MenuItem("Paste Object", "Ctrl+V",
+            if (ImGui::MenuItem("Paste (as children)", "Ctrl+V",
                 false, HierarchyManager::GetInstance().HasCopiedObject()))
             {
                 PasteAndSelect(node);

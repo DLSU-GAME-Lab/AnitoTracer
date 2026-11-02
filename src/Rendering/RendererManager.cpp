@@ -135,6 +135,7 @@ void RendererManager::InitializePipelines()
         }, m_bLitPipeline);
 
     m_DebugLinePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
+    m_ParticlePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
     
     TEXTURE_FORMAT RTVFormat = SCDesc.ColorBufferFormat;
     TEXTURE_FORMAT DSVFormat = SCDesc.DepthBufferFormat;
@@ -150,6 +151,18 @@ void RendererManager::InitializePipelines()
     else {
         std::cout << "[Warn] Could not load Default Skybox." << std::endl;
     }
+}
+
+void RendererManager::DrawParticles(const Diligent::RenderData& renderData, Diligent::ITextureView* pRTV, Diligent::ITextureView* pDSV,
+    const Diligent::Viewport* pViewport, Diligent::Uint32 width, Diligent::Uint32 height)
+{
+    if (renderData.Particles.empty()) return;
+
+    m_pImmediateContext->SetRenderTargets(1, &pRTV, pDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (pViewport) {
+        m_pImmediateContext->SetViewports(1, pViewport, width, height);
+    }
+    m_ParticlePipeline.RenderParticles(m_pImmediateContext, renderData);
 }
 
 void RendererManager::CreateMSAABuffers()
@@ -262,6 +275,8 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
     auto* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
     auto* pDefaultDSV = m_pSwapChain->GetDepthBufferDSV();
 
+    DrawParticles(renderData, pActiveRTV, pActiveDSV);
+
     if (!renderData.DebugLines.empty()) {
         m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -345,6 +360,8 @@ void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Dili
             pipeline.RenderLightingPass(m_pImmediateContext, pActiveRTV);
         }
         }, m_bLitPipeline);
+
+    DrawParticles(renderData, pActiveRTV, pActiveDSV, &Viewport, pTarget->GetWidth(), pTarget->GetHeight());
 
     if (!renderData.DebugLines.empty()) {
         m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);

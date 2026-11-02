@@ -40,13 +40,19 @@ public:
     // Audio source settings
     static constexpr float MinVolume = 0.0f;
     static constexpr float MaxVolume = 100.0f;
+
     static constexpr float MinPitch = 0.5f;
     static constexpr float MaxPitch = 2.0f;
+
+    static constexpr float MinDistanceLimit = 0.1f;
+    static constexpr float MaxDistanceLimit = 100.0f; // Adjust based on scale of scene
+    static constexpr float DistanceGap = 0.1f;
 
     void SetSoundVolume(uint64_t soundID, float volume);
     void SetSoundLoop(uint64_t soundID, bool loop);
     void SetSoundPitch(uint64_t soundID, float pitch);
-    void SetSoundDistances(uint64_t soundID, float minDistance, float maxDistance);
+    void SetSoundSpatialized(uint64_t soundID, bool spatialized);
+    void SetSoundDistance(uint64_t soundID, float minDistance, float maxDistance);
 
     // Set audio listener position and direction
     void SetListenerPosition(glm::vec3 position);
