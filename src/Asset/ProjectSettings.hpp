@@ -59,6 +59,20 @@ struct ProjectColorCorrectionSettings
     std::array<float, 3> highlights{1.0f, 1.0f, 1.0f};
 };
 
+// Screen-space light shafts from the first directional light. Only applied to the game view / release build output.
+struct ProjectGodRaysSettings
+{
+    bool enabled = false;
+    float intensity = 1.0f;
+    float density = 0.8f;        // Fraction of the way to the sun each pixel marches. Longer shafts at higher values.
+    float decay = 0.96f;         // Falloff along the shaft (per 64 samples). Closer to 1 = longer shafts.
+    float threshold = 0.7f;      // Luminance below which pixels don't emit shafts.
+    float sun_radius = 0.35f;    // Size of the emitting region around the sun, as a fraction of screen height.
+    int sample_count = 64;
+    bool use_light_color = true; // Multiply the tint by the directional light's color and intensity.
+    std::array<float, 3> tint{1.0f, 0.95f, 0.85f};
+};
+
 struct ProjectDebugSettings
 {
     bool show_physics_collider_wireframes = false;
@@ -75,6 +89,7 @@ struct ProjectSettings
     ProjectLightingSettings lighting;
     ProjectFogSettings fog;
     ProjectColorCorrectionSettings color_correction;
+    ProjectGodRaysSettings god_rays;
     ProjectDebugSettings debug;
     ProjectPhysicsSettings physics;
 };

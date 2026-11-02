@@ -51,6 +51,9 @@ set(${CUR_TARGET_NAME}_src
 
 	Pipelines/ColorCorrectionPipeline.hpp
 	Pipelines/ColorCorrectionPipeline.cpp
+
+	Pipelines/GodRaysPipeline.hpp
+	Pipelines/GodRaysPipeline.cpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})

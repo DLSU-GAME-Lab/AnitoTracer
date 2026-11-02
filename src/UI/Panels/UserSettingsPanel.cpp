@@ -198,6 +198,72 @@ namespace Diligent {
             }
 
             // ------------------------------------------------------------------
+            // Project God Rays Section (game view only)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("God Rays", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& grSettings = projectSettings.god_rays;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::PushItemWidth(150.0f);
+
+                if (ImGui::Checkbox("Enable God Rays", &grSettings.enabled)) saveProjectSettings();
+                tooltip("Light shafts streaming from the first directional light. Only affects the Game view and release builds, not the Editor view.");
+
+                ImGui::BeginDisabled(!grSettings.enabled);
+                ImGui::Indent();
+
+                ImGui::DragFloat("Intensity##GodRays", &grSettings.intensity, 0.01f, 0.0f, 10.0f, "%.2f");
+                tooltip("Overall brightness of the shafts.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Length", &grSettings.density, 0.0f, 1.0f, "%.2f");
+                tooltip("How far toward the sun each pixel gathers light. Higher values give longer shafts.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Decay", &grSettings.decay, 0.8f, 0.999f, "%.3f");
+                tooltip("How quickly the shafts fade along their length. Closer to 1 = longer, softer shafts.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Threshold", &grSettings.threshold, 0.0f, 0.99f, "%.2f");
+                tooltip("Only pixels brighter than this emit shafts. Raise it if bright objects near the sun cause unwanted rays.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Sun Radius", &grSettings.sun_radius, 0.01f, 2.0f, "%.2f");
+                tooltip("Size of the region around the sun that emits shafts, as a fraction of the screen height.");
+                saveAfterEdit();
+
+                ImGui::SliderInt("Sample Count##GodRays", &grSettings.sample_count, 8, 128);
+                tooltip("Samples per pixel along each shaft. Higher is smoother but slower.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Use Light Color", &grSettings.use_light_color)) saveProjectSettings();
+                tooltip("Multiply the tint by the directional light's color and intensity.");
+
+                ImGui::ColorEdit3("Tint##GodRays", grSettings.tint.data());
+                tooltip("Color of the shafts.");
+                saveAfterEdit();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset God Rays to Defaults"))
+                {
+                    grSettings = ProjectGodRaysSettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
             // Project Color Correction Section (game view only)
             // ------------------------------------------------------------------
             if (ImGui::CollapsingHeader("Color Correction", ImGuiTreeNodeFlags_DefaultOpen))

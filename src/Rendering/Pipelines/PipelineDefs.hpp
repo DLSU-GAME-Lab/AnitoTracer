@@ -85,6 +85,22 @@ namespace Diligent {
     };
     static_assert(sizeof(ColorCorrectionConstants) % 16 == 0, "ColorCorrectionConstants must be 16-byte aligned for HLSL");
 
+    // Mirrors cbuffer GodRaysConstants in Shaders/PostProcess/god_rays_ps.hlsl
+    struct GodRaysConstants
+    {
+        glm::vec4 LightColor{ 0.0f };       // rgb: light color * intensity, a: on-screen fade
+        glm::vec2 SunUV{ 0.5f };            // Sun position in UV space; may lie outside 0..1
+        float Density = 0.8f;
+        float Decay = 0.96f;                // Per-sample, already adjusted for SampleCount
+        float Weight = 0.03f;               // Per-sample, already adjusted for SampleCount
+        float Threshold = 0.7f;
+        float SunRadius = 0.35f;
+        float AspectRatio = 1.0f;
+        int SampleCount = 64;
+        float Padding[3] = { 0.0f, 0.0f, 0.0f };
+    };
+    static_assert(sizeof(GodRaysConstants) % 16 == 0, "GodRaysConstants must be 16-byte aligned for HLSL");
+
     struct alignas(16) PBRMaterialConstants {
         glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };
         float MetallicFactor{ 1.0f };
