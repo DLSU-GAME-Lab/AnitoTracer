@@ -2,6 +2,7 @@
 #include "common_struct.hlsli"
 #include "light_struct.hlsli"
 #include "pbr_defs.hlsli"
+#include "fog.hlsli"
 
 // Master, we bind our Scene Acceleration Structure for Ray Queries here!
 RaytracingAccelerationStructure g_TLAS;
@@ -126,6 +127,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     // 4. Ambient & Emissive Combined
     float3 ambient = g_AmbientColor.rgb * albedo.rgb * ao * g_AmbientMultiplier;
     float3 color = ambient + Lo + emissive;
+    color = ApplyFog(color, In.WorldPos, In.Pos.xy);
 
     OutColor = float4(color, albedo.a);
 }

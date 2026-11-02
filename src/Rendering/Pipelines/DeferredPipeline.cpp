@@ -91,7 +91,8 @@ void Diligent::DeferredPipeline::InitializeLightingPSO(IRenderDevice* pDevice)
         {SHADER_TYPE_PIXEL, "g_GBufferNormal", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {SHADER_TYPE_PIXEL, "g_GBufferWorldPos", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {SHADER_TYPE_PIXEL, "LightConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "ShadowSettings", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+        {SHADER_TYPE_PIXEL, "ShadowSettings", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "FogConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
     PSODesc.ResourceLayout.Variables = Variables.data();
     PSODesc.ResourceLayout.NumVariables = static_cast<Uint32>(Variables.size());
@@ -122,6 +123,7 @@ void Diligent::DeferredPipeline::InitializeLightingPSO(IRenderDevice* pDevice)
 
     if (auto* pVar = m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "LightConstants")) pVar->Set(m_pLightCB);
     if (auto* pVar = m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "ShadowSettings")) pVar->Set(m_pShadowCB);
+    if (auto* pVar = m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "FogConstants")) pVar->Set(m_pFogCB);
 }
 
 void Diligent::DeferredPipeline::CreateGBuffers(IRenderDevice* pDevice, Uint32 Width, Uint32 Height)

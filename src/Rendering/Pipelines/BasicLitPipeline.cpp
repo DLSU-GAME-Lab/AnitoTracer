@@ -53,6 +53,7 @@ void Diligent::BasicLitPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
     if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "LightConstants"))   pVar->Set(m_pLightCB);
     if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "PBRMaterialConstants")) pVar->Set(m_pMaterialCB);
     if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "ShadowSettings"))   pVar->Set(m_pShadowCB);
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "FogConstants"))     pVar->Set(m_pFogCB);
 }
 
 void Diligent::BasicLitPipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)

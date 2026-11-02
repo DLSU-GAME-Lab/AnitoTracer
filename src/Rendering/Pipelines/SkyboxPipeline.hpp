@@ -16,6 +16,9 @@ namespace Diligent {
         // Binds the cubemap texture to the shader resource binding
         void SetCubemap(ITextureView* pCubemapSRV);
 
+        // Uploads fog parameters used to fog the sky
+        void UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog);
+
         // Dispatches the draw call, requiring the shared Camera Constant Buffer
         void Render(IDeviceContext* pContext, const RenderData& renderData);
 
@@ -25,6 +28,8 @@ namespace Diligent {
         RefCntAutoPtr<IShaderResourceVariable> m_pTextureVar;
 
         RefCntAutoPtr<IBuffer> m_pCameraCB;
+        RefCntAutoPtr<IBuffer> m_pLightCB; // Lights scatter into sky fog
+        RefCntAutoPtr<IBuffer> m_pFogCB;
     };
 
 }

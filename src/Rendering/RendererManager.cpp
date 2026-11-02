@@ -2,8 +2,38 @@
 #include "RendererManager.hpp"
 #include "RendererManager.hpp"
 #include "../Asset/ProjectLoader.hpp"
+#include <chrono>
 #include <iostream>
 #include <type_traits>
+
+namespace {
+    // Converts the project's fog settings into the layout expected by Shaders/fog.hlsli
+    Diligent::FogConstants BuildFogConstants(const ProjectFogSettings& settings)
+    {
+        static const auto startTime = std::chrono::steady_clock::now();
+        const float elapsedSeconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
+
+        Diligent::FogConstants fog;
+        fog.LinearColor = glm::vec4(settings.linear_color[0], settings.linear_color[1], settings.linear_color[2], settings.linear_max_opacity);
+        fog.VolumetricColor = glm::vec4(settings.volumetric_color[0], settings.volumetric_color[1], settings.volumetric_color[2], settings.volumetric_density);
+        fog.LinearStart = settings.linear_start;
+        fog.LinearEnd = settings.linear_end;
+        fog.HeightFalloff = settings.volumetric_height_falloff;
+        fog.BaseHeight = settings.volumetric_base_height;
+        fog.Anisotropy = glm::clamp(settings.volumetric_anisotropy, -0.95f, 0.95f);
+        fog.MaxDistance = settings.volumetric_max_distance;
+        fog.NoiseStrength = settings.volumetric_noise_strength;
+        fog.NoiseScale = settings.volumetric_noise_scale;
+        fog.Wind = glm::vec4(settings.volumetric_wind[0], settings.volumetric_wind[1], settings.volumetric_wind[2], elapsedSeconds);
+        fog.LinearEnabled = settings.linear_enabled ? 1 : 0;
+        fog.VolumetricEnabled = settings.volumetric_enabled ? 1 : 0;
+        fog.ApplyToSkybox = settings.apply_to_skybox ? 1 : 0;
+        fog.SampleCount = glm::clamp(settings.volumetric_sample_count, 1, 128);
+        fog.LightIntensity = settings.volumetric_light_intensity;
+        fog.AmbientIntensity = settings.volumetric_ambient_intensity;
+        return fog;
+    }
+}
 
 void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, bool supportsRayTracing)
 {
@@ -211,12 +241,15 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
     m_pImmediateContext->ClearRenderTarget(pActiveRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     m_pImmediateContext->ClearDepthStencil(pActiveDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
+    const Diligent::FogConstants fogConstants = BuildFogConstants(ProjectLoader::GetProjectSettings().fog);
+    m_SkyboxPipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
     m_SkyboxPipeline.Render(m_pImmediateContext, renderData);
 
     std::visit([&](auto& pipeline) {
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
         pipeline.UpdateShadowSettings(m_pImmediateContext, ProjectLoader::GetProjectSettings().lighting);
+        pipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
         pipeline.RenderModels(m_pImmediateContext, renderData, true);
 
         using T = std::decay_t<decltype(pipeline)>;
@@ -296,12 +329,15 @@ void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Dili
     Viewport.MaxDepth = 1.0f;
     m_pImmediateContext->SetViewports(1, &Viewport, pTarget->GetWidth(), pTarget->GetHeight());
 
+    const Diligent::FogConstants fogConstants = BuildFogConstants(ProjectLoader::GetProjectSettings().fog);
+    m_SkyboxPipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
     m_SkyboxPipeline.Render(m_pImmediateContext, renderData);
 
     std::visit([&](auto& pipeline) {
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
         pipeline.UpdateShadowSettings(m_pImmediateContext, ProjectLoader::GetProjectSettings().lighting);
+        pipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
         pipeline.RenderModels(m_pImmediateContext, renderData, true);
 
         using T = std::decay_t<decltype(pipeline)>;

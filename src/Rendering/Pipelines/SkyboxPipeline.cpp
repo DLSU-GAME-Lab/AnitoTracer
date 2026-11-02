@@ -35,7 +35,9 @@ namespace Diligent {
         // Define Shader Variables
         ShaderResourceVariableDesc Variables[] = {
             { SHADER_TYPE_VERTEX, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
-            { SHADER_TYPE_PIXEL, "g_Cubemap", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE }
+            { SHADER_TYPE_PIXEL, "g_Cubemap", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE },
+            { SHADER_TYPE_PIXEL, "LightConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
+            { SHADER_TYPE_PIXEL, "FogConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC }
         };
         PSODesc.ResourceLayout.Variables = Variables;
         PSODesc.ResourceLayout.NumVariables = _countof(Variables);
@@ -75,6 +77,30 @@ namespace Diligent {
         if (auto* pCameraVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants")) {
             pCameraVar->Set(m_pCameraCB);
         }
+
+        CBDesc.Name = "Skybox Light Constant Buffer";
+        CBDesc.Size = sizeof(LightConstants);
+        m_pLightCB.Release();
+        pDevice->CreateBuffer(CBDesc, nullptr, &m_pLightCB);
+
+        CBDesc.Name = "Skybox Fog Constant Buffer";
+        CBDesc.Size = sizeof(FogConstants);
+        m_pFogCB.Release();
+        pDevice->CreateBuffer(CBDesc, nullptr, &m_pFogCB);
+
+        if (auto* pLightVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "LightConstants")) {
+            pLightVar->Set(m_pLightCB);
+        }
+        if (auto* pFogVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "FogConstants")) {
+            pFogVar->Set(m_pFogCB);
+        }
+    }
+
+    void SkyboxPipeline::UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog) {
+        if (!m_pFogCB) return;
+
+        MapHelper<FogConstants> CBData(pContext, m_pFogCB, MAP_WRITE, MAP_FLAG_DISCARD);
+        *CBData = fog;
     }
 
     void SkyboxPipeline::SetCubemap(ITextureView* pCubemapSRV) {
@@ -91,6 +117,10 @@ namespace Diligent {
             MapHelper<CameraConstants> CBData(pContext, m_pCameraCB, MAP_WRITE, MAP_FLAG_DISCARD);
             CBData->View = glm::transpose(renderData.ViewMatrix);
             CBData->Proj = glm::transpose(renderData.ProjectionMatrix);
+        }
+        {
+            MapHelper<LightConstants> CBData(pContext, m_pLightCB, MAP_WRITE, MAP_FLAG_DISCARD);
+            *CBData = renderData.Lights;
         }
 
         pContext->SetPipelineState(m_pPSO);

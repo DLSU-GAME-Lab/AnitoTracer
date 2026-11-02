@@ -1,3 +1,6 @@
+#include "../light_struct.hlsli"
+#include "../fog.hlsli"
+
 TextureCube g_Cubemap;
 SamplerState g_Cubemap_sampler;
 
@@ -15,5 +18,6 @@ float4 main_ps(in SkyboxPSInput In) : SV_TARGET
     
     // Optional: If you are doing HDR mapping later, you can return raw values.
     // For standard un-tonemapped LDR, just return the color!
+    skyColor.rgb = ApplySkyFog(skyColor.rgb, dir, In.Pos.xy);
     return skyColor;
 }

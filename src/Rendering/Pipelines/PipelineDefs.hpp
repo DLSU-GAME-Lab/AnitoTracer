@@ -46,6 +46,30 @@ namespace Diligent {
         glm::vec4 AmbientColor{ 0.03f, 0.03f, 0.03f, 1.0f };
     };
 
+    // Mirrors cbuffer FogConstants in Shaders/fog.hlsli
+    struct FogConstants
+    {
+        glm::vec4 LinearColor{ 0.6f, 0.65f, 0.7f, 1.0f };     // rgb: color, a: max opacity
+        glm::vec4 VolumetricColor{ 0.8f, 0.85f, 0.9f, 0.0f }; // rgb: scattering tint, a: density
+        float LinearStart = 10.0f;
+        float LinearEnd = 100.0f;
+        float HeightFalloff = 0.15f;
+        float BaseHeight = 0.0f;
+        float Anisotropy = 0.4f;
+        float MaxDistance = 150.0f;
+        float NoiseStrength = 0.5f;
+        float NoiseScale = 0.08f;
+        glm::vec4 Wind{ 0.0f };                                 // xyz: wind velocity, w: time in seconds
+        int LinearEnabled = 0;
+        int VolumetricEnabled = 0;
+        int ApplyToSkybox = 1;
+        int SampleCount = 24;
+        float LightIntensity = 1.0f;
+        float AmbientIntensity = 0.3f;
+        float Padding[2] = { 0.0f, 0.0f };
+    };
+    static_assert(sizeof(FogConstants) % 16 == 0, "FogConstants must be 16-byte aligned for HLSL");
+
     struct alignas(16) PBRMaterialConstants {
         glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };
         float MetallicFactor{ 1.0f };

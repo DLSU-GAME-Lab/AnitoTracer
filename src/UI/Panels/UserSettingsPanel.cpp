@@ -66,6 +66,123 @@ namespace Diligent {
                 }
             }
 
+            // ------------------------------------------------------------------
+            // Project Fog Settings Section
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Fog Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& fogSettings = projectSettings.fog;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::PushItemWidth(150.0f);
+
+                // Linear Fog
+                if (ImGui::Checkbox("Linear Fog", &fogSettings.linear_enabled)) saveProjectSettings();
+                tooltip("Blends geometry toward a flat fog color based on distance from the camera.");
+
+                ImGui::BeginDisabled(!fogSettings.linear_enabled);
+                ImGui::Indent();
+
+                ImGui::ColorEdit3("Linear Color", fogSettings.linear_color.data());
+                saveAfterEdit();
+
+                ImGui::DragFloat("Start Distance", &fogSettings.linear_start, 0.5f, 0.0f, fogSettings.linear_end, "%.1f");
+                tooltip("Distance where fog begins.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("End Distance", &fogSettings.linear_end, 0.5f, fogSettings.linear_start, 10000.0f, "%.1f");
+                tooltip("Distance where fog reaches its maximum opacity.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Max Opacity", &fogSettings.linear_max_opacity, 0.0f, 1.0f, "%.2f");
+                saveAfterEdit();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                // Volumetric Fog
+                if (ImGui::Checkbox("Volumetric Fog", &fogSettings.volumetric_enabled)) saveProjectSettings();
+                tooltip("Ray-marched height fog that scatters light from directional and point lights.");
+
+                ImGui::BeginDisabled(!fogSettings.volumetric_enabled);
+                ImGui::Indent();
+
+                ImGui::ColorEdit3("Scattering Color", fogSettings.volumetric_color.data());
+                tooltip("Tint applied to light scattered by the fog.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Density", &fogSettings.volumetric_density, 0.001f, 0.0f, 1.0f, "%.3f");
+                tooltip("How thick the fog is at its base height.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Base Height", &fogSettings.volumetric_base_height, 0.1f, -1000.0f, 1000.0f, "%.1f");
+                tooltip("World Y below which the fog is at full density.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Height Falloff", &fogSettings.volumetric_height_falloff, 0.005f, 0.0f, 5.0f, "%.3f");
+                tooltip("How quickly the fog thins out above the base height. 0 = uniform fog.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Max Distance", &fogSettings.volumetric_max_distance, 1.0f, 1.0f, 5000.0f, "%.0f");
+                tooltip("Fog is only ray-marched up to this distance from the camera.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Anisotropy", &fogSettings.volumetric_anisotropy, -0.9f, 0.9f, "%.2f");
+                tooltip("Scattering direction. Positive values make the fog glow when looking toward lights.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Light Intensity", &fogSettings.volumetric_light_intensity, 0.01f, 0.0f, 20.0f, "%.2f");
+                tooltip("Scales how much scene light the fog scatters.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Ambient Intensity", &fogSettings.volumetric_ambient_intensity, 0.01f, 0.0f, 5.0f, "%.2f");
+                tooltip("Unlit brightness of the fog, so it stays visible away from lights.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Noise Strength", &fogSettings.volumetric_noise_strength, 0.0f, 1.0f, "%.2f");
+                tooltip("How patchy the fog is. 0 = smooth.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Noise Scale", &fogSettings.volumetric_noise_scale, 0.001f, 0.001f, 2.0f, "%.3f");
+                tooltip("Frequency of the fog patches. Smaller values give larger patches.");
+                saveAfterEdit();
+
+                ImGui::DragFloat3("Wind", fogSettings.volumetric_wind.data(), 0.05f);
+                tooltip("Velocity the fog patches drift at, in world units per second.");
+                saveAfterEdit();
+
+                ImGui::SliderInt("Sample Count", &fogSettings.volumetric_sample_count, 4, 128);
+                tooltip("Ray-march steps per pixel. Higher is smoother but slower.");
+                saveAfterEdit();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                ImGui::BeginDisabled(!fogSettings.linear_enabled && !fogSettings.volumetric_enabled);
+                if (ImGui::Checkbox("Apply Fog to Skybox", &fogSettings.apply_to_skybox)) saveProjectSettings();
+                tooltip("Also fogs the skybox, treating it as infinitely far away.");
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Fog to Defaults"))
+                {
+                    fogSettings = ProjectFogSettings{};
+                    saveProjectSettings();
+                }
+            }
+
             if (ImGui::CollapsingHeader("Graphics Settings", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Checkbox("Enable MSAA (4x)", &UserSettings::GetInstance().GetEnableMSAA());

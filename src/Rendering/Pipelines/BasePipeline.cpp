@@ -34,6 +34,12 @@ void Diligent::BasePipeline::UpdateShadowSettings(IDeviceContext* pContext, cons
     );
 }
 
+void Diligent::BasePipeline::UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog)
+{
+    MapHelper<FogConstants> CBData(pContext, m_pFogCB, MAP_WRITE, MAP_FLAG_DISCARD);
+    *CBData = fog;
+}
+
 void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData, bool renderOpaque)
 {
     Model* model = modelData.ModelData;
@@ -178,6 +184,16 @@ void Diligent::BasePipeline::CreateCommonConstantBuffers(IRenderDevice* pDevice)
         ShadowCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
         pDevice->CreateBuffer(ShadowCBDesc, nullptr, &m_pShadowCB);
     }
+
+    if (!m_pFogCB) {
+        BufferDesc FogCBDesc;
+        FogCBDesc.Name = "Fog Constant Buffer";
+        FogCBDesc.Size = sizeof(FogConstants);
+        FogCBDesc.Usage = USAGE_DYNAMIC;
+        FogCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
+        FogCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        pDevice->CreateBuffer(FogCBDesc, nullptr, &m_pFogCB);
+    }
 }
 
 void Diligent::BasePipeline::SetupDefaultGraphicsPipeline(GraphicsPipelineDesc& GraphicsPipeline)
@@ -212,6 +228,7 @@ std::vector<ShaderResourceVariableDesc> Diligent::BasePipeline::GetStandardShade
         {SHADER_TYPE_PIXEL, "LightConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "PBRMaterialConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "ShadowSettings", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "FogConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
 
         // Dynamic Textures for Material Submeshes
         {SHADER_TYPE_PIXEL, "g_BaseColorMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
