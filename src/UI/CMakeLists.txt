@@ -69,6 +69,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	anito::event
 	anito::rendering
 	anito::objects
+	anito::scripting
 	
 
 	Diligent-GraphicsEngineVk-shared

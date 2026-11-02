@@ -89,6 +89,27 @@ glm::vec3 RigidBody::GetAngularVelocity() const {
 	return mBody ? mBody->GetAngularVelocity() : glm::vec3(0.0f);
 }
 
+glm::vec3 RigidBody::GetWorldGravity() const {
+	return PhysicsEngine::GetInstance().Get().GetGravity();
+}
+
+void RigidBody::SetWorldGravity(const glm::vec3& gravity) {
+	PhysicsEngine::GetInstance().Get().SetGravity(gravity);
+}
+
+PhysicsRaycastHit RigidBody::Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const {
+	if (!mBody) return {};
+
+	std::shared_ptr<IPhysicsBody> hitBody;
+	glm::vec3 hitPoint{ 0.0f };
+	if (!PhysicsEngine::GetInstance().Get().Raycast(origin, direction, maxDistance, hitBody, hitPoint, mBody.get())) {
+		return {};
+	}
+
+	HierarchyObject* hitOwner = PhysicsBase::FindOwnerByBody(hitBody.get());
+	return { true, hitPoint, hitOwner ? hitOwner->getId() : 0 };
+}
+
 void RigidBody::SetMass(float mass) {
 	mMass = mass;
 	if (mBody) {

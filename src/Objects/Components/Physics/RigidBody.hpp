@@ -1,8 +1,19 @@
 #pragma once
 
 #include "PhysicsBase.hpp"
+#include "ScriptApiRegistry.hpp"
 #include "../../HierarchyObject.hpp"
 #include "../../../ObjectSystems/Event/Types/FixedUpdateTrigger.hpp"
+
+#include <cstdint>
+
+struct PhysicsRaycastHit {
+	bool hit = false;
+	glm::vec3 point{ 0.0f };
+	std::uint64_t object = 0;
+};
+
+ANITO_SCRIPT_TYPE_MAPPING(PhysicsRaycastHit, "raycasthit")
 
 class RigidBody
 	: public PhysicsBase
@@ -34,6 +45,9 @@ public:
 	glm::vec3 GetVelocity() const;
 	void SetAngularVelocity(const glm::vec3& angularVelocity);
 	glm::vec3 GetAngularVelocity() const;
+	glm::vec3 GetWorldGravity() const;
+	void SetWorldGravity(const glm::vec3& gravity);
+	PhysicsRaycastHit Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const;
 
 	virtual void SetMass(float mass);
 	float GetMass() const;
@@ -78,3 +92,14 @@ protected:
 };
 
 GBE_REGISTER_SERIALIZED_TYPE(RigidBody, PhysicsBase);
+
+ANITO_SCRIPT_TYPE(RigidBody, "rigidbody", "anito::Rigidbody", true);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "velocity", GetVelocity, SetVelocity);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "angularVelocity", GetAngularVelocity, SetAngularVelocity);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "mass", GetMass, SetMass);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "worldGravity", GetWorldGravity, SetWorldGravity);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addForce", ApplyForce);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addTorque", ApplyTorque);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addImpulse", ApplyImpulse);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "teleport", Teleport);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "raycast", Raycast);
