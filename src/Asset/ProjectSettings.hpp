@@ -7,6 +7,10 @@ struct ProjectLightingSettings
     float shadow_bias = 0.015f;
     float ambient_multiplier = 1.0f;
     std::array<float, 3> ambient_color{0.03f, 0.03f, 0.03f};
+
+    // Hybrid renderer only: the skybox lights the scene and shows up in reflections.
+    float sky_light_intensity = 1.0f;
+    float reflection_intensity = 1.0f;
 };
 
 struct ProjectFogSettings

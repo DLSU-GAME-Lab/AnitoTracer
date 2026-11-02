@@ -26,6 +26,8 @@ void Diligent::BasePipeline::UpdateShadowSettings(IDeviceContext* pContext, cons
     MapHelper<ShadowSettings> CBData(pContext, m_pShadowCB, MAP_WRITE, MAP_FLAG_DISCARD);
     CBData->ShadowBias = settings.shadow_bias;
     CBData->AmbientMultiplier = settings.ambient_multiplier;
+    CBData->SkyLightIntensity = settings.sky_light_intensity;
+    CBData->ReflectionIntensity = settings.reflection_intensity;
     CBData->AmbientColor = glm::vec4(
         settings.ambient_color[0],
         settings.ambient_color[1],

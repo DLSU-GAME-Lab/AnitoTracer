@@ -175,6 +175,9 @@ void RendererManager::InitializePipelines()
     auto* pDefaultSkybox = ModelManager::GetInstance().LoadCubemap("Assets/Skyboxes/skybox_raw.dds", true);
     if (pDefaultSkybox) {
         m_SkyboxPipeline.SetCubemap(pDefaultSkybox);
+        if (auto* pHybrid = std::get_if<Diligent::HybridPipeline>(&m_bLitPipeline)) {
+            pHybrid->SetEnvironmentMap(pDefaultSkybox);
+        }
         std::cout << "[Info] Default Skybox loaded and assigned successfully." << std::endl;
     }
     else {

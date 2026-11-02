@@ -36,11 +36,18 @@ void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapC
 
     std::vector<ShaderResourceVariableDesc> Variables = GetStandardShaderVariables();
     Variables.push_back({ SHADER_TYPE_PIXEL, "g_TLAS", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC }); // Hybrid-only requirement
+    Variables.push_back({ SHADER_TYPE_PIXEL, "g_EnvMap", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE });
 
     PSODesc.ResourceLayout.Variables = Variables.data();
     PSODesc.ResourceLayout.NumVariables = static_cast<Uint32>(Variables.size());
 
     std::vector<ImmutableSamplerDesc> ImtblSamplers = GetStandardImmutableSamplers();
+
+    SamplerDesc SamEnvDesc = GetLinearWrapSamplerDesc();
+    SamEnvDesc.AddressU = TEXTURE_ADDRESS_CLAMP;
+    SamEnvDesc.AddressV = TEXTURE_ADDRESS_CLAMP;
+    SamEnvDesc.AddressW = TEXTURE_ADDRESS_CLAMP;
+    ImtblSamplers.push_back({ SHADER_TYPE_PIXEL, "g_EnvMap_sampler", SamEnvDesc });
     PSODesc.ResourceLayout.ImmutableSamplers = ImtblSamplers.data();
     PSODesc.ResourceLayout.NumImmutableSamplers = static_cast<Uint32>(ImtblSamplers.size());
 
@@ -65,6 +72,42 @@ void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapC
 
     // The TLAS is bound here, so it MUST have a valid state before rendering!
     if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_TLAS"))           pVar->Set(m_pTLAS);
+
+    if (!m_pFallbackEnvMap) CreateFallbackEnvironmentMap(pDevice);
+    SetEnvironmentMap(m_pEnvMapSRV);
+}
+
+void Diligent::HybridPipeline::SetEnvironmentMap(ITextureView* pCubemapSRV)
+{
+    m_pEnvMapSRV = pCubemapSRV;
+    if (!m_pSRB) return;
+
+    ITextureView* pView = m_pEnvMapSRV ? m_pEnvMapSRV.RawPtr() : m_pFallbackEnvMap->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_EnvMap"))         pVar->Set(pView);
+}
+
+void Diligent::HybridPipeline::CreateFallbackEnvironmentMap(IRenderDevice* pDevice)
+{
+    // 1x1 black cube so the shader can always sample g_EnvMap; sky light simply contributes nothing
+    TextureDesc Desc;
+    Desc.Name = "Hybrid Fallback Environment Map";
+    Desc.Type = RESOURCE_DIM_TEX_CUBE;
+    Desc.Width = 1;
+    Desc.Height = 1;
+    Desc.ArraySize = 6;
+    Desc.Format = TEX_FORMAT_RGBA8_UNORM;
+    Desc.Usage = USAGE_IMMUTABLE;
+    Desc.BindFlags = BIND_SHADER_RESOURCE;
+
+    const Uint32 black = 0xFF000000;
+    TextureSubResData Faces[6];
+    for (auto& face : Faces) {
+        face.pData = &black;
+        face.Stride = sizeof(black);
+    }
+
+    TextureData InitData{ Faces, 6 };
+    pDevice->CreateTexture(Desc, &InitData, &m_pFallbackEnvMap);
 }
 
 void Diligent::HybridPipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)

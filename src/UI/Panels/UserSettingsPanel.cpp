@@ -54,6 +54,20 @@ namespace Diligent {
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
+                ImGui::DragFloat("Sky Light Intensity", &lightingSettings.sky_light_intensity, 0.01f, 0.0f, 10.0f, "%.2f");
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Hybrid renderer: how strongly the skybox lights the scene.");
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+
+                ImGui::DragFloat("Reflection Intensity", &lightingSettings.reflection_intensity, 0.01f, 0.0f, 2.0f, "%.2f");
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Hybrid renderer: strength of skybox reflections on surfaces.");
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+
                 ImGui::PopItemWidth();
 
                 ImGui::Spacing();
