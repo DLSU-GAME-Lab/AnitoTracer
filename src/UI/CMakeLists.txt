@@ -32,11 +32,15 @@ set(${CUR_TARGET_NAME}_src
 	Panels/ViewportPanel/GamePanel.cpp
 	Panels/ViewportPanel/GamePanel.hpp
 
-	MenuBar.hpp
-	MenuBar.cpp
+	Panels/FileExplorerPanel.cpp           
+    Panels/FileOpeners/SceneFileOpener.cpp 
+	Panels/FileOpeners/PrefabFileOpener.cpp
+	Panels/FileOpeners/ModelFileOpener.cpp 
 
 	FileDialog.hpp
 	FileDialog.cpp
+
+	MenuBar.cpp
 
 	GUIManager.cpp
 	GUIManager.hpp
@@ -69,6 +73,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	anito::event
 	anito::rendering
 	anito::objects
+	anito::scripting
 	
 
 	Diligent-GraphicsEngineVk-shared

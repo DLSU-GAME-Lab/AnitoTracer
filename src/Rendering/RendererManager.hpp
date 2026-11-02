@@ -12,6 +12,7 @@
 #include "Pipelines/SkyboxPipeline.hpp"
 #include "Pipelines/ColorCorrectionPipeline.hpp"
 #include "Pipelines/DebugLinePipeline.hpp"
+#include "Pipelines/ParticlePipeline.hpp"
 #include "RenderData.hpp"
 
 #include "../UserSettings.hpp"
@@ -47,6 +48,8 @@ private:
 
     void CreateMSAABuffers();
     void HandleRendererChangeEvent(const RendererChangeArgs* args);
+    void DrawParticles(const Diligent::RenderData& renderData, Diligent::ITextureView* pRTV, Diligent::ITextureView* pDSV,
+        const Diligent::Viewport* pViewport = nullptr, Diligent::Uint32 width = 0, Diligent::Uint32 height = 0);
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice>  m_pDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> m_pImmediateContext;
@@ -62,6 +65,7 @@ private:
     bool m_SupportsRayTracing = false;
 
     Diligent::DebugLinePipeline m_DebugLinePipeline;
+    Diligent::ParticlePipeline m_ParticlePipeline;
 
     gbe::ScopedSubscription m_OnRendererChangeSub;
 

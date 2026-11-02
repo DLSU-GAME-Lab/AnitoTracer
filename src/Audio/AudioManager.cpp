@@ -154,15 +154,22 @@ void AudioManager::SetSoundPitch(uint64_t soundID, float pitch) {
     ma_sound_set_pitch(sound, std::clamp(pitch, MinPitch, MaxPitch));
 }
 
-void AudioManager::SetSoundDistances(uint64_t soundID, float minDistance, float maxDistance) {
-    ma_sound* sound = FindSound(soundID, "Set sound distances");
+void AudioManager::SetSoundSpatialized(uint64_t soundID, bool spatialized) {
+    ma_sound* sound = FindSound(soundID, "Set sound spatialized");
     if (!sound) return;
 
-    // Linear falloff from min (full volume) to max (silent)
-    ma_sound_set_attenuation_model(sound, ma_attenuation_model_linear);
-    ma_sound_set_min_distance(sound, minDistance);
-    ma_sound_set_max_distance(sound, maxDistance);
-    ma_sound_set_rolloff(sound, 1.0f);
+    ma_sound_set_spatialization_enabled(sound, spatialized);
+}
+
+void AudioManager::SetSoundDistance(uint64_t soundID, float minDistance, float maxDistance) {
+    ma_sound* sound = FindSound(soundID, "Set sound distance");
+    if (!sound) return;
+
+    float clampMin = std::clamp(minDistance, MinDistanceLimit, MaxDistanceLimit - DistanceGap);
+    float clampMax = std::clamp(maxDistance, clampMin + DistanceGap, MaxDistanceLimit);
+
+    ma_sound_set_min_distance(sound, clampMin);
+    ma_sound_set_max_distance(sound, clampMax);
 }
 
 void AudioManager::SetListenerPosition(glm::vec3 position) {

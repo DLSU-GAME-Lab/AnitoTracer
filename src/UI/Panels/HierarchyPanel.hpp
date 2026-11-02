@@ -49,6 +49,17 @@ namespace Diligent {
         void ResolvePendingRangeSelection();
         // Pastes the clipboard under parent and selects everything pasted.
         void PasteAndSelect(HierarchyObject::Ref parent);
+        void CreateEmptyObject(HierarchyObject::Ref parent);
+        HierarchyObject::Ref m_PendingCreateParent = nullptr;
+        bool m_PendingCreateEmpty = false;
+        void CreateLightObject(bool directional, HierarchyObject::Ref parent);
+        void DrawAddLightMenu(HierarchyObject::Ref parent);
+        HierarchyObject::Ref m_PendingLightParent = nullptr;
+        int m_PendingLightType = 0; // 0 = none, 1 = point, 2 = directional
+        void CreatePrimitiveObject(const std::string& name, HierarchyObject::Ref parent);
+        void DrawAddPrimitiveMenu(HierarchyObject::Ref parent);
+        HierarchyObject::Ref m_PendingPrimitiveParent = nullptr;
+        std::string m_PendingPrimitiveName;
         HierarchyObject::Ref m_pendingDraggedObject = nullptr;
         HierarchyObject::Ref m_pendingDropParent = nullptr;
 

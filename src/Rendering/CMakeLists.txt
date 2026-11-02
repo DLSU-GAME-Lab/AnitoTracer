@@ -45,6 +45,10 @@ set(${CUR_TARGET_NAME}_src
 
 	Pipelines/DebugLinePipeline.hpp
 	Pipelines/DebugLinePipeline.cpp
+
+	ParticleRenderData.hpp
+	Pipelines/ParticlePipeline.hpp
+	Pipelines/ParticlePipeline.cpp
 	
 	Pipelines/SkyboxPipeline.hpp
 	Pipelines/SkyboxPipeline.cpp

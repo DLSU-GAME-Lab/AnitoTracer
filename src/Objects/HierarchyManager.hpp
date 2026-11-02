@@ -62,6 +62,10 @@ public:
     bool CopyObject(HierarchyObject::Ref object);
     // Copies several objects (and their subtrees) into the clipboard, replacing it.
     bool CopyObjects(const std::vector<HierarchyObject::Ref>& objects);
+    // Copies a component into the component clipboard, replacing its previous contents.
+    bool CopyComponent(ComponentBase* component);
+    // Pastes the copied component onto an object.
+    bool PasteComponent(HierarchyObject::Ref object);
 
     // Pastes the clipboard as a child of parent, or as a root when parent is empty.
     HierarchyObject::Ref PasteObject(HierarchyObject::Ref parent = nullptr);
@@ -69,6 +73,8 @@ public:
     std::vector<HierarchyObject::Ref> PasteObjects(HierarchyObject::Ref parent = nullptr);
 
     bool HasCopiedObject() const { return m_hasCopiedObject; }
+    bool HasCopiedComponent() const { return m_hasCopiedComponent; }
+    const std::string& GetCopiedComponentName() const { return m_copiedComponentName; }
 
     // Retrieves all active root nodes in the hierarchy tree.
     const std::vector<std::unique_ptr<HierarchyObject>>& GetRootObjects() const {
@@ -179,6 +185,10 @@ private:
     std::vector<gbe::IInstanceManager<HierarchyObject>::IdType> m_deferredDeletionIds;
     std::vector<gbe::SerializedData> m_copiedObjects;
     bool m_hasCopiedObject = false;
+    gbe::SerializedData m_copiedComponent;
+    std::string m_copiedComponentType;
+    std::string m_copiedComponentName;
+    bool m_hasCopiedComponent = false;
 
     friend class PrefabFeature;
 
