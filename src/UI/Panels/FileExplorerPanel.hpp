@@ -1,9 +1,9 @@
 #pragma once
 
 #include "BasePanel.hpp"
+#include "FileOpeners/FileOpener.hpp"
 
 #include <filesystem>
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -12,7 +12,7 @@ namespace Diligent
     class FileExplorerPanel final : public BasePanel
     {
     public:
-        using Opener = std::function<void(const std::filesystem::path&)>;
+        using Opener = FileOpeners::Opener;
 
         explicit FileExplorerPanel(const std::string& name = "File Explorer");
         void Draw() override;
@@ -34,6 +34,7 @@ namespace Diligent
         void BeginDialog(Dialog dialog, const std::string& text);
         void SyncProjectRoot();
         void NavigateTo(const std::filesystem::path& directory);
+        void OpenFile(const std::filesystem::path& path);
         void Select(const std::filesystem::path& path, bool additive);
         void OpenSelected();
         void CopySelection(bool cut);

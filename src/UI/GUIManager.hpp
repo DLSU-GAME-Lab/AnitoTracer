@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <compare>
+#include <filesystem>
 
 #include "Panels/BasePanel.hpp" 
 #include "MenuBar.hpp"
@@ -21,6 +22,7 @@
 #include "Panels/InspectorPanel/Components/PointLightUI.hpp"
 #include "Panels/InspectorPanel/Components/ModelUI.hpp"
 #include "Panels/InspectorPanel/Components/AudioSourceUI.hpp"
+#include "Panels/InspectorPanel/Components/ParticleSystemUI.hpp"
 
 #include "Panels/ViewportPanel/EditorPanel.hpp"
 #include "Panels/ViewportPanel/GamePanel.hpp"
@@ -68,6 +70,13 @@ namespace Diligent {
         void DrawGizmos(CameraComponent* pActiveCamera, float x, float y, float width, float height);
 
         void RegisterFileOpener(FileExplorerPanel::Opener opener);
+
+        // Window layouts (ImGui .ini files stored in Assets/Default Layouts)
+        static std::filesystem::path GetLayoutsDirectory() { return std::filesystem::path("Assets") / "Default Layouts"; }
+        std::vector<std::string> GetAvailableLayouts() const;
+        // Applied at the start of the next frame, never mid-frame
+        void RequestLoadLayout(const std::string& name) { m_PendingLayout = name; }
+        bool SaveCurrentLayout(const std::string& name);
 
         void RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter);
         
@@ -125,6 +134,8 @@ namespace Diligent {
 
         // The dedicated menu bar instance
         MenuBar m_MenuBar;
+
+        std::string m_PendingLayout;
 
         //Gizmo Drawer instance
         GizmoDrawer m_GizmoDrawer;

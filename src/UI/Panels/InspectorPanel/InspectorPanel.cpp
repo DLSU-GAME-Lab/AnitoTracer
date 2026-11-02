@@ -5,6 +5,8 @@
 #include "../../../Objects/Components/Physics/Collider.hpp"
 
 #include "HierarchyFeatures/PrefabFeature.hpp"
+#include "ScriptComponent.hpp"
+#include "ScriptRegistry.hpp"
 
 #include <cctype>
 #include <cstring>
@@ -122,10 +124,22 @@ void Diligent::InspectorPanel::Draw()
                     // Scope all widgets within this component to its memory address
                     ImGui::PushID(component.get());
 
+                    ImGui::BeginGroup();
                     InspectorRegistry::GetInstance().DrawComponent(component.get());
+                    ImGui::EndGroup();
 
-                    ImGui::SameLine();
-                    if (ImGui::SmallButton("Remove")) {
+                    bool removeComponent = false;
+                    if (ImGui::BeginPopupContextItem("ComponentContextMenu", ImGuiPopupFlags_MouseButtonRight)) {
+                        if (ImGui::MenuItem("Copy Component")) {
+                            HierarchyManager::GetInstance().CopyComponent(component.get());
+                        }
+                        if (ImGui::MenuItem("Remove Component")) {
+                            removeComponent = true;
+                        }
+                        ImGui::EndPopup();
+                    }
+
+                    if (removeComponent) {
                         selected.GetPtr()->RemoveComponent(component.get());
                         ImGui::PopID();
                         break;
@@ -141,9 +155,22 @@ void Diligent::InspectorPanel::Draw()
             ImGui::Spacing();
 
             // --- ADD COMPONENT BUTTON & POPUP ---
-            if (ImGui::Button("Add Component", ImVec2(-1, 0))) {
+            HierarchyManager& hierarchyManager = HierarchyManager::GetInstance();
+            const bool hasCopiedComponent = hierarchyManager.HasCopiedComponent();
+            const float addButtonWidth = hasCopiedComponent
+                ? (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f
+                : -1.0f;
+            if (ImGui::Button("Add Component", ImVec2(addButtonWidth, 0))) {
                 m_ComponentSearchBuffer[0] = '\0';
                 ImGui::OpenPopup("AddComponentPopup");
+            }
+
+            if (hasCopiedComponent) {
+                ImGui::SameLine();
+                if (ImGui::Button("Paste Component", ImVec2(-1, 0))) {
+                    hierarchyManager.PasteComponent(selected);
+                }
+                ImGui::TextDisabled("Clipboard: %s", hierarchyManager.GetCopiedComponentName().c_str());
             }
 
             if (ImGui::BeginPopup("AddComponentPopup")) {
@@ -159,6 +186,8 @@ void Diligent::InspectorPanel::Draw()
                 const std::string searchFilter = toLower(m_ComponentSearchBuffer);
 
                 for (const auto& entry : gbe::TypeRegistry::GetEntries()) {
+                    if (entry.name == typeid(ScriptComponent).name()) continue; // Listed per script below
+
                     std::string label = entry.name;
                     if (label.rfind("class ", 0) == 0) label.erase(0, 6);
                     if (label.rfind("struct ", 0) == 0) label.erase(0, 7);
@@ -185,6 +214,26 @@ void Diligent::InspectorPanel::Draw()
                         else {
                             delete rawInstance;
                         }
+                    }
+                }
+
+                bool firstScript = true;
+                for (const auto& [scriptName, descriptor] : ScriptRegistry::GetInstance().GetScripts()) {
+                    if (!searchFilter.empty() && toLower(scriptName).find(searchFilter) == std::string::npos) {
+                        continue;
+                    }
+                    if (firstScript) {
+                        ImGui::Separator();
+                        ImGui::TextDisabled("Scripts");
+                        firstScript = false;
+                    }
+
+                    const std::string scriptItemLabel = scriptName + "##script_" + scriptName;
+                    if (ImGui::Selectable(scriptItemLabel.c_str())) {
+                        auto newScript = std::make_unique<ScriptComponent>();
+                        newScript->BindScript(scriptName);
+                        newScript->SetOwner(selected);
+                        selected.GetPtr()->AddComponent(std::move(newScript));
                     }
                 }
                 ImGui::EndPopup();

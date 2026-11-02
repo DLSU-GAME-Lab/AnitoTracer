@@ -4,6 +4,7 @@
 #include "../ComponentBase.hpp"
 #include "PhysicsBase.hpp"
 #include "../../../Physics/IPhysicsEngine.hpp"
+#include "ScriptApiRegistry.hpp"
 
 enum class MeshSource {
 	FromPath,
@@ -80,3 +81,5 @@ protected:
 };
 
 GBE_REGISTER_SERIALIZED_TYPE(Collider, ComponentBase);
+
+ANITO_SCRIPT_TYPE(Collider, "collider", "anito::Collider", true);

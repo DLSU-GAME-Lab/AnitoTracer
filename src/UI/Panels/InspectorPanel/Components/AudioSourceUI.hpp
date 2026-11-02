@@ -23,7 +23,8 @@ public:
             audioComponent->Stop();
 
         float volume = audioComponent->GetVolume();
-        if(ImGui::SliderFloat("Volume", &volume, AudioManager::MinVolume, AudioManager::MaxVolume, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+        if(ImGui::SliderFloat("Volume", &volume, AudioManager::MinVolume, AudioManager::MaxVolume, "%.0f%%", 
+            ImGuiSliderFlags_AlwaysClamp))
             audioComponent->SetVolume(volume);
 
         bool loop = audioComponent->GetLoop();
@@ -35,12 +36,29 @@ public:
             ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp))
             audioComponent->SetPitch(pitch); 
 
-        float minDistance = audioComponent->GetMinDistance();
-        if (ImGui::DragFloat("Min Distance", &minDistance, 0.5f, 0.0f, 10000.0f))
-            audioComponent->SetMinDistance(minDistance);
+        bool spatialized = audioComponent->GetSpatialized();
+        if (ImGui::Checkbox("Spatial Audio", &spatialized))
+            audioComponent->SetSpatialized(spatialized);
 
+        float minDistance = audioComponent->GetMinDistance();
         float maxDistance = audioComponent->GetMaxDistance();
-        if (ImGui::DragFloat("Max Distance", &maxDistance, 0.5f, 0.0f, 10000.0f))
-            audioComponent->SetMaxDistance(maxDistance);
+
+        bool minDistanceSlider = ImGui::SliderFloat("Min Distance", &minDistance, AudioManager::MinDistanceLimit, 
+            AudioManager::MaxDistanceLimit - AudioManager::DistanceGap, "%.2f", 
+            ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+        bool maxDistanceSlider = ImGui::SliderFloat("Max Distance", &maxDistance, minDistance + AudioManager::DistanceGap, 
+            AudioManager::MaxDistanceLimit, "%.2f", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+
+        if (minDistanceSlider || maxDistanceSlider) {
+            if (maxDistance < minDistance + AudioManager::DistanceGap) {
+                 maxDistance = minDistance + AudioManager::DistanceGap;
+            }
+            audioComponent->SetDistance(minDistance, maxDistance);
+        }
+
+        bool playOnAwake = audioComponent->GetPlayOnAwake();
+        if (ImGui::Checkbox("Play on Awake", &playOnAwake))
+            audioComponent->SetPlayOnAwake(playOnAwake);
+            
     }
 };

@@ -84,11 +84,59 @@ for /f "tokens=2*" %%A in ('reg query "HKLM\System\CurrentControlSet\Control\Ses
 for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path') do set "USER_PATH=%%B"
 set "PATH=%SYS_PATH%;%USER_PATH%;C:\Program Files\LLVM\bin"
 
+echo ============================================================
+echo   DSL Toolchain Setup - Game Engine Environment Provisioning
+echo ============================================================
+echo.
+
+:: -----------------------------------------------------------------------------
+:: 1. Verify / Install Java (Required for ANTLR Code Generator)
+:: -----------------------------------------------------------------------------
+where java >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [*] Java JDK not found. Installing Eclipse Temurin JDK 17 via Winget...
+    winget install --id EclipseAdoptium.Temurin.17.JDK -e --silent --accept-package-agreements --accept-source-agreements
+    if %errorlevel% neq 0 (
+        echo [ERROR] Java installation failed. Please install JDK 11+ manually.
+        exit /b 1
+    )
+    echo [!] Java installed successfully.
+    set REBOOT_NEEDED=1
+) else (
+    echo [OK] Java runtime detected.
+)
+
+:: -----------------------------------------------------------------------------
+:: 3. Download ANTLR Complete Generator Jar
+:: -----------------------------------------------------------------------------
+set ANTLR_VERSION=4.13.2
+set ANTLR_JAR=%~dp0antlr-%ANTLR_VERSION%-complete.jar
+set ANTLR_JAR_NAME=antlr-%ANTLR_VERSION%-complete.jar
+
+if not exist "%ANTLR_JAR%" (
+    echo [*] Downloading ANTLR generator (%ANTLR_JAR_NAME%)
+    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://www.antlr.org/download/%ANTLR_JAR_NAME%' -OutFile '%ANTLR_JAR%'"
+    if not exist "%ANTLR_JAR%" (
+        echo [ERROR] Failed to download %ANTLR_JAR%. Check network connection.
+        exit /b 1
+    )
+    echo [OK] %ANTLR_JAR% fetched successfully.
+) else (
+    echo [OK] %ANTLR_JAR% is present.
+)
+
 :: 3. Verification Test
 echo.
 echo ===================================================
 echo                Verification Test
 echo ===================================================
+
+if defined REBOOT_NEEDED (
+    echo   [!] Environment tools were installed.
+    echo   PLEASE RESTART YOUR TERMINAL / VS CODE TO REFRESH PATHS!
+) else (
+    echo   [OK] Engine DSL Environment Setup Complete.
+)
 
 where clang++ >nul 2>&1
 if %errorLevel% equ 0 (

@@ -1,9 +1,11 @@
 #include "HierarchyPanel.hpp"
 
 #include "HierarchyFeatures/PrefabFeature.hpp"
+#include "../../Objects/ObjectFactory.hpp"
 
 #include <algorithm>
 #include <cstdio>
+#include <iostream>
 
 namespace Diligent {
 
@@ -69,6 +71,29 @@ namespace Diligent {
                 }
             }
 
+            if (m_PendingCreateEmpty) {
+                const auto parent = m_PendingCreateParent;
+                m_PendingCreateParent = nullptr;
+                m_PendingCreateEmpty = false;
+                CreateEmptyObject(parent);
+            }
+
+            if (m_PendingLightType != 0) {
+                const auto parent = m_PendingLightParent;
+                const bool directional = m_PendingLightType == 2;
+                m_PendingLightParent = nullptr;
+                m_PendingLightType = 0;
+                CreateLightObject(directional, parent);
+            }
+
+            if (!m_PendingPrimitiveName.empty()) {
+                const auto parent = m_PendingPrimitiveParent;
+                const std::string name = std::move(m_PendingPrimitiveName);
+                m_PendingPrimitiveName.clear();
+                m_PendingPrimitiveParent = nullptr;
+                CreatePrimitiveObject(name, parent);
+            }
+
             ResolvePendingRangeSelection();
 
             ImVec2 emptySpaceSize = ImGui::GetContentRegionAvail();
@@ -77,6 +102,18 @@ namespace Diligent {
             ImGui::InvisibleButton("##HierarchyEmptySpace", emptySpaceSize);
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
                 SetSelectedObject(nullptr);
+            }
+            if (ImGui::BeginPopupContextItem("HierarchyEmptySpaceContextMenu")) {
+                if (ImGui::MenuItem("Create Empty")) {
+                    CreateEmptyObject(nullptr);
+                }
+                DrawAddLightMenu(nullptr);
+                DrawAddPrimitiveMenu(nullptr);
+                if (ImGui::MenuItem("Paste", "Ctrl+V",
+                    false, HierarchyManager::GetInstance().HasCopiedObject())) {
+                    PasteAndSelect(nullptr);
+                }
+                ImGui::EndPopup();
             }
             if (ImGui::BeginDragDropTarget()) {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_HIERARCHY_OBJ")) {
@@ -222,6 +259,108 @@ namespace Diligent {
         }
     }
 
+    void HierarchyPanel::CreateEmptyObject(HierarchyObject::Ref parent)
+    {
+        auto& hierarchy = HierarchyManager::GetInstance();
+        hierarchy.BeginUndoableAction();
+        const auto created = ObjectFactory::GetInstance().CreateRootObjectWithTransform("Empty Object");
+        const bool parented = !parent || hierarchy.ReparentObject(created, parent);
+        hierarchy.EndUndoableAction();
+
+        if (!parented) {
+            std::cerr << "Unable to parent the new empty object in the hierarchy." << std::endl;
+            return;
+        }
+
+        SetSelectedObject(created);
+    }
+
+    void HierarchyPanel::DrawAddLightMenu(HierarchyObject::Ref parent)
+    {
+        if (!ImGui::BeginMenu("Add Light")) return;
+        if (ImGui::MenuItem("Add Point Light")) {
+            m_PendingLightType = 1;
+            m_PendingLightParent = parent;
+        }
+        if (ImGui::MenuItem("Add Directional Light")) {
+            m_PendingLightType = 2;
+            m_PendingLightParent = parent;
+        }
+        ImGui::EndMenu();
+    }
+
+    void HierarchyPanel::CreateLightObject(bool directional, HierarchyObject::Ref parent)
+    {
+        auto& hierarchy = HierarchyManager::GetInstance();
+        hierarchy.BeginUndoableAction();
+        auto& factory = ObjectFactory::GetInstance();
+        const auto created = directional
+            ? factory.CreateDirectionalLightObject("Directional Light")
+            : factory.CreatePointLightObject("Point Light");
+        const bool parented = !parent || hierarchy.ReparentObject(created, parent);
+
+        if (parented) {
+            Transform* transform = created.GetPtr()->GetTransform();
+            if (parent) {
+                transform->SetPosition(glm::vec3(0.0f));
+            }
+            else if (auto* camera = hierarchy.GetEditorCamera()) {
+                transform->SetWorldPosition(camera->GetPivotPosition());
+            }
+        }
+        hierarchy.EndUndoableAction();
+
+        if (!parented) {
+            std::cerr << "Unable to parent the new light in the hierarchy." << std::endl;
+            return;
+        }
+
+        SetSelectedObject(created);
+    }
+
+    void HierarchyPanel::DrawAddPrimitiveMenu(HierarchyObject::Ref parent)
+    {
+        if (!ImGui::BeginMenu("Add Primitive")) return;
+        static const char* const kPrimitives[] = { "Capsule", "Cube", "Sphere", "Plane" };
+        for (const char* name : kPrimitives) {
+            if (ImGui::MenuItem(name)) {
+                m_PendingPrimitiveName = name;
+                m_PendingPrimitiveParent = parent;
+            }
+        }
+        ImGui::EndMenu();
+    }
+
+    void HierarchyPanel::CreatePrimitiveObject(const std::string& name, HierarchyObject::Ref parent)
+    {
+        auto& hierarchy = HierarchyManager::GetInstance();
+        hierarchy.BeginUndoableAction();
+        std::string lower = name;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const auto created = ObjectFactory::GetInstance().CreateModelObject(
+            name, "Assets/Primitives/" + lower + ".obj");
+        const bool parented = !parent || hierarchy.ReparentObject(created, parent);
+
+        if (parented) {
+            Transform* transform = created.GetPtr()->GetTransform();
+            if (parent) {
+                transform->SetPosition(glm::vec3(0.0f));
+            }
+            else if (auto* camera = hierarchy.GetEditorCamera()) {
+                transform->SetWorldPosition(camera->GetPivotPosition());
+            }
+        }
+        hierarchy.EndUndoableAction();
+
+        if (!parented) {
+            std::cerr << "Unable to parent the new primitive in the hierarchy." << std::endl;
+            return;
+        }
+
+        SetSelectedObject(created);
+    }
+
     void HierarchyPanel::ResolvePendingRangeSelection()
     {
         const HierarchyObject::Ref target = m_PendingRangeTarget;
@@ -358,13 +497,29 @@ namespace Diligent {
 
         if (!renaming && ImGui::BeginPopupContextItem("ObjectContextMenu"))
         {
-            if (ImGui::MenuItem("Copy Object", "Ctrl+C"))
+            if (!IsSelected(node)) SetSelectedObject(node);
+
+            if (ImGui::MenuItem("Create Empty"))
             {
-                if (!IsSelected(node)) SetSelectedObject(node);
+                m_PendingCreateParent = node;
+                m_PendingCreateEmpty = true;
+            }
+
+            DrawAddLightMenu(node);
+            DrawAddPrimitiveMenu(node);
+
+            if (ImGui::MenuItem("Create Empty as Sibling"))
+            {
+                m_PendingCreateParent = node.GetPtr()->GetParent();
+                m_PendingCreateEmpty = true;
+            }
+
+            if (ImGui::MenuItem("Copy", "Ctrl+C"))
+            {
                 HierarchyManager::GetInstance().CopyObjects(GetSelectedRoots());
             }
 
-            if (ImGui::MenuItem("Paste Object", "Ctrl+V",
+            if (ImGui::MenuItem("Paste (as children)", "Ctrl+V",
                 false, HierarchyManager::GetInstance().HasCopiedObject()))
             {
                 PasteAndSelect(node);
