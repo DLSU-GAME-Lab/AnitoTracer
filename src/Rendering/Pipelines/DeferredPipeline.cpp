@@ -126,6 +126,11 @@ void Diligent::DeferredPipeline::InitializeLightingPSO(IRenderDevice* pDevice)
 
 void Diligent::DeferredPipeline::CreateGBuffers(IRenderDevice* pDevice, Uint32 Width, Uint32 Height)
 {
+    m_pGBufferAlbedo.Release();
+    m_pGBufferNormal.Release();
+    m_pGBufferWorldPos.Release();
+    m_pDepthBuffer.Release();
+
     TextureDesc TexDesc;
     TexDesc.Type = RESOURCE_DIM_TEX_2D;
     TexDesc.Width = Width;
@@ -158,11 +163,6 @@ void Diligent::DeferredPipeline::CreateGBuffers(IRenderDevice* pDevice, Uint32 W
 
 void Diligent::DeferredPipeline::OnWindowResize(IRenderDevice* pDevice, Uint32 Width, Uint32 Height)
 {
-    m_pGBufferAlbedo.Release();
-    m_pGBufferNormal.Release();
-    m_pGBufferWorldPos.Release();
-    m_pDepthBuffer.Release();
-
     CreateGBuffers(pDevice, Width, Height);
 
     m_pLightingSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_GBufferAlbedo")->Set(

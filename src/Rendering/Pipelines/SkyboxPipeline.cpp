@@ -68,6 +68,7 @@ namespace Diligent {
         CBDesc.Usage = USAGE_DYNAMIC;
         CBDesc.BindFlags = BIND_UNIFORM_BUFFER;
         CBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        m_pCameraCB.Release();
         pDevice->CreateBuffer(CBDesc, nullptr, &m_pCameraCB);
 
         // Bind the buffer to the shader variable permanently
