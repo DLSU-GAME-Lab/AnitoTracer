@@ -36,7 +36,8 @@ void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapC
 
     std::vector<ShaderResourceVariableDesc> Variables = GetStandardShaderVariables();
     Variables.push_back({ SHADER_TYPE_PIXEL, "g_TLAS", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC }); // Hybrid-only requirement
-    Variables.push_back({ SHADER_TYPE_PIXEL, "g_EnvMap", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE });
+    // Dynamic so the skybox can be swapped after the fallback is bound
+    Variables.push_back({ SHADER_TYPE_PIXEL, "g_EnvMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC });
 
     PSODesc.ResourceLayout.Variables = Variables.data();
     PSODesc.ResourceLayout.NumVariables = static_cast<Uint32>(Variables.size());

@@ -336,6 +336,10 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
             instance.ModelData = pModel;
             instance.WorldTransform = currentWorldMatrix;
             instance.OwnerID = obj.GetID();
+            instance.OverrideRoughness = modelComp->GetOverrideRoughness();
+            instance.Roughness = modelComp->GetRoughness();
+            instance.OverrideMetallic = modelComp->GetOverrideMetallic();
+            instance.Metallic = modelComp->GetMetallic();
 
             // ADDED: Sort submeshes based on material transparency
             for (uint32_t i = 0; i < pModel->SubMeshes.size(); ++i) {

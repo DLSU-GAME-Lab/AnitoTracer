@@ -95,7 +95,7 @@ namespace Diligent {
         float UseNormalMap{ 0.0f };
         float UseAOMap{ 0.0f };
         float UseEmissiveMap{ 0.0f };
-        float PaddingMat{ 0.0f };
+        float OverrideFlags{ 0.0f }; // Bit 1: roughness overridden, bit 2: metallic overridden (skip the texture channel)
     };
 
     struct CameraConstants {

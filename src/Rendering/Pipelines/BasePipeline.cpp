@@ -75,8 +75,9 @@ void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRe
             auto colorFactor = mat.BaseColorFactor;
             PBRMaterialConstants matCBData{};
             matCBData.BaseColorFactor = glm::vec4(colorFactor.r, colorFactor.g, colorFactor.b, colorFactor.a);
-            matCBData.MetallicFactor = mat.MetallicFactor;
-            matCBData.RoughnessFactor = mat.RoughnessFactor;
+            matCBData.MetallicFactor = modelData.OverrideMetallic ? modelData.Metallic : mat.MetallicFactor;
+            matCBData.RoughnessFactor = modelData.OverrideRoughness ? modelData.Roughness : mat.RoughnessFactor;
+            matCBData.OverrideFlags = static_cast<float>((modelData.OverrideRoughness ? 1 : 0) | (modelData.OverrideMetallic ? 2 : 0));
 
             ITextureView* pSafeFallbackTexture = mat.BaseColor;
 

@@ -23,6 +23,14 @@ public:
         }
 
         ImGui::Separator();
+        DrawMaterialOverride("Roughness", modelComponent,
+            &ModelComponent::GetOverrideRoughness, &ModelComponent::SetOverrideRoughness,
+            &ModelComponent::GetRoughness, &ModelComponent::SetRoughness);
+        DrawMaterialOverride("Metallic", modelComponent,
+            &ModelComponent::GetOverrideMetallic, &ModelComponent::SetOverrideMetallic,
+            &ModelComponent::GetMetallic, &ModelComponent::SetMetallic);
+
+        ImGui::Separator();
         ImGui::Text("Path: %s", model->GetPath().generic_string().c_str());
         ImGui::Text("Submeshes: %zu", model->SubMeshes.size());
         ImGui::Text("PBR Materials: %zu", model->PBRMaterials.size());
@@ -37,5 +45,29 @@ public:
             model->AABBMin.x, model->AABBMin.y, model->AABBMin.z);
         ImGui::Text("AABB Max: [%.2f, %.2f, %.2f]",
             model->AABBMax.x, model->AABBMax.y, model->AABBMax.z);
+    }
+
+private:
+    // Checkbox to enable the override, plus a 0-1 slider that is greyed out while it's off
+    static void DrawMaterialOverride(const char* label, ModelComponent* component,
+        bool (ModelComponent::*getEnabled)() const, void (ModelComponent::*setEnabled)(bool),
+        float (ModelComponent::*getValue)() const, void (ModelComponent::*setValue)(float))
+    {
+        ImGui::PushID(label);
+
+        bool enabled = (component->*getEnabled)();
+        if (ImGui::Checkbox("##Override", &enabled))
+            (component->*setEnabled)(enabled);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Override the material's %s on every submesh.", label);
+
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!enabled);
+        float value = (component->*getValue)();
+        if (ImGui::SliderFloat(label, &value, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
+            (component->*setValue)(value);
+        ImGui::EndDisabled();
+
+        ImGui::PopID();
     }
 };

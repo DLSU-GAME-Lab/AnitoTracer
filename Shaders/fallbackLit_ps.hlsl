@@ -17,8 +17,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     if (g_UseMetallicRoughnessMap > 0.5)
     {
         float4 mrSample = g_MetallicRoughnessMap.Sample(g_MetallicRoughnessMap_sampler, In.UV);
-        roughness *= mrSample.g;
-        metallic *= mrSample.b;
+        ApplyMetallicRoughnessMap(mrSample, metallic, roughness);
     }
     roughness = max(roughness, 0.05);
 

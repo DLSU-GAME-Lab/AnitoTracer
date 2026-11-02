@@ -15,8 +15,16 @@ cbuffer PBRMaterialConstants
     float g_UseNormalMap;
     float g_UseAOMap;
     float g_UseEmissiveMap;
-    float g_PaddingMat;
+    float g_OverrideFlags; // Bit 1: roughness overridden, bit 2: metallic overridden
 };
+
+// Applies the metallic/roughness texture, skipping channels overridden by the model component
+void ApplyMetallicRoughnessMap(float4 mrSample, inout float metallic, inout float roughness)
+{
+    uint flags = (uint)g_OverrideFlags;
+    if ((flags & 1u) == 0u) roughness *= mrSample.g;
+    if ((flags & 2u) == 0u) metallic *= mrSample.b;
+}
 
 // Define a matching sampler for every texture for Vulkan compatibility
 Texture2D g_BaseColorMap;
