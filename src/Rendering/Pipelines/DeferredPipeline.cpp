@@ -28,9 +28,12 @@ void Diligent::DeferredPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
 
 void Diligent::DeferredPipeline::InitializeLightingPSO()
 {
+    // The editor view always uses this pipeline, so the lighting pass must also write into the multisampled target when MSAA is on.
+    // Shading is still per pixel (the G-buffer is single sampled), so geometry edges are not anti-aliased.
     m_pLightingPSO = PSOBuilder("Deferred Lighting PSO")
         .Shaders("Deferred/fullscreen_vs.hlsl", "Deferred/simple_deferred_light_ps.hlsl")
         .RenderTargets({ GetColorFormat() }, TEX_FORMAT_UNKNOWN) // No depth testing for lighting pass
+        .SampleCount(PipelineUtils::GetMSAASampleCount())
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferAlbedo", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferNormal", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferWorldPos", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)

@@ -2,6 +2,7 @@
 #include "Pipelines/Utils/ScenePipelineRegistry.hpp"
 #include "SceneConstants.hpp"
 #include "../Asset/ProjectLoader.hpp"
+#include "../AppState.hpp"
 #include <iostream>
 
 void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, bool supportsRayTracing)
@@ -14,6 +15,10 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
 
     // Initialize pipeline based on the saved user setting
     SelectScenePipeline(Diligent::UserSettings::GetInstance().GetRendererType());
+
+    if (!AppState::isReleaseBuild) {
+        m_pEditorPipeline = Diligent::ScenePipelineRegistry::Find(Diligent::PipelineType::DEFERRED)->Create();
+    }
 
     m_OnRendererChangeSub = gbe::ScopedSubscription::Create<RendererChangeArgs>(
         EVENT_RENDER_CHANGE,
@@ -54,6 +59,7 @@ void RendererManager::InitializePipelines()
     const auto& SCDesc = m_pSwapChain->GetDesc();
 
     m_pScenePipeline->InitializePipeline(m_pDevice, m_pSwapChain);
+    if (m_pEditorPipeline) m_pEditorPipeline->InitializePipeline(m_pDevice, m_pSwapChain);
     m_DebugLinePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
     m_ParticlePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
     m_SkyboxPipeline.Initialize(m_pDevice, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
@@ -70,6 +76,7 @@ void RendererManager::LoadDefaultSkybox()
     if (pDefaultSkybox) {
         m_SkyboxPipeline.SetCubemap(pDefaultSkybox);
         m_pScenePipeline->SetEnvironmentMap(pDefaultSkybox);
+        if (m_pEditorPipeline) m_pEditorPipeline->SetEnvironmentMap(pDefaultSkybox);
         std::cout << "[Info] Default Skybox loaded and assigned successfully." << std::endl;
     }
     else {
@@ -101,6 +108,7 @@ void RendererManager::OnResize(Diligent::Uint32 width, Diligent::Uint32 height)
     if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
 
     if (m_pScenePipeline) m_pScenePipeline->OnResize(SCDesc.Width, SCDesc.Height);
+    if (m_pEditorPipeline) m_pEditorPipeline->OnResize(SCDesc.Width, SCDesc.Height);
 }
 
 void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
@@ -112,21 +120,32 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
 
     // The release build is the game itself, so post processing always applies here
     const Diligent::FrameTarget backBuffer{ m_pSwapChain->GetCurrentBackBufferRTV(), m_pSwapChain->GetDepthBufferDSV(), SCDesc.Width, SCDesc.Height };
-    RenderView(backBuffer, renderData, true);
+    RenderView(backBuffer, *m_pScenePipeline, renderData, true);
 
     // Leave the back buffer bound for the UI
     backBuffer.Bind(m_pImmediateContext);
 }
 
-void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData, bool applyPostProcessing)
+void RendererManager::RenderGameView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
+{
+    RenderToTarget(pTarget, *m_pScenePipeline, renderData, true);
+}
+
+void RendererManager::RenderEditorView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
+{
+    if (!m_pEditorPipeline) return;
+    RenderToTarget(pTarget, *m_pEditorPipeline, renderData, false);
+}
+
+void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing)
 {
     if (!pTarget || !pTarget->IsValid()) return;
 
     SyncMSAAState();
-    RenderView(pTarget->AsFrameTarget(), renderData, applyPostProcessing);
+    RenderView(pTarget->AsFrameTarget(), scenePipeline, renderData, applyPostProcessing);
 }
 
-void RendererManager::RenderView(const Diligent::FrameTarget& output, const Diligent::RenderData& renderData, bool applyPostProcessing)
+void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing)
 {
     const ProjectSettings& settings = ProjectLoader::GetProjectSettings();
 
@@ -149,7 +168,7 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, const Dili
     m_SkyboxPipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
     m_SkyboxPipeline.Render(m_pImmediateContext, renderData);
 
-    m_pScenePipeline->Render(m_pImmediateContext, renderData, scene, settings.lighting, fogConstants);
+    scenePipeline.Render(m_pImmediateContext, renderData, scene, settings.lighting, fogConstants);
 
     RenderOverlays(scene, renderData);
 

@@ -79,7 +79,11 @@ namespace Diligent {
         bool SaveCurrentLayout(const std::string& name);
 
         void RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter);
-        
+
+        // Whether each viewport is on screen this frame (not closed, collapsed or behind another dock tab)
+        bool IsEditorViewportShown() const { return m_pEditorPanel && m_pEditorPanel->IsViewportShown(); }
+        bool IsGameViewportShown() const { return m_pGamePanel && m_pGamePanel->IsViewportShown(); }
+
         void SetEditorViewportInfo(ImVec2 pos, ImVec2 size, bool hovered, bool focused) {
             m_EditorViewportPos = pos;
             m_EditorViewportSize = size;
@@ -124,6 +128,8 @@ namespace Diligent {
         //Cache ref for laters
         HierarchyPanel* m_pHierarchyPanel = nullptr;
         FileExplorerPanel* m_pFileExplorerPanel = nullptr;
+        GamePanel* m_pGamePanel = nullptr;
+        EditorPanel* m_pEditorPanel = nullptr;
         std::vector<FileExplorerPanel::Opener> m_FileOpeners;
 
         // Manage all UI windows dynamically

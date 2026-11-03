@@ -19,7 +19,9 @@ namespace Diligent {
         //Prevent jitters
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | m_WindowFlags;
 
-        if (ImGui::Begin(m_Name.c_str(), &m_IsVisible, flags)) {
+        // Begin returns false when the window is collapsed or docked behind another tab
+        m_IsShown = ImGui::Begin(m_Name.c_str(), &m_IsVisible, flags);
+        if (m_IsShown) {
             DrawTopBar();
 
             ImVec2 viewportSize = ImGui::GetContentRegionAvail();

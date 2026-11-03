@@ -471,19 +471,27 @@ void AnitoTracer_App::Render()
     }
     else
     {
-        RendererManager::GetInstance().RenderToTarget(m_pGameTarget, renderData, true);
+        GUIManager& gui = GUIManager::GetInstance();
 
-        RenderData editorRenderData;
-        HierarchyManager::GetInstance().GetEditorCameraMatrices(editorRenderData.ViewMatrix, editorRenderData.ProjectionMatrix);
-        editorRenderData.Models = renderData.Models;
-        editorRenderData.Lights = renderData.Lights;
-        editorRenderData.Particles = renderData.Particles;
-
-        if (ProjectLoader::GetProjectSettings().debug.show_physics_collider_wireframes) {
-            editorRenderData.DebugLines = PhysicsEngine::GetInstance().Get().GetDebugLines();
+        // Views whose panel is closed, collapsed or behind another dock tab aren't rendered
+        if (gui.IsGameViewportShown()) {
+            RendererManager::GetInstance().RenderGameView(m_pGameTarget, renderData);
         }
 
-        RendererManager::GetInstance().RenderToTarget(m_pEditorTarget, editorRenderData);
+        RenderData editorRenderData;
+        const bool editorShown = gui.IsEditorViewportShown();
+        if (editorShown) {
+            HierarchyManager::GetInstance().GetEditorCameraMatrices(editorRenderData.ViewMatrix, editorRenderData.ProjectionMatrix);
+            editorRenderData.Models = renderData.Models;
+            editorRenderData.Lights = renderData.Lights;
+            editorRenderData.Particles = renderData.Particles;
+
+            if (ProjectLoader::GetProjectSettings().debug.show_physics_collider_wireframes) {
+                editorRenderData.DebugLines = PhysicsEngine::GetInstance().Get().GetDebugLines();
+            }
+
+            RendererManager::GetInstance().RenderEditorView(m_pEditorTarget, editorRenderData);
+        }
 
         // Clear the main window backbuffer so ImGui has a clean background
         ITextureView* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
@@ -493,7 +501,7 @@ void AnitoTracer_App::Render()
         m_pImmediateContext->ClearRenderTarget(pBackBufferRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_pImmediateContext->ClearDepthStencil(pDefaultDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        HandleObjectPicking(SCDesc, editorRenderData);
+        if (editorShown) HandleObjectPicking(SCDesc, editorRenderData);
     }
 
     GUIManager::GetInstance().Render(m_pImmediateContext);
