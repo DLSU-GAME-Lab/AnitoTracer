@@ -9,6 +9,9 @@
 #include "Pipelines/BasicLitPipeline.hpp"
 #include "Pipelines/HybridPipeline.hpp"
 #include "Pipelines/DeferredPipeline.hpp"
+#include "Pipelines/SkyboxPipeline.hpp"
+#include "Pipelines/ColorCorrectionPipeline.hpp"
+#include "Pipelines/GodRaysPipeline.hpp"
 #include "Pipelines/DebugLinePipeline.hpp"
 #include "Pipelines/ParticlePipeline.hpp"
 #include "RenderData.hpp"
@@ -37,8 +40,8 @@ public:
     bool IsRayTracingSupported() const { return m_SupportsRayTracing; }
 
     Diligent::RenderTarget* CreateRenderTarget(const std::string& name);
-    //Off screen rendering to tex
-    void RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData);
+    //Off screen rendering to tex. Post processing (god rays, color correction) is opt-in so only the game view gets it, not the editor view.
+    void RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData, bool applyPostProcessing = false);
 
 private:
     RendererManager() = default;
@@ -69,4 +72,12 @@ private:
 
     //Render targets
     std::vector<std::unique_ptr<Diligent::RenderTarget>> m_RenderTargets;
+
+    //Skyboxes
+    Diligent::SkyboxPipeline m_SkyboxPipeline;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pSkyboxSRV;
+
+    //Post processing (game output only)
+    Diligent::GodRaysPipeline m_GodRaysPipeline;
+    Diligent::ColorCorrectionPipeline m_ColorCorrectionPipeline;
 };

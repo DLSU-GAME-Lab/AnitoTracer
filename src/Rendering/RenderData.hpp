@@ -19,6 +19,12 @@ namespace Diligent {
         glm::mat4 WorldTransform{ 1.0f };
         uint64_t OwnerID = 0;
 
+        // Per-instance overrides from the ModelComponent; replace both the material factor and texture
+        bool OverrideRoughness = false;
+        float Roughness = 0.5f;
+        bool OverrideMetallic = false;
+        float Metallic = 0.0f;
+
 		//Opaque and transparent meshes are separated for proper rendering order
         std::vector<uint32_t> OpaqueSubmeshIndices;
         std::vector<uint32_t> TransparentSubmeshIndices;

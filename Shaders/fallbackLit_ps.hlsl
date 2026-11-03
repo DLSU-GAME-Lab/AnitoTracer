@@ -1,6 +1,7 @@
 #include "common_struct.hlsli"
 #include "light_struct.hlsli"
 #include "pbr_defs.hlsli"
+#include "fog.hlsli"
 
 void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 {
@@ -16,8 +17,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     if (g_UseMetallicRoughnessMap > 0.5)
     {
         float4 mrSample = g_MetallicRoughnessMap.Sample(g_MetallicRoughnessMap_sampler, In.UV);
-        roughness *= mrSample.g;
-        metallic *= mrSample.b;
+        ApplyMetallicRoughnessMap(mrSample, metallic, roughness);
     }
     roughness = max(roughness, 0.05);
 
@@ -124,6 +124,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     // 4. Ambient & Emissive Combined
     float3 ambient = g_AmbientColor.rgb * albedo.rgb * ao * g_AmbientMultiplier;
     float3 color = ambient + Lo + emissive;
+    color = ApplyFog(color, In.WorldPos, In.Pos.xy);
 
     OutColor = float4(color, albedo.a);
 }

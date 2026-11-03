@@ -42,9 +42,64 @@ namespace Diligent {
     {
         float ShadowBias = 0.015f;
         float AmbientMultiplier = 1.0f;
-        float Padding[2] = { 0.0f, 0.0f }; // Pads the struct size to 16 bytes
+        float SkyLightIntensity = 1.0f;   // Hybrid only
+        float ReflectionIntensity = 1.0f; // Hybrid only
         glm::vec4 AmbientColor{ 0.03f, 0.03f, 0.03f, 1.0f };
     };
+
+    // Mirrors cbuffer FogConstants in Shaders/fog.hlsli
+    struct FogConstants
+    {
+        glm::vec4 LinearColor{ 0.6f, 0.65f, 0.7f, 1.0f };     // rgb: color, a: max opacity
+        glm::vec4 VolumetricColor{ 0.8f, 0.85f, 0.9f, 0.0f }; // rgb: scattering tint, a: density
+        float LinearStart = 10.0f;
+        float LinearEnd = 100.0f;
+        float HeightFalloff = 0.15f;
+        float BaseHeight = 0.0f;
+        float Anisotropy = 0.4f;
+        float MaxDistance = 150.0f;
+        float NoiseStrength = 0.5f;
+        float NoiseScale = 0.08f;
+        glm::vec4 Wind{ 0.0f };                                 // xyz: wind velocity, w: time in seconds
+        int LinearEnabled = 0;
+        int VolumetricEnabled = 0;
+        int ApplyToSkybox = 1;
+        int SampleCount = 24;
+        float LightIntensity = 1.0f;
+        float AmbientIntensity = 0.3f;
+        float Padding[2] = { 0.0f, 0.0f };
+    };
+    static_assert(sizeof(FogConstants) % 16 == 0, "FogConstants must be 16-byte aligned for HLSL");
+
+    // Mirrors cbuffer ColorCorrectionConstants in Shaders/PostProcess/color_correction_ps.hlsl
+    struct ColorCorrectionConstants
+    {
+        glm::vec4 ColorFilter{ 1.0f };      // rgb: multiplier (white balance already folded in), a: exposure multiplier
+        glm::vec4 Shadows{ 1.0f };          // rgb: lift tint
+        glm::vec4 Midtones{ 1.0f };         // rgb: gamma tint
+        glm::vec4 Highlights{ 1.0f };       // rgb: gain tint
+        float Contrast = 1.0f;
+        float Saturation = 1.0f;
+        float InvGamma = 1.0f;
+        float HueShift = 0.0f;              // Radians
+    };
+    static_assert(sizeof(ColorCorrectionConstants) % 16 == 0, "ColorCorrectionConstants must be 16-byte aligned for HLSL");
+
+    // Mirrors cbuffer GodRaysConstants in Shaders/PostProcess/god_rays_ps.hlsl
+    struct GodRaysConstants
+    {
+        glm::vec4 LightColor{ 0.0f };       // rgb: light color * intensity, a: on-screen fade
+        glm::vec2 SunUV{ 0.5f };            // Sun position in UV space; may lie outside 0..1
+        float Density = 0.8f;
+        float Decay = 0.96f;                // Per-sample, already adjusted for SampleCount
+        float Weight = 0.03f;               // Per-sample, already adjusted for SampleCount
+        float Threshold = 0.7f;
+        float SunRadius = 0.35f;
+        float AspectRatio = 1.0f;
+        int SampleCount = 64;
+        float Padding[3] = { 0.0f, 0.0f, 0.0f };
+    };
+    static_assert(sizeof(GodRaysConstants) % 16 == 0, "GodRaysConstants must be 16-byte aligned for HLSL");
 
     struct alignas(16) PBRMaterialConstants {
         glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -56,7 +111,7 @@ namespace Diligent {
         float UseNormalMap{ 0.0f };
         float UseAOMap{ 0.0f };
         float UseEmissiveMap{ 0.0f };
-        float PaddingMat{ 0.0f };
+        float OverrideFlags{ 0.0f }; // Bit 1: roughness overridden, bit 2: metallic overridden (skip the texture channel)
     };
 
     struct CameraConstants {

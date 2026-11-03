@@ -15,8 +15,16 @@ cbuffer PBRMaterialConstants
     float g_UseNormalMap;
     float g_UseAOMap;
     float g_UseEmissiveMap;
-    float g_PaddingMat;
+    float g_OverrideFlags; // Bit 1: roughness overridden, bit 2: metallic overridden
 };
+
+// Applies the metallic/roughness texture, skipping channels overridden by the model component
+void ApplyMetallicRoughnessMap(float4 mrSample, inout float metallic, inout float roughness)
+{
+    uint flags = (uint)g_OverrideFlags;
+    if ((flags & 1u) == 0u) roughness *= mrSample.g;
+    if ((flags & 2u) == 0u) metallic *= mrSample.b;
+}
 
 // Define a matching sampler for every texture for Vulkan compatibility
 Texture2D g_BaseColorMap;
@@ -78,7 +86,19 @@ float3 FresnelSchlick(float cosTheta, float3 F0)
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-float3 ComputeLightRadiance(float3 N, float3 V, float3 L, float3 radiance, float3 albedo, float metallic, float roughness, float3 F0, float shadowFactor)
+// Split-sum environment BRDF, analytic fit (Karis, "Physically Based Shading on Mobile")
+// Returns (scale, bias) so that the specular response is F0 * x + y
+float2 EnvBRDFApprox(float NdotV, float roughness)
+{
+    const float4 c0 = float4(-1.0, -0.0275, -0.572, 0.022);
+    const float4 c1 = float4(1.0, 0.0425, 1.04, -0.04);
+    float4 r = roughness * c0 + c1;
+    float a004 = min(r.x * r.x, exp2(-9.28 * NdotV)) * r.x + r.y;
+    return float2(-1.04, 1.04) * a004 + r.zw;
+}
+
+// specularScale lets callers apply multi-scattering energy compensation to the specular lobe
+float3 ComputeLightRadiance(float3 N, float3 V, float3 L, float3 radiance, float3 albedo, float metallic, float roughness, float3 F0, float shadowFactor, float3 specularScale)
 {
     float NdotL = max(dot(N, L), 0.0);
     if (NdotL <= 0.0) return float3(0.0, 0.0, 0.0);
@@ -90,8 +110,13 @@ float3 ComputeLightRadiance(float3 N, float3 V, float3 L, float3 radiance, float
 
     float3 numerator = NDF * G * F;
     float denominator = 4.0 * max(dot(N, V), 0.0) * NdotL + 0.0001;
-    float3 specular = numerator / denominator;
+    float3 specular = numerator / denominator * specularScale;
 
     float3 kD = (float3(1.0, 1.0, 1.0) - F) * (1.0 - metallic);
     return (kD * albedo / PI + specular) * radiance * NdotL * shadowFactor;
+}
+
+float3 ComputeLightRadiance(float3 N, float3 V, float3 L, float3 radiance, float3 albedo, float metallic, float roughness, float3 F0, float shadowFactor)
+{
+    return ComputeLightRadiance(N, V, L, radiance, albedo, metallic, roughness, F0, shadowFactor, float3(1.0, 1.0, 1.0));
 }
