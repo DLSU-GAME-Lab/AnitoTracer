@@ -46,9 +46,33 @@ public:
 
     const std::vector<Diligent::float4>& GetMaterialColors() const;
 
+    // --- Material Overrides (applied to every submesh, replacing the material and texture values) ---
+
+    void SetOverrideRoughness(bool enabled) { m_overrideRoughness = enabled; }
+    bool GetOverrideRoughness() const { return m_overrideRoughness; }
+    void SetRoughness(float roughness) { m_roughness = roughness; }
+    float GetRoughness() const { return m_roughness; }
+
+    void SetOverrideMetallic(bool enabled) { m_overrideMetallic = enabled; }
+    bool GetOverrideMetallic() const { return m_overrideMetallic; }
+    void SetMetallic(float metallic) { m_metallic = metallic; }
+    float GetMetallic() const { return m_metallic; }
+
 private:
     gbe::AssetRef<Model> m_model;
     GBE_SERIALIZE_FIELD(m_model);
+
+    bool m_overrideRoughness = false;
+    GBE_SERIALIZE_FIELD_W_NAME(m_overrideRoughness, "Override Roughness");
+
+    float m_roughness = 0.5f;
+    GBE_SERIALIZE_FIELD_W_NAME(m_roughness, "Roughness");
+
+    bool m_overrideMetallic = false;
+    GBE_SERIALIZE_FIELD_W_NAME(m_overrideMetallic, "Override Metallic");
+
+    float m_metallic = 0.0f;
+    GBE_SERIALIZE_FIELD_W_NAME(m_metallic, "Metallic");
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ModelComponent, ComponentBase);
 

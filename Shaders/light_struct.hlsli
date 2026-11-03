@@ -32,6 +32,7 @@ cbuffer ShadowSettings
 {
     float g_ShadowBias;
     float g_AmbientMultiplier;
-    float2 g_ShadowPadding;
+    float g_SkyLightIntensity;   // Hybrid only: strength of skybox diffuse lighting
+    float g_ReflectionIntensity; // Hybrid only: strength of skybox reflections
     float4 g_AmbientColor;
 };

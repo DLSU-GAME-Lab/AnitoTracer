@@ -1,6 +1,7 @@
 #include "../common_struct.hlsli"
 #include "../light_struct.hlsli"
 #include "../pbr_defs.hlsli"
+#include "../fog.hlsli"
 
 // G-Buffer Inputs
 Texture2D g_GBufferAlbedo;
@@ -67,5 +68,6 @@ void main_ps(in FullScreenPSInput In, out float4 OutColor : SV_TARGET)
 
     // Ambient Lighting
     float3 ambient = g_AmbientColor.rgb * albedo * g_AmbientMultiplier;
-    OutColor = float4(ambient + Lo, 1.0);
+    float3 color = ApplyFog(ambient + Lo, WPos, In.Pos.xy);
+    OutColor = float4(color, 1.0);
 }

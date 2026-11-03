@@ -1,0 +1,127 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\usepackage{longtable}
+\usepackage{array}
+\geometry{margin=1in}
+
+\begin{document}
+
+\noindent
+Gabriel Paulo Rayo \hfill 2026\\
+
+\vspace{1.5em}
+
+\begin{center}
+\textbf{\Large ANITOSCRIPT CONTEXT FREE GRAMMAR} \\[0.5em]
+\textbf{\large AnitoScript Programming Language}
+\end{center}
+
+\vspace{1.5em}
+
+\noindent
+The grammar \textbf{G = (V, T, S, P)} of our interpreter is defined by:
+
+\vspace{0.8em}
+\noindent
+\textbf{V} = \{ $\langle\text{script}\rangle$, $\langle\text{componentDecl}\rangle$, $\langle\text{member}\rangle$, $\langle\text{fieldDecl}\rangle$, $\langle\text{methodDecl}\rangle$, $\langle\text{eventHandler}\rangle$, $\langle\text{annotation}\rangle$, $\langle\text{params}\rangle$, $\langle\text{param}\rangle$, $\langle\text{type}\rangle$, $\langle\text{primitiveType}\rangle$, $\langle\text{block}\rangle$, $\langle\text{stmt}\rangle$, $\langle\text{forInit}\rangle$, $\langle\text{assignment}\rangle$, $\langle\text{expr}\rangle$, $\langle\text{argList}\rangle$, $\langle\text{primary}\rangle$ \}
+
+\vspace{0.8em}
+\noindent
+\textbf{T} = \{ \textbf{!}, \textbf{!=}, \textbf{\%}, \textbf{\&\&}, \textbf{(}, \textbf{)}, \textbf{*}, \textbf{*=}, \textbf{+}, \textbf{+=}, \textbf{,}, \textbf{-}, \textbf{-=}, \textbf{.}, \textbf{/}, \textbf{/=}, \textbf{:}, \textbf{;}, \textbf{<}, \textbf{<=}, \textbf{=}, \textbf{==}, \textbf{>}, \textbf{>=}, \textbf{?}, \textbf{@}, \textbf{ID}, \textbf{INT\_LIT}, \textbf{STRING\_LIT}, \textbf{[}, \textbf{]}, \textbf{bool}, \textbf{break}, \textbf{component}, \textbf{continue}, \textbf{else}, \textbf{false}, \textbf{float}, \textbf{fn}, \textbf{for}, \textbf{if}, \textbf{int}, \textbf{let}, \textbf{on}, \textbf{return}, \textbf{string}, \textbf{true}, \textbf{vec3}, \textbf{void}, \textbf{while}, \textbf{\{}, \textbf{||}, \textbf{\}} \}
+
+\vspace{0.8em}
+\noindent
+\textbf{S} = $\langle\text{script}\rangle$
+
+\vspace{0.8em}
+\noindent
+\textbf{P} has the following productions:
+
+\vspace{1.5em}
+\noindent\textbf{Production for the program}
+
+\begin{longtable}{r c l}
+$\langle\text{script}\rangle$ & $\rightarrow$ & $\langle\text{componentDecl}\rangle$* \textbf{EOF} \\
+\end{longtable}
+
+\noindent\textbf{Productions for component declarations}
+
+\begin{longtable}{r c l}
+$\langle\text{componentDecl}\rangle$ & $\rightarrow$ & \textbf{component} \textbf{ID} \textbf{(COLON} \textbf{ID} \textbf{(COMMA} \textbf{ID)*)}? \textbf{\{} $\langle\text{member}\rangle$* \textbf{\}} \\
+$\langle\text{member}\rangle$ & $\rightarrow$ & $\langle\text{fieldDecl}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{methodDecl}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{eventHandler}\rangle$ \\
+$\langle\text{eventHandler}\rangle$ & $\rightarrow$ & \textbf{on} \textbf{ID} \textbf{(} $\langle\text{params}\rangle$? \textbf{)} $\langle\text{block}\rangle$ \\
+\end{longtable}
+
+\noindent\textbf{Productions for member declarations}
+
+\begin{longtable}{r c l}
+$\langle\text{fieldDecl}\rangle$ & $\rightarrow$ & $\langle\text{annotation}\rangle$* $\langle\text{type}\rangle$ \textbf{ID} \textbf{(ASSIGN} $\langle\text{expr)}\rangle$? \textbf{;} \\
+$\langle\text{methodDecl}\rangle$ & $\rightarrow$ & $\langle\text{annotation}\rangle$* \textbf{fn} \textbf{ID} \textbf{(} $\langle\text{params}\rangle$? \textbf{)} \textbf{(COLON} $\langle\text{type)}\rangle$? $\langle\text{block}\rangle$ \\
+$\langle\text{annotation}\rangle$ & $\rightarrow$ & \textbf{@} \textbf{ID} \textbf{(LPAREN} \textbf{(STRING\_LIT} \textbf{(COMMA} \textbf{STRING\_LIT)*)}? \textbf{RPAREN)}? \\
+$\langle\text{params}\rangle$ & $\rightarrow$ & $\langle\text{param}\rangle$ \textbf{(COMMA} $\langle\text{param)}\rangle$* \\
+$\langle\text{param}\rangle$ & $\rightarrow$ & \textbf{ID} \textbf{(COLON} $\langle\text{type)}\rangle$? \\
+\end{longtable}
+
+\noindent\textbf{Productions for types}
+
+\begin{longtable}{r c l}
+$\langle\text{type}\rangle$ & $\rightarrow$ & $\langle\text{primitiveType}\rangle$ \\
+ & $\rightarrow$ & \textbf{ID} \\
+$\langle\text{primitiveType}\rangle$ & $\rightarrow$ & \textbf{float} \\
+ & $\rightarrow$ & \textbf{int} \\
+ & $\rightarrow$ & \textbf{bool} \\
+ & $\rightarrow$ & \textbf{string} \\
+ & $\rightarrow$ & \textbf{vec3} \\
+ & $\rightarrow$ & \textbf{void} \\
+\end{longtable}
+
+\noindent\textbf{Productions for statements}
+
+\begin{longtable}{r c l}
+$\langle\text{block}\rangle$ & $\rightarrow$ & \textbf{\{} $\langle\text{stmt}\rangle$* \textbf{\}} \\
+$\langle\text{stmt}\rangle$ & $\rightarrow$ & $\langle\text{block}\rangle$ \\
+ & $\rightarrow$ & \textbf{let} \textbf{ID} \textbf{(COLON} $\langle\text{type)}\rangle$? \textbf{=} $\langle\text{expr}\rangle$ \textbf{;} \\
+ & $\rightarrow$ & \textbf{if} \textbf{(} $\langle\text{expr}\rangle$ \textbf{)} $\langle\text{stmt}\rangle$ \textbf{(ELSE} $\langle\text{stmt)}\rangle$? \\
+ & $\rightarrow$ & \textbf{while} \textbf{(} $\langle\text{expr}\rangle$ \textbf{)} $\langle\text{stmt}\rangle$ \\
+ & $\rightarrow$ & \textbf{for} \textbf{(} $\langle\text{forInit}\rangle$? \textbf{;} $\langle\text{expr}\rangle$? \textbf{;} $\langle\text{assignment}\rangle$? \textbf{)} $\langle\text{stmt}\rangle$ \\
+ & $\rightarrow$ & \textbf{return} $\langle\text{expr}\rangle$? \textbf{;} \\
+ & $\rightarrow$ & \textbf{break} \textbf{;} \\
+ & $\rightarrow$ & \textbf{continue} \textbf{;} \\
+ & $\rightarrow$ & $\langle\text{assignment}\rangle$ \textbf{;} \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{;} \\
+$\langle\text{forInit}\rangle$ & $\rightarrow$ & \textbf{let} \textbf{ID} \textbf{(COLON} $\langle\text{type)}\rangle$? \textbf{=} $\langle\text{expr}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{assignment}\rangle$ \\
+\end{longtable}
+
+\noindent\textbf{Productions for expressions}
+
+\begin{longtable}{r c l}
+$\langle\text{assignment}\rangle$ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{(ASSIGN} \textbf{|} \textbf{+=} \textbf{|} \textbf{-=} \textbf{|} \textbf{*=} \textbf{|} \textbf{SLASH\_ASSIGN)} $\langle\text{expr}\rangle$ \\
+$\langle\text{expr}\rangle$ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{.} \textbf{ID} \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{(} $\langle\text{argList}\rangle$? \textbf{)} \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{[} $\langle\text{expr}\rangle$ \textbf{]} \\
+ & $\rightarrow$ & \textbf{(MINUS} \textbf{|} \textbf{BANG)} $\langle\text{expr}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{(STAR} \textbf{|} \textbf{/} \textbf{|} \textbf{PERCENT)} $\langle\text{expr}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{(PLUS} \textbf{|} \textbf{MINUS)} $\langle\text{expr}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{(LT} \textbf{|} \textbf{>} \textbf{|} \textbf{<=} \textbf{|} \textbf{GE)} $\langle\text{expr}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{(EQ} \textbf{|} \textbf{NEQ)} $\langle\text{expr}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{\&\&} $\langle\text{expr}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{||} $\langle\text{expr}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{?} $\langle\text{expr}\rangle$ \textbf{:} $\langle\text{expr}\rangle$ \\
+ & $\rightarrow$ & $\langle\text{primary}\rangle$ \\
+$\langle\text{argList}\rangle$ & $\rightarrow$ & $\langle\text{expr}\rangle$ \textbf{(COMMA} $\langle\text{expr)}\rangle$* \\
+$\langle\text{primary}\rangle$ & $\rightarrow$ & \textbf{INT\_LIT} \\
+ & $\rightarrow$ & \textbf{FLOAT\_LIT} \\
+ & $\rightarrow$ & \textbf{STRING\_LIT} \\
+ & $\rightarrow$ & \textbf{true} \\
+ & $\rightarrow$ & \textbf{false} \\
+ & $\rightarrow$ & \textbf{ID} \\
+ & $\rightarrow$ & $\langle\text{primitiveType}\rangle$ \\
+ & $\rightarrow$ & \textbf{(} $\langle\text{expr}\rangle$ \textbf{)} \\
+\end{longtable}
+
+\end{document}

@@ -36,6 +36,7 @@ namespace Diligent {
 
         virtual void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
         virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings);
+        virtual void UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog);
 
         virtual void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model, bool renderOpaque = true);
         virtual void RenderModels(IDeviceContext* pContext, RenderData renderData, bool renderOpaque = true);
@@ -58,6 +59,7 @@ namespace Diligent {
         RefCntAutoPtr<IBuffer> m_pMaterialCB;
         RefCntAutoPtr<IBuffer> m_pLightCB;
         RefCntAutoPtr<IBuffer> m_pShadowCB;
+        RefCntAutoPtr<IBuffer> m_pFogCB;
 
         RefCntAutoPtr<IShaderResourceBinding> m_pSRB;
         RefCntAutoPtr<ISwapChain> pSwapChain;

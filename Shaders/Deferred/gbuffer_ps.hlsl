@@ -27,8 +27,7 @@ void main_ps(in PSInput In, out GBufferOutput Out)
     if (g_UseMetallicRoughnessMap > 0.5)
     {
         float4 mrSample = g_MetallicRoughnessMap.Sample(g_MetallicRoughnessMap_sampler, In.UV);
-        roughness *= mrSample.g;
-        metallic *= mrSample.b;
+        ApplyMetallicRoughnessMap(mrSample, metallic, roughness);
     }
     roughness = max(roughness, 0.05);
 
