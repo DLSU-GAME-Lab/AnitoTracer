@@ -64,6 +64,8 @@ public:
     void SetSoundSpatialized(uint64_t soundID, bool spatialized);
     void SetSoundDistance(uint64_t soundID, float minDistance, float maxDistance);
 
+    static bool GetDefaultSpatialization(AudioGroupType groupType);
+
     // Set audio listener position and direction
     void SetListenerPosition(glm::vec3 position);
     void SetListenerDirection(glm::vec3 direction);
@@ -99,10 +101,6 @@ private:
                 } else {
                     m_SfxGroupInitialized = true;
                 }
-
-                // For testing; remove once there is sliders for these (change float values for volume test)
-                // SetAudioGroupVolume(AudioGroupType::BGM, 75.0f);
-                // SetAudioGroupVolume(AudioGroupType::SFX, 10.0f);
             }
         }
     }

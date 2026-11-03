@@ -64,6 +64,11 @@ void AudioSourceComponent::Stop() {
     m_soundID = 0;
 }
 
+void AudioSourceComponent::SetSoundGroup(AudioManager::AudioGroupType soundGroupType) { 
+    m_soundGroupType = soundGroupType;
+    SetSpatialized(AudioManager::GetDefaultSpatialization(m_soundGroupType));
+}
+
 void AudioSourceComponent::SetVolume(float soundVolume) {
     m_soundVolume = soundVolume;
     if (m_soundID != 0) AudioManager::GetInstance().SetSoundVolume(m_soundID, m_soundVolume);

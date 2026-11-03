@@ -43,7 +43,7 @@ public:
     void PlayDetached();
 
     // Sound Groups Setters / Getters
-    void SetSoundGroup(AudioManager::AudioGroupType soundGroupType) { m_soundGroupType = soundGroupType; }
+    void SetSoundGroup(AudioManager::AudioGroupType soundGroupType);
     AudioManager::AudioGroupType GetSoundGroup() const { return m_soundGroupType; }
 
     // Source Settings Setters / Getters

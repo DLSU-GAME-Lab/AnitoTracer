@@ -77,6 +77,17 @@ ma_uint32 AudioManager::GetSoundFlag(AudioGroupType groupType) {
     return 0;
 }
 
+bool AudioManager::GetDefaultSpatialization(AudioGroupType groupType) {
+    switch (groupType) {
+        case AudioGroupType::BGM:
+            return false;
+        case AudioGroupType::SFX:
+            return true;
+    }
+
+    return true;
+} 
+
 uint64_t AudioManager::CreateClip(AudioClip* audioClip, AudioGroupType groupType) {
     if (!GroupsReady("Create clip")) return 0;
 
