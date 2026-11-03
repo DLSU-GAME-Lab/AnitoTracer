@@ -1,25 +1,27 @@
 #pragma once
 
-#include <variant>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/SwapChain.h"
 #include "Common/interface/RefCntAutoPtr.hpp"
 
-#include "Pipelines/BasicLitPipeline.hpp"
-#include "Pipelines/HybridPipeline.hpp"
-#include "Pipelines/DeferredPipeline.hpp"
+#include "Pipelines/ScenePipeline.hpp"
 #include "Pipelines/SkyboxPipeline.hpp"
-#include "Pipelines/ColorCorrectionPipeline.hpp"
-#include "Pipelines/GodRaysPipeline.hpp"
 #include "Pipelines/DebugLinePipeline.hpp"
 #include "Pipelines/ParticlePipeline.hpp"
+#include "Pipelines/Utils/PostProcessStack.hpp"
 #include "RenderData.hpp"
 
 #include "../UserSettings.hpp"
 #include "RendererEvents.hpp"
 #include "RenderTarget.hpp"
 
+// Owns the active scene pipeline and the passes around it, and draws views into the swap chain or render targets.
+// A view is drawn as: skybox -> scene pipeline -> particles -> debug lines -> MSAA resolve -> post processing.
 class RendererManager {
 public:
     static RendererManager& GetInstance() {
@@ -47,37 +49,40 @@ private:
     RendererManager() = default;
     ~RendererManager() = default;
 
-    void CreateMSAABuffers();
     void HandleRendererChangeEvent(const RendererChangeArgs* args);
-    void DrawParticles(const Diligent::RenderData& renderData, Diligent::ITextureView* pRTV, Diligent::ITextureView* pDSV,
-        const Diligent::Viewport* pViewport = nullptr, Diligent::Uint32 width = 0, Diligent::Uint32 height = 0);
+
+    // Creates the closest scene pipeline to the requested one that this device and the MSAA setting support,
+    // and stores the choice in UserSettings. Call InitializePipelines afterwards.
+    void SelectScenePipeline(Diligent::PipelineType requested);
+
+    // PSO sample counts are baked in, so toggling MSAA rebuilds them (switching away from pipelines that don't support it)
+    void SyncMSAAState();
+
+    void RenderView(const Diligent::FrameTarget& output, const Diligent::RenderData& renderData, bool applyPostProcessing);
+    void RenderOverlays(const Diligent::FrameTarget& target, const Diligent::RenderData& renderData);
+    void ResolveMSAA(Diligent::ITexture* pDestination);
+
+    void LoadDefaultSkybox();
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice>  m_pDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> m_pImmediateContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain>     m_pSwapChain;
 
-    Diligent::RefCntAutoPtr<Diligent::ITexture>     m_pMSAATarget;
-    Diligent::RefCntAutoPtr<Diligent::ITexture>     m_pMSAADepth;
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAARTV;
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAADSV;
-
-    std::variant<Diligent::HybridPipeline, Diligent::BasicLitPipeline, Diligent::DeferredPipeline> m_bLitPipeline;
-    bool m_LastMSAAState = false;
     bool m_SupportsRayTracing = false;
+    bool m_MSAAEnabled = false;
 
-    Diligent::DebugLinePipeline m_DebugLinePipeline;
+    std::unique_ptr<Diligent::ScenePipeline> m_pScenePipeline;
+    Diligent::PipelineType m_ScenePipelineType = Diligent::PipelineType::BASIC_LIT;
+
+    Diligent::SkyboxPipeline m_SkyboxPipeline;
     Diligent::ParticlePipeline m_ParticlePipeline;
+    Diligent::DebugLinePipeline m_DebugLinePipeline;
+    Diligent::PostProcessStack m_PostProcess; // Game output only
 
-    gbe::ScopedSubscription m_OnRendererChangeSub;
+    // Multisampled scene color/depth, resolved into the view's target after the scene passes
+    Diligent::RenderTarget m_MSAATarget{ "MSAA" };
 
-    //Render targets
     std::vector<std::unique_ptr<Diligent::RenderTarget>> m_RenderTargets;
 
-    //Skyboxes
-    Diligent::SkyboxPipeline m_SkyboxPipeline;
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pSkyboxSRV;
-
-    //Post processing (game output only)
-    Diligent::GodRaysPipeline m_GodRaysPipeline;
-    Diligent::ColorCorrectionPipeline m_ColorCorrectionPipeline;
+    gbe::ScopedSubscription m_OnRendererChangeSub;
 };

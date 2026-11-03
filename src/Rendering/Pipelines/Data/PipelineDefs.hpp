@@ -7,14 +7,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "../../Common/DebugLine.hpp"
+#include "../../../Common/DebugLine.hpp"
 
 namespace Diligent {
 
     static constexpr uint32_t MAX_DIR_LIGHTS = 4;
     static constexpr uint32_t MAX_POINT_LIGHTS = 8;
 
-    enum PipelineType { BASIC_LIT, HYBRID, DEFERRED };
+    enum PipelineType { BASIC_LIT, HYBRID, DEFERRED, DEFERRED_HYBRID };
 
     struct DirectionalLightData {
         glm::vec4 Direction{ 0.0f, -1.0f, 0.0f, 0.0f }; // xyz: dir, w: unused

@@ -10,7 +10,7 @@ namespace Diligent {
     /// JoltDebugRenderer collected that frame.
     class DebugLinePipeline : public BasePipeline {
     public:
-        void InitializePipeline(IRenderDevice* pDevice, ISwapChain* _pSwapChain) override;
+        void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
 
         // Uploads the given line vertices and issues one Draw call.
         // Call after StartFrameRender (camera CB must already be set for this frame).

@@ -5,6 +5,7 @@
 
 #include "FileDialogue.hpp"
 #include "RendererManager.hpp"
+#include "Pipelines/Utils/ScenePipelineRegistry.hpp"
 
 #include "CreateInstance.hpp"
 #include "../AppState.hpp"
@@ -93,28 +94,16 @@ namespace Diligent {
                 bool rtSupported = RendererManager::GetInstance().IsRayTracingSupported();
                 auto currentRenderer = UserSettings::GetInstance().GetRendererType();
 
-                if (ImGui::MenuItem("Basic Lit Pipeline", nullptr, currentRenderer == Diligent::PipelineType::BASIC_LIT))
+                for (const Diligent::ScenePipelineInfo& pipeline : Diligent::ScenePipelineRegistry::GetAll())
                 {
-                    gbe::EventSystem::DispatchTo(
-                        EVENT_RENDER_CHANGE,
-                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::BASIC_LIT)
-                    );
-                }
-
-                if (ImGui::MenuItem("Deferred Pipeline", nullptr, currentRenderer == Diligent::PipelineType::DEFERRED))
-                {
-                    gbe::EventSystem::DispatchTo(
-                        EVENT_RENDER_CHANGE,
-                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::DEFERRED)
-                    );
-                }
-
-                if (ImGui::MenuItem("Hybrid Pipeline (RayTraced)", nullptr, currentRenderer == Diligent::PipelineType::HYBRID, rtSupported))
-                {
-                    gbe::EventSystem::DispatchTo(
-                        EVENT_RENDER_CHANGE,
-                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::HYBRID)
-                    );
+                    const bool available = rtSupported || !pipeline.RequiresRayTracing;
+                    if (ImGui::MenuItem(pipeline.DisplayName, nullptr, currentRenderer == pipeline.Type, available))
+                    {
+                        gbe::EventSystem::DispatchTo(
+                            EVENT_RENDER_CHANGE,
+                            std::make_unique<RendererChangeArgs>(pipeline.Type)
+                        );
+                    }
                 }
 
                 ImGui::EndMenu();

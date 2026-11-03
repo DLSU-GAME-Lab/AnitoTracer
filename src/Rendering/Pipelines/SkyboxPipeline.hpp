@@ -3,14 +3,14 @@
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Common/interface/RefCntAutoPtr.hpp"
-#include "PipelineDefs.hpp" // Provides CameraConstants
+#include "Data/PipelineDefs.hpp" // Provides CameraConstants
 #include "RenderData.hpp"   // Need this for the new Render signature!
 
 namespace Diligent {
 
     class SkyboxPipeline {
     public:
-        // We pass the RTV and DSV formats dynamically so it supports both MSAA and standard targets
+        // Formats of the targets it draws into; the sample count follows the MSAA setting
         void Initialize(IRenderDevice* pDevice, TEXTURE_FORMAT RTVFormat, TEXTURE_FORMAT DSVFormat);
 
         // Binds the cubemap texture to the shader resource binding

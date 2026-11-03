@@ -1,106 +1,42 @@
 #include "SkyboxPipeline.hpp"
-#include "Shaders/ShaderManager.hpp" // Assuming this handles shader loading[cite: 2]
-#include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "Utils/PSOBuilder.hpp"
+#include "Utils/PipelineUtils.hpp"
 
 namespace Diligent {
 
     void SkyboxPipeline::Initialize(IRenderDevice* pDevice, TEXTURE_FORMAT RTVFormat, TEXTURE_FORMAT DSVFormat) {
-        GraphicsPipelineStateCreateInfo PSOCreateInfo;
-        PipelineStateDesc& PSODesc = PSOCreateInfo.PSODesc;
-        GraphicsPipelineDesc& GraphicsPipeline = PSOCreateInfo.GraphicsPipeline;
+        // We render the inside of the cube, so we cull front faces.
+        // Depth is read-only: the sky only draws where nothing closer is (depth <= 1.0f, the background).
+        m_pPSO = PSOBuilder("Skybox PSO")
+            .Shaders("Skybox/Skybox_vs.hlsl", "Skybox/Skybox_ps.hlsl")
+            .RenderTargets({ RTVFormat }, DSVFormat)
+            .SampleCount(PipelineUtils::GetMSAASampleCount())
+            .Cull(CULL_MODE_FRONT)
+            .Depth(true, false, COMPARISON_FUNC_LESS_EQUAL)
+            .Variable(SHADER_TYPE_VERTEX, "CameraConstants")
+            .Variable(SHADER_TYPE_PIXEL, "g_Cubemap", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
+            .Variable(SHADER_TYPE_PIXEL, "LightConstants")
+            .Variable(SHADER_TYPE_PIXEL, "FogConstants")
+            .Sampler(SHADER_TYPE_PIXEL, "g_Cubemap_sampler", PipelineUtils::LinearWrapSampler())
+            .Build(pDevice);
+        m_pSRB = PipelineUtils::CreateSRB(m_pPSO);
 
-        PSODesc.Name = "Skybox PSO";
-        PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
+        m_pTextureVar = m_pSRB ? m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_Cubemap") : nullptr;
 
-        // Route to the current formats provided by RendererManager
-        GraphicsPipeline.NumRenderTargets = 1;
-        GraphicsPipeline.RTVFormats[0] = RTVFormat;
-        GraphicsPipeline.DSVFormat = DSVFormat;
-        GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        m_pCameraCB = PipelineUtils::CreateDynamicCB<CameraConstants>(pDevice, "Skybox Camera Constant Buffer");
+        m_pLightCB = PipelineUtils::CreateDynamicCB<LightConstants>(pDevice, "Skybox Light Constant Buffer");
+        m_pFogCB = PipelineUtils::CreateDynamicCB<FogConstants>(pDevice, "Skybox Fog Constant Buffer");
 
-        // We render the inside of the cube, so we cull front faces (or disable culling)
-        GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_FRONT;
-
-        // Depth settings: Read-only, draw if depth is <= 1.0f (background)
-        GraphicsPipeline.DepthStencilDesc.DepthEnable = True;
-        GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = False;
-        GraphicsPipeline.DepthStencilDesc.DepthFunc = COMPARISON_FUNC_LESS_EQUAL;
-
-        // Load Shaders (Master's shader paths go here! 🎀)
-        auto pVS = ShaderManager::GetInstance().GetShader("Skybox/Skybox_vs.hlsl", SHADER_TYPE_VERTEX, "main_vs");
-        auto pPS = ShaderManager::GetInstance().GetShader("Skybox/Skybox_ps.hlsl", SHADER_TYPE_PIXEL, "main_ps");
-        PSOCreateInfo.pVS = pVS;
-        PSOCreateInfo.pPS = pPS;
-
-        // Define Shader Variables
-        ShaderResourceVariableDesc Variables[] = {
-            { SHADER_TYPE_VERTEX, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
-            { SHADER_TYPE_PIXEL, "g_Cubemap", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE },
-            { SHADER_TYPE_PIXEL, "LightConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
-            { SHADER_TYPE_PIXEL, "FogConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC }
-        };
-        PSODesc.ResourceLayout.Variables = Variables;
-        PSODesc.ResourceLayout.NumVariables = _countof(Variables);
-
-        SamplerDesc SamLinearWrapDesc;
-        SamLinearWrapDesc.MinFilter = FILTER_TYPE_LINEAR;
-        SamLinearWrapDesc.MagFilter = FILTER_TYPE_LINEAR;
-        SamLinearWrapDesc.MipFilter = FILTER_TYPE_LINEAR;
-        SamLinearWrapDesc.AddressU = TEXTURE_ADDRESS_WRAP;
-        SamLinearWrapDesc.AddressV = TEXTURE_ADDRESS_WRAP;
-        SamLinearWrapDesc.AddressW = TEXTURE_ADDRESS_WRAP;
-
-        ImmutableSamplerDesc ImtblSamplers[] = {
-            { SHADER_TYPE_PIXEL, "g_Cubemap_sampler", SamLinearWrapDesc }
-        };
-        PSODesc.ResourceLayout.ImmutableSamplers = ImtblSamplers;
-        PSODesc.ResourceLayout.NumImmutableSamplers = _countof(ImtblSamplers);
-
-        m_pPSO.Release();
-        pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
-
-        m_pSRB.Release();
-        m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
-
-        m_pTextureVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_Cubemap");
-
-        BufferDesc CBDesc;
-        CBDesc.Name = "Skybox Camera Constant Buffer";
-        CBDesc.Size = sizeof(CameraConstants);
-        CBDesc.Usage = USAGE_DYNAMIC;
-        CBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-        CBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-        m_pCameraCB.Release();
-        pDevice->CreateBuffer(CBDesc, nullptr, &m_pCameraCB);
-
-        // Bind the buffer to the shader variable permanently
-        if (auto* pCameraVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants")) {
-            pCameraVar->Set(m_pCameraCB);
-        }
-
-        CBDesc.Name = "Skybox Light Constant Buffer";
-        CBDesc.Size = sizeof(LightConstants);
-        m_pLightCB.Release();
-        pDevice->CreateBuffer(CBDesc, nullptr, &m_pLightCB);
-
-        CBDesc.Name = "Skybox Fog Constant Buffer";
-        CBDesc.Size = sizeof(FogConstants);
-        m_pFogCB.Release();
-        pDevice->CreateBuffer(CBDesc, nullptr, &m_pFogCB);
-
-        if (auto* pLightVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "LightConstants")) {
-            pLightVar->Set(m_pLightCB);
-        }
-        if (auto* pFogVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "FogConstants")) {
-            pFogVar->Set(m_pFogCB);
-        }
+        // Bind the buffers to the shader variables permanently
+        PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_VERTEX, "CameraConstants", m_pCameraCB);
+        PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "LightConstants", m_pLightCB);
+        PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "FogConstants", m_pFogCB);
     }
 
     void SkyboxPipeline::UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog) {
         if (!m_pFogCB) return;
 
-        MapHelper<FogConstants> CBData(pContext, m_pFogCB, MAP_WRITE, MAP_FLAG_DISCARD);
-        *CBData = fog;
+        PipelineUtils::WriteCB(pContext, m_pFogCB, fog);
     }
 
     void SkyboxPipeline::SetCubemap(ITextureView* pCubemapSRV) {
@@ -113,15 +49,11 @@ namespace Diligent {
         if (!m_pPSO || !m_pSRB) return;
 
         // Map the view/proj matrices dynamically every frame!
-        {
-            MapHelper<CameraConstants> CBData(pContext, m_pCameraCB, MAP_WRITE, MAP_FLAG_DISCARD);
-            CBData->View = glm::transpose(renderData.ViewMatrix);
-            CBData->Proj = glm::transpose(renderData.ProjectionMatrix);
-        }
-        {
-            MapHelper<LightConstants> CBData(pContext, m_pLightCB, MAP_WRITE, MAP_FLAG_DISCARD);
-            *CBData = renderData.Lights;
-        }
+        CameraConstants camera;
+        camera.View = glm::transpose(renderData.ViewMatrix);
+        camera.Proj = glm::transpose(renderData.ProjectionMatrix);
+        PipelineUtils::WriteCB(pContext, m_pCameraCB, camera);
+        PipelineUtils::WriteCB(pContext, m_pLightCB, renderData.Lights);
 
         pContext->SetPipelineState(m_pPSO);
         pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

@@ -1,10 +1,10 @@
 #pragma once
-#include "BasePipeline.hpp"
+#include "ScenePipeline.hpp"
 
 namespace Diligent {
-    class BasicLitPipeline : public BasePipeline {
+    // Forward PBR without ray tracing (Shaders/fallbackLit_ps.hlsl). Runs everywhere, so it is the final fallback.
+    class BasicLitPipeline : public ScenePipeline {
     public:
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
-        void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
     };
 }

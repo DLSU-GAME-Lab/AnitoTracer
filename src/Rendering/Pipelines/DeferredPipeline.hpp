@@ -1,26 +1,26 @@
 #pragma once
-#include "BasePipeline.hpp"
+#include "ScenePipeline.hpp"
+#include "Utils/GBuffer.hpp"
 
 namespace Diligent {
-    class DeferredPipeline : public BasePipeline {
+    // Rasterized deferred shading:
+    //   1. G-buffer pass   - albedo/metallic, normal/roughness and world position (Shaders/Deferred/gbuffer_ps.hlsl)
+    //   2. Lighting pass   - fullscreen shading from the G-buffer into the target (Shaders/Deferred/simple_deferred_light_ps.hlsl)
+    // The G-buffer is swap chain sized and single sampled, so this pipeline doesn't support MSAA.
+    class DeferredPipeline : public ScenePipeline {
     public:
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
-        void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
+        void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
+        void OnResize(Uint32 width, Uint32 height) override;
 
-        void OnWindowResize(IRenderDevice* pDevice, Uint32 Width, Uint32 Height);
-        void RenderLightingPass(IDeviceContext* pContext, ITextureView* pTargetRTV);
+    protected:
+        void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) override;
 
     private:
-        void CreateGBuffers(IRenderDevice* pDevice, Uint32 Width, Uint32 Height);
-        void InitializeGBufferPSO(IRenderDevice* pDevice);
-        void InitializeLightingPSO(IRenderDevice* pDevice);
+        void InitializeLightingPSO();
 
+        GBuffer m_GBuffer;
         RefCntAutoPtr<IPipelineState>         m_pLightingPSO;
         RefCntAutoPtr<IShaderResourceBinding> m_pLightingSRB;
-
-        RefCntAutoPtr<ITexture> m_pGBufferAlbedo;
-        RefCntAutoPtr<ITexture> m_pGBufferNormal;
-        RefCntAutoPtr<ITexture> m_pGBufferWorldPos;
-        RefCntAutoPtr<ITexture> m_pDepthBuffer;
     };
 }
