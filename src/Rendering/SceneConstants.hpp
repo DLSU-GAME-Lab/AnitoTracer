@@ -11,4 +11,7 @@ namespace Diligent {
 
     ShadowSettings BuildShadowSettings(const ProjectLightingSettings& settings);
 
+    // Layout expected by Shaders/CrossHatch/crosshatch_common.hlsli. CameraPos is left for the pipeline to fill.
+    CrossHatchConstants BuildCrossHatchConstants(const ProjectCrossHatchSettings& settings);
+
 }

@@ -348,6 +348,188 @@ namespace Diligent {
                 }
             }
 
+            // ------------------------------------------------------------------
+            // Cross Hatching Section (CrossHatch renderers only)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Cross Hatching"))
+            {
+                auto& chSettings = projectSettings.crosshatch;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::TextDisabled("Used by the CrossHatch renderers (Rendering menu), in the Game view.");
+
+                ImGui::PushItemWidth(150.0f);
+
+                // Order matches ProjectCrossHatchSettings::mode
+                const char* modeNames[] = { "Noise Hatching", "Toon Texture Hatching", "Toon + Noise Hatching" };
+                if (ImGui::Combo("Style", &chSettings.mode, modeNames, IM_ARRAYSIZE(modeNames))) saveProjectSettings();
+                tooltip("Noise: world-space pencil strokes, denser where darker.\nToon Texture: cel-shaded paper with hand-drawn strokes along the mesh UVs.\nToon + Noise: solid ink shadows, hatched midtones, clean highlights.");
+
+                ImGui::ColorEdit3("Ink Color", chSettings.ink_color.data());
+                tooltip("Color of the strokes, outlines and inner edges.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Hatch Opacity", &chSettings.hatch_opacity, 0.0f, 1.0f, "%.2f");
+                tooltip("Blends between plain lighting (0) and full hatching (1).");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Inner Edges", &chSettings.inner_edges)) saveProjectSettings();
+                tooltip("Ink along creases where the surface bends sharply.");
+
+                // Noise strokes, used by Noise and Toon + Noise
+                if (chSettings.mode != 1)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Noise Strokes");
+
+                    ImGui::SliderInt("Noise Texture", &chSettings.noise_texture, 1, 11);
+                    tooltip("Noise the strokes are drawn from (Assets/CrossHatch/Noise). Each gives a different stroke character.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Scale##HatchLit", &chSettings.lit_scale, 0.005f, 0.01f, 10.0f, "%.3f");
+                    tooltip("Stroke frequency in world space. Higher = finer strokes.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Density##HatchLit", &chSettings.lit_density, 0.01f, 0.0f, 10.0f, "%.2f");
+                    tooltip("How quickly strokes stack up as the surface darkens.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Weight##HatchLit", &chSettings.lit_thickness, 0.01f, 0.0f, 10.0f, "%.2f");
+                    tooltip("Stroke weight. Multiplies with Density.");
+                    saveAfterEdit();
+
+                    ImGui::SliderAngle("Angle##HatchLit", &chSettings.lit_angle, -180.0f, 180.0f);
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Smoothness##HatchLit", &chSettings.line_smoothness, 0.001f, 0.5f, "%.3f");
+                    tooltip("Softness of the stroke edges.");
+                    saveAfterEdit();
+
+                    ImGui::TextDisabled("Detail Layer");
+
+                    ImGui::DragFloat("Scale##HatchDetail", &chSettings.detail_scale, 0.005f, 0.01f, 10.0f, "%.3f");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Density##HatchDetail", &chSettings.detail_density, 0.01f, 0.0f, 10.0f, "%.2f");
+                    tooltip("Strength of the constant stroke layer drawn everywhere. 0 = none.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Weight##HatchDetail", &chSettings.detail_thickness, 0.1f, 0.0f, 40.0f, "%.1f");
+                    saveAfterEdit();
+
+                    ImGui::SliderAngle("Angle##HatchDetail", &chSettings.detail_angle, -180.0f, 180.0f);
+                    saveAfterEdit();
+                }
+
+                // Shadow strokes, Noise only
+                if (chSettings.mode == 0)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Shadow Strokes");
+
+                    ImGui::DragFloat("Intensity##HatchShadow", &chSettings.shadow_intensity, 0.01f, 0.0f, 1.0f, "%.2f");
+                    tooltip("Strength of the extra strokes inside the key light's shadow. Cast shadows need the ray-traced CrossHatch renderer.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Scale##HatchShadow", &chSettings.shadow_scale, 0.005f, 0.01f, 10.0f, "%.3f");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Density##HatchShadow", &chSettings.shadow_density, 0.01f, 0.0f, 10.0f, "%.2f");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Weight##HatchShadow", &chSettings.shadow_thickness, 0.01f, 0.0f, 10.0f, "%.2f");
+                    saveAfterEdit();
+
+                    ImGui::SliderAngle("Angle##HatchShadow", &chSettings.shadow_angle, -180.0f, 180.0f);
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Smoothness##HatchShadow", &chSettings.shadow_smoothness, 0.001f, 0.5f, "%.3f");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Core Bias", &chSettings.shadow_core_bias, 0.01f, 2.0f, "%.2f");
+                    tooltip("Below 1 keeps the strokes dense right up to the edge of the shadow.");
+                    saveAfterEdit();
+                }
+
+                // Stroke texture, Toon Texture only
+                if (chSettings.mode == 1)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Stroke Texture");
+
+                    ImGui::DragFloat("Scale##HatchTex", &chSettings.texture_scale, 0.05f, 0.1f, 64.0f, "%.2f");
+                    tooltip("Stroke texture repeats per UV unit.");
+                    saveAfterEdit();
+
+                    ImGui::SliderAngle("Rotation##HatchTex", &chSettings.texture_rotation, -180.0f, 180.0f);
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Thickness##HatchTex", &chSettings.texture_thickness, -0.5f, 0.5f, "%.2f");
+                    tooltip("Fattens (positive) or thins (negative) the strokes.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Cross Strokes", &chSettings.texture_priority, 0.0f, 1.0f, "%.2f");
+                    tooltip("Weight of the second stroke direction. Lower = cross strokes only appear in darker areas.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Light Bias", &chSettings.texture_light_bias, -1.0f, 1.0f, "%.2f");
+                    tooltip("Brightens (positive) or darkens (negative) the light the strokes respond to.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Black Threshold", &chSettings.texture_black_threshold, 0.0f, 1.0f, "%.2f");
+                    tooltip("Light level below which the surface turns solid ink.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Smoothness##HatchTex", &chSettings.texture_smoothness, 0.001f, 0.5f, "%.3f");
+                    tooltip("Softness of the stroke edges.");
+                    saveAfterEdit();
+
+                    if (ImGui::Checkbox("Specular Highlight", &chSettings.specular_enabled)) saveProjectSettings();
+                    tooltip("Paints the brightest areas white, like a comic highlight.");
+
+                    ImGui::BeginDisabled(!chSettings.specular_enabled);
+                    ImGui::SliderFloat("Specular Threshold", &chSettings.specular_threshold, 0.0f, 2.0f, "%.2f");
+                    tooltip("Light level above which the highlight appears. Lower = wider highlight.");
+                    saveAfterEdit();
+                    ImGui::EndDisabled();
+                }
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Outline");
+
+                if (ImGui::Checkbox("Enable Outline", &chSettings.outline_enabled)) saveProjectSettings();
+                tooltip("Ink outline around each object's silhouette (inverted hull).");
+
+                ImGui::BeginDisabled(!chSettings.outline_enabled);
+                ImGui::DragFloat("Width##Outline", &chSettings.outline_width, 0.0001f, 0.0f, 1.0f, "%.4f");
+                tooltip(chSettings.outline_constant_screen_width
+                    ? "Outline width as a fraction of the distance to the camera."
+                    : "Outline width in world units.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Constant Screen Width", &chSettings.outline_constant_screen_width)) saveProjectSettings();
+                tooltip("Keeps the outline the same thickness on screen at any distance.");
+
+                if (ImGui::Checkbox("Extrude From Origin", &chSettings.outline_from_origin)) saveProjectSettings();
+                tooltip("Grows the outline away from the object's origin instead of along its normals.\nCloses gaps on hard-edged meshes, but needs the origin near the mesh's center.");
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Cross Hatching to Defaults"))
+                {
+                    chSettings = ProjectCrossHatchSettings{};
+                    saveProjectSettings();
+                }
+            }
+
             if (ImGui::CollapsingHeader("Graphics Settings", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Checkbox("Enable MSAA (4x)", &UserSettings::GetInstance().GetEnableMSAA());

@@ -73,6 +73,55 @@ struct ProjectGodRaysSettings
     std::array<float, 3> tint{1.0f, 0.95f, 0.85f};
 };
 
+// Style of the CrossHatch renderers (ported from AnitoCrossHatch). Angles are in radians.
+struct ProjectCrossHatchSettings
+{
+    int mode = 1;                    // 0: noise hatching, 1: toon texture hatching, 2: toon + noise hatching
+    std::array<float, 3> ink_color{0.0f, 0.0f, 0.0f};
+    float hatch_opacity = 1.0f;      // 0 = plain lit color, 1 = full hatching
+    bool inner_edges = true;         // Ink along creases where the normal bends sharply
+    int noise_texture = 1;           // Assets/CrossHatch/Noise/noise<N>.dds, 1..11. Shapes the noise strokes.
+
+    // Noise hatching, lit layer: strokes that grow denser as the surface darkens
+    float lit_scale = 0.4f;
+    float lit_thickness = 0.3f;
+    float lit_density = 1.0f;
+    float lit_angle = 0.785f;
+    float line_smoothness = 0.02f;
+
+    // Noise hatching, detail layer: a constant layer of strokes on top
+    float detail_scale = 0.5f;
+    float detail_density = 0.25f;
+    float detail_angle = 2.983f;
+    float detail_thickness = 10.0f;
+
+    // Noise hatching, shadow layer: strokes inside the key light's shadow (cast shadows need the ray-traced renderer)
+    float shadow_scale = 0.4f;
+    float shadow_density = 2.0f;
+    float shadow_angle = 2.35f;
+    float shadow_thickness = 0.3f;
+    float shadow_smoothness = 0.02f;
+    float shadow_core_bias = 0.3f;
+    float shadow_intensity = 1.0f;
+
+    // Toon texture hatching
+    float texture_scale = 6.0f;
+    float texture_priority = 0.5f;   // Weight of the cross strokes. Lower = they appear only in darker areas.
+    float texture_black_threshold = 0.2f;
+    float texture_smoothness = 0.05f;
+    float texture_rotation = 0.0f;
+    float texture_thickness = 0.0f;
+    float texture_light_bias = 0.2f;
+    bool specular_enabled = false;
+    float specular_threshold = 0.85f;
+
+    // Inverted hull outline
+    bool outline_enabled = true;
+    float outline_width = 0.003f;
+    bool outline_constant_screen_width = true; // Width scales with distance, so it is a fraction of the distance instead of world units
+    bool outline_from_origin = false;          // Extrude away from the object's origin instead of along normals (hard-surface meshes)
+};
+
 struct ProjectDebugSettings
 {
     bool show_physics_collider_wireframes = false;
@@ -97,6 +146,7 @@ struct ProjectSettings
     ProjectFogSettings fog;
     ProjectColorCorrectionSettings color_correction;
     ProjectGodRaysSettings god_rays;
+    ProjectCrossHatchSettings crosshatch;
     ProjectDebugSettings debug;
     ProjectPhysicsSettings physics;
     ProjectAudioSettings audio;
