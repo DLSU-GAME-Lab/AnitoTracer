@@ -20,7 +20,8 @@
 #include "RendererEvents.hpp"
 #include "RenderTarget.hpp"
 
-// Owns the active scene pipeline and the passes around it, and draws views into the swap chain or render targets.
+// Owns the scene pipelines (the selected one for the game view, a deferred one for the editor view) and the passes around them,
+// and draws views into the swap chain or render targets.
 // A view is drawn as: skybox -> scene pipeline -> particles -> debug lines -> MSAA resolve -> post processing.
 class RendererManager {
 public:
@@ -42,8 +43,10 @@ public:
     bool IsRayTracingSupported() const { return m_SupportsRayTracing; }
 
     Diligent::RenderTarget* CreateRenderTarget(const std::string& name);
-    //Off screen rendering to tex. Post processing (god rays, color correction) is opt-in so only the game view gets it, not the editor view.
-    void RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData, bool applyPostProcessing = false);
+    // Off screen rendering to tex. The game view uses the renderer selected in the Rendering menu, with post processing (god rays, color correction).
+    void RenderGameView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData);
+    // The editor view always uses the deferred renderer, without post processing
+    void RenderEditorView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData);
 
 private:
     RendererManager() = default;
@@ -52,13 +55,14 @@ private:
     void HandleRendererChangeEvent(const RendererChangeArgs* args);
 
     // Creates the closest scene pipeline to the requested one that this device and the MSAA setting support,
-    // and stores the choice in UserSettings. Call InitializePipelines afterwards.
+    // and stores the choice in UserSettings. Call InitializePipelines afterwards. Only affects the game view.
     void SelectScenePipeline(Diligent::PipelineType requested);
 
     // PSO sample counts are baked in, so toggling MSAA rebuilds them (switching away from pipelines that don't support it)
     void SyncMSAAState();
 
-    void RenderView(const Diligent::FrameTarget& output, const Diligent::RenderData& renderData, bool applyPostProcessing);
+    void RenderToTarget(Diligent::RenderTarget* pTarget, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing);
+    void RenderView(const Diligent::FrameTarget& output, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing);
     void RenderOverlays(const Diligent::FrameTarget& target, const Diligent::RenderData& renderData);
     void ResolveMSAA(Diligent::ITexture* pDestination);
 
@@ -71,8 +75,12 @@ private:
     bool m_SupportsRayTracing = false;
     bool m_MSAAEnabled = false;
 
+    // Selected renderer, drawing the game view (or the back buffer in release builds)
     std::unique_ptr<Diligent::ScenePipeline> m_pScenePipeline;
     Diligent::PipelineType m_ScenePipelineType = Diligent::PipelineType::BASIC_LIT;
+
+    // Always deferred, drawing the editor view. Not created in release builds, which have no editor view.
+    std::unique_ptr<Diligent::ScenePipeline> m_pEditorPipeline;
 
     Diligent::SkyboxPipeline m_SkyboxPipeline;
     Diligent::ParticlePipeline m_ParticlePipeline;

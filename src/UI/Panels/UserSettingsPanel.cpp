@@ -351,6 +351,37 @@ namespace Diligent {
             if (ImGui::CollapsingHeader("Graphics Settings", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Checkbox("Enable MSAA (4x)", &UserSettings::GetInstance().GetEnableMSAA());
+
+                ImGui::PushItemWidth(150.0f);
+                int& resolutionIndex = UserSettings::GetInstance().GetResolutionIndex();
+                const bool resolutionComboOpen = ImGui::BeginCombo("Resolution", UserSettings::GetInstance().GetResolution().Name);
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Resolution the Game and Editor views are rendered at.");
+                }
+                if (resolutionComboOpen)
+                {
+                    for (int i = 0; i < kRenderResolutionCount; ++i)
+                    {
+                        const RenderResolution& resolution = kRenderResolutions[i];
+                        const std::string label = std::string(resolution.Name) + " (" + std::to_string(resolution.Width) + "x" + std::to_string(resolution.Height) + ")";
+                        if (ImGui::Selectable(label.c_str(), resolutionIndex == i)) resolutionIndex = i;
+                    }
+                    ImGui::EndCombo();
+                }
+
+                // Order matches ViewportScaleMode
+                const char* scaleModeNames[] = { "Letterbox", "Stretch" };
+                int scaleMode = static_cast<int>(UserSettings::GetInstance().GetViewportScaleMode());
+                if (ImGui::Combo("Viewport Scaling", &scaleMode, scaleModeNames, IM_ARRAYSIZE(scaleModeNames)))
+                {
+                    UserSettings::GetInstance().GetViewportScaleMode() = static_cast<ViewportScaleMode>(scaleMode);
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Letterbox keeps the resolution's aspect ratio with bars around the image.\nStretch fills the whole Game and Editor panels, distorting the image.");
+                }
+                ImGui::PopItemWidth();
             }
 
             if (ImGui::CollapsingHeader("Physics Settings", ImGuiTreeNodeFlags_DefaultOpen))

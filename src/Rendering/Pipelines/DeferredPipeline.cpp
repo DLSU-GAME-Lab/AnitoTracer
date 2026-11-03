@@ -13,9 +13,7 @@ void Diligent::DeferredPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
             { "G-Buffer WorldPos",        TEX_FORMAT_RGBA32_FLOAT, "g_GBufferWorldPos" },
         },
         { "Depth Buffer", GetDepthFormat(), nullptr });
-
-    const auto& SCDesc = m_pSwapChain->GetDesc();
-    m_GBuffer.Resize(pDevice, SCDesc.Width, SCDesc.Height);
+    // Textures are created by PrepareFrame at the size of the view being drawn
 
     m_pPSO = CreateModelPSOBuilder("Deferred G-Buffer PSO", "Deferred/gbuffer_ps.hlsl")
         .RenderTargets(m_GBuffer.GetColorFormats(), m_GBuffer.GetDepthFormat())
@@ -28,9 +26,12 @@ void Diligent::DeferredPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
 
 void Diligent::DeferredPipeline::InitializeLightingPSO()
 {
+    // The editor view always uses this pipeline, so the lighting pass must also write into the multisampled target when MSAA is on.
+    // Shading is still per pixel (the G-buffer is single sampled), so geometry edges are not anti-aliased.
     m_pLightingPSO = PSOBuilder("Deferred Lighting PSO")
         .Shaders("Deferred/fullscreen_vs.hlsl", "Deferred/simple_deferred_light_ps.hlsl")
         .RenderTargets({ GetColorFormat() }, TEX_FORMAT_UNKNOWN) // No depth testing for lighting pass
+        .SampleCount(PipelineUtils::GetMSAASampleCount())
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferAlbedo", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferNormal", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferWorldPos", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
@@ -45,9 +46,10 @@ void Diligent::DeferredPipeline::InitializeLightingPSO()
     m_GBuffer.BindToSRB(m_pLightingSRB);
 }
 
-void Diligent::DeferredPipeline::OnResize(Uint32 width, Uint32 height)
+void Diligent::DeferredPipeline::PrepareFrame(const FrameTarget& target)
 {
-    if (m_GBuffer.Resize(m_pDevice, width, height)) {
+    // Match the target (the game/editor view resolution, or the back buffer in release builds) so the lighting pass's UVs line up
+    if (m_GBuffer.Resize(m_pDevice, target.Width, target.Height)) {
         m_GBuffer.BindToSRB(m_pLightingSRB);
     }
 }

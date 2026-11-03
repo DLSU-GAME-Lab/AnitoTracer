@@ -196,8 +196,12 @@ void Diligent::GUIManager::DrawGizmos(CameraComponent* pActiveCamera, float x, f
 
 void Diligent::GUIManager::RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter)
 {
-    AddPanel(std::make_unique<GamePanel>("Game Camera", std::move(gameSrvGetter)));
-    AddPanel(std::make_unique<EditorPanel>("Editor Camera", std::move(editorSrvGetter)));
+    auto gamePanel = std::make_unique<GamePanel>("Game Camera", std::move(gameSrvGetter));
+    auto editorPanel = std::make_unique<EditorPanel>("Editor Camera", std::move(editorSrvGetter));
+    m_pGamePanel = gamePanel.get();
+    m_pEditorPanel = editorPanel.get();
+    AddPanel(std::move(gamePanel));
+    AddPanel(std::move(editorPanel));
 }
 
 std::vector<std::string> Diligent::GUIManager::GetAvailableLayouts() const

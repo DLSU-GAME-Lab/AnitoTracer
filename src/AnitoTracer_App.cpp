@@ -375,8 +375,10 @@ void AnitoTracer_App::Update()
 
     if (!AppState::isReleaseBuild)
     {
-        m_pGameTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
-        m_pEditorTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        // Both views render at the resolution picked in the viewport panels / User Settings, independent of the window size
+        const RenderResolution& resolution = UserSettings::GetInstance().GetResolution();
+        m_pGameTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        m_pEditorTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
     }
 
     //============//TIME//============//
@@ -471,19 +473,27 @@ void AnitoTracer_App::Render()
     }
     else
     {
-        RendererManager::GetInstance().RenderToTarget(m_pGameTarget, renderData, true);
+        GUIManager& gui = GUIManager::GetInstance();
 
-        RenderData editorRenderData;
-        HierarchyManager::GetInstance().GetEditorCameraMatrices(editorRenderData.ViewMatrix, editorRenderData.ProjectionMatrix);
-        editorRenderData.Models = renderData.Models;
-        editorRenderData.Lights = renderData.Lights;
-        editorRenderData.Particles = renderData.Particles;
-
-        if (ProjectLoader::GetProjectSettings().debug.show_physics_collider_wireframes) {
-            editorRenderData.DebugLines = PhysicsEngine::GetInstance().Get().GetDebugLines();
+        // Views whose panel is closed, collapsed or behind another dock tab aren't rendered
+        if (gui.IsGameViewportShown()) {
+            RendererManager::GetInstance().RenderGameView(m_pGameTarget, renderData);
         }
 
-        RendererManager::GetInstance().RenderToTarget(m_pEditorTarget, editorRenderData);
+        RenderData editorRenderData;
+        const bool editorShown = gui.IsEditorViewportShown();
+        if (editorShown) {
+            HierarchyManager::GetInstance().GetEditorCameraMatrices(editorRenderData.ViewMatrix, editorRenderData.ProjectionMatrix);
+            editorRenderData.Models = renderData.Models;
+            editorRenderData.Lights = renderData.Lights;
+            editorRenderData.Particles = renderData.Particles;
+
+            if (ProjectLoader::GetProjectSettings().debug.show_physics_collider_wireframes) {
+                editorRenderData.DebugLines = PhysicsEngine::GetInstance().Get().GetDebugLines();
+            }
+
+            RendererManager::GetInstance().RenderEditorView(m_pEditorTarget, editorRenderData);
+        }
 
         // Clear the main window backbuffer so ImGui has a clean background
         ITextureView* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
@@ -493,7 +503,7 @@ void AnitoTracer_App::Render()
         m_pImmediateContext->ClearRenderTarget(pBackBufferRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_pImmediateContext->ClearDepthStencil(pDefaultDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        HandleObjectPicking(SCDesc, editorRenderData);
+        if (editorShown) HandleObjectPicking(SCDesc, editorRenderData);
     }
 
     GUIManager::GetInstance().Render(m_pImmediateContext);

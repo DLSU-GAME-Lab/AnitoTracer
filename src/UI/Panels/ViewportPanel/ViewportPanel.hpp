@@ -13,9 +13,15 @@ namespace Diligent {
         ~ViewportPanel() override = default;
 
         void Draw() override;
+
+        // False while the panel is closed, collapsed or an inactive dock tab, so its view doesn't need rendering
+        bool IsViewportShown() const { return m_IsVisible && m_IsShown; }
     protected:
         //For menu bar
         virtual void DrawTopBar() {}
+
+        // "Resolution: ..." menu for a menu bar, editing the shared render resolution in UserSettings
+        void DrawResolutionMenu();
 
         // Called right before ImGui::Begin so subclasses can request window focus/etc.
         virtual void OnBeforeBegin() {}
@@ -28,5 +34,6 @@ namespace Diligent {
         ImGuiWindowFlags m_WindowFlags = 0;
         SRVGetter m_GetSRV;
         bool m_DrawGizmos;
+        bool m_IsShown = false;
     };
 }
