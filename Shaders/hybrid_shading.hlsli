@@ -44,12 +44,13 @@ void BuildBasis(float3 n, out float3 t, out float3 b)
 
 // ------------------------------------------------------------------
 // Helper: Traces a visibility ray, returns 1 when nothing is hit
+// positionError: how far worldPos may be off the real surface (deferred depth reconstruction), added to the bias
 // ------------------------------------------------------------------
-float TraceShadowRay(float3 worldPos, float3 normal, float3 lightDir, float maxDist)
+float TraceShadowRay(float3 worldPos, float3 normal, float positionError, float3 lightDir, float maxDist)
 {
     // Master! We offset the ray origin along the unperturbed geometric normal to prevent self-shadowing~♡
     RayDesc ray;
-    ray.Origin = worldPos + (normal * g_ShadowBias);
+    ray.Origin = worldPos + (normal * (g_ShadowBias + positionError));
     ray.Direction = lightDir;
     ray.TMin = 0.001;
     ray.TMax = maxDist;
@@ -73,7 +74,7 @@ float TraceShadowRay(float3 worldPos, float3 normal, float3 lightDir, float maxD
 }
 
 // Soft shadow from a directional light treated as a disk of SUN_ANGULAR_RADIUS
-float TraceDirectionalShadow(float3 worldPos, float3 geoN, float3 L, float noise)
+float TraceDirectionalShadow(float3 worldPos, float3 geoN, float positionError, float3 L, float noise)
 {
     float3 t, b;
     BuildBasis(L, t, b);
@@ -83,13 +84,13 @@ float TraceDirectionalShadow(float3 worldPos, float3 geoN, float3 L, float noise
     for (int s = 0; s < SHADOW_SAMPLES; ++s)
     {
         float2 d = VogelDisk(s, SHADOW_SAMPLES, noise * 2.0 * PI) * spread;
-        visibility += TraceShadowRay(worldPos, geoN, normalize(L + t * d.x + b * d.y), 1000.0);
+        visibility += TraceShadowRay(worldPos, geoN, positionError, normalize(L + t * d.x + b * d.y), 1000.0);
     }
     return visibility / SHADOW_SAMPLES;
 }
 
 // Soft shadow from a point light treated as a disk of POINT_LIGHT_RADIUS facing the surface
-float TracePointShadow(float3 worldPos, float3 geoN, float3 lightPos, float3 L, float noise)
+float TracePointShadow(float3 worldPos, float3 geoN, float positionError, float3 lightPos, float3 L, float noise)
 {
     float3 t, b;
     BuildBasis(L, t, b);
@@ -100,13 +101,13 @@ float TracePointShadow(float3 worldPos, float3 geoN, float3 lightPos, float3 L, 
         float2 d = VogelDisk(s, SHADOW_SAMPLES, noise * 2.0 * PI) * POINT_LIGHT_RADIUS;
         float3 toSample = lightPos + t * d.x + b * d.y - worldPos;
         float dist = length(toSample);
-        visibility += TraceShadowRay(worldPos, geoN, toSample / dist, dist - 0.01);
+        visibility += TraceShadowRay(worldPos, geoN, positionError, toSample / dist, dist - 0.01);
     }
     return visibility / SHADOW_SAMPLES;
 }
 
 // Ray-traced ambient occlusion. Also returns the bent normal (average unoccluded direction)
-float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float3 N, float noise, out float3 bentNormal)
+float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, float3 N, float noise, out float3 bentNormal)
 {
     float3 t, b;
     BuildBasis(N, t, b);
@@ -126,7 +127,7 @@ float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float3 N, float noise,
             dir -= 2.0 * below * geoN;
         }
 
-        float v = TraceShadowRay(worldPos, geoN, dir, AO_RADIUS);
+        float v = TraceShadowRay(worldPos, geoN, positionError, dir, AO_RADIUS);
         visibility += v;
         openDir += dir * v;
     }
@@ -185,6 +186,7 @@ struct HybridSurface
     float3 WorldPos;
     float3 N;        // Shading normal (normal mapped)
     float3 GeoN;     // Unperturbed geometric normal, used strictly for ray origin offsets
+    float PositionError; // World units WorldPos may be off the surface; 0 when interpolated, > 0 when rebuilt from depth
     float3 Albedo;
     float Metallic;
     float Roughness; // Already clamped to >= 0.05
@@ -220,7 +222,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
         if (dot(N, L) <= 0.0)
             continue;
 
-        float shadowFactor = TraceDirectionalShadow(s.WorldPos, geoN, L, noise);
+        float shadowFactor = TraceDirectionalShadow(s.WorldPos, geoN, s.PositionError, L, noise);
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
         Lo += ComputeLightRadiance(N, V, L, radiance, s.Albedo, metallic, roughness, F0, shadowFactor, energyCompensation);
@@ -238,7 +240,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
             if (dot(N, L) <= 0.0)
                 continue;
 
-            float shadowFactor = TracePointShadow(s.WorldPos, geoN, g_PointLights[j].Position.xyz, L, noise);
+            float shadowFactor = TracePointShadow(s.WorldPos, geoN, s.PositionError, g_PointLights[j].Position.xyz, L, noise);
 
             float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
             attenuation *= attenuation;
@@ -250,7 +252,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
 
     // 3. Ambient: flat ambient color plus skybox light, both occluded by ray-traced AO
     float3 bentNormal;
-    float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, N, noise, bentNormal);
+    float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, s.PositionError, N, noise, bentNormal);
     float occlusion = min(s.AO, rtao);
 
     float envMipCount = GetEnvMipCount();
@@ -271,7 +273,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
     {
         // A reflection ray can't shade what it hits (no hit shading here), so stand in a dim
         // bounce of the local irradiance for the occluder instead of showing sky through it
-        float reflectionVisibility = TraceShadowRay(s.WorldPos, geoN, R, REFLECTION_RAY_DISTANCE);
+        float reflectionVisibility = TraceShadowRay(s.WorldPos, geoN, s.PositionError, R, REFLECTION_RAY_DISTANCE);
         float3 occludedRadiance = irradiance * 0.25 * occlusion;
         float traceWeight = 1.0 - smoothstep(REFLECTION_MAX_ROUGHNESS * 0.5, REFLECTION_MAX_ROUGHNESS, roughness);
         envSpecular = lerp(envSpecular, lerp(occludedRadiance, envSpecular, reflectionVisibility), traceWeight);

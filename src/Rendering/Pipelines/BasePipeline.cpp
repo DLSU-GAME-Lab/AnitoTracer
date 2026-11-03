@@ -66,6 +66,9 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
             matCBData.RoughnessFactor = modelData.OverrideRoughness ? modelData.Roughness : mat.RoughnessFactor;
             matCBData.OverrideFlags = static_cast<float>((modelData.OverrideRoughness ? 1 : 0) | (modelData.OverrideMetallic ? 2 : 0));
 
+            const glm::vec3 materialEmissive = glm::vec3(mat.EmissiveFactor.r, mat.EmissiveFactor.g, mat.EmissiveFactor.b) * mat.EmissiveStrength;
+            matCBData.EmissiveFactor = glm::vec4(modelData.OverrideEmissive ? modelData.Emissive : materialEmissive, 0.0f);
+
             // Missing maps still need a valid texture bound; the Use*Map flags tell the shader to ignore it
             ITextureView* pSafeFallbackTexture = mat.BaseColor;
             auto BindMap = [&](const char* name, ITextureView* pMap, float& useFlag) {

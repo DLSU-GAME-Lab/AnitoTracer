@@ -112,6 +112,8 @@ namespace Diligent {
         float UseAOMap{ 0.0f };
         float UseEmissiveMap{ 0.0f };
         float OverrideFlags{ 0.0f }; // Bit 1: roughness overridden, bit 2: metallic overridden (skip the texture channel)
+
+        glm::vec4 EmissiveFactor{ 0.0f }; // rgb: emissive color * strength (HDR), multiplied with the emissive map
     };
 
     struct CameraConstants {

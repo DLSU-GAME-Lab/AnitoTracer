@@ -251,6 +251,21 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
 
         pbrMat.Emissive = LoadMaterialTexture(material, aiTextureType_EMISSIVE, modelDir, currentMatHasPBR, true);
 
+        // Emissive color (glTF emissiveFactor, OBJ Ke) and strength (KHR_materials_emissive_strength)
+        aiColor3D emissiveColor(0.0f, 0.0f, 0.0f);
+        bool hasEmissiveColor = material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor) == AI_SUCCESS;
+        pbrMat.EmissiveFactor = float3(emissiveColor.r, emissiveColor.g, emissiveColor.b);
+
+        // A map with no (or black) color would never glow; exporters often leave Ke at 0 next to map_Ke, so let the map through
+        if (pbrMat.Emissive && (!hasEmissiveColor || emissiveColor.IsBlack())) {
+            pbrMat.EmissiveFactor = float3(1.0f, 1.0f, 1.0f);
+        }
+
+        float emissiveStrength = 1.0f;
+        if (material->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissiveStrength) == AI_SUCCESS) {
+            pbrMat.EmissiveStrength = emissiveStrength;
+        }
+
         // Enforce fallback to default white if no base color texture was found
         if (!pbrMat.BaseColor) {
             pbrMat.BaseColor = m_pDefaultTextureView;

@@ -53,17 +53,14 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     }
 
     // Emissive Sampling
-    float3 emissive = float3(0.0, 0.0, 0.0);
-    if (g_UseEmissiveMap > 0.5)
-    {
-        emissive = g_EmissiveMap.Sample(g_EmissiveMap_sampler, In.UV).rgb;
-    }
+    float3 emissive = SampleEmissive(In.UV);
 
     // 2. Ray-traced shading
     HybridSurface surface;
     surface.WorldPos = In.WorldPos;
     surface.N = N;
     surface.GeoN = geoN;
+    surface.PositionError = 0.0; // Interpolated position is exact
     surface.Albedo = albedo.rgb;
     surface.Metallic = metallic;
     surface.Roughness = roughness;
