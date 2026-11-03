@@ -60,6 +60,8 @@ set(${CUR_TARGET_NAME}_src
 	Pipelines/DeferredPipeline.cpp
 	Pipelines/DeferredHybridPipeline.hpp
 	Pipelines/DeferredHybridPipeline.cpp
+	Pipelines/CrossHatchPipeline.hpp
+	Pipelines/CrossHatchPipeline.cpp
 
 	# Other pipelines
 	Pipelines/BasicPipeline.hpp
