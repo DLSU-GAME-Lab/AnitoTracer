@@ -6,7 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Models/ModelStructs.hpp"
-#include "Pipelines/PipelineDefs.hpp"
+#include "Pipelines/Data/PipelineDefs.hpp"
 #include "ParticleRenderData.hpp"
 
 #include "Graphics/GraphicsEngine/interface/TopLevelAS.h" 

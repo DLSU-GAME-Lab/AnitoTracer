@@ -1,67 +1,49 @@
 #include "BasePipeline.hpp"
 #include "../RenderData.hpp"
 
-void Diligent::BasePipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
+using namespace Diligent;
+
+void BasePipeline::SetDevice(IRenderDevice* pDevice, ISwapChain* pSwapChain)
 {
-    glm::mat4 view = renderData.ViewMatrix;
-    glm::mat4 proj = renderData.ProjectionMatrix;
+    m_pDevice = pDevice;
+    m_pSwapChain = pSwapChain;
+}
 
-    {
-        MapHelper<CameraConstants> CBData(pContext, m_pCameraCB, MAP_WRITE, MAP_FLAG_DISCARD);
-        CBData->View = glm::transpose(view);
-        CBData->Proj = glm::transpose(proj);
-    }
-
+void BasePipeline::StartFrameRender(IDeviceContext* pContext, const RenderData& renderData)
+{
+    UpdateCameraConstants(pContext, renderData);
     pContext->SetPipelineState(m_pPSO);
 }
 
-void Diligent::BasePipeline::UpdateLights(IDeviceContext* pContext, const LightConstants& lights)
+void BasePipeline::UpdateCameraConstants(IDeviceContext* pContext, const RenderData& renderData)
 {
-    MapHelper<LightConstants> CBData(pContext, m_pLightCB, MAP_WRITE, MAP_FLAG_DISCARD);
-    *CBData = lights;
+    CameraConstants camera;
+    camera.View = glm::transpose(renderData.ViewMatrix);
+    camera.Proj = glm::transpose(renderData.ProjectionMatrix);
+    PipelineUtils::WriteCB(pContext, m_pCameraCB, camera);
 }
 
-void Diligent::BasePipeline::UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings)
-{
-    MapHelper<ShadowSettings> CBData(pContext, m_pShadowCB, MAP_WRITE, MAP_FLAG_DISCARD);
-    CBData->ShadowBias = settings.shadow_bias;
-    CBData->AmbientMultiplier = settings.ambient_multiplier;
-    CBData->SkyLightIntensity = settings.sky_light_intensity;
-    CBData->ReflectionIntensity = settings.reflection_intensity;
-    CBData->AmbientColor = glm::vec4(
-        settings.ambient_color[0],
-        settings.ambient_color[1],
-        settings.ambient_color[2],
-        1.0f
-    );
-}
-
-void Diligent::BasePipeline::UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog)
-{
-    MapHelper<FogConstants> CBData(pContext, m_pFogCB, MAP_WRITE, MAP_FLAG_DISCARD);
-    *CBData = fog;
-}
-
-void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData, bool renderOpaque)
+void BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque)
 {
     RenderModelWithSRB(pContext, modelData, renderOpaque, m_pSRB);
 }
 
-void Diligent::BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque, IShaderResourceBinding* pSRB)
+void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque, IShaderResourceBinding* pSRB)
 {
     Model* model = modelData.ModelData;
 
     {
-        MapHelper<ModelConstants> CBData(pContext, m_pModelCB, MAP_WRITE, MAP_FLAG_DISCARD);
-        CBData->Model = glm::transpose(modelData.WorldTransform);
+        ModelConstants modelConstants;
+        modelConstants.Model = glm::transpose(modelData.WorldTransform);
 
         // Calculate the normal matrix (inverse transpose of the model matrix)
         glm::mat4 normalMatrix = glm::transpose(glm::inverse(modelData.WorldTransform));
 
         // Transpose again to convert from GLM column-major to HLSL row-major expectation
-        // Note: glm::transpose(glm::transpose(inverse)) simplifies to just inverse, 
+        // Note: glm::transpose(glm::transpose(inverse)) simplifies to just inverse,
         // but writing it this way keeps the intent explicit and matches the Model matrix mapping.
-        CBData->NormalMatrix = glm::transpose(normalMatrix);
+        modelConstants.NormalMatrix = glm::transpose(normalMatrix);
+        PipelineUtils::WriteCB(pContext, m_pModelCB, modelConstants);
     }
 
     IBuffer* pBuffs[] = { model->pVertexBuffer };
@@ -84,37 +66,20 @@ void Diligent::BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const 
             matCBData.RoughnessFactor = modelData.OverrideRoughness ? modelData.Roughness : mat.RoughnessFactor;
             matCBData.OverrideFlags = static_cast<float>((modelData.OverrideRoughness ? 1 : 0) | (modelData.OverrideMetallic ? 2 : 0));
 
+            // Missing maps still need a valid texture bound; the Use*Map flags tell the shader to ignore it
             ITextureView* pSafeFallbackTexture = mat.BaseColor;
+            auto BindMap = [&](const char* name, ITextureView* pMap, float& useFlag) {
+                PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, name, pMap ? pMap : pSafeFallbackTexture);
+                useFlag = pMap ? 1.0f : 0.0f;
+            };
 
-            if (auto* pBaseColorVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorMap")) {
-                pBaseColorVar->Set(mat.BaseColor);
-            }
-            matCBData.UseBaseColorMap = mat.BaseColor ? 1.0f : 0.0f;
+            BindMap("g_BaseColorMap", mat.BaseColor, matCBData.UseBaseColorMap);
+            BindMap("g_MetallicRoughnessMap", mat.MetallicRoughness, matCBData.UseMetallicRoughnessMap);
+            BindMap("g_NormalMap", mat.Normal, matCBData.UseNormalMap);
+            BindMap("g_AOMap", mat.AO, matCBData.UseAOMap);
+            BindMap("g_EmissiveMap", mat.Emissive, matCBData.UseEmissiveMap);
 
-            if (auto* pMRVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap")) {
-                pMRVar->Set(mat.MetallicRoughness ? mat.MetallicRoughness : pSafeFallbackTexture);
-            }
-            matCBData.UseMetallicRoughnessMap = mat.MetallicRoughness ? 1.0f : 0.0f;
-
-            if (auto* pNormalVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalMap")) {
-                pNormalVar->Set(mat.Normal ? mat.Normal : pSafeFallbackTexture);
-            }
-            matCBData.UseNormalMap = mat.Normal ? 1.0f : 0.0f;
-
-            if (auto* pAOVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_AOMap")) {
-                pAOVar->Set(mat.AO ? mat.AO : pSafeFallbackTexture);
-            }
-            matCBData.UseAOMap = mat.AO ? 1.0f : 0.0f;
-
-            if (auto* pEmissiveVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_EmissiveMap")) {
-                pEmissiveVar->Set(mat.Emissive ? mat.Emissive : pSafeFallbackTexture);
-            }
-            matCBData.UseEmissiveMap = mat.Emissive ? 1.0f : 0.0f;
-
-            {
-                MapHelper<PBRMaterialConstants> CBData(pContext, m_pMaterialCB, MAP_WRITE, MAP_FLAG_DISCARD);
-                *CBData = matCBData;
-            }
+            PipelineUtils::WriteCB(pContext, m_pMaterialCB, matCBData);
         }
 
         pContext->CommitShaderResources(pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -130,105 +95,47 @@ void Diligent::BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const 
     }
 }
 
-void Diligent::BasePipeline::RenderModels(IDeviceContext* pContext, RenderData renderData, bool renderOpaque)
+void BasePipeline::RenderModels(IDeviceContext* pContext, const RenderData& renderData, bool renderOpaque)
 {
-    for (int i = 0; i < renderData.Models.size(); i++) {
-        RenderModel(pContext, renderData.Models[i], renderOpaque);
+    for (const ModelRenderInstance& model : renderData.Models) {
+        RenderModel(pContext, model, renderOpaque);
     }
 }
 
-void Diligent::BasePipeline::CreateCameraConstantBuffer(IRenderDevice* pDevice)
+void BasePipeline::CreateCameraConstantBuffer()
 {
-    BufferDesc CBDesc;
-    CBDesc.Name = "Camera Constant Buffer";
-    CBDesc.Size = sizeof(float4x4) * 2;
-    CBDesc.Usage = USAGE_DYNAMIC;
-    CBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-
-    pDevice->CreateBuffer(CBDesc, nullptr, &m_pCameraCB);
+    if (!m_pCameraCB) m_pCameraCB = PipelineUtils::CreateDynamicCB<CameraConstants>(m_pDevice, "Camera Constant Buffer");
 }
 
-void Diligent::BasePipeline::CreateModelConstantBuffer(IRenderDevice* pDevice)
+void BasePipeline::CreateModelConstantBuffer()
 {
-    BufferDesc CBDesc;
-    CBDesc.Name = "Model Constant Buffer";
-    CBDesc.Size = sizeof(ModelConstants);
-    CBDesc.Usage = USAGE_DYNAMIC;
-    CBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-
-    pDevice->CreateBuffer(CBDesc, nullptr, &m_pModelCB);
+    if (!m_pModelCB) m_pModelCB = PipelineUtils::CreateDynamicCB<ModelConstants>(m_pDevice, "Model Constant Buffer");
 }
 
-void Diligent::BasePipeline::CreateCommonConstantBuffers(IRenderDevice* pDevice)
+void BasePipeline::CreateMaterialConstantBuffer()
 {
-    if (!m_pMaterialCB) {
-        BufferDesc MatCBDesc;
-        MatCBDesc.Name = "PBR Material Constant Buffer";
-        MatCBDesc.Size = sizeof(PBRMaterialConstants);
-        MatCBDesc.Usage = USAGE_DYNAMIC;
-        MatCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-        MatCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-        pDevice->CreateBuffer(MatCBDesc, nullptr, &m_pMaterialCB);
-    }
-
-    if (!m_pLightCB) {
-        BufferDesc LightCBDesc;
-        LightCBDesc.Name = "Light Constant Buffer";
-        LightCBDesc.Size = sizeof(LightConstants);
-        LightCBDesc.Usage = USAGE_DYNAMIC;
-        LightCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-        LightCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-        pDevice->CreateBuffer(LightCBDesc, nullptr, &m_pLightCB);
-    }
-
-    if (!m_pShadowCB) {
-        BufferDesc ShadowCBDesc;
-        ShadowCBDesc.Name = "Shadow Settings Constant Buffer";
-        ShadowCBDesc.Size = sizeof(ShadowSettings);
-        ShadowCBDesc.Usage = USAGE_DYNAMIC;
-        ShadowCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-        ShadowCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-        pDevice->CreateBuffer(ShadowCBDesc, nullptr, &m_pShadowCB);
-    }
-
-    if (!m_pFogCB) {
-        BufferDesc FogCBDesc;
-        FogCBDesc.Name = "Fog Constant Buffer";
-        FogCBDesc.Size = sizeof(FogConstants);
-        FogCBDesc.Usage = USAGE_DYNAMIC;
-        FogCBDesc.BindFlags = BIND_UNIFORM_BUFFER;
-        FogCBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-        pDevice->CreateBuffer(FogCBDesc, nullptr, &m_pFogCB);
-    }
+    if (!m_pMaterialCB) m_pMaterialCB = PipelineUtils::CreateDynamicCB<PBRMaterialConstants>(m_pDevice, "PBR Material Constant Buffer");
 }
 
-void Diligent::BasePipeline::SetupDefaultGraphicsPipeline(GraphicsPipelineDesc& GraphicsPipeline)
+void BasePipeline::BindCommonBuffers(IShaderResourceBinding* pSRB)
 {
-    GraphicsPipeline.NumRenderTargets = 1;
-    GraphicsPipeline.RTVFormats[0] = pSwapChain->GetDesc().ColorBufferFormat;
-    GraphicsPipeline.DSVFormat = pSwapChain->GetDesc().DepthBufferFormat;
-    GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_BACK;
-    GraphicsPipeline.DepthStencilDesc.DepthEnable = True;
-    GraphicsPipeline.DepthStencilDesc.DepthFunc = COMPARISON_FUNC_LESS_EQUAL;
+    PipelineUtils::BindVariable(pSRB, SHADER_TYPE_VERTEX, "CameraConstants", m_pCameraCB);
+    PipelineUtils::BindVariable(pSRB, SHADER_TYPE_VERTEX, "ModelConstants", m_pModelCB);
+    PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "PBRMaterialConstants", m_pMaterialCB);
 }
 
-SamplerDesc Diligent::BasePipeline::GetLinearWrapSamplerDesc()
+PSOBuilder BasePipeline::CreateModelPSOBuilder(const char* name, const char* psFile, const char* vsFile)
 {
-    SamplerDesc SamLinearWrapDesc;
-    SamLinearWrapDesc.MinFilter = FILTER_TYPE_LINEAR;
-    SamLinearWrapDesc.MagFilter = FILTER_TYPE_LINEAR;
-    SamLinearWrapDesc.MipFilter = FILTER_TYPE_LINEAR;
-    SamLinearWrapDesc.AddressU = TEXTURE_ADDRESS_WRAP;
-    SamLinearWrapDesc.AddressV = TEXTURE_ADDRESS_WRAP;
-    SamLinearWrapDesc.AddressW = TEXTURE_ADDRESS_WRAP;
-
-    return SamLinearWrapDesc;
+    PSOBuilder builder(name);
+    builder.Shaders(vsFile, psFile)
+        .RenderTargets({ GetColorFormat() }, GetDepthFormat())
+        .InputLayout(VertexLayouts::GetStandardLayout())
+        .Variables(GetStandardShaderVariables())
+        .Samplers(GetStandardImmutableSamplers());
+    return builder;
 }
 
-std::vector<ShaderResourceVariableDesc> Diligent::BasePipeline::GetStandardShaderVariables()
+std::vector<ShaderResourceVariableDesc> BasePipeline::GetStandardShaderVariables()
 {
     return {
         {SHADER_TYPE_VERTEX | SHADER_TYPE_PIXEL, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -247,9 +154,9 @@ std::vector<ShaderResourceVariableDesc> Diligent::BasePipeline::GetStandardShade
     };
 }
 
-std::vector<ImmutableSamplerDesc> Diligent::BasePipeline::GetStandardImmutableSamplers()
+std::vector<ImmutableSamplerDesc> BasePipeline::GetStandardImmutableSamplers()
 {
-    SamplerDesc SamLinearWrapDesc = GetLinearWrapSamplerDesc();
+    SamplerDesc SamLinearWrapDesc = PipelineUtils::LinearWrapSampler();
 
     return {
         {SHADER_TYPE_PIXEL, "g_BaseColorMap_sampler", SamLinearWrapDesc},

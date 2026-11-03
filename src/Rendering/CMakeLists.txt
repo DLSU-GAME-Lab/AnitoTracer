@@ -12,8 +12,12 @@ set(${CUR_TARGET_NAME}_src
 
 	RendererEvents.hpp
 
+	FrameTarget.hpp
 	RenderTarget.hpp
 	RenderTarget.cpp
+
+	SceneConstants.hpp
+	SceneConstants.cpp
 
 	RendererManager.hpp
 	RendererManager.cpp
@@ -23,27 +27,45 @@ set(${CUR_TARGET_NAME}_src
 	Shaders/VertexLayouts.hpp
 	Shaders/VertexLayouts.cpp
 
-	Pipelines/PipelineDefs.hpp
+	# Pipeline data (structs mirroring shader constants, registry entries)
+	Pipelines/Data/PipelineDefs.hpp
+	Pipelines/Data/ScenePipelineInfo.hpp
 
+	# Pipeline utilities
+	Pipelines/Utils/PipelineUtils.hpp
+	Pipelines/Utils/PipelineUtils.cpp
+	Pipelines/Utils/PSOBuilder.hpp
+	Pipelines/Utils/PSOBuilder.cpp
+	Pipelines/Utils/GBuffer.hpp
+	Pipelines/Utils/GBuffer.cpp
+	Pipelines/Utils/SceneTLAS.hpp
+	Pipelines/Utils/SceneTLAS.cpp
+	Pipelines/Utils/ScenePipelineRegistry.hpp
+	Pipelines/Utils/ScenePipelineRegistry.cpp
+	Pipelines/Utils/PostProcessStack.hpp
+	Pipelines/Utils/PostProcessStack.cpp
+
+	# Render pipelines
 	Pipelines/BasePipeline.hpp
 	Pipelines/BasePipeline.cpp
 
-	Pipelines/BasicPipeline.hpp
-	Pipelines/BasicPipeline.cpp
-
-	Pipelines/TexturedPipeline.hpp
-	Pipelines/TexturedPipeline.cpp
-
-	Pipelines/BasicLitPipeline.cpp
+	# Scene pipelines (selectable renderers, see ScenePipelineRegistry)
+	Pipelines/ScenePipeline.hpp
+	Pipelines/ScenePipeline.cpp
 	Pipelines/BasicLitPipeline.hpp
-
-	Pipelines/HybridPipeline.cpp
+	Pipelines/BasicLitPipeline.cpp
 	Pipelines/HybridPipeline.hpp
-	Pipelines/DeferredHybridPipeline.cpp
-	Pipelines/DeferredHybridPipeline.hpp
-
+	Pipelines/HybridPipeline.cpp
 	Pipelines/DeferredPipeline.hpp
 	Pipelines/DeferredPipeline.cpp
+	Pipelines/DeferredHybridPipeline.hpp
+	Pipelines/DeferredHybridPipeline.cpp
+
+	# Other pipelines
+	Pipelines/BasicPipeline.hpp
+	Pipelines/BasicPipeline.cpp
+	Pipelines/TexturedPipeline.hpp
+	Pipelines/TexturedPipeline.cpp
 
 	Pipelines/DebugLinePipeline.hpp
 	Pipelines/DebugLinePipeline.cpp
@@ -51,15 +73,17 @@ set(${CUR_TARGET_NAME}_src
 	ParticleRenderData.hpp
 	Pipelines/ParticlePipeline.hpp
 	Pipelines/ParticlePipeline.cpp
-	
+
 	Pipelines/SkyboxPipeline.hpp
 	Pipelines/SkyboxPipeline.cpp
 
-	Pipelines/ColorCorrectionPipeline.hpp
-	Pipelines/ColorCorrectionPipeline.cpp
-
-	Pipelines/GodRaysPipeline.hpp
-	Pipelines/GodRaysPipeline.cpp
+	# Post processing pipelines (chained by Utils/PostProcessStack)
+	Pipelines/PostProcess/PostProcessPipeline.hpp
+	Pipelines/PostProcess/PostProcessPipeline.cpp
+	Pipelines/PostProcess/ColorCorrectionPipeline.hpp
+	Pipelines/PostProcess/ColorCorrectionPipeline.cpp
+	Pipelines/PostProcess/GodRaysPipeline.hpp
+	Pipelines/PostProcess/GodRaysPipeline.cpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})

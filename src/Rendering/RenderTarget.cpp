@@ -4,28 +4,38 @@ namespace Diligent {
 
     void RenderTarget::Create(IRenderDevice* pDevice, uint32_t width, uint32_t height, TEXTURE_FORMAT colorFmt, TEXTURE_FORMAT depthFmt, uint8_t sampleCount) {
         if (width == 0 || height == 0) return;
-        if (m_Width == width && m_Height == height) return; // No resize needed
-
-        m_Width = width;
-        m_Height = height;
+        if (IsValid() && m_Width == width && m_Height == height &&
+            m_ColorFormat == colorFmt && m_DepthFormat == depthFmt && m_SampleCount == sampleCount) return; // Nothing changed
 
         Release();
 
+        m_Width = width;
+        m_Height = height;
+        m_ColorFormat = colorFmt;
+        m_DepthFormat = depthFmt;
+        m_SampleCount = sampleCount;
+
+        // Names must outlive CreateTexture, which reads TextureDesc::Name
+        const std::string colorName = m_Name + " Color";
+        const std::string depthName = m_Name + " Depth";
+
         TextureDesc colorDesc;
-        colorDesc.Name = (m_Name + " Color").c_str();
+        colorDesc.Name = colorName.c_str();
         colorDesc.Type = RESOURCE_DIM_TEX_2D;
         colorDesc.Width = width;
         colorDesc.Height = height;
         colorDesc.Format = colorFmt;
-        colorDesc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
+        colorDesc.BindFlags = sampleCount > 1 ? BIND_RENDER_TARGET : BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
         colorDesc.SampleCount = sampleCount;
         pDevice->CreateTexture(colorDesc, nullptr, &m_pColorTexture);
 
         m_pRTV = m_pColorTexture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
-        m_pSRV = m_pColorTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        if (sampleCount == 1) {
+            m_pSRV = m_pColorTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        }
 
         TextureDesc depthDesc = colorDesc;
-        depthDesc.Name = (m_Name + " Depth").c_str();
+        depthDesc.Name = depthName.c_str();
         depthDesc.Format = depthFmt;
         depthDesc.BindFlags = BIND_DEPTH_STENCIL;
         pDevice->CreateTexture(depthDesc, nullptr, &m_pDepthTexture);
@@ -39,5 +49,7 @@ namespace Diligent {
         m_pRTV.Release();
         m_pSRV.Release();
         m_pDSV.Release();
+        m_Width = 0;
+        m_Height = 0;
     }
 }

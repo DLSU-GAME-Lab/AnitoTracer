@@ -1,5 +1,6 @@
 #pragma once
 #include "HybridPipeline.hpp"
+#include "Utils/GBuffer.hpp"
 
 namespace Diligent {
     // Deferred version of the Hybrid pipeline:
@@ -10,22 +11,22 @@ namespace Diligent {
     class DeferredHybridPipeline : public HybridPipeline {
     public:
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
-        void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
-        void RenderModels(IDeviceContext* pContext, RenderData renderData, bool renderOpaque = true) override;
-        void SetEnvironmentMap(ITextureView* pCubemapSRV) override;
+        void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
+        void RenderModels(IDeviceContext* pContext, const RenderData& renderData, bool renderOpaque = true) override;
 
-        // Call before StartFrameRender. The lighting pass writes color and depth here, and the G-buffer is sized to fit it.
-        void SetFrameTargets(ITextureView* pTargetRTV, ITextureView* pTargetDSV);
-        void RenderLightingPass(IDeviceContext* pContext);
+    protected:
+        // Sizes the G-buffer to fit the target
+        void PrepareFrame(const FrameTarget& target) override;
+        // Lighting pass: writes color and depth into the target
+        void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) override;
+
+        IShaderResourceBinding* GetRayTracingSRB() override { return m_pLightingSRB; }
 
     private:
-        void InitializeDepthPrepassPSO(IRenderDevice* pDevice);
-        void InitializeGBufferPSO(IRenderDevice* pDevice);
-        void InitializeLightingPSO(IRenderDevice* pDevice);
-        void CreateDeferredConstantBuffer(IRenderDevice* pDevice);
+        void InitializeDepthPrepassPSO();
+        void InitializeGBufferPSO();
+        void InitializeLightingPSO();
 
-        void EnsureGBufferSize(Uint32 width, Uint32 height);
-        void BindGBufferToLightingSRB();
         void SetGBufferViewport(IDeviceContext* pContext);
 
         RefCntAutoPtr<IPipelineState> m_pDepthPrepassPSO;
@@ -35,19 +36,11 @@ namespace Diligent {
         RefCntAutoPtr<IShaderResourceBinding> m_pLightingSRB;
         RefCntAutoPtr<IBuffer> m_pDeferredCB;
 
-        // G-buffer (layout documented in Shaders/DeferredHybrid/gbuffer_common.hlsli). Only grows, so one set
-        // serves every view (editor, game, swap chain); passes render into its top-left viewport-sized corner.
-        RefCntAutoPtr<ITexture> m_pGBufferAlbedoMetallic;
-        RefCntAutoPtr<ITexture> m_pGBufferNormals;
-        RefCntAutoPtr<ITexture> m_pGBufferEmissiveAO;
-        RefCntAutoPtr<ITexture> m_pGBufferRoughness;
-        RefCntAutoPtr<ITexture> m_pGBufferDepth;
-        Uint32 m_GBufferWidth = 0;
-        Uint32 m_GBufferHeight = 0;
+        // Layout documented in Shaders/DeferredHybrid/gbuffer_common.hlsli. Only grows, so one set serves every
+        // view (editor, game, swap chain); passes render into its top-left viewport-sized corner.
+        GBuffer m_GBuffer;
 
-        // Current frame's output, set by SetFrameTargets
-        ITextureView* m_pTargetRTV = nullptr;
-        ITextureView* m_pTargetDSV = nullptr;
+        // Size of the current frame's target
         Uint32 m_ViewportWidth = 0;
         Uint32 m_ViewportHeight = 0;
     };

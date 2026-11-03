@@ -7,7 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "../../Common/DebugLine.hpp"
+#include "../../../Common/DebugLine.hpp"
 
 namespace Diligent {
 

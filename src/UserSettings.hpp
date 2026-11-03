@@ -1,5 +1,5 @@
 #pragma once
-#include "Rendering/Pipelines/PipelineDefs.hpp"
+#include "Rendering/Pipelines/Data/PipelineDefs.hpp"
 
 namespace Diligent {
     class UserSettings {
