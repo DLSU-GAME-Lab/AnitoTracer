@@ -13,9 +13,7 @@ void Diligent::DeferredPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
             { "G-Buffer WorldPos",        TEX_FORMAT_RGBA32_FLOAT, "g_GBufferWorldPos" },
         },
         { "Depth Buffer", GetDepthFormat(), nullptr });
-
-    const auto& SCDesc = m_pSwapChain->GetDesc();
-    m_GBuffer.Resize(pDevice, SCDesc.Width, SCDesc.Height);
+    // Textures are created by PrepareFrame at the size of the view being drawn
 
     m_pPSO = CreateModelPSOBuilder("Deferred G-Buffer PSO", "Deferred/gbuffer_ps.hlsl")
         .RenderTargets(m_GBuffer.GetColorFormats(), m_GBuffer.GetDepthFormat())
@@ -48,9 +46,10 @@ void Diligent::DeferredPipeline::InitializeLightingPSO()
     m_GBuffer.BindToSRB(m_pLightingSRB);
 }
 
-void Diligent::DeferredPipeline::OnResize(Uint32 width, Uint32 height)
+void Diligent::DeferredPipeline::PrepareFrame(const FrameTarget& target)
 {
-    if (m_GBuffer.Resize(m_pDevice, width, height)) {
+    // Match the target (the game/editor view resolution, or the back buffer in release builds) so the lighting pass's UVs line up
+    if (m_GBuffer.Resize(m_pDevice, target.Width, target.Height)) {
         m_GBuffer.BindToSRB(m_pLightingSRB);
     }
 }

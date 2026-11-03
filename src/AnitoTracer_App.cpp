@@ -375,8 +375,10 @@ void AnitoTracer_App::Update()
 
     if (!AppState::isReleaseBuild)
     {
-        m_pGameTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
-        m_pEditorTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        // Both views render at the resolution picked in the viewport panels / User Settings, independent of the window size
+        const RenderResolution& resolution = UserSettings::GetInstance().GetResolution();
+        m_pGameTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        m_pEditorTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
     }
 
     //============//TIME//============//

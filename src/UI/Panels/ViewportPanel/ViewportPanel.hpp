@@ -20,6 +20,9 @@ namespace Diligent {
         //For menu bar
         virtual void DrawTopBar() {}
 
+        // "Resolution: ..." menu for a menu bar, editing the shared render resolution in UserSettings
+        void DrawResolutionMenu();
+
         // Called right before ImGui::Begin so subclasses can request window focus/etc.
         virtual void OnBeforeBegin() {}
 
