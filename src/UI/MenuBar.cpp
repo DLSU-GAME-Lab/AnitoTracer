@@ -117,6 +117,14 @@ namespace Diligent {
                     );
                 }
 
+                if (ImGui::MenuItem("Deferred Hybrid Pipeline (RayTraced)", nullptr, currentRenderer == Diligent::PipelineType::DEFERRED_HYBRID, rtSupported))
+                {
+                    gbe::EventSystem::DispatchTo(
+                        EVENT_RENDER_CHANGE,
+                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::DEFERRED_HYBRID)
+                    );
+                }
+
                 ImGui::EndMenu();
             }
 

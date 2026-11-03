@@ -9,19 +9,22 @@ namespace Diligent {
         void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
 
         // Skybox cubemap used for sky lighting and reflections. nullptr falls back to black.
-        void SetEnvironmentMap(ITextureView* pCubemapSRV);
+        virtual void SetEnvironmentMap(ITextureView* pCubemapSRV);
 
-    private:
+    protected:
         void CreateFallbackEnvironmentMap(IRenderDevice* pDevice);
+        ITextureView* GetEnvironmentMapView() const;
 
         void InitializeTLAS(IRenderDevice* pDevice, Uint32 maxInstances = 1000);
-        void BuildSceneTLAS(IDeviceContext* pContext, const RenderData& renderData);
 
         RefCntAutoPtr<ITopLevelAS> m_pTLAS;
-        RefCntAutoPtr<IBuffer> m_pTLASScratchBuffer;
-        RefCntAutoPtr<IBuffer> m_pTLASInstanceBuffer;
-
         RefCntAutoPtr<ITextureView> m_pEnvMapSRV;
         RefCntAutoPtr<ITexture> m_pFallbackEnvMap;
+
+    private:
+        void BuildSceneTLAS(IDeviceContext* pContext, const RenderData& renderData);
+
+        RefCntAutoPtr<IBuffer> m_pTLASScratchBuffer;
+        RefCntAutoPtr<IBuffer> m_pTLASInstanceBuffer;
     };
 }

@@ -44,6 +44,11 @@ void Diligent::BasePipeline::UpdateFogConstants(IDeviceContext* pContext, const 
 
 void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance modelData, bool renderOpaque)
 {
+    RenderModelWithSRB(pContext, modelData, renderOpaque, m_pSRB);
+}
+
+void Diligent::BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque, IShaderResourceBinding* pSRB)
+{
     Model* model = modelData.ModelData;
 
     {
@@ -81,27 +86,27 @@ void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRe
 
             ITextureView* pSafeFallbackTexture = mat.BaseColor;
 
-            if (auto* pBaseColorVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorMap")) {
+            if (auto* pBaseColorVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_BaseColorMap")) {
                 pBaseColorVar->Set(mat.BaseColor);
             }
             matCBData.UseBaseColorMap = mat.BaseColor ? 1.0f : 0.0f;
 
-            if (auto* pMRVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap")) {
+            if (auto* pMRVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap")) {
                 pMRVar->Set(mat.MetallicRoughness ? mat.MetallicRoughness : pSafeFallbackTexture);
             }
             matCBData.UseMetallicRoughnessMap = mat.MetallicRoughness ? 1.0f : 0.0f;
 
-            if (auto* pNormalVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalMap")) {
+            if (auto* pNormalVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_NormalMap")) {
                 pNormalVar->Set(mat.Normal ? mat.Normal : pSafeFallbackTexture);
             }
             matCBData.UseNormalMap = mat.Normal ? 1.0f : 0.0f;
 
-            if (auto* pAOVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_AOMap")) {
+            if (auto* pAOVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_AOMap")) {
                 pAOVar->Set(mat.AO ? mat.AO : pSafeFallbackTexture);
             }
             matCBData.UseAOMap = mat.AO ? 1.0f : 0.0f;
 
-            if (auto* pEmissiveVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_EmissiveMap")) {
+            if (auto* pEmissiveVar = pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_EmissiveMap")) {
                 pEmissiveVar->Set(mat.Emissive ? mat.Emissive : pSafeFallbackTexture);
             }
             matCBData.UseEmissiveMap = mat.Emissive ? 1.0f : 0.0f;
@@ -112,7 +117,7 @@ void Diligent::BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRe
             }
         }
 
-        pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->CommitShaderResources(pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         DrawIndexedAttribs DrawAttrs;
         DrawAttrs.IndexType = VT_UINT32;

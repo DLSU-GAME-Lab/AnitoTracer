@@ -83,8 +83,12 @@ void Diligent::HybridPipeline::SetEnvironmentMap(ITextureView* pCubemapSRV)
     m_pEnvMapSRV = pCubemapSRV;
     if (!m_pSRB) return;
 
-    ITextureView* pView = m_pEnvMapSRV ? m_pEnvMapSRV.RawPtr() : m_pFallbackEnvMap->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
-    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_EnvMap"))         pVar->Set(pView);
+    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_EnvMap"))         pVar->Set(GetEnvironmentMapView());
+}
+
+Diligent::ITextureView* Diligent::HybridPipeline::GetEnvironmentMapView() const
+{
+    return m_pEnvMapSRV ? m_pEnvMapSRV.RawPtr() : m_pFallbackEnvMap->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 }
 
 void Diligent::HybridPipeline::CreateFallbackEnvironmentMap(IRenderDevice* pDevice)

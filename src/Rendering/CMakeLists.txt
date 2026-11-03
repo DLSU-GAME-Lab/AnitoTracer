@@ -39,6 +39,8 @@ set(${CUR_TARGET_NAME}_src
 
 	Pipelines/HybridPipeline.cpp
 	Pipelines/HybridPipeline.hpp
+	Pipelines/DeferredHybridPipeline.cpp
+	Pipelines/DeferredHybridPipeline.hpp
 
 	Pipelines/DeferredPipeline.hpp
 	Pipelines/DeferredPipeline.cpp

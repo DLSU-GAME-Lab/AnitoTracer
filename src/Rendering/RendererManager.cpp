@@ -119,6 +119,11 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
         m_bLitPipeline.emplace<Diligent::HybridPipeline>();
         std::cout << "[Info] Hardware Ray Tracing detected. Using HybridPipeline." << std::endl;
     }
+    else if (userSettings.GetRendererType() == Diligent::PipelineType::DEFERRED_HYBRID && supportsRayTracing)
+    {
+        m_bLitPipeline.emplace<Diligent::DeferredHybridPipeline>();
+        std::cout << "[Info] Hardware Ray Tracing detected. Using DeferredHybridPipeline." << std::endl;
+    }
     else if (userSettings.GetRendererType() == Diligent::PipelineType::DEFERRED)
     {
         m_bLitPipeline.emplace<Diligent::DeferredPipeline>();
@@ -185,6 +190,12 @@ void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
         userSettings.GetRendererType() = Diligent::PipelineType::HYBRID;
         std::cout << "[RendererManager] Swapped to Hybrid Pipeline." << std::endl;
     }
+    else if (args->targetPipeline == Diligent::PipelineType::DEFERRED_HYBRID && m_SupportsRayTracing)
+    {
+        m_bLitPipeline.emplace<Diligent::DeferredHybridPipeline>();
+        userSettings.GetRendererType() = Diligent::PipelineType::DEFERRED_HYBRID;
+        std::cout << "[RendererManager] Swapped to Deferred Hybrid Pipeline." << std::endl;
+    }
     else
     {
         m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
@@ -217,9 +228,12 @@ void RendererManager::InitializePipelines()
     auto* pDefaultSkybox = ModelManager::GetInstance().LoadCubemap("Assets/Skyboxes/skybox_raw.dds", true);
     if (pDefaultSkybox) {
         m_SkyboxPipeline.SetCubemap(pDefaultSkybox);
-        if (auto* pHybrid = std::get_if<Diligent::HybridPipeline>(&m_bLitPipeline)) {
-            pHybrid->SetEnvironmentMap(pDefaultSkybox);
-        }
+        std::visit([&](auto& pipeline) {
+            using T = std::decay_t<decltype(pipeline)>;
+            if constexpr (std::is_base_of_v<Diligent::HybridPipeline, T>) {
+                pipeline.SetEnvironmentMap(pDefaultSkybox);
+            }
+            }, m_bLitPipeline);
         std::cout << "[Info] Default Skybox loaded and assigned successfully." << std::endl;
     }
     else {
@@ -346,16 +360,24 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
     m_SkyboxPipeline.Render(m_pImmediateContext, renderData);
 
     std::visit([&](auto& pipeline) {
+        using T = std::decay_t<decltype(pipeline)>;
+        if constexpr (std::is_same_v<T, Diligent::DeferredHybridPipeline>) {
+            pipeline.SetFrameTargets(pActiveRTV, pActiveDSV);
+        }
+
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
         pipeline.UpdateShadowSettings(m_pImmediateContext, ProjectLoader::GetProjectSettings().lighting);
         pipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
         pipeline.RenderModels(m_pImmediateContext, renderData, true);
 
-        using T = std::decay_t<decltype(pipeline)>;
         if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>)
         {
             pipeline.RenderLightingPass(m_pImmediateContext, pActiveRTV);
+        }
+        else if constexpr (std::is_same_v<T, Diligent::DeferredHybridPipeline>)
+        {
+            pipeline.RenderLightingPass(m_pImmediateContext);
         }
         }, m_bLitPipeline);
 
@@ -460,15 +482,22 @@ void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Dili
     m_SkyboxPipeline.Render(m_pImmediateContext, renderData);
 
     std::visit([&](auto& pipeline) {
+        using T = std::decay_t<decltype(pipeline)>;
+        if constexpr (std::is_same_v<T, Diligent::DeferredHybridPipeline>) {
+            pipeline.SetFrameTargets(pActiveRTV, pActiveDSV);
+        }
+
         pipeline.StartFrameRender(m_pImmediateContext, renderData);
         pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
         pipeline.UpdateShadowSettings(m_pImmediateContext, ProjectLoader::GetProjectSettings().lighting);
         pipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
         pipeline.RenderModels(m_pImmediateContext, renderData, true);
 
-        using T = std::decay_t<decltype(pipeline)>;
         if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>) {
             pipeline.RenderLightingPass(m_pImmediateContext, pActiveRTV);
+        }
+        else if constexpr (std::is_same_v<T, Diligent::DeferredHybridPipeline>) {
+            pipeline.RenderLightingPass(m_pImmediateContext);
         }
         }, m_bLitPipeline);
 

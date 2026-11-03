@@ -8,6 +8,7 @@
 
 #include "Pipelines/BasicLitPipeline.hpp"
 #include "Pipelines/HybridPipeline.hpp"
+#include "Pipelines/DeferredHybridPipeline.hpp"
 #include "Pipelines/DeferredPipeline.hpp"
 #include "Pipelines/SkyboxPipeline.hpp"
 #include "Pipelines/ColorCorrectionPipeline.hpp"
@@ -61,7 +62,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAARTV;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> m_pMSAADSV;
 
-    std::variant<Diligent::HybridPipeline, Diligent::BasicLitPipeline, Diligent::DeferredPipeline> m_bLitPipeline;
+    std::variant<Diligent::HybridPipeline, Diligent::BasicLitPipeline, Diligent::DeferredPipeline, Diligent::DeferredHybridPipeline> m_bLitPipeline;
     bool m_LastMSAAState = false;
     bool m_SupportsRayTracing = false;
 

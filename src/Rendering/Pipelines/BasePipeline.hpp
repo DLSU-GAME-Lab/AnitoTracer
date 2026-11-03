@@ -44,7 +44,10 @@ namespace Diligent {
     protected:
         void CreateCameraConstantBuffer(IRenderDevice* pDevice);
         void CreateModelConstantBuffer(IRenderDevice* pDevice);
-        void CreateCommonConstantBuffers(IRenderDevice* pDevice); 
+        void CreateCommonConstantBuffers(IRenderDevice* pDevice);
+
+        // Draws a model's submeshes binding materials through pSRB instead of m_pSRB (e.g. for an extra pass with its own PSO)
+        void RenderModelWithSRB(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque, IShaderResourceBinding* pSRB);
 
         virtual std::vector<ShaderResourceVariableDesc> GetStandardShaderVariables();
         virtual std::vector<ImmutableSamplerDesc> GetStandardImmutableSamplers();
