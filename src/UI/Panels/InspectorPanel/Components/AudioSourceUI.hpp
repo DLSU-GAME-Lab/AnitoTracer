@@ -3,6 +3,7 @@
 #include "IComponentUI.hpp"
 #include "../../../../Objects/Components/Audio/AudioSourceComponent.hpp"
 #include "../../../PropertyDrawers/asset_drawer.hpp"
+#include "../../../PropertyDrawers/audio_drawer.hpp"
 #include <imgui.h>
 
 class AudioSourceUI : public IComponentUI {
@@ -22,8 +23,12 @@ public:
         if (ImGui::Button("Stop"))
             audioComponent->Stop();
 
+        AudioManager::AudioGroupType groupType = audioComponent->GetSoundGroup();
+        if (gbe::PropertyDrawer<AudioManager::AudioGroupType>::Draw("Source Type", groupType))
+            audioComponent->SetSoundGroup(static_cast<AudioManager::AudioGroupType>(groupType));
+
         float volume = audioComponent->GetVolume();
-        if(ImGui::SliderFloat("Volume", &volume, AudioManager::MinVolume, AudioManager::MaxVolume, "%.0f%%", 
+        if (ImGui::SliderFloat("Volume", &volume, AudioManager::MinVolume, AudioManager::MaxVolume, "%.0f%%", 
             ImGuiSliderFlags_AlwaysClamp))
             audioComponent->SetVolume(volume);
 

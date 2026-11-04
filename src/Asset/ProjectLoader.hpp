@@ -66,6 +66,8 @@ public:
 		currentProjectFile = projectFile;
 		projectEntryScene = projectInfo.entryscene;
 		projectSettings = projectInfo.settings;
+		AudioManager::GetInstance().ApplyVolumes(projectSettings.audio.master_volume, 
+			projectSettings.audio.bgm_volume, projectSettings.audio.sfx_volume); // Apply saved volumes on load
 		AssetPipeline::IncludeFolder(currentProjectDir);
 		savedSceneData = HierarchyManager::GetInstance().Serialize();
 		hasSavedSceneData = true;
@@ -208,6 +210,8 @@ public:
 		currentProjectFile = path;
 		projectEntryScene = newinfo.entryscene;
 		projectSettings = newinfo.settings;
+		AudioManager::GetInstance().ApplyVolumes(projectSettings.audio.master_volume, 
+			projectSettings.audio.bgm_volume, projectSettings.audio.sfx_volume); // Apply saved volumes on load
 
 		AssetPipeline::IncludeFolder(currentProjectDir);
 		LoadSceneNow(currentSceneFile);

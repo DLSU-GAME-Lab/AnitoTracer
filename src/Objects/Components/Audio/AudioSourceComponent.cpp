@@ -39,7 +39,7 @@ void AudioSourceComponent::Play() {
         << " loop=" << m_soundLoop << " pitch=" << m_soundPitch << std::endl;
     if (!HasAudioClip()) return;
     if (m_soundID != 0 && AudioManager::GetInstance().IsValidClip(m_soundID)) AudioManager::GetInstance().StopClip(m_soundID);
-    m_soundID = AudioManager::GetInstance().CreateClip(m_audioClip.Get());
+    m_soundID = AudioManager::GetInstance().CreateClip(m_audioClip.Get(), m_soundGroupType);
     if (m_soundID == 0) return;
     
     AudioManager::GetInstance().SetSoundVolume(m_soundID, m_soundVolume);
@@ -62,6 +62,11 @@ void AudioSourceComponent::Stop() {
     if (m_soundID == 0) return;
     AudioManager::GetInstance().StopClip(m_soundID);
     m_soundID = 0;
+}
+
+void AudioSourceComponent::SetSoundGroup(AudioManager::AudioGroupType soundGroupType) { 
+    m_soundGroupType = soundGroupType;
+    SetSpatialized(AudioManager::GetDefaultSpatialization(m_soundGroupType));
 }
 
 void AudioSourceComponent::SetVolume(float soundVolume) {

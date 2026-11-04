@@ -42,6 +42,10 @@ public:
     // Plays the clip, then releases ownership so it keeps playing after this component is destroyed
     void PlayDetached();
 
+    // Sound Groups Setters / Getters
+    void SetSoundGroup(AudioManager::AudioGroupType soundGroupType);
+    AudioManager::AudioGroupType GetSoundGroup() const { return m_soundGroupType; }
+
     // Source Settings Setters / Getters
     void SetVolume(float soundVolume);
     float GetVolume() const { return m_soundVolume; }
@@ -69,6 +73,9 @@ private:
     void UpdateSoundPosition();
 
     GBE_SERIALIZE_FIELD(m_audioClip);
+
+    AudioManager::AudioGroupType m_soundGroupType = AudioManager::AudioGroupType::SFX;
+    GBE_SERIALIZE_FIELD(m_soundGroupType);
 
     float m_soundVolume = 100.0f;
     GBE_SERIALIZE_FIELD(m_soundVolume);

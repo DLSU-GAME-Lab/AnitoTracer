@@ -6,3 +6,4 @@
 #include "PropertyDrawers/asset_drawer.hpp"
 #include "PropertyDrawers/objectref_drawer.hpp"
 #include "PropertyDrawers/event_drawer.hpp"
+#include "PropertyDrawers/audio_drawer.hpp"

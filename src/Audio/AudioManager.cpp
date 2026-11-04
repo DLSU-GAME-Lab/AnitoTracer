@@ -7,8 +7,19 @@ bool AudioManager::EngineReady(std::string_view action) const {
     return m_AudioEngineInitialized;
 }
 
+bool AudioManager::GroupsReady(std::string_view action) const {
+    if (!EngineReady(action)) return false;
+
+    if (!m_MasterGroupInitialized || !m_BgmGroupInitialized || !m_SfxGroupInitialized) {
+        std::cerr << action << " failed: one or more audio groups are not initialized." << std::endl;
+        return false;        
+    }
+
+    return true;
+}
+
 ma_sound* AudioManager::FindSound(uint64_t soundID, std::string_view action) {
-    if (!EngineReady(action)) return nullptr;
+    if (!GroupsReady(action)) return nullptr;
 
     auto it = m_PlayingSounds.find(soundID);
     if (it == m_PlayingSounds.end()) {
@@ -44,13 +55,54 @@ void AudioManager::AudioSoundDeleter::operator()(ma_sound* sound) const {
     delete sound;
 }
 
-uint64_t AudioManager::CreateClip(AudioClip* audioClip) {
-    if (!EngineReady("Create clip")) return 0;
+ma_sound_group* AudioManager::GetGroup(AudioGroupType groupType) {
+    switch (groupType) {
+        case AudioGroupType::BGM:
+            return &m_BgmGroup;
+        case AudioGroupType::SFX:
+            return &m_SfxGroup;
+    }
+    
+    return nullptr;
+}
+
+ma_uint32 AudioManager::GetSoundFlag(AudioGroupType groupType) {
+    switch (groupType) {
+        case AudioGroupType::BGM:
+            return MA_SOUND_FLAG_STREAM; // Stream BGM sound sources
+        case AudioGroupType::SFX:
+            return 0; // Load entire SFX sound sources
+    }
+
+    return 0;
+}
+
+bool AudioManager::GetDefaultSpatialization(AudioGroupType groupType) {
+    switch (groupType) {
+        case AudioGroupType::BGM:
+            return false;
+        case AudioGroupType::SFX:
+            return true;
+    }
+
+    return true;
+} 
+
+uint64_t AudioManager::CreateClip(AudioClip* audioClip, AudioGroupType groupType) {
+    if (!GroupsReady("Create clip")) return 0;
 
     if (!audioClip) {
         std::cerr << "Audio clip not found." << std::endl;
         return 0;
     }
+
+    ma_sound_group* group = GetGroup(groupType);
+    if (!group) {
+        std::cerr << "Create clip failed: unknown audio group type." << std::endl;
+        return 0;
+    }
+
+    ma_uint32 soundFlag = GetSoundFlag(groupType);
 
     // Free detached sounds that finished playing; owned sounds are left to their owners
     for (auto it = m_DetachedSounds.begin(); it != m_DetachedSounds.end();) {
@@ -70,6 +122,8 @@ uint64_t AudioManager::CreateClip(AudioClip* audioClip) {
     std::cout << "[Audio] CreateClip path='" << path.string() << "' exists=" << std::filesystem::exists(path)
         << " cwd='" << std::filesystem::current_path().string() << "' liveSounds=" << m_PlayingSounds.size()
         << " detached=" << m_DetachedSounds.size()
+        << " group=" << (groupType == AudioGroupType::BGM ? "BGM" : groupType == AudioGroupType::SFX ? "SFX" : "Unknown")
+        << " flag=" << soundFlag
         << " engineVolume=" << ma_engine_get_volume(&m_AudioEngine)
         << " listeners=" << ma_engine_get_listener_count(&m_AudioEngine) << std::endl;
 
@@ -77,7 +131,7 @@ uint64_t AudioManager::CreateClip(AudioClip* audioClip) {
     ma_sound* newSound = new ma_sound;
     ma_result soundResult;
 
-    soundResult = ma_sound_init_from_file(&m_AudioEngine, path.string().c_str(), 0, nullptr, nullptr, newSound);
+    soundResult = ma_sound_init_from_file(&m_AudioEngine, path.string().c_str(), soundFlag, group, nullptr, newSound);
 
     // Check if init succeeded
     if (soundResult != MA_SUCCESS){
@@ -121,6 +175,31 @@ void AudioManager::StopClip (uint64_t soundID) {
 
 void AudioManager::DetachClip(uint64_t soundID) {
     if (IsValidClip(soundID)) m_DetachedSounds.insert(soundID);
+}
+
+void AudioManager::SetMasterGroupVolume(float volume) {
+    if (!GroupsReady("Set master volume")) return;
+
+    ma_sound_group_set_volume(&m_MasterGroup, std::clamp(volume, MinVolume, MaxVolume) / 100);
+}
+
+void AudioManager::SetAudioGroupVolume(AudioGroupType groupType, float volume) {
+    if (!GroupsReady("Set group volume")) return;
+
+    ma_sound_group* group = GetGroup(groupType);
+    if (!group) {
+        std::cerr << "Set group volume failed: unknown audio group type." << std::endl;
+        return;
+    }
+
+    // Set group volume; volume is expressed in percentage of 0 to 100
+    ma_sound_group_set_volume(group, std::clamp(volume, MinVolume, MaxVolume) / 100);
+}
+
+void AudioManager::ApplyVolumes(float masterVolume, float bgmVolume, float sfxVolume) {
+    SetMasterGroupVolume(masterVolume);
+    SetAudioGroupVolume(AudioGroupType::BGM, bgmVolume);
+    SetAudioGroupVolume(AudioGroupType::SFX, sfxVolume);
 }
 
 void AudioManager::SetSoundPosition(uint64_t soundID, glm::vec3 position) {

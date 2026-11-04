@@ -395,6 +395,36 @@ namespace Diligent {
                 ImGui::EndDisabled();
             }
 
+            // ------------------------------------------------------------------
+            // Audio Settings Section
+            // ------------------------------------------------------------------
+
+            if (ImGui::CollapsingHeader("Audio Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                if (ImGui::SliderFloat("Master Volume", &projectSettings.audio.master_volume, AudioManager::MinVolume, 
+                    AudioManager::MaxVolume, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+                {
+                    AudioManager::GetInstance().SetMasterGroupVolume(projectSettings.audio.master_volume);
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+
+                if (ImGui::SliderFloat("Background Music Volume", &projectSettings.audio.bgm_volume, AudioManager::MinVolume, 
+                    AudioManager::MaxVolume, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+                {
+                    AudioManager::GetInstance().SetAudioGroupVolume(AudioManager::AudioGroupType::BGM, 
+                        projectSettings.audio.bgm_volume);
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+
+                if (ImGui::SliderFloat("Sound Effects Volume", &projectSettings.audio.sfx_volume, AudioManager::MinVolume, 
+                    AudioManager::MaxVolume, "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+                {
+                    AudioManager::GetInstance().SetAudioGroupVolume(AudioManager::AudioGroupType::SFX, 
+                        projectSettings.audio.sfx_volume);
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+            }
+
             if (ImGui::CollapsingHeader("Debug Settings", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 if (ImGui::Checkbox("Show Physics Collider Wireframes", &projectSettings.debug.show_physics_collider_wireframes)) {

@@ -84,6 +84,13 @@ struct ProjectPhysicsSettings
     std::array<float, 3> gravity{0.0f, -9.81f, 0.0f};
 };
 
+struct ProjectAudioSettings
+{
+    float master_volume = 100.0f;
+    float bgm_volume = 100.0f;
+    float sfx_volume = 100.0f;
+};
+
 struct ProjectSettings
 {
     ProjectLightingSettings lighting;
@@ -92,4 +99,5 @@ struct ProjectSettings
     ProjectGodRaysSettings god_rays;
     ProjectDebugSettings debug;
     ProjectPhysicsSettings physics;
+    ProjectAudioSettings audio;
 };
