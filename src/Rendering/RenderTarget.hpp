@@ -8,7 +8,8 @@
 
 namespace Diligent {
 
-    // Off-screen color + depth pair. Single sampled targets can be sampled (GetSRV), e.g. to show a view in ImGui.
+    // Off-screen color + depth pair. Single sampled targets can be sampled (GetSRV), e.g. to show a view in ImGui,
+    // and so can their depth (e.g. for TAA reprojection).
     class RenderTarget {
     public:
         explicit RenderTarget(const std::string& name) : m_Name(name) {}

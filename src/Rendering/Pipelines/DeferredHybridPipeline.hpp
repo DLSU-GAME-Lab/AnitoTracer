@@ -13,6 +13,7 @@ namespace Diligent {
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
         void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
         void RenderModels(IDeviceContext* pContext, const RenderData& renderData, bool renderOpaque = true) override;
+        ITextureView* GetDepthSRV() const override { return m_GBuffer.GetDepthSRV(); }
 
     protected:
         // Sizes the G-buffer to fit the target

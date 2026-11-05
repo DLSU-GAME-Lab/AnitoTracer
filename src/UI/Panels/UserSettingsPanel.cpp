@@ -381,6 +381,41 @@ namespace Diligent {
                 {
                     ImGui::SetTooltip("Letterbox keeps the resolution's aspect ratio with bars around the image.\nStretch fills the whole Game and Editor panels, distorting the image.");
                 }
+
+                ImGui::Spacing();
+
+                // Temporal anti-aliasing
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                TAASettings& taaSettings = UserSettings::GetInstance().GetTAASettings();
+
+                ImGui::Checkbox("Enable TAA", &taaSettings.Enabled);
+                tooltip("Temporal anti-aliasing: smooths jagged edges by jittering the camera slightly every frame and blending the frames together.\nWorks with every renderer, including the deferred ones that can't use MSAA.");
+
+                ImGui::BeginDisabled(!taaSettings.Enabled);
+                ImGui::Indent();
+
+                ImGui::Checkbox("Apply to Editor View", &taaSettings.ApplyToEditorView);
+                tooltip("Also anti-alias the Editor view. The Game view and release builds always use TAA while it is enabled.");
+
+                ImGui::SliderFloat("History Blend", &taaSettings.HistoryBlend, 0.5f, 0.98f, "%.2f");
+                tooltip("How much of the previous frames is kept each frame. Higher is smoother and more stable, but smears more during fast motion.");
+
+                ImGui::SliderFloat("Jitter Spread", &taaSettings.JitterSpread, 0.0f, 2.0f, "%.2f px");
+                tooltip("Size of the per-frame camera offset. 1 covers a whole pixel; lower is sharper but smooths edges less. 0 turns off the jitter.");
+
+                ImGui::SliderFloat("Sharpness##TAA", &taaSettings.Sharpness, 0.0f, 1.0f, "%.2f");
+                tooltip("Sharpens the final image to offset the slight softness TAA adds. 0 = off.");
+
+                if (ImGui::Button("Reset TAA to Defaults"))
+                {
+                    taaSettings = TAASettings{};
+                }
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
                 ImGui::PopItemWidth();
             }
 

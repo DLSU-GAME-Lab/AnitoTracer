@@ -48,7 +48,7 @@ namespace Diligent {
 
         TexDesc.Name = m_Depth.Name;
         TexDesc.Format = m_Depth.Format;
-        TexDesc.BindFlags = m_Depth.ShaderVariable ? BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE : BIND_DEPTH_STENCIL;
+        TexDesc.BindFlags = BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE;
         TexDesc.ClearValue.Format = m_Depth.Format;
         TexDesc.ClearValue.DepthStencil.Depth = 1.0f;
         pDevice->CreateTexture(TexDesc, nullptr, &m_pDepthTexture);
@@ -115,6 +115,11 @@ namespace Diligent {
     ITextureView* GBuffer::GetDSV() const
     {
         return m_pDepthTexture ? m_pDepthTexture->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL) : nullptr;
+    }
+
+    ITextureView* GBuffer::GetDepthSRV() const
+    {
+        return m_pDepthTexture ? m_pDepthTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
     }
 
 }

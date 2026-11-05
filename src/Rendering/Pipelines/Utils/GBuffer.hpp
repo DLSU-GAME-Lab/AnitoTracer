@@ -39,6 +39,8 @@ namespace Diligent {
         std::vector<TEXTURE_FORMAT> GetColorFormats() const;
         TEXTURE_FORMAT GetDepthFormat() const { return m_Depth.Format; }
         ITextureView* GetDSV() const;
+        // Depth is always sampleable, so passes after the pipeline (e.g. TAA) can read it
+        ITextureView* GetDepthSRV() const;
         Uint32 GetWidth() const { return m_Width; }
         Uint32 GetHeight() const { return m_Height; }
 

@@ -37,7 +37,7 @@ namespace Diligent {
         TextureDesc depthDesc = colorDesc;
         depthDesc.Name = depthName.c_str();
         depthDesc.Format = depthFmt;
-        depthDesc.BindFlags = BIND_DEPTH_STENCIL;
+        depthDesc.BindFlags = sampleCount > 1 ? BIND_DEPTH_STENCIL : BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE;
         pDevice->CreateTexture(depthDesc, nullptr, &m_pDepthTexture);
 
         m_pDSV = m_pDepthTexture->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
