@@ -12,6 +12,7 @@ namespace Diligent {
     public:
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
         void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
+        ITextureView* GetDepthSRV() const override { return m_GBuffer.GetDepthSRV(); }
 
     protected:
         void PrepareFrame(const FrameTarget& target) override;

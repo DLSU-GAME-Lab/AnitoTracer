@@ -84,6 +84,10 @@ set(${CUR_TARGET_NAME}_src
 	Pipelines/PostProcess/ColorCorrectionPipeline.cpp
 	Pipelines/PostProcess/GodRaysPipeline.hpp
 	Pipelines/PostProcess/GodRaysPipeline.cpp
+
+	# Temporal anti-aliasing (runs before the post process stack, with a history per view)
+	Pipelines/PostProcess/TemporalAAPass.hpp
+	Pipelines/PostProcess/TemporalAAPass.cpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
