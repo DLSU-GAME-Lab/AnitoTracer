@@ -31,6 +31,15 @@ namespace Diligent {
         Stretch,   // Fill the whole panel, distorting the image when the shapes differ
     };
 
+    // Temporal anti-aliasing: the camera is jittered by a sub-pixel offset every frame and the frames are blended over time
+    struct TAASettings {
+        bool Enabled = true;
+        bool ApplyToEditorView = true;
+        float HistoryBlend = 0.9f;  // Weight of the accumulated history; higher is smoother but ghosts more during motion
+        float JitterSpread = 1.0f;  // Size of the per-frame camera offset, in pixels
+        float Sharpness = 0.25f;    // Sharpening of the displayed image, offsetting the softness TAA adds
+    };
+
     class UserSettings {
     public:
         // ------------------------------------------------------------------
@@ -68,6 +77,9 @@ namespace Diligent {
         ViewportScaleMode& GetViewportScaleMode() { return m_ViewportScaleMode; }
         const ViewportScaleMode& GetViewportScaleMode() const { return m_ViewportScaleMode; }
 
+        TAASettings& GetTAASettings() { return m_TAASettings; }
+        const TAASettings& GetTAASettings() const { return m_TAASettings; }
+
     private:
         // Private constructor ensures it can only be created via GetInstance()
         UserSettings() = default;
@@ -85,5 +97,7 @@ namespace Diligent {
         int m_ResolutionIndex = kDefaultRenderResolution;
 
         ViewportScaleMode m_ViewportScaleMode = ViewportScaleMode::Letterbox;
+
+        TAASettings m_TAASettings;
     };
 }

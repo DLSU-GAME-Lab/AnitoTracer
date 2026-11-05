@@ -14,6 +14,7 @@
 #include "Pipelines/DebugLinePipeline.hpp"
 #include "Pipelines/ParticlePipeline.hpp"
 #include "Pipelines/Utils/PostProcessStack.hpp"
+#include "Pipelines/PostProcess/TemporalAAPass.hpp"
 #include "RenderData.hpp"
 
 #include "../UserSettings.hpp"
@@ -22,7 +23,7 @@
 
 // Owns the scene pipelines (the selected one for the game view, a deferred one for the editor view) and the passes around them,
 // and draws views into the swap chain or render targets.
-// A view is drawn as: skybox -> scene pipeline -> particles -> debug lines -> MSAA resolve -> post processing.
+// A view is drawn as: skybox -> scene pipeline -> particles -> debug lines -> MSAA resolve -> TAA -> post processing.
 class RendererManager {
 public:
     static RendererManager& GetInstance() {
@@ -45,7 +46,7 @@ public:
     Diligent::RenderTarget* CreateRenderTarget(const std::string& name);
     // Off screen rendering to tex. The game view uses the renderer selected in the Rendering menu, with post processing (god rays, color correction).
     void RenderGameView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData);
-    // The editor view always uses the deferred renderer, without post processing
+    // The editor view always uses the deferred renderer, without post processing (TAA still applies if enabled for it)
     void RenderEditorView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData);
 
 private:
@@ -61,10 +62,16 @@ private:
     // PSO sample counts are baked in, so toggling MSAA rebuilds them (switching away from pipelines that don't support it)
     void SyncMSAAState();
 
-    void RenderToTarget(Diligent::RenderTarget* pTarget, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing);
-    void RenderView(const Diligent::FrameTarget& output, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing);
+    // pTAA is the view's TAA pass, or nullptr to draw it without TAA
+    void RenderToTarget(Diligent::RenderTarget* pTarget, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing, Diligent::TemporalAAPass* pTAA);
+    void RenderView(const Diligent::FrameTarget& output, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing, Diligent::TemporalAAPass* pTAA);
     void RenderOverlays(const Diligent::FrameTarget& target, const Diligent::RenderData& renderData);
     void ResolveMSAA(Diligent::ITexture* pDestination);
+
+    // Returns &pass when enabled; otherwise drops its history (so turning it back on doesn't blend in a stale frame) and returns nullptr
+    static Diligent::TemporalAAPass* SelectTAA(Diligent::TemporalAAPass& pass, bool enabled);
+    // Depth for TAA reprojection: the pipeline's own (deferred G-buffers), else the target's when it can be sampled
+    static Diligent::ITextureView* GetSceneDepthSRV(const Diligent::ScenePipeline& scenePipeline, const Diligent::FrameTarget& scene);
 
     void LoadDefaultSkybox();
 
@@ -86,6 +93,10 @@ private:
     Diligent::ParticlePipeline m_ParticlePipeline;
     Diligent::DebugLinePipeline m_DebugLinePipeline;
     Diligent::PostProcessStack m_PostProcess; // Game output only
+
+    // Each keeps its view's history. The game one also serves the back buffer in release builds.
+    Diligent::TemporalAAPass m_GameTAA;
+    Diligent::TemporalAAPass m_EditorTAA;
 
     // Multisampled scene color/depth, resolved into the view's target after the scene passes
     Diligent::RenderTarget m_MSAATarget{ "MSAA" };

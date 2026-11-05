@@ -29,6 +29,10 @@ namespace Diligent {
         // The swap chain was resized, for pipelines with swap chain sized resources
         virtual void OnResize(Uint32 width, Uint32 height) {}
 
+        // Scene depth from the last Render, for pipelines that keep their own depth buffer (e.g. a G-buffer) instead of
+        // drawing into the target's. Read by passes that reproject the scene, like TAA. May be larger than the view.
+        virtual ITextureView* GetDepthSRV() const { return nullptr; }
+
     protected:
         virtual void PrepareFrame(const FrameTarget& target) {}
         virtual void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) {}

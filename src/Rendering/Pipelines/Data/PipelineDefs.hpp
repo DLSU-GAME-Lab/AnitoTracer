@@ -101,6 +101,20 @@ namespace Diligent {
     };
     static_assert(sizeof(GodRaysConstants) % 16 == 0, "GodRaysConstants must be 16-byte aligned for HLSL");
 
+    // Mirrors cbuffer TemporalAAConstants in Shaders/PostProcess/taa_ps.hlsl. Matrices are transposed like CameraConstants.
+    struct TemporalAAConstants
+    {
+        glm::mat4 InvViewProj{ 1.0f };      // This frame's jittered clip space -> world
+        glm::mat4 ViewProj{ 1.0f };         // This frame's unjittered world -> clip space
+        glm::mat4 PrevViewProj{ 1.0f };     // Last frame's unjittered world -> clip space
+        glm::vec4 ViewportSize{ 0.0f };     // xy: size in pixels, zw: 1 / size
+        float HistoryBlend = 0.9f;
+        float Sharpness = 0.0f;
+        float HistoryValid = 0.0f;          // 0 on the first frame and after a reset: output this frame as is
+        float HasDepth = 0.0f;              // 0 reprojects every pixel as if it were at the far plane
+    };
+    static_assert(sizeof(TemporalAAConstants) % 16 == 0, "TemporalAAConstants must be 16-byte aligned for HLSL");
+
     struct alignas(16) PBRMaterialConstants {
         glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };
         float MetallicFactor{ 1.0f };
