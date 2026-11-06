@@ -11,6 +11,10 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/vec3.hpp>
 
+#ifdef ANITO_SCRIPT_METADATA_ONLY
+#include "ScriptApiCategories.hpp"
+#endif
+
 namespace anito::script {
 
 struct MemberMetadata {
@@ -221,8 +225,25 @@ bool RegisterMethod(const char* scriptType, const char* methodName, const char* 
 #define ANITO_SCRIPT_DETAIL_JOIN_IMPL(a, b) a##b
 #define ANITO_SCRIPT_DETAIL_JOIN(a, b) ANITO_SCRIPT_DETAIL_JOIN_IMPL(a, b)
 
+#ifdef ANITO_SCRIPT_METADATA_ONLY
+#define ANITO_SCRIPT_DETAIL_VALIDATE_HOST_CATEGORY(HostCategory)                                         \
+    static_assert(std::string_view(HostCategory).size() > 0,                                            \
+                  "ANITO_SCRIPT_TYPE: host category cannot be empty.");                                 \
+    static_assert(std::string_view(HostCategory).empty() ||                                             \
+                      ::anito::script::detail::IsValidHostCategoryName(HostCategory),                    \
+                  "ANITO_SCRIPT_TYPE: category must be a lowercase identifier using letters, digits, "  \
+                  "and underscores.");                                                                  \
+    static_assert(!::anito::script::detail::IsValidHostCategoryName(HostCategory) ||                     \
+                      ::anito::script::detail::IsKnownHostCategory(HostCategory),                        \
+                  "ANITO_SCRIPT_TYPE: category does not exist. Add it to SCRIPT_API_CATEGORIES and "    \
+                  "wire its HostAPI table.")
+#else
+#define ANITO_SCRIPT_DETAIL_VALIDATE_HOST_CATEGORY(HostCategory)
+#endif
+
 #define ANITO_SCRIPT_TYPE(ClassName, ScriptName, CppName, HasValid, HostCategory)                        \
     namespace {                                                                                         \
+    ANITO_SCRIPT_DETAIL_VALIDATE_HOST_CATEGORY(HostCategory);                                           \
     [[maybe_unused]] const bool ANITO_SCRIPT_DETAIL_JOIN(_anito_script_type_, __COUNTER__) =             \
         ::anito::script::RegisterType<ClassName>(ScriptName, CppName, HasValid, HostCategory, __FILE__, #ClassName); \
     }
@@ -279,5 +300,5 @@ bool RegisterMethod(const char* scriptType, const char* methodName, const char* 
                   "Script SDK method does not conform to component metadata")
 
 #define ANITO_SCRIPT_CONFORMS_VALID(SdkClass)                                               \
-    static_assert(std::is_same_v<decltype(&SdkClass::valid), bool (SdkClass::*)() const>, \
+    static_assert(std::is_same_v<decltype(std::declval<const SdkClass&>().valid()), bool>, \
                   "Script SDK handle must expose bool valid() const")

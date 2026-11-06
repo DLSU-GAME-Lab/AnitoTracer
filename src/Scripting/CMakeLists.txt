@@ -55,13 +55,30 @@ target_link_libraries(${LANG_TARGET} PUBLIC glm::glm PRIVATE antlr4_static)
 
 # Component annotations are compiled separately so the language core consumes metadata without
 # including engine component headers in ScriptAnalyzer.cpp.
+set(SCRIPT_API_CATEGORIES audio camera physics transform)
+list(LENGTH SCRIPT_API_CATEGORIES SCRIPT_API_CATEGORY_COUNT)
+set(SCRIPT_API_CATEGORY_INITIALIZERS "")
+foreach(category IN LISTS SCRIPT_API_CATEGORIES)
+	string(APPEND SCRIPT_API_CATEGORY_INITIALIZERS "    \"${category}\",\n")
+	if(NOT category MATCHES "^[a-z][a-z0-9_]*$")
+		message(FATAL_ERROR "Invalid script API host category '${category}'. Use a lowercase C++ identifier.")
+	endif()
+endforeach()
+configure_file(
+	ScriptApiCategories.hpp.in
+	"${CMAKE_CURRENT_BINARY_DIR}/ScriptApiCategories.hpp"
+	@ONLY
+)
+
 add_library(anito_scriptapi STATIC
 	ScriptApiMetadata.cpp
 	ScriptApiMetadata.hpp
+	"${CMAKE_CURRENT_BINARY_DIR}/ScriptApiCategories.hpp"
 )
 add_library(anito::scriptapi ALIAS anito_scriptapi)
 target_include_directories(anito_scriptapi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(anito_scriptapi PRIVATE
+	"${CMAKE_CURRENT_BINARY_DIR}"
 	${CMAKE_SOURCE_DIR}/src/Objects
 	${CMAKE_SOURCE_DIR}/src/ObjectSystems/Serialization
 	${CMAKE_SOURCE_DIR}/src/ObjectSystems/Event
@@ -87,33 +104,41 @@ target_compile_definitions(anito_scriptapi PRIVATE
 target_compile_definitions(anito_scriptapi PRIVATE ANITO_SCRIPT_METADATA_ONLY)
 target_link_libraries(${LANG_TARGET} PRIVATE anito::scriptapi)
 
-# Generate the regular AudioSource SDK/ABI/bridge surfaces from its component annotations.
+# Generate component SDK/ABI/bridge surfaces grouped by stable host category.
 set(SCRIPT_API_GENERATED_ROOT "${CMAKE_CURRENT_BINARY_DIR}/script_api_generated")
 set(SCRIPT_API_GENERATED_SDK "${SCRIPT_API_GENERATED_ROOT}/sdk")
+set(SCRIPT_API_GENERATED_COMPONENT_BINDINGS
+	"${SCRIPT_API_GENERATED_SDK}/ScriptHostAPI/Bindings/ComponentBindings.hpp"
+)
 set(SCRIPT_API_COMPONENT_ROOT "${CMAKE_SOURCE_DIR}/src/Objects")
-set(SCRIPT_API_GENERATED_AUDIO_API "${SCRIPT_API_GENERATED_SDK}/anito/generated/api/AudioSource.hpp")
-set(SCRIPT_API_GENERATED_AUDIO_HOST "${SCRIPT_API_GENERATED_SDK}/anito/generated/host/Audio.hpp")
-set(SCRIPT_API_GENERATED_AUDIO_BRIDGE "${SCRIPT_API_GENERATED_SDK}/generated/ScriptHostAPI/Audio.cpp")
+set(SCRIPT_API_GENERATED_OUTPUTS "${SCRIPT_API_GENERATED_COMPONENT_BINDINGS}")
+set(SCRIPT_API_GENERATED_BRIDGES)
+foreach(category IN LISTS SCRIPT_API_CATEGORIES)
+	string(SUBSTRING "${category}" 0 1 category_first)
+	string(TOUPPER "${category_first}" category_first)
+	string(SUBSTRING "${category}" 1 -1 category_rest)
+	set(category_name "${category_first}${category_rest}")
+	set(category_api "${SCRIPT_API_GENERATED_SDK}/anito/generated/api/${category_name}.hpp")
+	set(category_host "${SCRIPT_API_GENERATED_SDK}/anito/generated/host/${category_name}.hpp")
+	set(category_bridge "${SCRIPT_API_GENERATED_SDK}/generated/ScriptHostAPI/${category_name}.cpp")
+	list(APPEND SCRIPT_API_GENERATED_OUTPUTS "${category_api}" "${category_host}" "${category_bridge}")
+	list(APPEND SCRIPT_API_GENERATED_BRIDGES "${category_bridge}")
+endforeach()
 
 add_executable(anito_scriptapigen tools/script_api_codegen.cpp)
 target_link_libraries(anito_scriptapigen PRIVATE anito::scriptapi)
 set_target_properties(anito_scriptapigen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ScriptTools")
 
 add_custom_command(
-	OUTPUT
-		"${SCRIPT_API_GENERATED_AUDIO_API}"
-		"${SCRIPT_API_GENERATED_AUDIO_HOST}"
-		"${SCRIPT_API_GENERATED_AUDIO_BRIDGE}"
-	COMMAND $<TARGET_FILE:anito_scriptapigen> "${SCRIPT_API_GENERATED_SDK}" "${SCRIPT_API_COMPONENT_ROOT}"
+	OUTPUT ${SCRIPT_API_GENERATED_OUTPUTS}
+	COMMAND $<TARGET_FILE:anito_scriptapigen>
+		"${SCRIPT_API_GENERATED_SDK}" "${SCRIPT_API_COMPONENT_ROOT}" ${SCRIPT_API_CATEGORIES}
 	DEPENDS anito_scriptapigen
-	COMMENT "Generating AudioSource script SDK and host bindings"
+	COMMENT "Generating component script SDK and host bindings"
 	VERBATIM
 )
 add_custom_target(anito_scriptapi_codegen
-	DEPENDS
-		"${SCRIPT_API_GENERATED_AUDIO_API}"
-		"${SCRIPT_API_GENERATED_AUDIO_HOST}"
-		"${SCRIPT_API_GENERATED_AUDIO_BRIDGE}"
+	DEPENDS ${SCRIPT_API_GENERATED_OUTPUTS}
 )
 
 # Warnings in generated code are not ours to fix.
@@ -137,26 +162,19 @@ set(${CUR_TARGET_NAME}_src
 	ScriptRegistry.hpp
 	ScriptComponent.cpp
 	ScriptComponent.hpp
-	ScriptApiConformance.cpp
 	ScriptHostAPI.cpp
 	ScriptHostAPI.hpp
 	ScriptHostAPI/Bindings.hpp
-	ScriptHostAPI/Bindings/Audio.hpp
-	ScriptHostAPI/Bindings/Camera.hpp
 	ScriptHostAPI/Bindings/Fields.hpp
 	ScriptHostAPI/Bindings/Gui.hpp
 	ScriptHostAPI/Bindings/Input.hpp
 	ScriptHostAPI/Bindings/Log.hpp
 	ScriptHostAPI/Bindings/Object.hpp
-	ScriptHostAPI/Bindings/Physics.hpp
 	ScriptHostAPI/Bindings/Scene.hpp
 	ScriptHostAPI/Bindings/Scripts.hpp
 	ScriptHostAPI/Bindings/Time.hpp
-	ScriptHostAPI/Bindings/Transform.hpp
 	ScriptHostAPI/Common.hpp
-	ScriptHostAPI/Transform.cpp
-	ScriptHostAPI/Physics.cpp
-	ScriptHostAPI/Camera.cpp
+	${SCRIPT_API_GENERATED_COMPONENT_BINDINGS}
 	ScriptHostAPI/Object.cpp
 	ScriptHostAPI/Scene.cpp
 	ScriptHostAPI/Scripts.cpp
@@ -170,7 +188,7 @@ set(${CUR_TARGET_NAME}_src
 	sdk/anito/Api.hpp
 	sdk/anito/Host.hpp
 	sdk/anito/Math.hpp
-	"${SCRIPT_API_GENERATED_AUDIO_BRIDGE}"
+	${SCRIPT_API_GENERATED_BRIDGES}
 )
 
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})

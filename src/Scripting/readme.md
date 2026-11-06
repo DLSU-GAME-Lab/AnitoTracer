@@ -6,9 +6,9 @@ The ANTLR lexer and parser C++ files are generated from the grammar files during
 
 After changing a grammar file, **building the project regenerates the ANTLR C++ parser automatically**. Java and the configured ANTLR JAR must be available.
 
-The engine component API has a separate, partial automation layer. `ANITO_SCRIPT_*` annotations in a component header register its script name, properties, and methods as metadata. `ScriptAnalyzer.cpp` reads that metadata to describe registered component members. For AudioSource, the build also generates the SDK handle, host function table, engine bridge, and conformance checks. Other component handles and bridges remain handwritten for now.
+The engine component API has a separate automation layer. `ANITO_SCRIPT_*` annotations in a component header register its script name, SDK handle name, host category, properties, and methods as metadata. `ScriptAnalyzer.cpp` reads that metadata to describe registered component members. The build-time generator now emits SDK handle bases, category host tables, engine bridges, and conformance checks for all registered components in the `audio`, `camera`, `physics`, and `transform` categories.
 
-AudioSource is the first generated component API: the build runs `anito_scriptapigen` against the registered annotations and emits its SDK handle, host function table, engine bridge, and conformance checks into the build directory. Generated output is not edited by hand. The initial generator only accepts AudioSource and supports mapped scalar, string, `vec3`, and `quat` signatures; unsupported signatures fail generation instead of producing an unsafe bridge.
+Generated output is written under the build directory and is not edited by hand. Supported signatures currently include mapped scalar and string values, `vec3`, `quat`, and the `raycasthit` conversion. Unsupported signatures fail generation or metadata compilation rather than producing an unsafe bridge. Static APIs such as `Scene` and hand-written SDK conveniences such as Transform's derived math helpers remain explicit.
 
 ## What is handwritten
 
@@ -26,7 +26,7 @@ The editor uses `ScriptParser::Parse()` directly, not the `scriptc` executable. 
 
 ## Adding a script API for a C++ component
 
-Use this path when a script API represents an instance of an engine component, for example `audiosource.volume` or `rigidbody.velocity`. AudioSource is the only component whose full API plumbing is generated today. For other components, the annotations still drive analyzer metadata and conformance checks, but the SDK handle and host bridge must also be wired manually.
+Use this path when a script API represents an instance of an engine component, for example `audiosource.volume` or `rigidbody.velocity`. The generator emits the common handle and bridge plumbing from registered annotations. Existing SDK-specific behavior can remain as a thin derived wrapper, as with `Transform`.
 
 ### 1. Annotate the engine component
 
@@ -39,25 +39,31 @@ ANITO_SCRIPT_PROPERTY_RO(MyComponent, "mycomponent", "isMoving", IsMoving);
 ANITO_SCRIPT_METHOD(MyComponent, "mycomponent", "stop", Stop);
 ```
 
-`ANITO_SCRIPT_TYPE` takes the engine C++ class, script type name, SDK handle's fully qualified name, whether the handle supports `valid()`, and the host API category. A property getter must return a value; a writable property's setter must return `void`, accept one value, and use the same C++ type as the getter. A method can use only types understood by the script API type mappings in `ScriptApiRegistry.hpp`. Existing mappings include `void`, `float`, `int`, `bool`, `std::string`, `glm::vec3`, and `glm::quat`.
+`ANITO_SCRIPT_TYPE` takes the engine C++ class, script type name, SDK handle's fully qualified name, whether the handle supports `valid()`, and the host API category. A property getter must return a value; a writable property's setter must return `void`, accept one value, and use the same C++ type as the getter. A method can use only types supported by the metadata registry and generator. Existing mappings include `void`, `float`, `int`, `bool`, `std::string`, `glm::vec3`, `glm::quat`, and `raycasthit`.
 
 The macros register metadata at startup in `anito_scriptapi`; they do not invoke component methods from a script. Do not annotate serialization fields as script API members unless they are meant to be exposed.
 
-Include the component header from `ScriptApiMetadata.cpp` so its annotations are compiled into the metadata target. Do not include generated SDK headers there: the generated bridge contains AudioSource conformance assertions, while `ScriptApiConformance.cpp` holds checks for the still-handwritten component handles.
+Include the component header from `ScriptApiMetadata.cpp` so its annotations are compiled into the metadata target. Do not include generated SDK headers there: generated category bridges compile conformance assertions from the registered metadata.
 
-### 2. Generated AudioSource path and manual fallback
+### 2. Generated API and remaining SDK integration
 
-For AudioSource, the generator creates the SDK handle and ABI table directly from its annotations; `sdk/anito/api/AudioSource.hpp` and `sdk/anito/host/Audio.hpp` are source shims that include those build outputs. The `GameObject::audioSource()` accessor remains handwritten in the SDK and should be kept in sync with the handle name.
+The generator groups components by their `HostCategory` and emits stable category-level SDK and ABI headers plus bridge sources. The small files under `sdk/anito/api/` and `sdk/anito/host/` include those build outputs. A component added to an existing category does not require adding its generated files to CMake.
 
-For another component, create `sdk/anito/api/MyComponent.hpp` with a small `ObjectId` handle whose members call `detail::H()` function pointers. Add it to the SDK umbrella headers and add a `GameObject` accessor in `sdk/anito/api/Objects.hpp`. The corresponding `GameObject` member in the analyzer's `T::GameObject` description is also explicit.
+The generator also emits `ScriptHostAPI/Bindings/ComponentBindings.hpp` in the build tree. It declares `GetAPI()` for each generated component category; `ScriptHostAPI/Bindings.hpp` includes it alongside the handwritten static API declarations. Per-category declaration headers for generated component categories are not maintained in the source tree.
 
-### 3. Manual host bridge for other components
+The metadata build validates `ANITO_SCRIPT_TYPE` host categories at compile time. Empty names, malformed category identifiers, and names absent from `SCRIPT_API_CATEGORIES` produce targeted `static_assert` diagnostics. Generated bridges also assert that each category exists in the SDK `HostAPI` table.
 
-For a component other than AudioSource, add or extend a category function table in `sdk/anito/host/`, include it through the host headers, and implement its function pointers in the matching `ScriptHostAPI` category source. The bridge receives object IDs, resolves the engine component, handles a missing component, converts values at the boundary, and invokes the component. Keep engine headers and types on the host side; generated script DLLs should depend only on the SDK and function-table headers.
+The `GameObject` accessor and analyzer's `GameObject` member remain explicit integration points. For a new component type, add its lightweight SDK wrapper and `GameObject` accessor; do not duplicate the generated properties, methods, host table, or forwarding bridge. Transform's convenience methods remain in its wrapper because they do not correspond to annotated component methods.
+
+### 3. Host category integration
+
+The generated bridge receives object IDs, resolves the annotated component, handles a missing component, converts values at the boundary, and invokes the component. Keep engine headers and types on the host side; generated script DLLs should depend only on SDK and function-table headers. Adding a component to an existing category does not require editing `ScriptHostAPI.cpp`; adding an entirely new category still requires adding its generated outputs to `SCRIPT_API_CATEGORIES` and wiring its table into the SDK and top-level `HostAPI` composition.
+
+If an annotation names a category missing from `SCRIPT_API_CATEGORIES`, code generation fails and identifies the component and category, with a reminder to add the CMake output and wire the `HostAPI` table. If CMake requests a category that no annotated component uses, generation also fails.
 
 ### 4. Add conformance checks
 
-For a handwritten component, include the engine and SDK handle headers in `ScriptApiConformance.cpp`. Add `ANITO_SCRIPT_CONFORMS_VALID` for a handle that exposes `valid()`, and add one matching conformance macro for every registered member:
+Conformance assertions are generated for every annotated component and member:
 
 ```cpp
 ANITO_SCRIPT_CONFORMS_PROPERTY(MyComponent, GetSpeed, SetSpeed,
@@ -67,7 +73,7 @@ ANITO_SCRIPT_CONFORMS_READ_ONLY_PROPERTY(MyComponent, IsMoving,
 ANITO_SCRIPT_CONFORMS_METHOD(MyComponent, Stop, anito::MyComponent, stop);
 ```
 
-These compile-time checks compare script-level return and parameter types and arity. AudioSource checks are generated from its annotations; handwritten checks live in `ScriptApiConformance.cpp`. The SDK setter for a writable property is named `set` plus the capitalized property name (`speed` becomes `setSpeed`). Add a `ScriptTypeMapping` for a new value type only if that value type is intentionally supported by the script API, and add its script-analyzer type representation as needed.
+These compile-time checks compare script-level return and parameter types and arity. The SDK setter for a writable property is named `set` plus the capitalized property name (`speed` becomes `setSpeed`). Adding a new value type requires metadata, SDK/ABI conversion support in the generator, and an analyzer representation; a `ScriptTypeMapping` alone is not enough.
 
 ### 5. Build and exercise
 
@@ -87,7 +93,7 @@ For example, `Scene.mainCamera()` is manually declared in the `T::SScene` `Info(
 
 ## Conformance checks and errors
 
-The conformance macros are C++ `static_assert`s: AudioSource checks are generated into its host bridge, and checks for handwritten handles live in `ScriptApiConformance.cpp`. They compare engine component method signatures with SDK handle methods after mapping C++ types to script types. A failing check prevents the engine scripting target from building; it is **not** a `Scripts.dll` linker error. Unsupported annotated types instead fail while compiling the `anito_scriptapi` metadata target.
+The conformance macros are C++ `static_assert`s emitted into each generated category bridge. They compare engine component method signatures with SDK handle methods after mapping C++ types to script types. A failing check prevents the engine scripting target from building; it is **not** a `Scripts.dll` linker error. Unsupported annotated types fail while compiling the `anito_scriptapi` metadata target or running the generator.
 
 | Diagnostic or symptom | What it means | What to check |
 |---|---|---|
@@ -142,15 +148,15 @@ Note: `transform.position` is world space; use `localPosition` for the parent-re
 
 Host-side API implementations are grouped by category under `ScriptHostAPI/`. Each category `.cpp` owns the engine-facing implementation for its function table, while `ScriptHostAPI.cpp` assembles those functions into the stable `HostAPI` ABI.
 
-To add a handwritten binding:
+To add a handwritten static or otherwise non-component binding:
 
-1. Add or update the declaration in the matching `ScriptHostAPI/Bindings/<Category>.hpp`. Implement the function in the matching `ScriptHostAPI/<Category>.cpp`; shared `ObjectId` lookup and SDK/engine conversions are available in `ScriptHostAPI/Common.hpp`.
+1. Add or update the declaration in a handwritten `ScriptHostAPI/Bindings/<Category>.hpp`. Implement the function in the matching `ScriptHostAPI/<Category>.cpp`; shared `ObjectId` lookup and SDK/engine conversions are available in `ScriptHostAPI/Common.hpp`.
 2. Keep domain behavior in the owning engine component or service; a bridge should resolve, convert, forward, and convert the result.
-3. Each category implementation provides its own `GetAPI()` function table. Adding a function to an existing category does not require editing `ScriptHostAPI.cpp`. The `ScriptHostAPI/Bindings.hpp` header only includes the category headers.
-4. For a new category, add its SDK ABI table under `sdk/anito/host/`, include it in `HostAPI.hpp`, provide a category `GetAPI()`, include its header from `ScriptHostAPI/Bindings.hpp`, add its source/header to `CMakeLists.txt`, and add the category table to the `HostAPI` aggregate in `ScriptHostAPI.cpp`.
+3. Each handwritten category implementation provides its own `GetAPI()` function table. Generated component categories get their declaration from `ComponentBindings.hpp`; do not add a duplicate per-category declaration header.
+4. For a new component category, add its generated outputs to `SCRIPT_API_CATEGORIES`, add the SDK ABI table under `sdk/anito/host/`, include it in `HostAPI.hpp`, and add the category table to the `HostAPI` aggregate in `ScriptHostAPI.cpp`. The generator emits the component bridge, `GetAPI()` definition, and declaration header. For a handwritten static category, add its source/header and declaration to the `Bindings.hpp` aggregator as well.
 5. Add or update the SDK wrapper and analyzer description as needed. If the `HostAPI` layout or function signatures change, increment `ANITO_SCRIPT_ABI_VERSION` and rebuild both the engine and script DLLs.
 
-This category split is an organizational step, not code generation: SDK/analyzer declarations and ABI table declarations are still manual. Existing category functions are self-contained; only introducing a new ABI category requires editing the root table.
+Component ABI tables, component bridge functions, and their `GetAPI()` declarations are generated by category. Static API functions and their analyzer descriptions remain handwritten. Existing category functions are self-contained; only introducing a new ABI category requires editing the root table.
 
 ## Summary and key files
 
@@ -163,11 +169,11 @@ This category split is an organizational step, not code generation: SDK/analyzer
 * `ScriptModule.cpp`: DLL copy, load, ABI validation, unload, and reload.
 * `ScriptComponent.cpp`: field storage, native-instance lifecycle, and per-frame calls.
 * `ScriptApiMetadata.cpp`: registered component metadata.
-* `ScriptApiConformance.cpp`: conformance checks for handwritten component SDK handles.
+* `ScriptApiTypeMappings.hpp`: script-level type mappings for SDK value types used by generated conformance checks.
 * `tools/script_api_codegen.cpp`: emits generated component SDK and host-binding code.
 * `../Common/ScriptApiRegistry.hpp`: component registration macros, type mappings, and conformance helpers.
 * `sdk/AnitoScriptSDK.hpp`: umbrella include for the script SDK.
-* `sdk/anito/host/`: stable host/module ABI; current `ANITO_SCRIPT_ABI_VERSION` is 5.
+* `sdk/anito/host/`: stable host/module ABI; current `ANITO_SCRIPT_ABI_VERSION` is 6.
 * `sdk/anito/api/`: handle classes and static wrappers called by generated scripts.
 * `sdk/anito/Math.hpp`: `Vec3`, `Quat`, `Mathf`, `Vector3`, `Quaternion`, and `Random`.
 * `ScriptHostAPI.cpp`: assembles the host function tables; implementations are grouped under `ScriptHostAPI/`.
