@@ -4,14 +4,15 @@
 namespace Diligent {
 
     void ScenePipeline::Render(IDeviceContext* pContext, const RenderData& renderData, const FrameTarget& target,
-        const ProjectLightingSettings& lighting, const FogConstants& fog)
+        const ProjectSettings& settings, const FogConstants& fog)
     {
         PrepareFrame(target);
 
         StartFrameRender(pContext, renderData);
         UpdateLights(pContext, renderData.Lights);
-        UpdateShadowSettings(pContext, lighting);
+        UpdateShadowSettings(pContext, settings.lighting);
         UpdateFogConstants(pContext, fog);
+        UpdateProjectSettings(pContext, settings);
         RenderModels(pContext, renderData, true);
 
         FinishFrame(pContext, target);

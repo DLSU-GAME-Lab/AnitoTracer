@@ -209,7 +209,8 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::
     m_SkyboxPipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
     m_SkyboxPipeline.Render(m_pImmediateContext, *pSceneData);
 
-    scenePipeline.Render(m_pImmediateContext, *pSceneData, scene, settings.lighting, fogConstants);
+    scenePipeline.Render(m_pImmediateContext, renderData, scene, settings, fogConstants);
+    //scenePipeline.Render(m_pImmediateContext, *pSceneData, scene, settings.lighting, fogConstants);
 
     RenderOverlays(scene, *pSceneData);
 

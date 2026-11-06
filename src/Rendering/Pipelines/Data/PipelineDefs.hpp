@@ -14,7 +14,8 @@ namespace Diligent {
     static constexpr uint32_t MAX_DIR_LIGHTS = 4;
     static constexpr uint32_t MAX_POINT_LIGHTS = 8;
 
-    enum PipelineType { BASIC_LIT, HYBRID, DEFERRED, DEFERRED_HYBRID };
+    // Saved in UserSettings, so new values go at the end
+    enum PipelineType { BASIC_LIT, HYBRID, DEFERRED, DEFERRED_HYBRID, CROSSHATCH, CROSSHATCH_RT };
 
     struct DirectionalLightData {
         glm::vec4 Direction{ 0.0f, -1.0f, 0.0f, 0.0f }; // xyz: dir, w: unused
@@ -114,6 +115,53 @@ namespace Diligent {
         float HasDepth = 0.0f;              // 0 reprojects every pixel as if it were at the far plane
     };
     static_assert(sizeof(TemporalAAConstants) % 16 == 0, "TemporalAAConstants must be 16-byte aligned for HLSL");
+    // Mirrors cbuffer CrossHatchConstants in Shaders/CrossHatch/crosshatch_common.hlsli
+    struct CrossHatchConstants
+    {
+        glm::vec4 InkColor{ 0.0f, 0.0f, 0.0f, 1.0f };   // rgb: ink color, a: hatch opacity
+        glm::vec4 CameraPos{ 0.0f };
+
+        float LitScale = 0.4f;
+        float LitThickness = 0.3f;
+        float LitDensity = 1.0f;
+        float LitAngle = 0.785f;
+
+        float DetailScale = 0.5f;
+        float DetailDensity = 0.25f;
+        float DetailAngle = 2.983f;
+        float DetailThickness = 10.0f;
+
+        float ShadowScale = 0.4f;
+        float ShadowDensity = 2.0f;
+        float ShadowAngle = 2.35f;
+        float ShadowThickness = 0.3f;
+
+        float LineSmoothness = 0.02f;
+        float ShadowSmoothness = 0.02f;
+        float ShadowCoreBias = 0.3f;
+        float ShadowIntensity = 1.0f;
+
+        float TexScale = 6.0f;
+        float TexPriority = 0.5f;
+        float TexBlackThreshold = 0.2f;
+        float TexSmoothness = 0.05f;
+
+        float TexRotation = 0.0f;
+        float TexThickness = 0.0f;
+        float TexLightBias = 0.2f;
+        float SpecularThreshold = 0.85f;
+
+        float OutlineWidth = 0.003f;
+        float OutlineMode = 0.0f;               // 0: along normals, 1: away from the object's origin
+        float OutlineScaleWithDistance = 1.0f;
+        float Padding0 = 0.0f;
+
+        int HatchMode = 0;                      // 0: noise, 1: toon texture, 2: toon + noise
+        int InnerEdges = 1;
+        int SpecularEnabled = 0;
+        int Padding1 = 0;
+    };
+    static_assert(sizeof(CrossHatchConstants) % 16 == 0, "CrossHatchConstants must be 16-byte aligned for HLSL");
 
     struct alignas(16) PBRMaterialConstants {
         glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };
