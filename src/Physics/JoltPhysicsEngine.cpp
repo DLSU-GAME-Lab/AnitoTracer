@@ -379,12 +379,11 @@ void JoltPhysicsEngine::Step(float deltaTime) {
 }
 
 bool JoltPhysicsEngine::Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, std::shared_ptr<IPhysicsBody>& outBody, glm::vec3& outHitPoint, const IPhysicsBody* ignoredBody) {
-	if (!mPhysicsSystem) {
+	if (!mPhysicsSystem || maxDistance <= 0.0f || glm::dot(direction, direction) <= 0.0f) {
 		return false;
 	}
 
-	// Normalize direction just in case
-	glm::vec3 dir = glm::normalize(direction);
+	glm::vec3 dir = glm::normalize(direction) * maxDistance;
 
 	JPH::RVec3 rayOrigin(origin.x, origin.y, origin.z);
 	JPH::RVec3 rayDirection(dir.x, dir.y, dir.z);
