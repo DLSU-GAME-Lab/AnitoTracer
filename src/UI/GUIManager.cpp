@@ -146,6 +146,12 @@ void Diligent::GUIManager::InitializeDefaultPanels()
         m_pFileExplorerPanel->RegisterOpener(std::move(opener));
     m_FileOpeners.clear();
     Diligent::GUIManager::GetInstance().AddPanel(std::move(fileExplorerPanel));
+
+    auto scriptEditorPanel = std::make_unique<Diligent::ScriptEditorPanel>("Script Editor");
+    m_pScriptEditorPanel = scriptEditorPanel.get();
+    m_pFileExplorerPanel->RegisterOpener(FileOpeners::CreateScriptFileOpener(
+        [panel = m_pScriptEditorPanel](const std::filesystem::path& path) { panel->OpenFile(path); }));
+    Diligent::GUIManager::GetInstance().AddPanel(std::move(scriptEditorPanel));
 }
 
 void Diligent::GUIManager::InitializeComponentDrawers()

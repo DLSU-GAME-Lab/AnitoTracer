@@ -16,6 +16,8 @@
 #include "Panels/UserSettingsPanel.hpp"
 #include "Panels/ProfilerPanel.hpp"
 #include "Panels/FileExplorerPanel.hpp"
+#include "Panels/ScriptEditorPanel.hpp"
+#include "Panels/FileOpeners/ScriptFileOpener.hpp"
 #include "Panels/InspectorPanel/InspectorPanel.hpp"
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"
@@ -135,6 +137,7 @@ namespace Diligent {
         //Cache ref for laters
         HierarchyPanel* m_pHierarchyPanel = nullptr;
         FileExplorerPanel* m_pFileExplorerPanel = nullptr;
+        ScriptEditorPanel* m_pScriptEditorPanel = nullptr;
         GamePanel* m_pGamePanel = nullptr;
         EditorPanel* m_pEditorPanel = nullptr;
         std::vector<FileExplorerPanel::Opener> m_FileOpeners;
