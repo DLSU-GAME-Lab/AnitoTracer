@@ -20,8 +20,8 @@ struct PhysicsAPI {
     void (*Teleport)(ObjectId, Vec3, Quat);
     void (*SetLockRotation)(ObjectId, bool x, bool y, bool z);
     bool (*HasCollider)(ObjectId);
-    void (*GetGravity)(Vec3*);
-    void (*SetGravity)(Vec3);
+    void (*GetGravity)(ObjectId, Vec3*);
+    void (*SetGravity)(ObjectId, Vec3);
     void (*Raycast)(Vec3 origin, Vec3 direction, float maxDistance, ObjectId ignore, RaycastResult* out);
 };
 

@@ -1,10 +1,12 @@
 #include "GUIManager.hpp"
 #include "Panels/InspectorPanel/Components/ScriptComponentUI.hpp"
 
+#include "../AppState.hpp"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/SwapChain.h"
 #include "Platforms/interface/NativeWindow.h"
+#include "../Objects/HierarchyManager.hpp"
 
 #if PLATFORM_WIN32
 #include <windows.h>
@@ -15,6 +17,8 @@
 #include "Imgui/interface/ImGuiImplDiligent.hpp"
 #include "../Objects/Components/EditorCamera.hpp"
 #include "../Objects/Components/GameCamera.hpp"
+#include <imgui.h>
+#include <glm/glm.hpp>
 #include <utility>
 #include <algorithm>
 
@@ -237,4 +241,70 @@ void Diligent::GUIManager::RegisterFileOpener(FileExplorerPanel::Opener opener)
         m_pFileExplorerPanel->RegisterOpener(std::move(opener));
     else if (opener)
         m_FileOpeners.push_back(std::move(opener));
+}
+
+namespace {
+
+ImU32 ScriptColor(const glm::vec3& rgb, float alpha)
+{
+    const auto channel = [](float value) {
+        return static_cast<int>(std::clamp(value, 0.0f, 1.0f) * 255.0f);
+    };
+    return IM_COL32(channel(rgb.r), channel(rgb.g), channel(rgb.b), channel(alpha));
+}
+
+}
+
+void Diligent::GUIManager::GetScriptViewport(ImVec2& pos, ImVec2& size) const
+{
+    pos = ImVec2(0.0f, 0.0f);
+    size = ImGui::GetIO().DisplaySize;
+    if (!AppState::isReleaseBuild) {
+        pos = GetGameViewportPos();
+        size = GetGameViewportSize();
+    }
+}
+
+glm::vec3 Diligent::GUIManager::ScriptWorldToScreen(const glm::vec3& world) const
+{
+    constexpr float HiddenDepth = -1.0f;
+    glm::vec3 result{0.0f, 0.0f, HiddenDepth};
+    glm::mat4 view(1.0f), projection(1.0f);
+    HierarchyManager& hierarchy = HierarchyManager::GetInstance();
+    if (!hierarchy.GetMainCamera() || !hierarchy.GetMainCameraMatrices(view, projection)) return result;
+
+    ImVec2 pos, size;
+    GetScriptViewport(pos, size);
+    if (size.x <= 1.0f || size.y <= 1.0f) return result;
+
+    const glm::vec4 clip = projection * view * glm::vec4(world, 1.0f);
+    if (clip.w <= 0.0001f) return result;
+    const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+    const bool visible = ndc.z >= 0.0f && ndc.z <= 1.0f;
+    result = {pos.x + (ndc.x * 0.5f + 0.5f) * size.x,
+              pos.y + (1.0f - (ndc.y * 0.5f + 0.5f)) * size.y,
+              visible ? ndc.z : HiddenDepth};
+    return result;
+}
+
+void Diligent::GUIManager::ScriptFillRect(const glm::vec3& min, const glm::vec3& max, const glm::vec3& rgb,
+                                          float alpha) const
+{
+    ImVec2 pos, size;
+    GetScriptViewport(pos, size);
+    ImDrawList* list = ImGui::GetForegroundDrawList();
+    list->PushClipRect(pos, ImVec2(pos.x + size.x, pos.y + size.y), true);
+    list->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, max.y), ScriptColor(rgb, alpha));
+    list->PopClipRect();
+}
+
+void Diligent::GUIManager::ScriptDrawRect(const glm::vec3& min, const glm::vec3& max, const glm::vec3& rgb,
+                                          float alpha, float thickness) const
+{
+    ImVec2 pos, size;
+    GetScriptViewport(pos, size);
+    ImDrawList* list = ImGui::GetForegroundDrawList();
+    list->PushClipRect(pos, ImVec2(pos.x + size.x, pos.y + size.y), true);
+    list->AddRect(ImVec2(min.x, min.y), ImVec2(max.x, max.y), ScriptColor(rgb, alpha), 0.0f, 0, thickness);
+    list->PopClipRect();
 }

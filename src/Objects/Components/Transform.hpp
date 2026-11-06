@@ -42,10 +42,7 @@ public:
     void SetWorldPosition(const glm::vec3& worldPosition);
     void SetWorldRotation(const glm::quat& worldRotation);
 
-    void SetRotation(const glm::quat& rotation) {
-        m_rotation = rotation;
-        m_eulerAnglesDegrees = glm::degrees(glm::eulerAngles(m_rotation));
-    }
+    void SetRotation(const glm::quat& rotation);
 
     void SetScale(const glm::vec3& scale) { m_scale = scale; }
 

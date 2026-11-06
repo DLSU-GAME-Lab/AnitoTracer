@@ -88,6 +88,31 @@ set(${CUR_TARGET_NAME}_src
 	ScriptComponent.hpp
 	ScriptHostAPI.cpp
 	ScriptHostAPI.hpp
+	ScriptHostAPI/Bindings.hpp
+	ScriptHostAPI/Bindings/Audio.hpp
+	ScriptHostAPI/Bindings/Camera.hpp
+	ScriptHostAPI/Bindings/Fields.hpp
+	ScriptHostAPI/Bindings/Gui.hpp
+	ScriptHostAPI/Bindings/Input.hpp
+	ScriptHostAPI/Bindings/Log.hpp
+	ScriptHostAPI/Bindings/Object.hpp
+	ScriptHostAPI/Bindings/Physics.hpp
+	ScriptHostAPI/Bindings/Scene.hpp
+	ScriptHostAPI/Bindings/Scripts.hpp
+	ScriptHostAPI/Bindings/Time.hpp
+	ScriptHostAPI/Bindings/Transform.hpp
+	ScriptHostAPI/Common.hpp
+	ScriptHostAPI/Transform.cpp
+	ScriptHostAPI/Physics.cpp
+	ScriptHostAPI/Camera.cpp
+	ScriptHostAPI/Audio.cpp
+	ScriptHostAPI/Object.cpp
+	ScriptHostAPI/Scene.cpp
+	ScriptHostAPI/Scripts.cpp
+	ScriptHostAPI/Input.cpp
+	ScriptHostAPI/Time.cpp
+	ScriptHostAPI/Gui.cpp
+	ScriptHostAPI/Fields.cpp
 	ScriptModule.cpp
 	ScriptModule.hpp
 	sdk/AnitoScriptSDK.hpp

@@ -19,8 +19,8 @@ public:
     float mass() const { return detail::H().physics.GetMass(id); }
     void setMass(float m) const { detail::H().physics.SetMass(id, m); }
     // World gravity remains global, but is accessed through a valid Rigidbody handle.
-    Vec3 worldGravity() const { Vec3 g{}; if (valid()) detail::H().physics.GetGravity(&g); return g; }
-    void setWorldGravity(Vec3 g) const { if (valid()) detail::H().physics.SetGravity(g); }
+    Vec3 worldGravity() const { Vec3 g{}; if (valid()) detail::H().physics.GetGravity(id, &g); return g; }
+    void setWorldGravity(Vec3 g) const { if (valid()) detail::H().physics.SetGravity(id, g); }
     // Rotation of the simulated body, which can differ from the transform before the next sync.
     Quat rotation() const { Quat q; detail::H().physics.GetBodyRotation(id, &q); return q; }
 

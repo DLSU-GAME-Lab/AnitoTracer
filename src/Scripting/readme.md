@@ -136,6 +136,20 @@ Event handlers: `on Start()`, `on Update(dt)`, `on FixedUpdate(dt)`, `on GUI(dt)
 
 Note: `transform.position` is world space; use `localPosition` for the parent-relative value.
 
+## Adding a handwritten host binding
+
+Host-side API implementations are grouped by category under `ScriptHostAPI/`. Each category `.cpp` owns the engine-facing implementation for its function table, while `ScriptHostAPI.cpp` assembles those functions into the stable `HostAPI` ABI.
+
+To add a handwritten binding:
+
+1. Add or update the declaration in the matching `ScriptHostAPI/Bindings/<Category>.hpp`. Implement the function in the matching `ScriptHostAPI/<Category>.cpp`; shared `ObjectId` lookup and SDK/engine conversions are available in `ScriptHostAPI/Common.hpp`.
+2. Keep domain behavior in the owning engine component or service; a bridge should resolve, convert, forward, and convert the result.
+3. Each category implementation provides its own `GetAPI()` function table. Adding a function to an existing category does not require editing `ScriptHostAPI.cpp`. The `ScriptHostAPI/Bindings.hpp` header only includes the category headers.
+4. For a new category, add its SDK ABI table under `sdk/anito/host/`, include it in `HostAPI.hpp`, provide a category `GetAPI()`, include its header from `ScriptHostAPI/Bindings.hpp`, add its source/header to `CMakeLists.txt`, and add the category table to the `HostAPI` aggregate in `ScriptHostAPI.cpp`.
+5. Add or update the SDK wrapper and analyzer description as needed. If the `HostAPI` layout or function signatures change, increment `ANITO_SCRIPT_ABI_VERSION` and rebuild both the engine and script DLLs.
+
+This category split is an organizational step, not code generation: SDK/analyzer declarations and ABI table declarations are still manual. Existing category functions are self-contained; only introducing a new ABI category requires editing the root table.
+
 ## Summary and key files
 
 * `AnitoTracer_App.cpp`: coordinates registry, builder, and module polling.
@@ -149,7 +163,7 @@ Note: `transform.position` is world space; use `localPosition` for the parent-re
 * `ScriptApiMetadata.cpp`: registered component metadata and C++ conformance checks.
 * `../Common/ScriptApiRegistry.hpp`: component registration macros, type mappings, and conformance helpers.
 * `sdk/AnitoScriptSDK.hpp`: umbrella include for the script SDK.
-* `sdk/anito/host/`: stable host/module ABI; current `ANITO_SCRIPT_ABI_VERSION` is 3.
+* `sdk/anito/host/`: stable host/module ABI; current `ANITO_SCRIPT_ABI_VERSION` is 4.
 * `sdk/anito/api/`: handle classes and static wrappers called by generated scripts.
 * `sdk/anito/Math.hpp`: `Vec3`, `Quat`, `Mathf`, `Vector3`, `Quaternion`, and `Random`.
-* `ScriptHostAPI.cpp`: engine-side implementation of the host function tables.
+* `ScriptHostAPI.cpp`: assembles the host function tables; implementations are grouped under `ScriptHostAPI/`.

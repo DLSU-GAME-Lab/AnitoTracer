@@ -47,10 +47,13 @@ public:
 	glm::vec3 GetAngularVelocity() const;
 	glm::vec3 GetWorldGravity() const;
 	void SetWorldGravity(const glm::vec3& gravity);
+	bool IsSimulated() const;
+	glm::quat GetBodyRotation() const;
 	PhysicsRaycastHit Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const;
 
 	virtual void SetMass(float mass);
 	float GetMass() const;
+	void SetLockRotation(bool lockX, bool lockY, bool lockZ);
 	void SetLockRotationX(bool lock) { mLockRotationX = lock; ApplyRotationLocks(); }
 	void SetLockRotationY(bool lock) { mLockRotationY = lock; ApplyRotationLocks(); }
 	void SetLockRotationZ(bool lock) { mLockRotationZ = lock; ApplyRotationLocks(); }
