@@ -17,10 +17,14 @@ struct MemberMetadata {
     std::string name;
     std::string type;
     bool settable = false;
+    std::string getter;
+    std::string setter;
+    std::string defaultValue;
 };
 
 struct MethodMetadata {
     std::string name;
+    std::string cppName;
     std::string result;
     std::vector<std::string> parameters;
 };
@@ -28,6 +32,9 @@ struct MethodMetadata {
 struct TypeMetadata {
     std::string scriptName;
     std::string cppType;
+    std::string engineType;
+    std::string header;
+    std::string hostCategory;
     bool hasValid = false;
     std::vector<MemberMetadata> members;
     std::vector<MethodMetadata> methods;
@@ -129,11 +136,14 @@ constexpr bool ScriptSignaturesMatch() {
     }
 }
 
-inline bool SetPropertyWritable(const char* scriptType, const char* propertyName) {
+inline bool SetPropertyWritable(const char* scriptType, const char* propertyName, const char* setter,
+                                const char* defaultValue) {
     auto& members = GetTypeRegistry()[scriptType].members;
     for (auto& member : members) {
         if (member.name == propertyName) {
             member.settable = true;
+            member.setter = setter;
+            if (defaultValue && *defaultValue) member.defaultValue = defaultValue;
             return true;
         }
     }
@@ -141,32 +151,41 @@ inline bool SetPropertyWritable(const char* scriptType, const char* propertyName
 }
 
 template <typename Class>
-bool RegisterType(const char* scriptName, const char* cppType, bool hasValid) {
+bool RegisterType(const char* scriptName, const char* cppType, bool hasValid, const char* hostCategory,
+                  const char* header, const char* engineType) {
     auto& type = GetTypeRegistry()[scriptName];
     type.scriptName = scriptName;
     type.cppType = cppType;
+    type.engineType = engineType;
+    type.header = header;
+    type.hostCategory = hostCategory;
     type.hasValid = hasValid;
     return true;
 }
 
 template <typename Getter>
-bool RegisterReadOnlyProperty(const char* scriptType, const char* propertyName) {
+bool RegisterReadOnlyProperty(const char* scriptType, const char* propertyName, const char* getter,
+                              const char* defaultValue = nullptr) {
     using Traits = MemberFunctionTraits<Getter>;
     using PropertyType = typename Traits::Return;
     auto& members = GetTypeRegistry()[scriptType].members;
     for (auto& member : members) {
         if (member.name == propertyName) {
             member.type = ScriptTypeName<PropertyType>();
+            member.getter = getter;
+            if (defaultValue && *defaultValue) member.defaultValue = defaultValue;
             member.settable = false;
             return true;
         }
     }
-    members.push_back({propertyName, ScriptTypeName<PropertyType>(), false});
+    members.push_back({propertyName, ScriptTypeName<PropertyType>(), false, getter, {},
+                       defaultValue ? defaultValue : ""});
     return true;
 }
 
 template <typename Getter, typename Setter>
-bool RegisterProperty(const char* scriptType, const char* propertyName) {
+bool RegisterProperty(const char* scriptType, const char* propertyName, const char* getter, const char* setter,
+                      const char* defaultValue = nullptr) {
     using GetterTraits = MemberFunctionTraits<Getter>;
     using SetterTraits = MemberFunctionTraits<Setter>;
     using PropertyType = typename GetterTraits::Return;
@@ -178,14 +197,14 @@ bool RegisterProperty(const char* scriptType, const char* propertyName) {
                       std::remove_cv_t<std::remove_reference_t<PropertyType>>,
                       std::remove_cv_t<std::remove_reference_t<std::tuple_element_t<0, SetterParameters>>>>,
                   "Script property getter and setter types must match");
-    return RegisterReadOnlyProperty<Getter>(scriptType, propertyName) &&
-           SetPropertyWritable(scriptType, propertyName);
+    return RegisterReadOnlyProperty<Getter>(scriptType, propertyName, getter, defaultValue) &&
+           SetPropertyWritable(scriptType, propertyName, setter, defaultValue);
 }
 
 template <typename Method>
-bool RegisterMethod(const char* scriptType, const char* methodName) {
+bool RegisterMethod(const char* scriptType, const char* methodName, const char* cppName) {
     using Traits = MemberFunctionTraits<Method>;
-    MethodMetadata metadata{methodName, ScriptTypeName<typename Traits::Return>(), Traits::ParameterNames()};
+    MethodMetadata metadata{methodName, cppName, ScriptTypeName<typename Traits::Return>(), Traits::ParameterNames()};
     auto& methods = GetTypeRegistry()[scriptType].methods;
     for (auto& method : methods) {
         if (method.name == methodName) {
@@ -202,29 +221,44 @@ bool RegisterMethod(const char* scriptType, const char* methodName) {
 #define ANITO_SCRIPT_DETAIL_JOIN_IMPL(a, b) a##b
 #define ANITO_SCRIPT_DETAIL_JOIN(a, b) ANITO_SCRIPT_DETAIL_JOIN_IMPL(a, b)
 
-#define ANITO_SCRIPT_TYPE(ClassName, ScriptName, CppName, HasValid)                                      \
+#define ANITO_SCRIPT_TYPE(ClassName, ScriptName, CppName, HasValid, HostCategory)                        \
     namespace {                                                                                         \
     [[maybe_unused]] const bool ANITO_SCRIPT_DETAIL_JOIN(_anito_script_type_, __COUNTER__) =             \
-        ::anito::script::RegisterType<ClassName>(ScriptName, CppName, HasValid);                        \
+        ::anito::script::RegisterType<ClassName>(ScriptName, CppName, HasValid, HostCategory, __FILE__, #ClassName); \
     }
 
 #define ANITO_SCRIPT_PROPERTY_RO(ClassName, ScriptType, ScriptName, Getter)                              \
     namespace {                                                                                         \
-    [[maybe_unused]] const bool ANITO_SCRIPT_DETAIL_JOIN(_anito_script_member_, __COUNTER__) =          \
-        ::anito::script::RegisterReadOnlyProperty<decltype(&ClassName::Getter)>(ScriptType, ScriptName); \
+    [[maybe_unused]] const bool ANITO_SCRIPT_DETAIL_JOIN(_anito_script_member_, __COUNTER__) =           \
+        ::anito::script::RegisterReadOnlyProperty<decltype(&ClassName::Getter)>(ScriptType, ScriptName, #Getter); \
+    }
+
+#define ANITO_SCRIPT_PROPERTY_RO_DEFAULT(ClassName, ScriptType, ScriptName, Getter, DefaultValue)         \
+    namespace {                                                                                         \
+    [[maybe_unused]] const bool ANITO_SCRIPT_DETAIL_JOIN(_anito_script_member_, __COUNTER__) =           \
+        ::anito::script::RegisterReadOnlyProperty<decltype(&ClassName::Getter)>(                         \
+            ScriptType, ScriptName, #Getter, #DefaultValue);                                           \
     }
 
 #define ANITO_SCRIPT_PROPERTY(ClassName, ScriptType, ScriptName, Getter, Setter)                         \
     namespace {                                                                                         \
     [[maybe_unused]] const bool ANITO_SCRIPT_DETAIL_JOIN(_anito_script_member_, __COUNTER__) =          \
         ::anito::script::RegisterProperty<decltype(&ClassName::Getter),                                  \
-                                          decltype(&ClassName::Setter)>(ScriptType, ScriptName);          \
+                                          decltype(&ClassName::Setter)>(ScriptType, ScriptName, #Getter, #Setter); \
+    }
+
+#define ANITO_SCRIPT_PROPERTY_DEFAULT(ClassName, ScriptType, ScriptName, Getter, Setter, DefaultValue)   \
+    namespace {                                                                                         \
+    [[maybe_unused]] const bool ANITO_SCRIPT_DETAIL_JOIN(_anito_script_member_, __COUNTER__) =          \
+        ::anito::script::RegisterProperty<decltype(&ClassName::Getter),                                  \
+                                          decltype(&ClassName::Setter)>(                                 \
+            ScriptType, ScriptName, #Getter, #Setter, #DefaultValue);                                   \
     }
 
 #define ANITO_SCRIPT_METHOD(ClassName, ScriptType, ScriptName, MethodName)                               \
     namespace {                                                                                         \
     [[maybe_unused]] const bool ANITO_SCRIPT_DETAIL_JOIN(_anito_script_method_, __COUNTER__) =          \
-        ::anito::script::RegisterMethod<decltype(&ClassName::MethodName)>(ScriptType, ScriptName);       \
+        ::anito::script::RegisterMethod<decltype(&ClassName::MethodName)>(ScriptType, ScriptName, #MethodName); \
     }
 
 #define ANITO_SCRIPT_CONFORMS_READ_ONLY_PROPERTY(ComponentClass, ComponentGetter, SdkClass, SdkGetter) \

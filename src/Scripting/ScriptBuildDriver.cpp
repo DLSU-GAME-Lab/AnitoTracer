@@ -116,7 +116,8 @@ void ScriptBuildDriver::StartBuild(const std::filesystem::path& source, const st
 #else
     command += L"/MD ";
 #endif
-    command += L"/I" + Quote(ANITO_SCRIPT_SDK_INCLUDE) + L" " + Quote(source) +
+    command += L"/I" + Quote(ANITO_SCRIPT_SDK_INCLUDE) + L" /I" +
+        Quote(ANITO_SCRIPT_SDK_GENERATED_INCLUDE) + L" " + Quote(source) +
         L" /link /OUT:" + Quote(output) + L" /PDB:" + Quote(output.parent_path() / L"Scripts.pdb") +
         L" /PDBALTPATH:Scripts.pdb";
 

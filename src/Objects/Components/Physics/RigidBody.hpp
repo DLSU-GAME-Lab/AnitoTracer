@@ -96,7 +96,7 @@ protected:
 
 GBE_REGISTER_SERIALIZED_TYPE(RigidBody, PhysicsBase);
 
-ANITO_SCRIPT_TYPE(RigidBody, "rigidbody", "anito::Rigidbody", true);
+ANITO_SCRIPT_TYPE(RigidBody, "rigidbody", "anito::Rigidbody", true, "physics");
 ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "velocity", GetVelocity, SetVelocity);
 ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "angularVelocity", GetAngularVelocity, SetAngularVelocity);
 ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "mass", GetMass, SetMass);

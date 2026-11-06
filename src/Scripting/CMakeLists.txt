@@ -61,10 +61,60 @@ add_library(anito_scriptapi STATIC
 )
 add_library(anito::scriptapi ALIAS anito_scriptapi)
 target_include_directories(anito_scriptapi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-# COMPILE_ONLY: the registry only needs component declarations, never the engine's link dependencies.
-target_link_libraries(anito_scriptapi PUBLIC anito::common PRIVATE $<COMPILE_ONLY:anito::objects>)
+target_include_directories(anito_scriptapi PRIVATE
+	${CMAKE_SOURCE_DIR}/src/Objects
+	${CMAKE_SOURCE_DIR}/src/ObjectSystems/Serialization
+	${CMAKE_SOURCE_DIR}/src/ObjectSystems/Event
+	${CMAKE_SOURCE_DIR}/src/Asset
+	${CMAKE_SOURCE_DIR}/src/Audio
+	${CMAKE_SOURCE_DIR}/src/Physics
+	${CMAKE_SOURCE_DIR}/src/Tools/Asset
+	${CMAKE_SOURCE_DIR}/src/Tools/Event
+	${CMAKE_SOURCE_DIR}/src/Tools/Serialization
+	${CMAKE_SOURCE_DIR}/src/Tools
+	${CMAKE_SOURCE_DIR}/src/UI
+)
+get_target_property(SCRIPT_API_IMGUI_INCLUDE_DIRS Diligent-Imgui INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(SCRIPT_API_IMGUI_COMPILE_DEFINITIONS Diligent-Imgui INTERFACE_COMPILE_DEFINITIONS)
+target_include_directories(anito_scriptapi PRIVATE ${SCRIPT_API_IMGUI_INCLUDE_DIRS})
+target_compile_definitions(anito_scriptapi PRIVATE ${SCRIPT_API_IMGUI_COMPILE_DEFINITIONS})
+target_link_libraries(anito_scriptapi PUBLIC anito::common PRIVATE glaze::glaze)
+target_compile_definitions(anito_scriptapi PRIVATE
+	ANITO_COMPONENT_INCLUDES="Components/ComponentIncludes.hpp"
+	ANITO_SERIALIZATION_INCLUDES="SerializationIncludes.hpp"
+	ANITO_EVENT_INCLUDES="EventIncludes.hpp"
+)
 target_compile_definitions(anito_scriptapi PRIVATE ANITO_SCRIPT_METADATA_ONLY)
 target_link_libraries(${LANG_TARGET} PRIVATE anito::scriptapi)
+
+# Generate the regular AudioSource SDK/ABI/bridge surfaces from its component annotations.
+set(SCRIPT_API_GENERATED_ROOT "${CMAKE_CURRENT_BINARY_DIR}/script_api_generated")
+set(SCRIPT_API_GENERATED_SDK "${SCRIPT_API_GENERATED_ROOT}/sdk")
+set(SCRIPT_API_COMPONENT_ROOT "${CMAKE_SOURCE_DIR}/src/Objects")
+set(SCRIPT_API_GENERATED_AUDIO_API "${SCRIPT_API_GENERATED_SDK}/anito/generated/api/AudioSource.hpp")
+set(SCRIPT_API_GENERATED_AUDIO_HOST "${SCRIPT_API_GENERATED_SDK}/anito/generated/host/Audio.hpp")
+set(SCRIPT_API_GENERATED_AUDIO_BRIDGE "${SCRIPT_API_GENERATED_SDK}/generated/ScriptHostAPI/Audio.cpp")
+
+add_executable(anito_scriptapigen tools/script_api_codegen.cpp)
+target_link_libraries(anito_scriptapigen PRIVATE anito::scriptapi)
+set_target_properties(anito_scriptapigen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ScriptTools")
+
+add_custom_command(
+	OUTPUT
+		"${SCRIPT_API_GENERATED_AUDIO_API}"
+		"${SCRIPT_API_GENERATED_AUDIO_HOST}"
+		"${SCRIPT_API_GENERATED_AUDIO_BRIDGE}"
+	COMMAND $<TARGET_FILE:anito_scriptapigen> "${SCRIPT_API_GENERATED_SDK}" "${SCRIPT_API_COMPONENT_ROOT}"
+	DEPENDS anito_scriptapigen
+	COMMENT "Generating AudioSource script SDK and host bindings"
+	VERBATIM
+)
+add_custom_target(anito_scriptapi_codegen
+	DEPENDS
+		"${SCRIPT_API_GENERATED_AUDIO_API}"
+		"${SCRIPT_API_GENERATED_AUDIO_HOST}"
+		"${SCRIPT_API_GENERATED_AUDIO_BRIDGE}"
+)
 
 # Warnings in generated code are not ours to fix.
 set_source_files_properties(${ANTLR_GEN_SRC} PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/w>")
@@ -76,6 +126,7 @@ set_target_properties(anito_scriptc PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE
 
 file(TO_CMAKE_PATH "${CMAKE_CXX_COMPILER}" ANITO_SCRIPT_COMPILER)
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sdk" ANITO_SCRIPT_SDK_INCLUDE)
+file(TO_CMAKE_PATH "${SCRIPT_API_GENERATED_SDK}" ANITO_SCRIPT_SDK_GENERATED_INCLUDE)
 configure_file(ScriptBuildConfig.hpp.in ScriptBuildConfig.hpp @ONLY)
 
 set(${CUR_TARGET_NAME}_src
@@ -86,6 +137,7 @@ set(${CUR_TARGET_NAME}_src
 	ScriptRegistry.hpp
 	ScriptComponent.cpp
 	ScriptComponent.hpp
+	ScriptApiConformance.cpp
 	ScriptHostAPI.cpp
 	ScriptHostAPI.hpp
 	ScriptHostAPI/Bindings.hpp
@@ -105,7 +157,6 @@ set(${CUR_TARGET_NAME}_src
 	ScriptHostAPI/Transform.cpp
 	ScriptHostAPI/Physics.cpp
 	ScriptHostAPI/Camera.cpp
-	ScriptHostAPI/Audio.cpp
 	ScriptHostAPI/Object.cpp
 	ScriptHostAPI/Scene.cpp
 	ScriptHostAPI/Scripts.cpp
@@ -119,11 +170,15 @@ set(${CUR_TARGET_NAME}_src
 	sdk/anito/Api.hpp
 	sdk/anito/Host.hpp
 	sdk/anito/Math.hpp
+	"${SCRIPT_API_GENERATED_AUDIO_BRIDGE}"
 )
 
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})
-target_include_directories(${CUR_TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
+add_dependencies(${CUR_TARGET_NAME} anito_scriptapi_codegen)
+target_include_directories(${CUR_TARGET_NAME}
+	PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/sdk "${SCRIPT_API_GENERATED_SDK}"
+)
 target_include_directories(${CUR_TARGET_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
 target_link_libraries(${CUR_TARGET_NAME}

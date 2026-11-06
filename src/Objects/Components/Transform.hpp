@@ -79,7 +79,7 @@ private:
 
 GBE_REGISTER_SERIALIZED_TYPE(Transform, ComponentBase);
 
-ANITO_SCRIPT_TYPE(Transform, "transform", "anito::Transform", true);
+ANITO_SCRIPT_TYPE(Transform, "transform", "anito::Transform", true, "transform");
 ANITO_SCRIPT_PROPERTY(Transform, "transform", "position", GetPosition, SetWorldPosition);
 ANITO_SCRIPT_PROPERTY(Transform, "transform", "localPosition", GetLocalPosition, SetPosition);
 ANITO_SCRIPT_PROPERTY(Transform, "transform", "rotation", GetRotation, SetWorldRotation);

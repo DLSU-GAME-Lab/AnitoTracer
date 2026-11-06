@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-#define ANITO_SCRIPT_ABI_VERSION 4
+#define ANITO_SCRIPT_ABI_VERSION 5
 
 #if defined(_WIN32)
 #define ANITO_SCRIPT_EXPORT extern "C" __declspec(dllexport)
