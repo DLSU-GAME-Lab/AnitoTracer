@@ -53,9 +53,37 @@ target_include_directories(${LANG_TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(${LANG_TARGET} SYSTEM PRIVATE "${ANTLR_GEN_DIR}")
 target_link_libraries(${LANG_TARGET} PUBLIC glm::glm PRIVATE antlr4_static)
 
+# This order is the cross-DLL HostAPI layout. Change it only with an ABI version bump.
+# Entries are log, component:<category>, or static:<field>:<type>:<binding>:<header>.
+set(SCRIPT_HOST_API_LAYOUT
+	log
+	component:transform
+	component:physics
+	component:camera
+	component:audio
+	static:object:ObjectAPI:object:Object
+	static:scene:SceneAPI:scene:Scene
+	static:script:ScriptAPI:scripts:Script
+	static:input:InputAPI:input:Runtime
+	static:time:TimeAPI:time:Runtime
+	static:gui:GuiAPI:gui:Runtime
+	static:field:FieldAPI:field:Runtime
+)
+
 # Component annotations are compiled separately so the language core consumes metadata without
 # including engine component headers in ScriptAnalyzer.cpp.
-set(SCRIPT_API_CATEGORIES audio camera physics transform)
+set(SCRIPT_API_CATEGORIES)
+foreach(entry IN LISTS SCRIPT_HOST_API_LAYOUT)
+	if(entry MATCHES "^component:([a-z][a-z0-9_]*)$")
+		set(category "${CMAKE_MATCH_1}")
+		if(category IN_LIST SCRIPT_API_CATEGORIES)
+			message(FATAL_ERROR "Duplicate script API host category '${category}'.")
+		endif()
+		list(APPEND SCRIPT_API_CATEGORIES "${category}")
+	elseif(entry MATCHES "^component:")
+		message(FATAL_ERROR "Invalid script API layout entry '${entry}'.")
+	endif()
+endforeach()
 list(LENGTH SCRIPT_API_CATEGORIES SCRIPT_API_CATEGORY_COUNT)
 set(SCRIPT_API_CATEGORY_INITIALIZERS "")
 foreach(category IN LISTS SCRIPT_API_CATEGORIES)
@@ -111,7 +139,12 @@ set(SCRIPT_API_GENERATED_COMPONENT_BINDINGS
 	"${SCRIPT_API_GENERATED_SDK}/ScriptHostAPI/Bindings/ComponentBindings.hpp"
 )
 set(SCRIPT_API_COMPONENT_ROOT "${CMAKE_SOURCE_DIR}/src/Objects")
-set(SCRIPT_API_GENERATED_OUTPUTS "${SCRIPT_API_GENERATED_COMPONENT_BINDINGS}")
+set(SCRIPT_API_GENERATED_OUTPUTS
+	"${SCRIPT_API_GENERATED_COMPONENT_BINDINGS}"
+	"${SCRIPT_API_GENERATED_SDK}/anito/generated/host/HostIncludes.hpp"
+	"${SCRIPT_API_GENERATED_SDK}/anito/generated/host/HostFields.inc"
+	"${SCRIPT_API_GENERATED_SDK}/generated/ScriptHostAPI/HostInitializers.inc"
+)
 set(SCRIPT_API_GENERATED_BRIDGES)
 foreach(category IN LISTS SCRIPT_API_CATEGORIES)
 	string(SUBSTRING "${category}" 0 1 category_first)
@@ -120,8 +153,9 @@ foreach(category IN LISTS SCRIPT_API_CATEGORIES)
 	set(category_name "${category_first}${category_rest}")
 	set(category_api "${SCRIPT_API_GENERATED_SDK}/anito/generated/api/${category_name}.hpp")
 	set(category_host "${SCRIPT_API_GENERATED_SDK}/anito/generated/host/${category_name}.hpp")
+	set(category_host_wrapper "${SCRIPT_API_GENERATED_SDK}/anito/host/${category_name}.hpp")
 	set(category_bridge "${SCRIPT_API_GENERATED_SDK}/generated/ScriptHostAPI/${category_name}.cpp")
-	list(APPEND SCRIPT_API_GENERATED_OUTPUTS "${category_api}" "${category_host}" "${category_bridge}")
+	list(APPEND SCRIPT_API_GENERATED_OUTPUTS "${category_api}" "${category_host}" "${category_host_wrapper}" "${category_bridge}")
 	list(APPEND SCRIPT_API_GENERATED_BRIDGES "${category_bridge}")
 endforeach()
 
@@ -132,7 +166,7 @@ set_target_properties(anito_scriptapigen PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${
 add_custom_command(
 	OUTPUT ${SCRIPT_API_GENERATED_OUTPUTS}
 	COMMAND $<TARGET_FILE:anito_scriptapigen>
-		"${SCRIPT_API_GENERATED_SDK}" "${SCRIPT_API_COMPONENT_ROOT}" ${SCRIPT_API_CATEGORIES}
+		"${SCRIPT_API_GENERATED_SDK}" "${SCRIPT_API_COMPONENT_ROOT}" ${SCRIPT_HOST_API_LAYOUT}
 	DEPENDS anito_scriptapigen
 	COMMENT "Generating component script SDK and host bindings"
 	VERBATIM
@@ -212,3 +246,42 @@ target_link_libraries(${CUR_TARGET_NAME}
 	anito::serialization
 	gbe::tools
 )
+
+if(BUILD_TESTING)
+	add_executable(script_api_layout_tests tests/ScriptApiLayoutTests.cpp)
+	add_dependencies(script_api_layout_tests anito_scriptapi_codegen)
+	target_include_directories(script_api_layout_tests PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/sdk" "${SCRIPT_API_GENERATED_SDK}"
+	)
+	add_test(NAME script_api_layout_tests COMMAND script_api_layout_tests)
+	add_test(NAME script_api_codegen_tests
+		COMMAND ${CMAKE_COMMAND}
+			"-DGENERATOR=$<TARGET_FILE:anito_scriptapigen>"
+			"-DOUTPUT_ROOT=${CMAKE_CURRENT_BINARY_DIR}/script_api_codegen_tests"
+			"-DCOMPONENT_ROOT=${SCRIPT_API_COMPONENT_ROOT}"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/tests/ScriptApiCodegenTests.cmake"
+	)
+	if(WIN32)
+		set(sample_script "${CMAKE_SOURCE_DIR}/SampleProjects/Scripting/Scripts/SpinAndBob.ascript")
+		set(sample_source "${CMAKE_CURRENT_BINARY_DIR}/script_api_tests/SpinAndBob.gen.cpp")
+		add_custom_command(
+			OUTPUT "${sample_source}"
+			COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/script_api_tests"
+			COMMAND $<TARGET_FILE:anito_scriptc> "${sample_source}" "${sample_script}"
+			DEPENDS anito_scriptc "${sample_script}"
+			VERBATIM
+		)
+		add_library(script_api_sample_module MODULE "${sample_source}")
+		add_dependencies(script_api_sample_module anito_scriptapi_codegen)
+		target_include_directories(script_api_sample_module PRIVATE
+			"${CMAKE_CURRENT_SOURCE_DIR}/sdk" "${SCRIPT_API_GENERATED_SDK}"
+		)
+		add_executable(script_api_module_tests tests/ScriptApiModuleTests.cpp)
+		add_dependencies(script_api_module_tests anito_scriptapi_codegen script_api_sample_module)
+		target_include_directories(script_api_module_tests PRIVATE
+			"${CMAKE_CURRENT_SOURCE_DIR}/sdk" "${SCRIPT_API_GENERATED_SDK}"
+		)
+		add_test(NAME script_api_module_tests
+			COMMAND script_api_module_tests "$<TARGET_FILE:script_api_sample_module>")
+	endif()
+endif()

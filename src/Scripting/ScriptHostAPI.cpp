@@ -11,18 +11,7 @@ static_assert(sizeof(anito::Vec3) == sizeof(glm::vec3), "Vec3 must match glm::ve
 namespace {
 
 const anito::HostAPI kHostAPI = {
-    ScriptHost::Bindings::Log,
-    ScriptHost::Bindings::transform::GetAPI(),
-    ScriptHost::Bindings::physics::GetAPI(),
-    ScriptHost::Bindings::camera::GetAPI(),
-    ScriptHost::Bindings::audio::GetAPI(),
-    ScriptHost::Bindings::object::GetAPI(),
-    ScriptHost::Bindings::scene::GetAPI(),
-    ScriptHost::Bindings::scripts::GetAPI(),
-    ScriptHost::Bindings::input::GetAPI(),
-    ScriptHost::Bindings::time::GetAPI(),
-    ScriptHost::Bindings::gui::GetAPI(),
-    ScriptHost::Bindings::field::GetAPI(),
+#include "generated/ScriptHostAPI/HostInitializers.inc"
 };
 
 } // namespace

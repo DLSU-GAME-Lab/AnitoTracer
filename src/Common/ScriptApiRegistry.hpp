@@ -235,8 +235,7 @@ bool RegisterMethod(const char* scriptType, const char* methodName, const char* 
                   "and underscores.");                                                                  \
     static_assert(!::anito::script::detail::IsValidHostCategoryName(HostCategory) ||                     \
                       ::anito::script::detail::IsKnownHostCategory(HostCategory),                        \
-                  "ANITO_SCRIPT_TYPE: category does not exist. Add it to SCRIPT_API_CATEGORIES and "    \
-                  "wire its HostAPI table.")
+                  "ANITO_SCRIPT_TYPE: category does not exist. Add it to SCRIPT_HOST_API_LAYOUT.")
 #else
 #define ANITO_SCRIPT_DETAIL_VALIDATE_HOST_CATEGORY(HostCategory)
 #endif

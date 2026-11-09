@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -340,13 +341,150 @@ void EmitComponentBindings(const std::set<std::string>& categories, const std::f
     }
 }
 
+struct HostEntry {
+    enum class Kind { Log, Component, Static };
+    Kind kind;
+    std::string field;
+    std::string type;
+    std::string binding;
+    std::string header;
+};
+
+bool IsIdentifier(std::string_view value) {
+    static const std::set<std::string_view> keywords = {
+        "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "bool", "break",
+        "case", "catch", "char", "char8_t", "char16_t", "char32_t", "class", "compl", "concept",
+        "const", "consteval", "constexpr", "constinit", "const_cast", "continue", "co_await", "co_return",
+        "co_yield", "decltype", "default", "delete", "do", "double", "dynamic_cast", "else", "enum",
+        "explicit", "export", "extern", "false", "float", "for", "friend", "goto", "if", "inline", "int",
+        "long", "mutable", "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator", "or",
+        "or_eq", "private", "protected", "public", "register", "reinterpret_cast", "requires", "return",
+        "short", "signed", "sizeof", "static", "static_assert", "static_cast", "struct", "switch",
+        "template", "this", "thread_local", "throw", "true", "try", "typedef", "typeid", "typename",
+        "union", "unsigned", "using", "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq"
+    };
+    if (value.empty() || !((value.front() >= 'a' && value.front() <= 'z') ||
+                           (value.front() >= 'A' && value.front() <= 'Z'))) return false;
+    for (char c : value) {
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '_')) return false;
+    }
+    return !keywords.contains(value);
+}
+
+std::string Lowercase(std::string_view value) {
+    std::string result(value);
+    for (char& c : result) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return result;
+}
+
+std::vector<HostEntry> ParseHostLayout(int argc, char** argv) {
+    std::vector<HostEntry> entries;
+    std::set<std::string> fields;
+    std::set<std::string> types = {"HostAPI"};
+    std::set<std::string> componentHeaders;
+    std::set<std::string> staticHeaders = {"common", "hostapi", "module"};
+    std::set<std::string> componentBindings;
+    std::set<std::string> staticBindings;
+    bool hasLog = false;
+    for (int i = 3; i < argc; ++i) {
+        const std::string entry(argv[i]);
+        std::vector<std::string> parts;
+        size_t start = 0;
+        for (size_t end = entry.find(':'); end != std::string::npos; end = entry.find(':', start)) {
+            parts.push_back(entry.substr(start, end - start));
+            start = end + 1;
+        }
+        parts.push_back(entry.substr(start));
+
+        HostEntry parsed;
+        if (parts.size() == 1 && parts[0] == "log") {
+            if (hasLog) throw std::runtime_error("duplicate log entry in HostAPI layout");
+            hasLog = true;
+            parsed = {HostEntry::Kind::Log, "Log", "", "", ""};
+        } else if (parts.size() == 2 && parts[0] == "component") {
+            const std::string& category = parts[1];
+            if (!IsIdentifier(category) || category.front() < 'a' || category.front() > 'z' ||
+                category.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_") != std::string::npos)
+                throw std::runtime_error("invalid component category in HostAPI layout: " + category);
+            parsed = {HostEntry::Kind::Component, category, Pascal(category) + "API", category, Pascal(category)};
+            if (!componentHeaders.insert(Lowercase(parsed.header)).second)
+                throw std::runtime_error("duplicate component header in HostAPI layout: " + parsed.header);
+            componentBindings.insert(parsed.binding);
+            if (Lowercase(parsed.header) == "hostincludes")
+                throw std::runtime_error("component host header conflicts with generated HostIncludes.hpp");
+        } else if (parts.size() == 5 && parts[0] == "static") {
+            for (size_t part = 1; part < parts.size(); ++part)
+                if (!IsIdentifier(parts[part]))
+                    throw std::runtime_error("invalid static HostAPI layout entry: " + entry);
+            parsed = {HostEntry::Kind::Static, parts[1], parts[2], parts[3], parts[4]};
+            staticHeaders.insert(Lowercase(parsed.header));
+            staticBindings.insert(parsed.binding);
+        } else {
+            throw std::runtime_error("invalid HostAPI layout entry: " + entry);
+        }
+        if (parsed.field == "HostAPI")
+            throw std::runtime_error("HostAPI field conflicts with its enclosing type");
+        if (!fields.insert(parsed.field).second)
+            throw std::runtime_error("duplicate HostAPI field: " + parsed.field);
+        if (!parsed.type.empty() && !types.insert(parsed.type).second)
+            throw std::runtime_error("duplicate HostAPI table type: " + parsed.type);
+        entries.push_back(std::move(parsed));
+    }
+    if (!hasLog) throw std::runtime_error("HostAPI layout is missing log");
+    for (const auto& header : componentHeaders)
+        if (staticHeaders.contains(header))
+            throw std::runtime_error("component host header conflicts with handwritten header: " + header);
+    for (const auto& binding : componentBindings)
+        if (staticBindings.contains(binding))
+            throw std::runtime_error("component binding conflicts with handwritten binding: " + binding);
+    return entries;
+}
+
+void EmitHostLayout(const std::vector<HostEntry>& entries, const std::filesystem::path& root) {
+    const auto host = root / "anito" / "generated" / "host";
+    const auto wrappers = root / "anito" / "host";
+    const auto initializers = root / "generated" / "ScriptHostAPI" / "HostInitializers.inc";
+    std::filesystem::create_directories(wrappers);
+    std::ofstream includes(host / "HostIncludes.hpp");
+    std::ofstream fields(host / "HostFields.inc");
+    std::ofstream init(initializers);
+    if (!includes || !fields || !init) throw std::runtime_error("cannot write generated HostAPI layout");
+    includes << "#pragma once\n\n";
+    std::set<std::string> includedHeaders;
+    for (const auto& entry : entries) {
+        if (entry.kind == HostEntry::Kind::Log) {
+            fields << "    void (*Log)(const char* message);\n";
+            init << "    ScriptHost::Bindings::Log,\n";
+            continue;
+        }
+        if (includedHeaders.insert(entry.header).second)
+            includes << "#include \"anito/host/" << entry.header << ".hpp\"\n";
+        fields << "    " << entry.type << " " << entry.field << ";\n";
+        init << "    ScriptHost::Bindings::" << entry.binding << "::GetAPI(),\n";
+        if (entry.kind == HostEntry::Kind::Component) {
+            const auto path = wrappers / (entry.header + ".hpp");
+            std::ofstream out(path);
+            if (!out) throw std::runtime_error("cannot write " + path.string());
+            out << "#pragma once\n\n#include \"anito/generated/host/" << entry.header << ".hpp\"\n";
+            out.close();
+            if (!out) throw std::runtime_error("cannot write " + path.string());
+        }
+    }
+    includes.close();
+    fields.close();
+    init.close();
+    if (!includes || !fields || !init) throw std::runtime_error("cannot write generated HostAPI layout");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
     try {
         if (argc < 4)
             throw std::runtime_error(
-                "usage: anito_scriptapigen <generated-sdk-root> <component-source-root> <category>...");
+                "usage: anito_scriptapigen <generated-sdk-root> <component-source-root> <layout-entry>...");
+        const auto layout = ParseHostLayout(argc, argv);
         const auto& types = anito::script::RegisteredTypes();
         std::map<std::string, std::vector<const TypeMetadata*>> categories;
         for (const auto& [scriptName, type] : types) {
@@ -367,21 +505,26 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(source);
 
         std::set<std::string> requestedCategories;
-        for (int i = 3; i < argc; ++i) requestedCategories.insert(argv[i]);
+        for (const auto& entry : layout)
+            if (entry.kind == HostEntry::Kind::Component) requestedCategories.insert(entry.field);
         for (const auto& [category, categoryTypes] : categories) {
             if (!requestedCategories.contains(category))
                 throw std::runtime_error("component '" + categoryTypes.front()->scriptName +
                                          "' declares host category '" + category +
                                          "', but no CMake output was declared for it; add the category to "
-                                         "SCRIPT_API_CATEGORIES and wire its HostAPI table");
+                                         "SCRIPT_HOST_API_LAYOUT");
             (void)categoryTypes;
         }
 
-        EmitComponentBindings(requestedCategories, bindings / "ComponentBindings.hpp");
         for (const std::string& category : requestedCategories) {
             const auto found = categories.find(category);
             if (found == categories.end())
                 throw std::runtime_error("no annotated component uses host category: " + category);
+        }
+        EmitHostLayout(layout, root);
+        EmitComponentBindings(requestedCategories, bindings / "ComponentBindings.hpp");
+        for (const std::string& category : requestedCategories) {
+            const auto found = categories.find(category);
             const std::string categoryName = Pascal(category);
             const auto& categoryTypes = found->second;
             EmitSdkHandles(categoryTypes, category, api / (categoryName + ".hpp"));

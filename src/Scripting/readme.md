@@ -20,7 +20,7 @@ ANTLR recognizes syntax and creates a parse tree; it does not decide what the la
 * `ScriptAnalyzer.cpp` checks names and types and emits C++ for component bodies during the same traversal. It is both the semantic checker and the main component-code generator, rather than a separate typed-AST pass.
 * `ScriptTranspiler.cpp` assembles generated component classes into a module translation unit, including the DLL entry table and factories.
 * `sdk/anito/` defines the engine-independent types and inline wrappers visible to generated scripts. Calls into the engine go through the host function table.
-* `ScriptHostAPI.cpp` implements the engine side of that function table.
+* `ScriptHostAPI.cpp` assembles the engine-side function table from generated and handwritten bindings.
 
 The editor uses `ScriptParser::Parse()` directly, not the `scriptc` executable. That parser/analyzer path produces each component's C++ source, and `BuildModuleSource()` assembles it into `Scripts.gen.cpp`.
 
@@ -47,19 +47,21 @@ Include the component header from `ScriptApiMetadata.cpp` so its annotations are
 
 ### 2. Generated API and remaining SDK integration
 
-The generator groups components by their `HostCategory` and emits stable category-level SDK and ABI headers plus bridge sources. The small files under `sdk/anito/api/` and `sdk/anito/host/` include those build outputs. A component added to an existing category does not require adding its generated files to CMake.
+The generator groups components by their `HostCategory` and emits category-level SDK and ABI headers plus bridge sources. It also emits the include-only `anito/host/<Category>.hpp` headers in the generated SDK tree. Handwritten files under `sdk/anito/api/` include the generated SDK handles. A component added to an existing category does not require adding its generated files to CMake.
 
 The generator also emits `ScriptHostAPI/Bindings/ComponentBindings.hpp` in the build tree. It declares `GetAPI()` for each generated component category; `ScriptHostAPI/Bindings.hpp` includes it alongside the handwritten static API declarations. Per-category declaration headers for generated component categories are not maintained in the source tree.
 
-The metadata build validates `ANITO_SCRIPT_TYPE` host categories at compile time. Empty names, malformed category identifiers, and names absent from `SCRIPT_API_CATEGORIES` produce targeted `static_assert` diagnostics. Generated bridges also assert that each category exists in the SDK `HostAPI` table.
+The metadata build validates `ANITO_SCRIPT_TYPE` host categories at compile time. Empty names, malformed category identifiers, and names absent from the component entries of `SCRIPT_HOST_API_LAYOUT` produce targeted `static_assert` diagnostics. Generated bridges also assert that each category exists in the SDK `HostAPI` table.
 
 The `GameObject` accessor and analyzer's `GameObject` member remain explicit integration points. For a new component type, add its lightweight SDK wrapper and `GameObject` accessor; do not duplicate the generated properties, methods, host table, or forwarding bridge. Transform's convenience methods remain in its wrapper because they do not correspond to annotated component methods.
 
 ### 3. Host category integration
 
-The generated bridge receives object IDs, resolves the annotated component, handles a missing component, converts values at the boundary, and invokes the component. Keep engine headers and types on the host side; generated script DLLs should depend only on SDK and function-table headers. Adding a component to an existing category does not require editing `ScriptHostAPI.cpp`; adding an entirely new category still requires adding its generated outputs to `SCRIPT_API_CATEGORIES` and wiring its table into the SDK and top-level `HostAPI` composition.
+The generated bridge receives object IDs, resolves the annotated component, handles a missing component, converts values at the boundary, and invokes the component. Keep engine headers and types on the host side; generated script DLLs should depend only on SDK and function-table headers. Adding a component to an existing category does not require editing `ScriptHostAPI.cpp`. For a new category, add a `component:<category>` entry to the ordered `SCRIPT_HOST_API_LAYOUT` in `CMakeLists.txt`. CMake derives the category validation list and generated output paths from it; the generator emits the public host wrapper, category table, bridge, top-level host fields, and matching engine initializers.
 
-If an annotation names a category missing from `SCRIPT_API_CATEGORIES`, code generation fails and identifies the component and category, with a reminder to add the CMake output and wire the `HostAPI` table. If CMake requests a category that no annotated component uses, generation also fails.
+`SCRIPT_HOST_API_LAYOUT` is the ABI manifest, not just a set: its order defines the cross-DLL `HostAPI` field order. The `log` entry and `static:<field>:<type>:<binding namespace>:<host header basename>` entries describe handwritten APIs; component metadata cannot discover them. Do not reorder existing entries. Adding a category, changing the layout, or changing a function table's layout or signatures requires incrementing `ANITO_SCRIPT_ABI_VERSION` and rebuilding both the engine and script DLLs. A generation-only refactor that preserves the ABI does not require a version bump.
+
+The manifest is intentionally explicit because CMake must know generated output paths before running the metadata-based generator. If an annotation names a category missing from the manifest, metadata compilation or generation fails. If the manifest requests a category that no annotated component uses, generation also fails. Duplicate entries, invalid identifiers, and conflicts with handwritten fields, headers, or binding namespaces are rejected.
 
 ### 4. Add conformance checks
 
@@ -85,11 +87,11 @@ Use a static API when the operation is not naturally owned by one component inst
 
 1. **Analyzer:** Add a static type to `T` and `kStaticNames` in `ScriptAnalyzer.cpp` if it is a new script-visible class. Add its members and methods to the static `Info()` table. For an addition to an existing class, update that class's `TypeInfo`. The analyzer uses these entries for validation and C++ emission.
 2. **SDK:** Add or update a class under `sdk/anito/api/`. Its static methods should call the corresponding `detail::H().<category>` function pointer. Add the SDK header to the umbrella include path if it is not already included.
-3. **Host ABI:** Declare the function in the appropriate `sdk/anito/host/<Category>.hpp` function table. Include that table in `HostAPI.hpp` if it introduces a new category.
-4. **Engine bridge:** Implement the function in `ScriptHostAPI.cpp` and populate the matching function table in `ScriptHost::GetAPI()`. Convert arguments/results at this boundary. Do not let SDK headers depend on engine headers.
+3. **Host ABI:** Declare the function in the appropriate `sdk/anito/host/<Category>.hpp` function table. For a new table, add a static entry to `SCRIPT_HOST_API_LAYOUT`.
+4. **Engine bridge:** Implement the function and matching `GetAPI()` in the appropriate `ScriptHostAPI/<Category>.cpp` and include its binding declaration in `ScriptHostAPI/Bindings.hpp`. Convert arguments/results at this boundary. Do not let SDK headers depend on engine headers.
 5. **Validate:** Build the engine and compile a script using the API, then load it and check the returned values and side effects.
 
-For example, `Scene.mainCamera()` is manually declared in the `T::SScene` `Info()` entry, declared as an inline static method in `sdk/anito/api/Scene.hpp`, represented by `SceneAPI::GetMainCamera`, and implemented by `scene::GetMainCamera` in `ScriptHostAPI.cpp`. Its return value is an object ID wrapped as `GameObject`. Static APIs do not currently use the component conformance macros, so review their analyzer signature, SDK wrapper, host function-table signature, and implementation together.
+For example, `Scene.mainCamera()` is manually declared in the `T::SScene` `Info()` entry, declared as an inline static method in `sdk/anito/api/Scene.hpp`, represented by `SceneAPI::GetMainCamera`, and implemented by `scene::GetMainCamera` in `ScriptHostAPI/Scene.cpp`. Its return value is an object ID wrapped as `GameObject`. Static APIs do not currently use the component conformance macros, so review their analyzer signature, SDK wrapper, host function-table signature, and implementation together.
 
 ## Conformance checks and errors
 
@@ -153,10 +155,10 @@ To add a handwritten static or otherwise non-component binding:
 1. Add or update the declaration in a handwritten `ScriptHostAPI/Bindings/<Category>.hpp`. Implement the function in the matching `ScriptHostAPI/<Category>.cpp`; shared `ObjectId` lookup and SDK/engine conversions are available in `ScriptHostAPI/Common.hpp`.
 2. Keep domain behavior in the owning engine component or service; a bridge should resolve, convert, forward, and convert the result.
 3. Each handwritten category implementation provides its own `GetAPI()` function table. Generated component categories get their declaration from `ComponentBindings.hpp`; do not add a duplicate per-category declaration header.
-4. For a new component category, add its generated outputs to `SCRIPT_API_CATEGORIES`, add the SDK ABI table under `sdk/anito/host/`, include it in `HostAPI.hpp`, and add the category table to the `HostAPI` aggregate in `ScriptHostAPI.cpp`. The generator emits the component bridge, `GetAPI()` definition, and declaration header. For a handwritten static category, add its source/header and declaration to the `Bindings.hpp` aggregator as well.
+4. For a new component category, add a `component:<category>` entry to `SCRIPT_HOST_API_LAYOUT`. For a handwritten static category, add a `static:<field>:<type>:<binding namespace>:<host header basename>` entry, its source/header, and its declaration to the `Bindings.hpp` aggregator. The generator emits the component bridge, `GetAPI()` definition, declaration header, and the ordered host composition.
 5. Add or update the SDK wrapper and analyzer description as needed. If the `HostAPI` layout or function signatures change, increment `ANITO_SCRIPT_ABI_VERSION` and rebuild both the engine and script DLLs.
 
-Component ABI tables, component bridge functions, and their `GetAPI()` declarations are generated by category. Static API functions and their analyzer descriptions remain handwritten. Existing category functions are self-contained; only introducing a new ABI category requires editing the root table.
+Component ABI tables, component bridge functions, and their `GetAPI()` declarations are generated by category. Static API functions and their analyzer descriptions remain handwritten. The manifest controls the top-level host table and its initialization.
 
 ## Summary and key files
 
