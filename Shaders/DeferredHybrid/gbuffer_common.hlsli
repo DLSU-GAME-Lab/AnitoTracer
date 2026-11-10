@@ -4,7 +4,7 @@
 // Deferred Hybrid G-buffer layout (must match DeferredHybridPipeline.cpp):
 //   RT0 RGBA8_UNORM_SRGB : albedo.rgb, metallic (alpha is stored linear)
 //   RT1 RGBA16_FLOAT     : octahedral shading normal (xy), octahedral geometric normal (zw)
-//   RT2 RGBA8_UNORM_SRGB : emissive.rgb, material AO (alpha is stored linear)
+//   RT2 RGBA16_FLOAT     : emissive.rgb (HDR, strength can push it past 1), material AO
 //   RT3 R8_UNORM         : roughness
 //   Depth D32_FLOAT      : world position is reconstructed from this, no position target needed
 

@@ -16,6 +16,8 @@ cbuffer PBRMaterialConstants
     float g_UseAOMap;
     float g_UseEmissiveMap;
     float g_OverrideFlags; // Bit 1: roughness overridden, bit 2: metallic overridden
+
+    float4 g_EmissiveFactor; // rgb: emissive color * strength (HDR)
 };
 
 // Applies the metallic/roughness texture, skipping channels overridden by the model component
@@ -41,6 +43,17 @@ SamplerState g_AOMap_sampler;
 
 Texture2D g_EmissiveMap;
 SamplerState g_EmissiveMap_sampler;
+
+// Light emitted by the surface: the material's emissive color * strength, masked by the emissive map when there is one
+float3 SampleEmissive(float2 uv)
+{
+    float3 emissive = g_EmissiveFactor.rgb;
+    if (g_UseEmissiveMap > 0.5)
+    {
+        emissive *= g_EmissiveMap.Sample(g_EmissiveMap_sampler, uv).rgb;
+    }
+    return emissive;
+}
 
 static const float PI = 3.14159265359;
 

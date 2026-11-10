@@ -24,7 +24,7 @@ void Diligent::DeferredHybridPipeline::InitializePipeline(IRenderDevice* pDevice
         m_GBuffer.Configure({
                 { "Deferred Hybrid G-Buffer AlbedoMetallic", TEX_FORMAT_RGBA8_UNORM_SRGB, "g_GBufferAlbedoMetallic" },
                 { "Deferred Hybrid G-Buffer Normals",        TEX_FORMAT_RGBA16_FLOAT,     "g_GBufferNormals" },
-                { "Deferred Hybrid G-Buffer EmissiveAO",     TEX_FORMAT_RGBA8_UNORM_SRGB, "g_GBufferEmissiveAO" },
+                { "Deferred Hybrid G-Buffer EmissiveAO",     TEX_FORMAT_RGBA16_FLOAT,     "g_GBufferEmissiveAO" },
                 { "Deferred Hybrid G-Buffer Roughness",      TEX_FORMAT_R8_UNORM,         "g_GBufferRoughness" },
             },
             { "Deferred Hybrid G-Buffer Depth", TEX_FORMAT_D32_FLOAT, "g_GBufferDepth" },

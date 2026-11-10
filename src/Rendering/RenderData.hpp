@@ -24,6 +24,9 @@ namespace Diligent {
         float Roughness = 0.5f;
         bool OverrideMetallic = false;
         float Metallic = 0.0f;
+        // Replaces the material's emissive color * strength; the emissive map still applies
+        bool OverrideEmissive = false;
+        glm::vec3 Emissive{ 1.0f };
 
 		//Opaque and transparent meshes are separated for proper rendering order
         std::vector<uint32_t> OpaqueSubmeshIndices;
