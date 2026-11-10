@@ -17,17 +17,24 @@ namespace Diligent {
     public:
         // Draws the scene's opaque models into target
         void Render(IDeviceContext* pContext, const RenderData& renderData, const FrameTarget& target,
-            const ProjectLightingSettings& lighting, const FogConstants& fog);
+            const ProjectSettings& settings, const FogConstants& fog);
 
         virtual void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
         virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings);
         virtual void UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog);
+
+        // Project settings specific to one pipeline (e.g. the cross hatching style)
+        virtual void UpdateProjectSettings(IDeviceContext* pContext, const ProjectSettings& settings) {}
 
         // Skybox cubemap, for pipelines that light with it
         virtual void SetEnvironmentMap(ITextureView* pCubemapSRV) {}
 
         // The swap chain was resized, for pipelines with swap chain sized resources
         virtual void OnResize(Uint32 width, Uint32 height) {}
+
+        // Scene depth from the last Render, for pipelines that keep their own depth buffer (e.g. a G-buffer) instead of
+        // drawing into the target's. Read by passes that reproject the scene, like TAA. May be larger than the view.
+        virtual ITextureView* GetDepthSRV() const { return nullptr; }
 
     protected:
         virtual void PrepareFrame(const FrameTarget& target) {}

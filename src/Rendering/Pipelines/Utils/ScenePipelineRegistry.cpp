@@ -3,12 +3,22 @@
 #include "../DeferredPipeline.hpp"
 #include "../HybridPipeline.hpp"
 #include "../DeferredHybridPipeline.hpp"
+#include "../CrossHatchPipeline.hpp"
+
+#include <utility>
 
 namespace Diligent {
 
     namespace {
         template <typename T>
         std::unique_ptr<ScenePipeline> Make() { return std::make_unique<T>(); }
+
+        std::unique_ptr<ScenePipeline> MakeCrossHatchRT() { return std::make_unique<CrossHatchPipeline>(true); }
+
+        // Closest stand-in for a pipeline that can't run, tried before the general fallbacks
+        constexpr std::pair<PipelineType, PipelineType> kPreferredFallbacks[] = {
+            { PipelineType::CROSSHATCH_RT, PipelineType::CROSSHATCH },
+        };
 
         // Tried in order when the requested pipeline can't run on this device / with these settings
         constexpr PipelineType kFallbackOrder[] = { PipelineType::HYBRID, PipelineType::BASIC_LIT };
@@ -24,6 +34,8 @@ namespace Diligent {
             { PipelineType::DEFERRED,        "Deferred Pipeline",                      false, false, &Make<DeferredPipeline> },
             { PipelineType::HYBRID,          "Hybrid Pipeline (RayTraced)",            true,  true,  &Make<HybridPipeline> },
             { PipelineType::DEFERRED_HYBRID, "Deferred Hybrid Pipeline (RayTraced)",   true,  true,  &Make<DeferredHybridPipeline> },
+            { PipelineType::CROSSHATCH,      "CrossHatch Pipeline",                    false, true,  &Make<CrossHatchPipeline> },
+            { PipelineType::CROSSHATCH_RT,   "CrossHatch Pipeline (RayTraced Shadows)", true,  true,  &MakeCrossHatchRT },
         };
         return pipelines;
     }
@@ -45,6 +57,13 @@ namespace Diligent {
     {
         if (const ScenePipelineInfo* info = Find(requested); info && CanRun(*info, rayTracingSupported, msaaEnabled)) {
             return *info;
+        }
+
+        for (const auto& [from, to] : kPreferredFallbacks) {
+            if (from != requested) continue;
+            if (const ScenePipelineInfo* info = Find(to); info && CanRun(*info, rayTracingSupported, msaaEnabled)) {
+                return *info;
+            }
         }
 
         for (PipelineType fallback : kFallbackOrder) {

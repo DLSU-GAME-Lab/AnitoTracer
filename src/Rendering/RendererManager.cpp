@@ -64,6 +64,8 @@ void RendererManager::InitializePipelines()
     m_ParticlePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
     m_SkyboxPipeline.Initialize(m_pDevice, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
     m_PostProcess.Initialize(m_pDevice, SCDesc.ColorBufferFormat);
+    m_GameTAA.Initialize(m_pDevice, SCDesc.ColorBufferFormat);
+    m_EditorTAA.Initialize(m_pDevice, SCDesc.ColorBufferFormat);
 
     LoadDefaultSkybox();
 }
@@ -120,7 +122,7 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
 
     // The release build is the game itself, so post processing always applies here
     const Diligent::FrameTarget backBuffer{ m_pSwapChain->GetCurrentBackBufferRTV(), m_pSwapChain->GetDepthBufferDSV(), SCDesc.Width, SCDesc.Height };
-    RenderView(backBuffer, *m_pScenePipeline, renderData, true);
+    RenderView(backBuffer, *m_pScenePipeline, renderData, true, SelectTAA(m_GameTAA, Diligent::UserSettings::GetInstance().GetTAASettings().Enabled));
 
     // Leave the back buffer bound for the UI
     backBuffer.Bind(m_pImmediateContext);
@@ -128,29 +130,68 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
 
 void RendererManager::RenderGameView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
 {
-    RenderToTarget(pTarget, *m_pScenePipeline, renderData, true);
+    const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
+    RenderToTarget(pTarget, *m_pScenePipeline, renderData, true, SelectTAA(m_GameTAA, taa.Enabled));
 }
 
 void RendererManager::RenderEditorView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
 {
     if (!m_pEditorPipeline) return;
-    RenderToTarget(pTarget, *m_pEditorPipeline, renderData, false);
+    const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
+    RenderToTarget(pTarget, *m_pEditorPipeline, renderData, false, SelectTAA(m_EditorTAA, taa.Enabled && taa.ApplyToEditorView));
 }
 
-void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing)
+void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing, Diligent::TemporalAAPass* pTAA)
 {
     if (!pTarget || !pTarget->IsValid()) return;
 
     SyncMSAAState();
-    RenderView(pTarget->AsFrameTarget(), scenePipeline, renderData, applyPostProcessing);
+    RenderView(pTarget->AsFrameTarget(), scenePipeline, renderData, applyPostProcessing, pTAA);
 }
 
-void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing)
+Diligent::TemporalAAPass* RendererManager::SelectTAA(Diligent::TemporalAAPass& pass, bool enabled)
+{
+    if (enabled) return &pass;
+    pass.ResetHistory();
+    return nullptr;
+}
+
+Diligent::ITextureView* RendererManager::GetSceneDepthSRV(const Diligent::ScenePipeline& scenePipeline, const Diligent::FrameTarget& scene)
+{
+    if (Diligent::ITextureView* pSRV = scenePipeline.GetDepthSRV()) return pSRV;
+    if (!scene.pDSV) return nullptr;
+
+    // The swap chain's and multisampled depth buffers can't be sampled
+    Diligent::ITexture* pDepth = scene.pDSV->GetTexture();
+    const Diligent::TextureDesc& desc = pDepth->GetDesc();
+    if (desc.SampleCount > 1 || (desc.BindFlags & Diligent::BIND_SHADER_RESOURCE) == 0) return nullptr;
+    return pDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+}
+
+void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing, Diligent::TemporalAAPass* pTAA)
 {
     const ProjectSettings& settings = ProjectLoader::GetProjectSettings();
 
     // Each active post effect renders into its own intermediate texture: scene -> god rays -> color correction -> output
     Diligent::ITextureView* pSceneRTV = m_PostProcess.Begin(settings, renderData, output.pRTV, output.Width, output.Height, applyPostProcessing);
+
+    // TAA resolves into where the scene would have gone, so the scene passes draw into its input with a jittered camera instead.
+    // Post effects still get the unjittered renderData, since they run on the resolved image.
+    Diligent::ITextureView* pTAAOutputRTV = pSceneRTV;
+    Diligent::RenderData jitteredData;
+    const Diligent::RenderData* pSceneData = &renderData;
+    if (pTAA) {
+        const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
+        if (Diligent::ITextureView* pTAAInputRTV = pTAA->Begin(taa, renderData.ViewMatrix, renderData.ProjectionMatrix, output.Width, output.Height)) {
+            pSceneRTV = pTAAInputRTV;
+            jitteredData = renderData;
+            jitteredData.ProjectionMatrix = pTAA->GetJitteredProjection();
+            pSceneData = &jitteredData;
+        }
+        else {
+            pTAA = nullptr;
+        }
+    }
 
     // With MSAA the scene passes draw into the multisampled target (matching the PSOs' sample count), resolved into pSceneRTV after
     Diligent::FrameTarget scene{ pSceneRTV, output.pDSV, output.Width, output.Height };
@@ -166,13 +207,16 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::
 
     const Diligent::FogConstants fogConstants = Diligent::BuildFogConstants(settings.fog);
     m_SkyboxPipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
-    m_SkyboxPipeline.Render(m_pImmediateContext, renderData);
+    m_SkyboxPipeline.Render(m_pImmediateContext, *pSceneData);
 
-    scenePipeline.Render(m_pImmediateContext, renderData, scene, settings.lighting, fogConstants);
+    scenePipeline.Render(m_pImmediateContext, renderData, scene, settings, fogConstants);
+    //scenePipeline.Render(m_pImmediateContext, *pSceneData, scene, settings.lighting, fogConstants);
 
-    RenderOverlays(scene, renderData);
+    RenderOverlays(scene, *pSceneData);
 
     if (m_MSAAEnabled) ResolveMSAA(pSceneRTV->GetTexture());
+
+    if (pTAA) pTAA->Resolve(m_pImmediateContext, GetSceneDepthSRV(scenePipeline, scene), pTAAOutputRTV);
 
     m_PostProcess.Apply(m_pImmediateContext);
 }
