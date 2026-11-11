@@ -11,6 +11,11 @@ namespace Diligent::PipelineUtils {
     // Sample count that MSAA-aware PSOs and targets must use, from UserSettings
     Uint8 GetMSAASampleCount();
 
+    // Format every scene pass draws into (skybox, scene pipelines, particles, debug lines, TAA, post effects).
+    // Floating point, so light brighter than white survives until the display pass at the end of the PostProcessStack
+    // tone maps it into the 8-bit game/editor targets or the back buffer.
+    constexpr TEXTURE_FORMAT SceneColorFormat() { return TEX_FORMAT_RGBA16_FLOAT; }
+
     // Dynamic, CPU-writable uniform buffer
     RefCntAutoPtr<IBuffer> CreateDynamicCB(IRenderDevice* pDevice, const char* name, Uint64 size);
 

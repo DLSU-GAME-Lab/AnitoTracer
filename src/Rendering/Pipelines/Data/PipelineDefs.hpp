@@ -76,6 +76,9 @@ namespace Diligent {
     };
     static_assert(sizeof(FogConstants) % 16 == 0, "FogConstants must be 16-byte aligned for HLSL");
 
+    // Tone curves of the display pass. Values match ProjectHDRSettings::tone_mapper and Shaders/PostProcess/tonemap.hlsli
+    enum ToneMapper : int32_t { TONE_MAPPER_OFF = 0, TONE_MAPPER_AGX = 1, TONE_MAPPER_PBR_NEUTRAL = 2, TONE_MAPPER_COUNT };
+
     // Mirrors cbuffer ColorCorrectionConstants in Shaders/PostProcess/color_correction_ps.hlsl
     struct ColorCorrectionConstants
     {
@@ -87,6 +90,17 @@ namespace Diligent {
         float Saturation = 1.0f;
         float InvGamma = 1.0f;
         float HueShift = 0.0f;              // Radians
+
+        glm::vec4 AgXSlope{ 1.0f, 1.0f, 1.0f, 0.0f };   // rgb: slope, a: offset
+        float AgXPower = 1.0f;
+        float AgXSaturation = 1.0f;
+        float NeutralCompressionStart = 0.8f;
+        float NeutralDesaturation = 0.15f;
+
+        int32_t ToneMapper = TONE_MAPPER_OFF;
+        int32_t GradingEnabled = 0;         // 0 skips everything graded after the tone curve
+        float DitherStrength = 0.0f;        // In 8-bit output steps; 0 = off
+        float Padding = 0.0f;
     };
     static_assert(sizeof(ColorCorrectionConstants) % 16 == 0, "ColorCorrectionConstants must be 16-byte aligned for HLSL");
 
@@ -102,7 +116,9 @@ namespace Diligent {
         float SunRadius = 0.35f;
         float AspectRatio = 1.0f;
         int SampleCount = 64;
-        float Padding[3] = { 0.0f, 0.0f, 0.0f };
+        float Knee = 0.3f;                  // Luminance range above Threshold over which pixels fade in
+        float MaxBrightness = 4.0f;         // Luminance cap of an emitting pixel
+        float Padding = 0.0f;
     };
     static_assert(sizeof(GodRaysConstants) % 16 == 0, "GodRaysConstants must be 16-byte aligned for HLSL");
 

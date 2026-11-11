@@ -18,25 +18,49 @@ namespace Diligent {
     ColorCorrectionPipeline::ColorCorrectionPipeline()
         : PostProcessEffect("Color Correction", "PostProcess/color_correction_ps.hlsl", "ColorCorrectionConstants", PipelineUtils::PointClampSampler()) {}
 
-    bool ColorCorrectionPipeline::Prepare(const ProjectSettings& projectSettings, const RenderData&, Uint32, Uint32)
+    bool ColorCorrectionPipeline::Prepare(const ProjectSettings& projectSettings, const RenderData&, const PostProcessView& view, Uint32, Uint32)
     {
-        const ProjectColorCorrectionSettings& settings = projectSettings.color_correction;
-        if (!settings.enabled) return false;
+        const ProjectHDRSettings& hdr = projectSettings.hdr;
+        const ProjectColorCorrectionSettings& grading = projectSettings.color_correction;
+        const bool gradingEnabled = view.Effects && grading.enabled;
 
-        const float temperature = glm::clamp(settings.temperature, -1.0f, 1.0f);
-        const float tint = glm::clamp(settings.tint, -1.0f, 1.0f);
-        const glm::vec3 whiteBalance = NormalizeTint({ 1.0f + 0.3f * temperature, 1.0f - 0.3f * tint, 1.0f - 0.3f * temperature });
-        const glm::vec3 filter(settings.color_filter[0], settings.color_filter[1], settings.color_filter[2]);
+        ColorCorrectionConstants cc; // Neutral defaults: no grading, no tone curve
 
-        ColorCorrectionConstants& cc = m_Constants;
-        cc.ColorFilter = glm::vec4(whiteBalance * filter, std::exp2(settings.exposure));
-        cc.Shadows = glm::vec4(NormalizeTint(settings.shadows), 1.0f);
-        cc.Midtones = glm::vec4(NormalizeTint(settings.midtones), 1.0f);
-        cc.Highlights = glm::vec4(NormalizeTint(settings.highlights), 1.0f);
-        cc.Contrast = glm::max(settings.contrast, 0.0f);
-        cc.Saturation = glm::max(settings.saturation, 0.0f);
-        cc.InvGamma = 1.0f / glm::max(settings.gamma, 0.01f);
-        cc.HueShift = glm::radians(glm::clamp(settings.hue_shift, -180.0f, 180.0f));
+        // Scene exposure and tone curve
+        float exposureEV = 0.0f;
+        if (view.ToneMap) {
+            exposureEV += glm::clamp(hdr.exposure, -20.0f, 20.0f);
+            cc.ToneMapper = glm::clamp(hdr.tone_mapper, 0, static_cast<int>(TONE_MAPPER_COUNT) - 1);
+        }
+        cc.AgXSlope = glm::vec4(glm::max(glm::vec3(hdr.agx_slope[0], hdr.agx_slope[1], hdr.agx_slope[2]), 0.0f), hdr.agx_offset);
+        cc.AgXPower = glm::max(hdr.agx_power, 0.01f);
+        cc.AgXSaturation = glm::max(hdr.agx_saturation, 0.0f);
+        // The curve needs some room between where compression starts and white (1.0) to roll off into
+        cc.NeutralCompressionStart = glm::clamp(hdr.neutral_compression_start, 0.1f, 0.99f);
+        cc.NeutralDesaturation = glm::max(hdr.neutral_desaturation, 0.0f);
+        cc.DitherStrength = hdr.dither ? 1.0f : 0.0f;
+
+        // Color grading
+        cc.GradingEnabled = gradingEnabled ? 1 : 0;
+        glm::vec3 sceneFilter(1.0f);
+        if (gradingEnabled) {
+            const float temperature = glm::clamp(grading.temperature, -1.0f, 1.0f);
+            const float tint = glm::clamp(grading.tint, -1.0f, 1.0f);
+            const glm::vec3 whiteBalance = NormalizeTint({ 1.0f + 0.3f * temperature, 1.0f - 0.3f * tint, 1.0f - 0.3f * temperature });
+            sceneFilter = whiteBalance * glm::vec3(grading.color_filter[0], grading.color_filter[1], grading.color_filter[2]);
+            exposureEV += grading.exposure;
+
+            cc.Shadows = glm::vec4(NormalizeTint(grading.shadows), 1.0f);
+            cc.Midtones = glm::vec4(NormalizeTint(grading.midtones), 1.0f);
+            cc.Highlights = glm::vec4(NormalizeTint(grading.highlights), 1.0f);
+            cc.Contrast = glm::max(grading.contrast, 0.0f);
+            cc.Saturation = glm::max(grading.saturation, 0.0f);
+            cc.InvGamma = 1.0f / glm::max(grading.gamma, 0.01f);
+            cc.HueShift = glm::radians(glm::clamp(grading.hue_shift, -180.0f, 180.0f));
+        }
+        cc.ColorFilter = glm::vec4(sceneFilter, std::exp2(exposureEV));
+
+        m_Constants = cc;
         return true;
     }
 

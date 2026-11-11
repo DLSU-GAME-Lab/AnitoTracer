@@ -5,15 +5,15 @@ namespace Diligent {
 
     PostProcessPipeline::PostProcessPipeline(const Desc& desc) : m_Desc(desc) {}
 
-    void PostProcessPipeline::Initialize(IRenderDevice* pDevice, TEXTURE_FORMAT RTVFormat)
+    void PostProcessPipeline::Initialize(IRenderDevice* pDevice, TEXTURE_FORMAT inputFormat, TEXTURE_FORMAT outputFormat)
     {
         m_pDevice = pDevice;
-        m_Format = RTVFormat;
+        m_InputFormat = inputFormat;
         m_pIntermediate.Release();
 
         m_pPSO = PSOBuilder(std::string(m_Desc.Name) + " PSO")
             .Shaders("Deferred/fullscreen_vs.hlsl", m_Desc.PixelShader)
-            .RenderTargets({ RTVFormat }, TEX_FORMAT_UNKNOWN)
+            .RenderTargets({ outputFormat }, TEX_FORMAT_UNKNOWN)
             .Cull(CULL_MODE_NONE)
             .Variable(SHADER_TYPE_PIXEL, "g_SceneColor")
             .Variable(SHADER_TYPE_PIXEL, m_Desc.ConstantsName)
@@ -41,7 +41,7 @@ namespace Diligent {
             TexDesc.Type = RESOURCE_DIM_TEX_2D;
             TexDesc.Width = width;
             TexDesc.Height = height;
-            TexDesc.Format = m_Format;
+            TexDesc.Format = m_InputFormat;
             TexDesc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
 
             m_pIntermediate.Release();

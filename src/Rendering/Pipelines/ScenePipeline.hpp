@@ -37,6 +37,10 @@ namespace Diligent {
         // drawing into the target's. Read by passes that reproject the scene, like TAA. May be larger than the view.
         virtual ITextureView* GetDepthSRV() const { return nullptr; }
 
+        // True for stylized pipelines whose output is already the final on-screen color (e.g. cross hatching's ink and paper)
+        // rather than scene light. The display pass then leaves out the exposure and tone curve, which would grey their whites.
+        virtual bool OutputsDisplayColor() const { return false; }
+
     protected:
         virtual void PrepareFrame(const FrameTarget& target) {}
         virtual void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) {}

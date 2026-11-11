@@ -61,13 +61,14 @@ namespace Diligent {
         // Draws a model's submeshes binding materials through pSRB instead of m_pSRB (e.g. for an extra pass with its own PSO)
         void RenderModelWithSRB(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque, IShaderResourceBinding* pSRB);
 
-        // PSO for drawing models with the standard vertex layout, constants and material textures, into the swap chain formats
+        // PSO for drawing models with the standard vertex layout, constants and material textures, into the scene formats below
         PSOBuilder CreateModelPSOBuilder(const char* name, const char* psFile, const char* vsFile = "main_vs.hlsl");
 
         virtual std::vector<ShaderResourceVariableDesc> GetStandardShaderVariables();
         virtual std::vector<ImmutableSamplerDesc> GetStandardImmutableSamplers();
 
-        TEXTURE_FORMAT GetColorFormat() const { return m_pSwapChain->GetDesc().ColorBufferFormat; }
+        // The HDR scene format, not the swap chain's: pipelines never draw into a display target directly
+        TEXTURE_FORMAT GetColorFormat() const { return PipelineUtils::SceneColorFormat(); }
         TEXTURE_FORMAT GetDepthFormat() const { return m_pSwapChain->GetDesc().DepthBufferFormat; }
 
         RefCntAutoPtr<IPipelineState> m_pPSO;

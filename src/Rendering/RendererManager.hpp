@@ -24,6 +24,8 @@
 // Owns the scene pipelines (the selected one for the game view, a deferred one for the editor view) and the passes around them,
 // and draws views into the swap chain or render targets.
 // A view is drawn as: skybox -> scene pipeline -> particles -> debug lines -> MSAA resolve -> TAA -> post processing.
+// Everything up to post processing draws in the HDR scene format (PipelineUtils::SceneColorFormat). The last post processing
+// stage, the display pass, tone maps that into the view's 8-bit target.
 class RendererManager {
 public:
     static RendererManager& GetInstance() {
@@ -46,7 +48,8 @@ public:
     Diligent::RenderTarget* CreateRenderTarget(const std::string& name);
     // Off screen rendering to tex. The game view uses the renderer selected in the Rendering menu, with post processing (god rays, color correction).
     void RenderGameView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData);
-    // The editor view always uses the deferred renderer, without post processing (TAA still applies if enabled for it)
+    // The editor view always uses the deferred renderer, with only the display pass of post processing: exposure and the tone
+    // curve when ProjectHDRSettings::apply_to_editor_view is set, no effects or grading (TAA still applies if enabled for it)
     void RenderEditorView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData);
 
 private:
@@ -62,9 +65,20 @@ private:
     // PSO sample counts are baked in, so toggling MSAA rebuilds them (switching away from pipelines that don't support it)
     void SyncMSAAState();
 
-    // pTAA is the view's TAA pass, or nullptr to draw it without TAA
-    void RenderToTarget(Diligent::RenderTarget* pTarget, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing, Diligent::TemporalAAPass* pTAA);
-    void RenderView(const Diligent::FrameTarget& output, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing, Diligent::TemporalAAPass* pTAA);
+    // What one view is drawn with. Each view has its own post stack and TAA pass, since both keep per-view textures.
+    struct ViewPasses {
+        Diligent::ScenePipeline& Scene;
+        Diligent::PostProcessStack& PostProcess;
+        Diligent::PostProcessView View;
+        Diligent::TemporalAAPass* pTAA; // nullptr draws the view without TAA
+    };
+
+    // The game view's passes (also the back buffer's in release builds) and the editor view's
+    ViewPasses GameViewPasses();
+    ViewPasses EditorViewPasses();
+
+    void RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData, const ViewPasses& passes);
+    void RenderView(const Diligent::FrameTarget& output, const Diligent::RenderData& renderData, const ViewPasses& passes);
     void RenderOverlays(const Diligent::FrameTarget& target, const Diligent::RenderData& renderData);
     void ResolveMSAA(Diligent::ITexture* pDestination);
 
@@ -92,7 +106,8 @@ private:
     Diligent::SkyboxPipeline m_SkyboxPipeline;
     Diligent::ParticlePipeline m_ParticlePipeline;
     Diligent::DebugLinePipeline m_DebugLinePipeline;
-    Diligent::PostProcessStack m_PostProcess; // Game output only
+    Diligent::PostProcessStack m_PostProcess;                   // Game output: god rays, then the display pass with grading
+    Diligent::PostProcessStack m_EditorPostProcess{ true };     // Editor view: display pass only
 
     // Each keeps its view's history. The game one also serves the back buffer in release builds.
     Diligent::TemporalAAPass m_GameTAA;
