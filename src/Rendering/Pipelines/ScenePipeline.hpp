@@ -20,15 +20,17 @@ namespace Diligent {
             const ProjectSettings& settings, const FogConstants& fog);
 
         virtual void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
-        // noiseFrame is RenderData::NoiseFrame (see there)
-        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings, uint32_t noiseFrame = 0);
+        // Lighting and sky settings shared by the lit shaders. noiseFrame is RenderData::NoiseFrame (see there)
+        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectSettings& settings, uint32_t noiseFrame = 0);
         virtual void UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog);
 
         // Project settings specific to one pipeline (e.g. the cross hatching style)
         virtual void UpdateProjectSettings(IDeviceContext* pContext, const ProjectSettings& settings) {}
 
-        // Skybox cubemap, for pipelines that light with it
-        virtual void SetEnvironmentMap(ITextureView* pCubemapSRV) {}
+        // The sky's lighting cubemaps from SkyEnvironment, for pipelines that light with the sky:
+        // the irradiance cube (diffuse light) and the prefiltered cube (reflections, one roughness per mip).
+        // nullptr for either means no sky lighting.
+        virtual void SetSkyLighting(ITextureView* pIrradianceSRV, ITextureView* pSpecularSRV) {}
 
         // The swap chain was resized, for pipelines with swap chain sized resources
         virtual void OnResize(Uint32 width, Uint32 height) {}

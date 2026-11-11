@@ -14,6 +14,7 @@
 #include "Pipelines/DebugLinePipeline.hpp"
 #include "Pipelines/ParticlePipeline.hpp"
 #include "Pipelines/Utils/PostProcessStack.hpp"
+#include "Pipelines/Utils/SkyEnvironment.hpp"
 #include "Pipelines/PostProcess/TemporalAAPass.hpp"
 #include "RenderData.hpp"
 
@@ -65,6 +66,11 @@ private:
     // PSO sample counts are baked in, so toggling MSAA rebuilds them (switching away from pipelines that don't support it)
     void SyncMSAAState();
 
+    // Rebuilds the sky when the project's sky settings changed (another file, a solid color), then rebinds it
+    void SyncSky();
+    // Hands the sky cubemap to the skybox pass and the sky lighting cubes to the scene pipelines
+    void BindSky();
+
     // What one view is drawn with. Each view has its own post stack and TAA pass, since both keep per-view textures.
     struct ViewPasses {
         Diligent::ScenePipeline& Scene;
@@ -87,8 +93,6 @@ private:
     // Depth for TAA reprojection: the pipeline's own (deferred G-buffers), else the target's when it can be sampled
     static Diligent::ITextureView* GetSceneDepthSRV(const Diligent::ScenePipeline& scenePipeline, const Diligent::FrameTarget& scene);
 
-    void LoadDefaultSkybox();
-
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice>  m_pDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> m_pImmediateContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain>     m_pSwapChain;
@@ -103,6 +107,8 @@ private:
     // Always deferred, drawing the editor view. Not created in release builds, which have no editor view.
     std::unique_ptr<Diligent::ScenePipeline> m_pEditorPipeline;
 
+    // The sky cubemap and the lighting cubes filtered from it, shared by every view
+    Diligent::SkyEnvironment m_Sky;
     Diligent::SkyboxPipeline m_SkyboxPipeline;
     Diligent::ParticlePipeline m_ParticlePipeline;
     Diligent::DebugLinePipeline m_DebugLinePipeline;

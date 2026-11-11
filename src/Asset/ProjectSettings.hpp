@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <string>
 
 struct ProjectLightingSettings
 {
@@ -8,9 +9,32 @@ struct ProjectLightingSettings
     float ambient_multiplier = 1.0f;
     std::array<float, 3> ambient_color{0.03f, 0.03f, 0.03f};
 
-    // Hybrid renderer only: the skybox lights the scene and shows up in reflections.
+    // Hybrid renderer only: the sky (ProjectSkySettings) lights the scene and shows up in reflections.
     float sky_light_intensity = 1.0f;
     float reflection_intensity = 1.0f;
+};
+
+// Values of ProjectSkySettings::mode
+enum ProjectSkyMode : int { SKY_MODE_TEXTURE = 0, SKY_MODE_SOLID_COLOR = 1 };
+
+// File types the sky texture can be picked from, as a file dialog filter.
+// .dds and .ktx hold cubemaps; the rest (and 2D .dds / .ktx) are read as 360 degree panoramas.
+inline constexpr const char* kSkyTextureExtensions = "dds,ktx,hdr,png,jpg,jpeg,tga";
+
+// The sky: what is drawn behind the scene and, in the ray-traced renderers, what lights it and shows in reflections.
+struct ProjectSkySettings
+{
+    int mode = SKY_MODE_TEXTURE;
+
+    // Texture mode: a cubemap or a 360 degree panorama. Empty uses the default skybox.
+    // Stored relative to the project folder when the file is inside it, otherwise as picked.
+    std::string texture_path;
+    float rotation = 0.0f;                              // Degrees around the up axis
+
+    // Solid color mode
+    std::array<float, 3> color{0.35f, 0.55f, 0.9f};
+
+    float intensity = 1.0f;                             // Brightness of the sky and of the light it casts
 };
 
 struct ProjectFogSettings
@@ -168,6 +192,7 @@ struct ProjectAudioSettings
 struct ProjectSettings
 {
     ProjectLightingSettings lighting;
+    ProjectSkySettings sky;
     ProjectFogSettings fog;
     ProjectHDRSettings hdr;
     ProjectColorCorrectionSettings color_correction;

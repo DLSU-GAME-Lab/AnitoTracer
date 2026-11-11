@@ -2,6 +2,7 @@
 #include "../../UserSettings.hpp"
 #include "../../Asset/ProjectLoader.hpp"
 #include "imgui.h"
+#include <filesystem>
 #include <iostream>
 
 namespace Diligent {
@@ -57,7 +58,7 @@ namespace Diligent {
                 ImGui::DragFloat("Sky Light Intensity", &lightingSettings.sky_light_intensity, 0.01f, 0.0f, 10.0f, "%.2f");
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip("Hybrid renderer: how strongly the skybox lights the scene.");
+                    ImGui::SetTooltip("Hybrid renderer: how strongly the sky lights the scene, on top of the Skybox intensity.");
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
@@ -76,6 +77,89 @@ namespace Diligent {
                 if (ImGui::Button("Reset to Defaults"))
                 {
                     lightingSettings = ProjectLightingSettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Skybox Section
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& skySettings = projectSettings.sky;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::PushItemWidth(150.0f);
+
+                // Order matches ProjectSkyMode
+                const char* skyModeNames[] = { "Skybox Texture", "Solid Color" };
+                if (ImGui::Combo("Sky Type", &skySettings.mode, skyModeNames, IM_ARRAYSIZE(skyModeNames))) saveProjectSettings();
+                tooltip("What is drawn behind the scene.\nIn the ray-traced renderers the sky also lights the scene and shows up in reflections.");
+
+                if (skySettings.mode == SKY_MODE_TEXTURE)
+                {
+                    const bool usesDefault = skySettings.texture_path.empty();
+                    const std::string skyFileName = usesDefault
+                        ? std::string("Default skybox")
+                        : std::filesystem::path(skySettings.texture_path).filename().string();
+                    ImGui::Text("File: %s", skyFileName.c_str());
+                    if (!usesDefault && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", skySettings.texture_path.c_str());
+
+                    if (ImGui::Button("Browse...##Sky"))
+                    {
+                        const std::string picked = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, kSkyTextureExtensions);
+                        if (!picked.empty())
+                        {
+                            // Files inside the project are stored relative to it, so the project can be moved or shared
+                            std::filesystem::path skyPath(picked);
+                            const std::filesystem::path projectDir = ProjectLoader::GetCurrentProjectDir();
+                            if (!projectDir.empty())
+                            {
+                                const std::filesystem::path relative = skyPath.lexically_relative(projectDir);
+                                if (!relative.empty() && *relative.begin() != "..") skyPath = relative;
+                            }
+                            skySettings.texture_path = skyPath.generic_string();
+                            saveProjectSettings();
+                        }
+                    }
+                    tooltip("Pick a cubemap (.dds, .ktx) or a 360 degree panorama (.hdr, .png, .jpg, .tga).\n.hdr files keep the sky's real brightness, which gives the most convincing lighting.");
+
+                    ImGui::SameLine();
+                    ImGui::BeginDisabled(usesDefault);
+                    if (ImGui::Button("Use Default##Sky"))
+                    {
+                        skySettings.texture_path.clear();
+                        saveProjectSettings();
+                    }
+                    ImGui::EndDisabled();
+
+                    ImGui::SliderFloat("Rotation##Sky", &skySettings.rotation, -180.0f, 180.0f, "%.0f deg");
+                    tooltip("Turns the sky around the up axis, for example to move its sun.");
+                    saveAfterEdit();
+                }
+                else
+                {
+                    ImGui::ColorEdit3("Sky Color", skySettings.color.data());
+                    tooltip("The whole sky is this one color.");
+                    saveAfterEdit();
+                }
+
+                ImGui::DragFloat("Intensity##Sky", &skySettings.intensity, 0.01f, 0.0f, 1000.0f, "%.2f");
+                tooltip("Brightness of the sky, and of the light it casts in the ray-traced renderers.");
+                saveAfterEdit();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Skybox to Defaults"))
+                {
+                    skySettings = ProjectSkySettings{};
                     saveProjectSettings();
                 }
             }

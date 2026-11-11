@@ -21,7 +21,7 @@ void Diligent::HybridPipeline::InitializeRayTracingResources()
 {
     if (!m_SceneTLAS.IsInitialized()) m_SceneTLAS.Initialize(m_pDevice);
 
-    // 1x1 black cube so the shader can always sample g_EnvMap; sky light simply contributes nothing
+    // 1x1 black cube so the shader can always sample the sky lighting cubes; sky light simply contributes nothing
     if (!m_pFallbackEnvMap) m_pFallbackEnvMap = PipelineUtils::CreateSolidColorTexture(m_pDevice, "Hybrid Fallback Environment Map", 0xFF000000, true);
 }
 
@@ -29,8 +29,9 @@ std::vector<Diligent::ShaderResourceVariableDesc> Diligent::HybridPipeline::GetR
 {
     return {
         { SHADER_TYPE_PIXEL, "g_TLAS", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
-        // Dynamic so the skybox can be swapped after the fallback is bound
-        { SHADER_TYPE_PIXEL, "g_EnvMap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC }
+        // Dynamic so the sky can be swapped after the fallback is bound
+        { SHADER_TYPE_PIXEL, "g_EnvIrradiance", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
+        { SHADER_TYPE_PIXEL, "g_EnvSpecular", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC }
     };
 }
 
@@ -43,20 +44,18 @@ void Diligent::HybridPipeline::BindRayTracingResources()
 {
     // The TLAS is bound here, so it MUST have a valid state before rendering!
     PipelineUtils::BindVariable(GetRayTracingSRB(), SHADER_TYPE_PIXEL, "g_TLAS", m_SceneTLAS.Get());
-    SetEnvironmentMap(m_pEnvMapSRV);
+    SetSkyLighting(m_pEnvIrradianceSRV, m_pEnvSpecularSRV);
 }
 
-void Diligent::HybridPipeline::SetEnvironmentMap(ITextureView* pCubemapSRV)
+void Diligent::HybridPipeline::SetSkyLighting(ITextureView* pIrradianceSRV, ITextureView* pSpecularSRV)
 {
-    m_pEnvMapSRV = pCubemapSRV;
+    m_pEnvIrradianceSRV = pIrradianceSRV;
+    m_pEnvSpecularSRV = pSpecularSRV;
     if (!m_pFallbackEnvMap) return;
 
-    PipelineUtils::BindVariable(GetRayTracingSRB(), SHADER_TYPE_PIXEL, "g_EnvMap", GetEnvironmentMapView());
-}
-
-Diligent::ITextureView* Diligent::HybridPipeline::GetEnvironmentMapView() const
-{
-    return m_pEnvMapSRV ? m_pEnvMapSRV.RawPtr() : m_pFallbackEnvMap->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    ITextureView* pFallback = m_pFallbackEnvMap->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    PipelineUtils::BindVariable(GetRayTracingSRB(), SHADER_TYPE_PIXEL, "g_EnvIrradiance", pIrradianceSRV ? pIrradianceSRV : pFallback);
+    PipelineUtils::BindVariable(GetRayTracingSRB(), SHADER_TYPE_PIXEL, "g_EnvSpecular", pSpecularSRV ? pSpecularSRV : pFallback);
 }
 
 void Diligent::HybridPipeline::StartFrameRender(IDeviceContext* pContext, const RenderData& renderData)

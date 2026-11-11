@@ -6,9 +6,13 @@
 // Requires light_struct.hlsli, pbr_defs.hlsli and fog.hlsli to be included first.
 
 #include "rt_shadows.hlsli"
+#include "Skybox/sky_common.hlsli"
 
-// Skybox cubemap, used as the image-based light source (black 1x1 fallback when no skybox is loaded)
-TextureCube g_EnvMap;
+// Sky lighting, filtered from the sky by SkyEnvironment when it loads (black 1x1 fallbacks until then).
+// g_EnvIrradiance: the sky averaged over the hemisphere around each direction, for diffuse light.
+// g_EnvSpecular:   the sky blurred a little more in each mip, for reflections. Mip 0 is a mirror, the last mip the roughest surface.
+TextureCube g_EnvIrradiance;
+TextureCube g_EnvSpecular;
 SamplerState g_EnvMap_sampler;
 
 // ------------------------------------------------------------------
@@ -58,34 +62,20 @@ float SpecularOcclusion(float NdotV, float ao, float roughness)
 // ------------------------------------------------------------------
 // Image based lighting from the skybox
 // ------------------------------------------------------------------
-float GetEnvMipCount()
+// Diffuse sky light arriving at a surface facing N
+float3 SampleEnvIrradiance(float3 N)
+{
+    return g_EnvIrradiance.SampleLevel(g_EnvMap_sampler, RotateSkyDirection(N, g_SkyRotation), 0.0).rgb;
+}
+
+// Sky reflected along R by a surface of the given roughness: each mip was filtered for one roughness, 0 in the first to 1 in the last
+float3 SampleEnvSpecular(float3 R, float roughness)
 {
     uint width, height, mips;
-    g_EnvMap.GetDimensions(0, width, height, mips);
-    return (float)mips;
-}
+    g_EnvSpecular.GetDimensions(0, width, height, mips);
 
-// Cheap irradiance: a few taps of a blurry mip around the normal
-float3 SampleEnvIrradiance(float3 N, float mipCount)
-{
-    float mip = max(mipCount - 3.0, 0.0);
-
-    float3 t, b;
-    BuildBasis(N, t, b);
-
-    float3 irradiance = g_EnvMap.SampleLevel(g_EnvMap_sampler, N, mip).rgb * 2.0;
-    irradiance += g_EnvMap.SampleLevel(g_EnvMap_sampler, normalize(N + t), mip).rgb;
-    irradiance += g_EnvMap.SampleLevel(g_EnvMap_sampler, normalize(N - t), mip).rgb;
-    irradiance += g_EnvMap.SampleLevel(g_EnvMap_sampler, normalize(N + b), mip).rgb;
-    irradiance += g_EnvMap.SampleLevel(g_EnvMap_sampler, normalize(N - b), mip).rgb;
-    return irradiance / 6.0;
-}
-
-// Rougher surfaces read blurrier mips
-float3 SampleEnvSpecular(float3 R, float roughness, float mipCount)
-{
-    float mip = roughness * max(mipCount - 1.0, 0.0);
-    return g_EnvMap.SampleLevel(g_EnvMap_sampler, R, mip).rgb;
+    float mip = roughness * max(float(mips) - 1.0, 0.0);
+    return g_EnvSpecular.SampleLevel(g_EnvMap_sampler, RotateSkyDirection(R, g_SkyRotation), mip).rgb;
 }
 
 
@@ -169,8 +159,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
     float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, s.PositionError, N, ShiftNoise(noise, 4 + 8), bentNormal);
     float occlusion = min(s.AO, rtao);
 
-    float envMipCount = GetEnvMipCount();
-    float3 irradiance = g_AmbientColor.rgb + SampleEnvIrradiance(bentNormal, envMipCount) * g_SkyLightIntensity;
+    float3 irradiance = g_AmbientColor.rgb + SampleEnvIrradiance(bentNormal) * g_SkyLightIntensity;
     float3 kD = (1.0 - specularColor) * (1.0 - metallic);
     float3 ambientDiffuse = irradiance * s.Albedo * kD * occlusion;
 
@@ -182,7 +171,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
     float horizon = saturate(1.0 + dot(R, geoN));
     specOcclusion *= horizon * horizon;
 
-    float3 envSpecular = SampleEnvSpecular(R, roughness, envMipCount) * g_SkyLightIntensity;
+    float3 envSpecular = SampleEnvSpecular(R, roughness) * g_SkyLightIntensity;
     if (roughness < REFLECTION_MAX_ROUGHNESS && g_ReflectionIntensity > 0.0)
     {
         // A reflection ray can't shade what it hits (no hit shading here), so stand in a dim

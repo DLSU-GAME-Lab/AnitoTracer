@@ -40,6 +40,8 @@ set(${CUR_TARGET_NAME}_src
 	Pipelines/Utils/GBuffer.cpp
 	Pipelines/Utils/SceneTLAS.hpp
 	Pipelines/Utils/SceneTLAS.cpp
+	Pipelines/Utils/SkyEnvironment.hpp
+	Pipelines/Utils/SkyEnvironment.cpp
 	Pipelines/Utils/ScenePipelineRegistry.hpp
 	Pipelines/Utils/ScenePipelineRegistry.cpp
 	Pipelines/Utils/PostProcessStack.hpp

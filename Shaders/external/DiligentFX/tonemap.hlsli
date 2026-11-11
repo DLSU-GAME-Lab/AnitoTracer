@@ -1,7 +1,17 @@
+// Ported from DiligentFX, Copyright 2019-2026 Diligent Graphics LLC, Apache License 2.0 (LICENSE.txt in this folder).
+//   Source: Shaders/PostProcess/ToneMapping/public/ToneMapping.fxh (the AgX and Khronos PBR Neutral modes),
+//           Shaders/Common/public/SRGBUtilities.fxh (the sRGB decode)
+//   Changes: only those two curves are kept, each as a function taking its parameters instead of DiligentFX's
+//            ToneMappingAttribs; exposure is applied by the caller; the AgX look takes a per-channel slope;
+//            the PBR Neutral constants are parameters; the sRGB encode was added.
+// The curves themselves come from:
+//   AgX, minimal form by Benjamin Wrensch: https://iolite-engine.com/blog_posts/minimal_agx_implementation
+//   Khronos PBR Neutral (Apache License 2.0): https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral
+
 #ifndef TONEMAP_HLSLI
 #define TONEMAP_HLSLI
 
-// Tone curves of the display pass (color_correction_ps.hlsl). Each maps HDR scene color (linear, 0 and up) to
+// Tone curves of the display pass (PostProcess/color_correction_ps.hlsl). Each maps HDR scene color (linear, 0 and up) to
 // display color (linear, 0..1). The output target is an sRGB texture, which applies the display encoding on write.
 
 // Values match Diligent::ToneMapper in src/Rendering/Pipelines/Data/PipelineDefs.hpp

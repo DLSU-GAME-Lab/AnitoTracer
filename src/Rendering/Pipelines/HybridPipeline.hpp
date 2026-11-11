@@ -9,27 +9,26 @@ namespace Diligent {
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
         void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
 
-        // Skybox cubemap used for sky lighting and reflections. nullptr falls back to black.
-        void SetEnvironmentMap(ITextureView* pCubemapSRV) override;
+        // Sky lighting cubes: irradiance for diffuse light, prefiltered for reflections. nullptr falls back to black.
+        void SetSkyLighting(ITextureView* pIrradianceSRV, ITextureView* pSpecularSRV) override;
 
     protected:
         // TLAS and fallback environment map, created once and kept across re-initialization
         void InitializeRayTracingResources();
 
-        // g_TLAS and g_EnvMap variables / sampler for the PSO that does the ray-traced shading
+        // g_TLAS and the sky lighting cube variables / sampler for the PSO that does the ray-traced shading
         static std::vector<ShaderResourceVariableDesc> GetRayTracingVariables();
         static ImmutableSamplerDesc GetEnvironmentMapSampler();
 
-        // Binds the TLAS and environment map into the SRB of the ray-traced shading pass
+        // Binds the TLAS and sky lighting cubes into the SRB of the ray-traced shading pass
         void BindRayTracingResources();
 
         // SRB of the pass that traces rays (the forward pass here, the lighting pass in DeferredHybridPipeline)
         virtual IShaderResourceBinding* GetRayTracingSRB() { return m_pSRB; }
 
-        ITextureView* GetEnvironmentMapView() const;
-
         SceneTLAS m_SceneTLAS;
-        RefCntAutoPtr<ITextureView> m_pEnvMapSRV;
+        RefCntAutoPtr<ITextureView> m_pEnvIrradianceSRV;
+        RefCntAutoPtr<ITextureView> m_pEnvSpecularSRV;
         RefCntAutoPtr<ITexture> m_pFallbackEnvMap;
     };
 }

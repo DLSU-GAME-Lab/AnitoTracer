@@ -73,23 +73,26 @@ void RendererManager::InitializePipelines()
     m_GameTAA.Initialize(m_pDevice, sceneFormat);
     m_EditorTAA.Initialize(m_pDevice, sceneFormat);
 
-    LoadDefaultSkybox();
+    // The pipelines above were (re)created, so they need the sky again even when it did not change
+    m_Sky.Initialize(m_pDevice);
+    SyncSky();
+    BindSky();
 }
 
-void RendererManager::LoadDefaultSkybox()
+void RendererManager::SyncSky()
 {
-    // Load your default skybox texture (Make sure it is a compiled .dds cubemap!)
-    // FOR TESTING
-    auto* pDefaultSkybox = ModelManager::GetInstance().LoadCubemap("Assets/Skyboxes/skybox_raw.dds", true);
-    if (pDefaultSkybox) {
-        m_SkyboxPipeline.SetCubemap(pDefaultSkybox);
-        m_pScenePipeline->SetEnvironmentMap(pDefaultSkybox);
-        if (m_pEditorPipeline) m_pEditorPipeline->SetEnvironmentMap(pDefaultSkybox);
-        std::cout << "[Info] Default Skybox loaded and assigned successfully." << std::endl;
+    // Only the ray-traced renderers light the scene with the sky, so its lighting cubes are skipped where those can't run
+    const ProjectSettings& settings = ProjectLoader::GetProjectSettings();
+    if (m_Sky.Update(m_pImmediateContext, settings.sky, ProjectLoader::GetCurrentProjectDir(), m_SupportsRayTracing)) {
+        BindSky();
     }
-    else {
-        std::cout << "[Warn] Could not load Default Skybox." << std::endl;
-    }
+}
+
+void RendererManager::BindSky()
+{
+    m_SkyboxPipeline.SetCubemap(m_Sky.GetSkySRV());
+    if (m_pScenePipeline) m_pScenePipeline->SetSkyLighting(m_Sky.GetIrradianceSRV(), m_Sky.GetSpecularSRV());
+    if (m_pEditorPipeline) m_pEditorPipeline->SetSkyLighting(m_Sky.GetIrradianceSRV(), m_Sky.GetSpecularSRV());
 }
 
 void RendererManager::SyncMSAAState()
@@ -125,6 +128,7 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
     if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
 
     SyncMSAAState();
+    SyncSky();
 
     // The release build is the game itself, so post processing always applies here
     const Diligent::FrameTarget backBuffer{ m_pSwapChain->GetCurrentBackBufferRTV(), m_pSwapChain->GetDepthBufferDSV(), SCDesc.Width, SCDesc.Height };
@@ -172,6 +176,7 @@ void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Dili
     if (!pTarget || !pTarget->IsValid()) return;
 
     SyncMSAAState();
+    SyncSky();
     RenderView(pTarget->AsFrameTarget(), renderData, passes);
 }
 
@@ -239,7 +244,7 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, const Dili
 
     const Diligent::FogConstants fogConstants = Diligent::BuildFogConstants(settings.fog, pSceneData->NoiseFrame);
     m_SkyboxPipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
-    m_SkyboxPipeline.Render(m_pImmediateContext, *pSceneData);
+    m_SkyboxPipeline.Render(m_pImmediateContext, *pSceneData, Diligent::BuildSkyboxConstants(settings.sky));
 
     // Must use pSceneData: with TAA on it carries the jittered projection, which the skybox and overlays draw with too
     scenePipeline.Render(m_pImmediateContext, *pSceneData, scene, settings, fogConstants);

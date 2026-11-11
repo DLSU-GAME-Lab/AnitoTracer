@@ -8,7 +8,7 @@
 // (see Diligent::PostProcessView); what is left then is a clamp to the display range.
 
 #include "hdr_common.hlsli"
-#include "tonemap.hlsli"
+#include "../external/DiligentFX/tonemap.hlsli"
 
 Texture2D g_SceneColor;
 SamplerState g_SceneColor_sampler;
