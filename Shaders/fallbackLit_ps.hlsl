@@ -115,11 +115,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     }
 
     // --- Emissive Mapping Logic ---
-    float3 emissive = float3(0.0, 0.0, 0.0);
-    if (g_UseEmissiveMap > 0.5)
-    {
-        emissive = g_EmissiveMap.Sample(g_EmissiveMap_sampler, In.UV).rgb;
-    }
+    float3 emissive = SampleEmissive(In.UV);
 
     // 4. Ambient & Emissive Combined
     float3 ambient = g_AmbientColor.rgb * albedo.rgb * ao * g_AmbientMultiplier;

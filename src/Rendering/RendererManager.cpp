@@ -58,14 +58,20 @@ void RendererManager::InitializePipelines()
 {
     const auto& SCDesc = m_pSwapChain->GetDesc();
 
+    // Every scene pass draws in the HDR scene format. Only the display pass at the end of each post stack writes the
+    // 8-bit targets of the views, which are created with the swap chain's format (the back buffer in release builds).
+    const Diligent::TEXTURE_FORMAT sceneFormat = Diligent::PipelineUtils::SceneColorFormat();
+    const Diligent::TEXTURE_FORMAT displayFormat = SCDesc.ColorBufferFormat;
+
     m_pScenePipeline->InitializePipeline(m_pDevice, m_pSwapChain);
     if (m_pEditorPipeline) m_pEditorPipeline->InitializePipeline(m_pDevice, m_pSwapChain);
     m_DebugLinePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
     m_ParticlePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
-    m_SkyboxPipeline.Initialize(m_pDevice, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
-    m_PostProcess.Initialize(m_pDevice, SCDesc.ColorBufferFormat);
-    m_GameTAA.Initialize(m_pDevice, SCDesc.ColorBufferFormat);
-    m_EditorTAA.Initialize(m_pDevice, SCDesc.ColorBufferFormat);
+    m_SkyboxPipeline.Initialize(m_pDevice, sceneFormat, SCDesc.DepthBufferFormat);
+    m_PostProcess.Initialize(m_pDevice, sceneFormat, displayFormat);
+    if (m_pEditorPipeline) m_EditorPostProcess.Initialize(m_pDevice, sceneFormat, displayFormat);
+    m_GameTAA.Initialize(m_pDevice, sceneFormat);
+    m_EditorTAA.Initialize(m_pDevice, sceneFormat);
 
     LoadDefaultSkybox();
 }
@@ -122,7 +128,7 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
 
     // The release build is the game itself, so post processing always applies here
     const Diligent::FrameTarget backBuffer{ m_pSwapChain->GetCurrentBackBufferRTV(), m_pSwapChain->GetDepthBufferDSV(), SCDesc.Width, SCDesc.Height };
-    RenderView(backBuffer, *m_pScenePipeline, renderData, true, SelectTAA(m_GameTAA, Diligent::UserSettings::GetInstance().GetTAASettings().Enabled));
+    RenderView(backBuffer, renderData, GameViewPasses());
 
     // Leave the back buffer bound for the UI
     backBuffer.Bind(m_pImmediateContext);
@@ -130,23 +136,43 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
 
 void RendererManager::RenderGameView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
 {
-    const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
-    RenderToTarget(pTarget, *m_pScenePipeline, renderData, true, SelectTAA(m_GameTAA, taa.Enabled));
+    RenderToTarget(pTarget, renderData, GameViewPasses());
 }
 
 void RendererManager::RenderEditorView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
 {
     if (!m_pEditorPipeline) return;
-    const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
-    RenderToTarget(pTarget, *m_pEditorPipeline, renderData, false, SelectTAA(m_EditorTAA, taa.Enabled && taa.ApplyToEditorView));
+    RenderToTarget(pTarget, renderData, EditorViewPasses());
 }
 
-void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing, Diligent::TemporalAAPass* pTAA)
+RendererManager::ViewPasses RendererManager::GameViewPasses()
+{
+    const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
+
+    Diligent::PostProcessView view;
+    view.Effects = true;
+    // Stylized renderers output their final colors, so only renderers that output scene light are tone mapped
+    view.ToneMap = !m_pScenePipeline->OutputsDisplayColor();
+    return { *m_pScenePipeline, m_PostProcess, view, SelectTAA(m_GameTAA, taa.Enabled) };
+}
+
+RendererManager::ViewPasses RendererManager::EditorViewPasses()
+{
+    const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
+
+    // No effects or grading, so the editor shows the scene as lit and stays cheap: one extra full-screen pass
+    Diligent::PostProcessView view;
+    view.Effects = false;
+    view.ToneMap = ProjectLoader::GetProjectSettings().hdr.apply_to_editor_view && !m_pEditorPipeline->OutputsDisplayColor();
+    return { *m_pEditorPipeline, m_EditorPostProcess, view, SelectTAA(m_EditorTAA, taa.Enabled && taa.ApplyToEditorView) };
+}
+
+void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData, const ViewPasses& passes)
 {
     if (!pTarget || !pTarget->IsValid()) return;
 
     SyncMSAAState();
-    RenderView(pTarget->AsFrameTarget(), scenePipeline, renderData, applyPostProcessing, pTAA);
+    RenderView(pTarget->AsFrameTarget(), renderData, passes);
 }
 
 Diligent::TemporalAAPass* RendererManager::SelectTAA(Diligent::TemporalAAPass& pass, bool enabled)
@@ -168,12 +194,15 @@ Diligent::ITextureView* RendererManager::GetSceneDepthSRV(const Diligent::SceneP
     return pDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
 }
 
-void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::ScenePipeline& scenePipeline, const Diligent::RenderData& renderData, bool applyPostProcessing, Diligent::TemporalAAPass* pTAA)
+void RendererManager::RenderView(const Diligent::FrameTarget& output, const Diligent::RenderData& renderData, const ViewPasses& passes)
 {
     const ProjectSettings& settings = ProjectLoader::GetProjectSettings();
+    Diligent::ScenePipeline& scenePipeline = passes.Scene;
+    Diligent::TemporalAAPass* pTAA = passes.pTAA;
 
-    // Each active post effect renders into its own intermediate texture: scene -> god rays -> color correction -> output
-    Diligent::ITextureView* pSceneRTV = m_PostProcess.Begin(settings, renderData, output.pRTV, output.Width, output.Height, applyPostProcessing);
+    // Each active post effect renders into its own HDR intermediate texture: scene -> god rays -> display pass -> output.
+    // The display pass always runs, so the scene never draws into the 8-bit output directly.
+    Diligent::ITextureView* pSceneRTV = passes.PostProcess.Begin(settings, renderData, passes.View, output.pRTV, output.Width, output.Height);
 
     // TAA resolves into where the scene would have gone, so the scene passes draw into its input with a jittered camera instead.
     // Post effects still get the unjittered renderData, since they run on the resolved image.
@@ -186,6 +215,9 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::
             pSceneRTV = pTAAInputRTV;
             jitteredData = renderData;
             jitteredData.ProjectionMatrix = pTAA->GetJitteredProjection();
+            // TAA averages frames, so ray-traced shadows, AO and fog can change their sample pattern every frame
+            // (0 means "keep still", so skip it if the counter ever wraps)
+            jitteredData.NoiseFrame = pTAA->GetFrameIndex() != 0 ? pTAA->GetFrameIndex() : 1;
             pSceneData = &jitteredData;
         }
         else {
@@ -197,7 +229,7 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::
     Diligent::FrameTarget scene{ pSceneRTV, output.pDSV, output.Width, output.Height };
     if (m_MSAAEnabled) {
         const auto& SCDesc = m_pSwapChain->GetDesc();
-        m_MSAATarget.Create(m_pDevice, output.Width, output.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat, Diligent::PipelineUtils::GetMSAASampleCount());
+        m_MSAATarget.Create(m_pDevice, output.Width, output.Height, Diligent::PipelineUtils::SceneColorFormat(), SCDesc.DepthBufferFormat, Diligent::PipelineUtils::GetMSAASampleCount());
         scene = m_MSAATarget.AsFrameTarget();
     }
 
@@ -205,12 +237,12 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::
     scene.Bind(m_pImmediateContext);
     scene.Clear(m_pImmediateContext, clearColor);
 
-    const Diligent::FogConstants fogConstants = Diligent::BuildFogConstants(settings.fog);
+    const Diligent::FogConstants fogConstants = Diligent::BuildFogConstants(settings.fog, pSceneData->NoiseFrame);
     m_SkyboxPipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
     m_SkyboxPipeline.Render(m_pImmediateContext, *pSceneData);
 
-    scenePipeline.Render(m_pImmediateContext, renderData, scene, settings, fogConstants);
-    //scenePipeline.Render(m_pImmediateContext, *pSceneData, scene, settings.lighting, fogConstants);
+    // Must use pSceneData: with TAA on it carries the jittered projection, which the skybox and overlays draw with too
+    scenePipeline.Render(m_pImmediateContext, *pSceneData, scene, settings, fogConstants);
 
     RenderOverlays(scene, *pSceneData);
 
@@ -218,7 +250,7 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::
 
     if (pTAA) pTAA->Resolve(m_pImmediateContext, GetSceneDepthSRV(scenePipeline, scene), pTAAOutputRTV);
 
-    m_PostProcess.Apply(m_pImmediateContext);
+    passes.PostProcess.Apply(m_pImmediateContext);
 }
 
 void RendererManager::RenderOverlays(const Diligent::FrameTarget& target, const Diligent::RenderData& renderData)

@@ -35,4 +35,6 @@ cbuffer ShadowSettings
     float g_SkyLightIntensity;   // Hybrid only: strength of skybox diffuse lighting
     float g_ReflectionIntensity; // Hybrid only: strength of skybox reflections
     float4 g_AmbientColor;
+    uint g_NoiseFrame;           // Changes every frame while TAA is on, so ray sample patterns vary over time; 0 keeps them still
+    float3 g_ShadowPadding;
 };

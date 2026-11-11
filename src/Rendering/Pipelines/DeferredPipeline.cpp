@@ -11,6 +11,7 @@ void Diligent::DeferredPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
             { "G-Buffer AlbedoMetallic",  TEX_FORMAT_RGBA8_UNORM,  "g_GBufferAlbedo" },
             { "G-Buffer NormalRoughness", TEX_FORMAT_RGBA16_FLOAT, "g_GBufferNormal" },
             { "G-Buffer WorldPos",        TEX_FORMAT_RGBA32_FLOAT, "g_GBufferWorldPos" },
+            { "G-Buffer Emissive",        TEX_FORMAT_RGBA16_FLOAT, "g_GBufferEmissive" },
         },
         { "Depth Buffer", TEX_FORMAT_D32_FLOAT, "g_GBufferDepth" });
     // Textures are created by PrepareFrame at the size of the view being drawn
@@ -38,6 +39,7 @@ void Diligent::DeferredPipeline::InitializeLightingPSO()
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferNormal", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferWorldPos", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferDepth", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
+        .Variable(SHADER_TYPE_PIXEL, "g_GBufferEmissive", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "LightConstants")
         .Variable(SHADER_TYPE_PIXEL, "ShadowSettings")
         .Variable(SHADER_TYPE_PIXEL, "FogConstants")

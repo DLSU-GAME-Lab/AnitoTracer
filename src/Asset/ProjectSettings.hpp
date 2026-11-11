@@ -40,11 +40,34 @@ struct ProjectFogSettings
     bool apply_to_skybox = true;
 };
 
+// HDR output. The scene is rendered in floating point, so lights and emissive surfaces can be brighter than white.
+// The display pass at the end of the frame applies the exposure and a tone curve to fit that range onto the screen.
+// Applies to the game view and release builds, and to the editor view when apply_to_editor_view is set.
+// Stylized renderers (CrossHatch) are never tone mapped; their colors are already final.
+struct ProjectHDRSettings
+{
+    int tone_mapper = 2;             // 0: off (clamp at white), 1: AgX, 2: Khronos PBR Neutral
+    float exposure = 0.0f;           // In stops (EV), applied before the tone curve. 0 = unchanged.
+    bool apply_to_editor_view = true;
+    bool dither = true;              // Breaks up banding in smooth gradients on the 8-bit output
+
+    // AgX look: a slope / offset / power / saturation grade applied inside the curve. These defaults are the plain "Base" look.
+    std::array<float, 3> agx_slope{1.0f, 1.0f, 1.0f};
+    float agx_offset = 0.0f;
+    float agx_power = 1.0f;
+    float agx_saturation = 1.0f;
+
+    // Khronos PBR Neutral. These defaults are the values from the Khronos specification.
+    float neutral_compression_start = 0.8f;  // Brightness where highlights start to roll off. Colors below it are left as authored.
+    float neutral_desaturation = 0.15f;      // How quickly compressed highlights fade toward white
+};
+
 // Post-process color grading. Only applied to the game view / release build output, never the editor view.
+// Exposure, white balance and the color filter act on the HDR scene, before the tone curve; the rest grades the tone mapped image.
 struct ProjectColorCorrectionSettings
 {
     bool enabled = false;
-    float exposure = 0.0f;       // In stops (EV). 0 = unchanged.
+    float exposure = 0.0f;       // In stops (EV), on top of ProjectHDRSettings::exposure. 0 = unchanged.
     float contrast = 1.0f;       // 1 = unchanged. Pivots around mid-grey.
     float saturation = 1.0f;     // 0 = greyscale, 1 = unchanged.
     float gamma = 1.0f;          // 1 = unchanged. >1 brightens midtones.
@@ -66,7 +89,9 @@ struct ProjectGodRaysSettings
     float intensity = 1.0f;
     float density = 0.8f;        // Fraction of the way to the sun each pixel marches. Longer shafts at higher values.
     float decay = 0.96f;         // Falloff along the shaft (per 64 samples). Closer to 1 = longer shafts.
-    float threshold = 0.7f;      // Luminance below which pixels don't emit shafts.
+    float threshold = 0.7f;      // Luminance below which pixels don't emit shafts. The scene is HDR, so this can be above 1.
+    float threshold_knee = 0.3f; // Luminance range above the threshold over which pixels fade in to full emission.
+    float max_brightness = 4.0f; // Caps how bright an emitting pixel counts, so a single very bright pixel can't streak across the screen.
     float sun_radius = 0.35f;    // Size of the emitting region around the sun, as a fraction of screen height.
     int sample_count = 64;
     bool use_light_color = true; // Multiply the tint by the directional light's color and intensity.
@@ -144,6 +169,7 @@ struct ProjectSettings
 {
     ProjectLightingSettings lighting;
     ProjectFogSettings fog;
+    ProjectHDRSettings hdr;
     ProjectColorCorrectionSettings color_correction;
     ProjectGodRaysSettings god_rays;
     ProjectCrossHatchSettings crosshatch;

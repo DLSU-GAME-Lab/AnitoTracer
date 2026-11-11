@@ -20,7 +20,8 @@ namespace Diligent {
             const ProjectSettings& settings, const FogConstants& fog);
 
         virtual void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
-        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings);
+        // noiseFrame is RenderData::NoiseFrame (see there)
+        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings, uint32_t noiseFrame = 0);
         virtual void UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog);
 
         // Project settings specific to one pipeline (e.g. the cross hatching style)
@@ -35,6 +36,10 @@ namespace Diligent {
         // Scene depth from the last Render, for pipelines that keep their own depth buffer (e.g. a G-buffer) instead of
         // drawing into the target's. Read by passes that reproject the scene, like TAA. May be larger than the view.
         virtual ITextureView* GetDepthSRV() const { return nullptr; }
+
+        // True for stylized pipelines whose output is already the final on-screen color (e.g. cross hatching's ink and paper)
+        // rather than scene light. The display pass then leaves out the exposure and tone curve, which would grey their whites.
+        virtual bool OutputsDisplayColor() const { return false; }
 
     protected:
         virtual void PrepareFrame(const FrameTarget& target) {}

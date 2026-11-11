@@ -20,7 +20,7 @@ static const float REFLECTION_MAX_ROUGHNESS = 0.6; // Above this, specular occlu
 static const float REFLECTION_RAY_DISTANCE = 100.0;
 
 // Ray-traced ambient occlusion. Also returns the bent normal (average unoccluded direction)
-float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float3 N, float noise, out float3 bentNormal)
+float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, float3 N, float2 noise, out float3 bentNormal)
 {
     float3 t, b;
     BuildBasis(N, t, b);
@@ -30,7 +30,7 @@ float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float3 N, float noise,
     for (int s = 0; s < AO_SAMPLES; ++s)
     {
         // Disk -> hemisphere projection gives a cosine-weighted distribution (Malley's method)
-        float2 d = VogelDisk(s, AO_SAMPLES, noise * 2.0 * PI);
+        float2 d = VogelDisk(s, AO_SAMPLES, noise.x * 2.0 * PI, noise.y);
         float3 dir = t * d.x + b * d.y + N * sqrt(saturate(1.0 - dot(d, d)));
 
         // Normal maps can tilt samples below the real surface; mirror them back above it
@@ -40,7 +40,7 @@ float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float3 N, float noise,
             dir -= 2.0 * below * geoN;
         }
 
-        float v = TraceShadowRay(worldPos, geoN, dir, AO_RADIUS);
+        float v = TraceShadowRay(worldPos, geoN, positionError, dir, AO_RADIUS);
         visibility += v;
         openDir += dir * v;
     }
@@ -99,6 +99,7 @@ struct HybridSurface
     float3 WorldPos;
     float3 N;        // Shading normal (normal mapped)
     float3 GeoN;     // Unperturbed geometric normal, used strictly for ray origin offsets
+    float PositionError; // World units WorldPos may be off the surface; 0 when interpolated, > 0 when rebuilt from depth
     float3 Albedo;
     float Metallic;
     float Roughness; // Already clamped to >= 0.05
@@ -119,8 +120,9 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
     float3 F0 = lerp(float3(0.04, 0.04, 0.04), s.Albedo, metallic);
     float3 Lo = float3(0.0, 0.0, 0.0);
 
-    // Per-pixel rotation for all stochastic rays, so the sample patterns don't band
-    float noise = InterleavedGradientNoise(pixelPos);
+    // Per-pixel rotation for all stochastic rays, so the sample patterns don't band; changes every frame under TAA.
+    // Each light and the AO get their own shift of it (index k: dir lights 0-3, point lights 4-11, AO 12)
+    float2 noise = RayNoise(pixelPos);
 
     // Single scattering GGX loses energy on rough surfaces; scale it back up (Fdez-Aguera 2019)
     float2 envBRDF = EnvBRDFApprox(NdotV, roughness);
@@ -134,7 +136,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
         if (dot(N, L) <= 0.0)
             continue;
 
-        float shadowFactor = TraceDirectionalShadow(s.WorldPos, geoN, L, noise);
+        float shadowFactor = TraceDirectionalShadow(s.WorldPos, geoN, s.PositionError, L, ShiftNoise(noise, i));
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
         Lo += ComputeLightRadiance(N, V, L, radiance, s.Albedo, metallic, roughness, F0, shadowFactor, energyCompensation);
@@ -152,7 +154,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
             if (dot(N, L) <= 0.0)
                 continue;
 
-            float shadowFactor = TracePointShadow(s.WorldPos, geoN, g_PointLights[j].Position.xyz, L, noise);
+            float shadowFactor = TracePointShadow(s.WorldPos, geoN, s.PositionError, g_PointLights[j].Position.xyz, L, ShiftNoise(noise, 4 + j));
 
             float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
             attenuation *= attenuation;
@@ -164,7 +166,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
 
     // 3. Ambient: flat ambient color plus skybox light, both occluded by ray-traced AO
     float3 bentNormal;
-    float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, N, noise, bentNormal);
+    float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, s.PositionError, N, ShiftNoise(noise, 4 + 8), bentNormal);
     float occlusion = min(s.AO, rtao);
 
     float envMipCount = GetEnvMipCount();
@@ -185,7 +187,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
     {
         // A reflection ray can't shade what it hits (no hit shading here), so stand in a dim
         // bounce of the local irradiance for the occluder instead of showing sky through it
-        float reflectionVisibility = TraceShadowRay(s.WorldPos, geoN, R, REFLECTION_RAY_DISTANCE);
+        float reflectionVisibility = TraceShadowRay(s.WorldPos, geoN, s.PositionError, R, REFLECTION_RAY_DISTANCE);
         float3 occludedRadiance = irradiance * 0.25 * occlusion;
         float traceWeight = 1.0 - smoothstep(REFLECTION_MAX_ROUGHNESS * 0.5, REFLECTION_MAX_ROUGHNESS, roughness);
         envSpecular = lerp(envSpecular, lerp(occludedRadiance, envSpecular, reflectionVisibility), traceWeight);

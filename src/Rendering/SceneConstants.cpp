@@ -3,7 +3,7 @@
 
 namespace Diligent {
 
-    FogConstants BuildFogConstants(const ProjectFogSettings& settings)
+    FogConstants BuildFogConstants(const ProjectFogSettings& settings, uint32_t noiseFrame)
     {
         static const auto startTime = std::chrono::steady_clock::now();
         const float elapsedSeconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
@@ -26,10 +26,11 @@ namespace Diligent {
         fog.SampleCount = glm::clamp(settings.volumetric_sample_count, 1, 128);
         fog.LightIntensity = settings.volumetric_light_intensity;
         fog.AmbientIntensity = settings.volumetric_ambient_intensity;
+        fog.NoiseFrame = noiseFrame;
         return fog;
     }
 
-    ShadowSettings BuildShadowSettings(const ProjectLightingSettings& settings)
+    ShadowSettings BuildShadowSettings(const ProjectLightingSettings& settings, uint32_t noiseFrame)
     {
         ShadowSettings shadow;
         shadow.ShadowBias = settings.shadow_bias;
@@ -37,6 +38,7 @@ namespace Diligent {
         shadow.SkyLightIntensity = settings.sky_light_intensity;
         shadow.ReflectionIntensity = settings.reflection_intensity;
         shadow.AmbientColor = glm::vec4(settings.ambient_color[0], settings.ambient_color[1], settings.ambient_color[2], 1.0f);
+        shadow.NoiseFrame = noiseFrame;
         return shadow;
     }
 

@@ -56,6 +56,10 @@ struct PBRMaterial {
     float MetallicFactor = 0.0f;
     float RoughnessFactor = 1.0f;
 
+    // Emitted light = EmissiveFactor * EmissiveStrength * emissive map (white when there is no map)
+    float3 EmissiveFactor = float3(0.0f, 0.0f, 0.0f);
+    float EmissiveStrength = 1.0f;
+
     bool IsTransparent = false;
 };
 

@@ -66,6 +66,9 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
             matCBData.RoughnessFactor = modelData.OverrideRoughness ? modelData.Roughness : mat.RoughnessFactor;
             matCBData.OverrideFlags = static_cast<float>((modelData.OverrideRoughness ? 1 : 0) | (modelData.OverrideMetallic ? 2 : 0));
 
+            const glm::vec3 materialEmissive = glm::vec3(mat.EmissiveFactor.r, mat.EmissiveFactor.g, mat.EmissiveFactor.b) * mat.EmissiveStrength;
+            matCBData.EmissiveFactor = glm::vec4(modelData.OverrideEmissive ? modelData.Emissive : materialEmissive, 0.0f);
+
             // Missing maps still need a valid texture bound; the Use*Map flags tell the shader to ignore it
             ITextureView* pSafeFallbackTexture = mat.BaseColor;
             auto BindMap = [&](const char* name, ITextureView* pMap, float& useFlag) {
@@ -156,13 +159,14 @@ std::vector<ShaderResourceVariableDesc> BasePipeline::GetStandardShaderVariables
 
 std::vector<ImmutableSamplerDesc> BasePipeline::GetStandardImmutableSamplers()
 {
-    SamplerDesc SamLinearWrapDesc = PipelineUtils::LinearWrapSampler();
+    // Anisotropic so material textures stay sharp on surfaces seen at grazing angles
+    SamplerDesc SamMaterialDesc = PipelineUtils::AnisotropicWrapSampler(m_pDevice);
 
     return {
-        {SHADER_TYPE_PIXEL, "g_BaseColorMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_NormalMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_AOMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_EmissiveMap_sampler", SamLinearWrapDesc}
+        {SHADER_TYPE_PIXEL, "g_BaseColorMap_sampler", SamMaterialDesc},
+        {SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap_sampler", SamMaterialDesc},
+        {SHADER_TYPE_PIXEL, "g_NormalMap_sampler", SamMaterialDesc},
+        {SHADER_TYPE_PIXEL, "g_AOMap_sampler", SamMaterialDesc},
+        {SHADER_TYPE_PIXEL, "g_EmissiveMap_sampler", SamMaterialDesc}
     };
 }

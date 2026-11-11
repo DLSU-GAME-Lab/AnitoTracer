@@ -8,6 +8,7 @@ Texture2D g_GBufferAlbedo;
 Texture2D g_GBufferNormal;
 Texture2D g_GBufferWorldPos;
 Texture2D g_GBufferDepth;
+Texture2D g_GBufferEmissive;
 
 SamplerState g_GBuffer_sampler;
 
@@ -69,7 +70,8 @@ void main_ps(in FullScreenPSInput In, out float4 OutColor : SV_TARGET, out float
 
     // Ambient Lighting
     float3 ambient = g_AmbientColor.rgb * albedo * g_AmbientMultiplier;
-    float3 color = ApplyFog(ambient + Lo, WPos, In.Pos.xy);
+    float3 emissive = g_GBufferEmissive.Sample(g_GBuffer_sampler, In.UV).rgb;
+    float3 color = ApplyFog(ambient + Lo + emissive, WPos, In.Pos.xy);
     OutColor = float4(color, 1.0);
     OutDepth = g_GBufferDepth.Load(int3(In.Pos.xy, 0)).r;
 }

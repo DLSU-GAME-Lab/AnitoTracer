@@ -4,30 +4,34 @@
 
 namespace Diligent {
 
-    PostProcessStack::PostProcessStack()
+    PostProcessStack::PostProcessStack(bool displayOnly)
     {
-        // Light shafts go first so color correction grades them together with the scene
-        AddEffect<GodRaysPipeline>();
+        if (!displayOnly) {
+            // Light shafts go first so the display pass exposes, tone maps and grades them together with the scene
+            AddEffect<GodRaysPipeline>();
+        }
+
+        // Display pass: must stay last, it is the only effect that writes the display format
         AddEffect<ColorCorrectionPipeline>();
     }
 
-    void PostProcessStack::Initialize(IRenderDevice* pDevice, TEXTURE_FORMAT RTVFormat)
+    void PostProcessStack::Initialize(IRenderDevice* pDevice, TEXTURE_FORMAT sceneFormat, TEXTURE_FORMAT displayFormat)
     {
-        for (auto& pEffect : m_Effects) {
-            pEffect->Initialize(pDevice, RTVFormat);
+        for (size_t i = 0; i < m_Effects.size(); ++i) {
+            const bool isLast = (i + 1 == m_Effects.size());
+            m_Effects[i]->Initialize(pDevice, sceneFormat, isLast ? displayFormat : sceneFormat);
         }
         m_ActiveEffects.clear();
     }
 
-    ITextureView* PostProcessStack::Begin(const ProjectSettings& settings, const RenderData& renderData, ITextureView* pOutputRTV,
-        Uint32 width, Uint32 height, bool enabled)
+    ITextureView* PostProcessStack::Begin(const ProjectSettings& settings, const RenderData& renderData, const PostProcessView& view,
+        ITextureView* pOutputRTV, Uint32 width, Uint32 height)
     {
         m_pOutputRTV = pOutputRTV;
         m_ActiveEffects.clear();
-        if (!enabled) return pOutputRTV;
 
         for (auto& pEffect : m_Effects) {
-            if (!pEffect->Prepare(settings, renderData, width, height)) continue;
+            if (!pEffect->Prepare(settings, renderData, view, width, height)) continue;
 
             if (ITextureView* pInputRTV = pEffect->GetIntermediateRTV(width, height)) {
                 m_ActiveEffects.push_back({ pEffect.get(), pInputRTV });

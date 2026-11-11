@@ -1,10 +1,19 @@
-// Full-screen color grading pass. Paired with Deferred/fullscreen_vs.hlsl.
-// The source is the game view's color buffer; since it's an sRGB target, samples come back in linear space.
+// Display pass: the last full-screen pass of every view. Paired with Deferred/fullscreen_vs.hlsl.
+// Converts the HDR scene (linear, floating point) into the 8-bit sRGB output:
+//   exposure, white balance, color filter (on scene light)
+//   -> tone curve
+//   -> contrast, lift / gamma / gain, hue, saturation, gamma (on the display image)
+//   -> dither
+// The grading steps only run for views with effects, and the tone curve only for views that are tone mapped
+// (see Diligent::PostProcessView); what is left then is a clamp to the display range.
+
+#include "hdr_common.hlsli"
+#include "tonemap.hlsli"
 
 Texture2D g_SceneColor;
 SamplerState g_SceneColor_sampler;
 
-// Mirrors Diligent::ColorCorrectionConstants in src/Rendering/Pipelines/PipelineDefs.hpp
+// Mirrors Diligent::ColorCorrectionConstants in src/Rendering/Pipelines/Data/PipelineDefs.hpp
 cbuffer ColorCorrectionConstants
 {
     float4 g_ColorFilter;   // rgb: multiplier (white balance folded in), a: exposure multiplier
@@ -15,6 +24,17 @@ cbuffer ColorCorrectionConstants
     float g_Saturation;
     float g_InvGamma;
     float g_HueShift;       // Radians
+
+    float4 g_AgXSlope;      // rgb: slope, a: offset
+    float g_AgXPower;
+    float g_AgXSaturation;
+    float g_NeutralCompressionStart;
+    float g_NeutralDesaturation;
+
+    int g_ToneMapper;       // TONE_MAPPER_* in tonemap.hlsli
+    int g_GradingEnabled;   // 0 skips everything graded after the tone curve
+    float g_DitherStrength; // In 8-bit output steps; 0 = off
+    float g_Padding;
 };
 
 struct FullScreenPSInput
@@ -23,7 +43,6 @@ struct FullScreenPSInput
     float2 UV : TEXCOORD0;
 };
 
-static const float3 LUMA_WEIGHTS = float3(0.2126, 0.7152, 0.0722);
 static const float MID_GREY = 0.18;
 
 // Rotates the color around the grey axis (Rodrigues rotation about (1,1,1)/sqrt(3))
@@ -35,29 +54,64 @@ float3 RotateHue(float3 color, float angle)
     return color * cosA + cross(k, color) * sinA + k * dot(k, color) * (1.0 - cosA);
 }
 
+float3 ToneMap(float3 color)
+{
+    if (g_ToneMapper == TONE_MAPPER_AGX)
+    {
+        return ToneMapAgX(color, g_AgXSlope.rgb, g_AgXSlope.a, g_AgXPower, g_AgXSaturation);
+    }
+    if (g_ToneMapper == TONE_MAPPER_PBR_NEUTRAL)
+    {
+        return ToneMapPBRNeutral(color, g_NeutralCompressionStart, g_NeutralDesaturation);
+    }
+    return color; // Off: clipped at white at the end
+}
+
+// Per-pixel value in 0..1 (interleaved gradient noise)
+float DitherNoise(float2 pixel)
+{
+    return frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
+}
+
 float4 main_ps(in FullScreenPSInput In) : SV_TARGET
 {
     float4 scene = g_SceneColor.Sample(g_SceneColor_sampler, In.UV);
-    float3 color = scene.rgb;
+    float3 color = SanitizeHDR(scene.rgb);
 
-    // Exposure, white balance and color filter
+    // On scene light: exposure, white balance and color filter
     color *= g_ColorFilter.rgb * g_ColorFilter.a;
 
-    // Contrast in log space, pivoting around mid-grey so midtones keep their brightness
-    color = MID_GREY * pow(max(color, 0.0) / MID_GREY, g_Contrast);
+    // Scene light -> display image
+    color = ToneMap(color);
 
-    // Lift / gamma / gain
-    color *= g_Highlights.rgb;
-    color += (g_Shadows.rgb - 1.0) * 0.1 * (1.0 - saturate(color));
-    color = pow(max(color, 0.0), 1.0 / max(g_Midtones.rgb, 0.01));
+    if (g_GradingEnabled != 0)
+    {
+        // Contrast in log space, pivoting around mid-grey so midtones keep their brightness
+        color = MID_GREY * pow(max(color, 0.0) / MID_GREY, g_Contrast);
 
-    if (g_HueShift != 0.0)
-        color = RotateHue(color, g_HueShift);
+        // Lift / gamma / gain
+        color *= g_Highlights.rgb;
+        color += (g_Shadows.rgb - 1.0) * 0.1 * (1.0 - saturate(color));
+        color = pow(max(color, 0.0), 1.0 / max(g_Midtones.rgb, 0.01));
 
-    float luma = dot(color, LUMA_WEIGHTS);
-    color = lerp(luma.xxx, color, g_Saturation);
+        if (g_HueShift != 0.0)
+            color = RotateHue(color, g_HueShift);
 
-    color = pow(max(color, 0.0), g_InvGamma);
+        float luma = dot(color, TONEMAP_LUMA_WEIGHTS);
+        color = lerp(luma.xxx, color, g_Saturation);
 
-    return float4(saturate(color), scene.a);
+        color = pow(max(color, 0.0), g_InvGamma);
+    }
+
+    color = saturate(color);
+
+    // The output has 256 steps per channel. A little noise before rounding trades visible bands in smooth
+    // gradients (sky, fog) for grain too fine to see. Applied in the encoded space, where the steps are even.
+    if (g_DitherStrength > 0.0)
+    {
+        float noise = (DitherNoise(In.Pos.xy) - 0.5) * g_DitherStrength / 255.0;
+        color = SRGBToLinear(saturate(LinearToSRGB(color) + noise));
+    }
+
+    return float4(color, scene.a);
 }
