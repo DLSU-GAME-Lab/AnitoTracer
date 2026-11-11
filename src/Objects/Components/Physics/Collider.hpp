@@ -82,4 +82,4 @@ protected:
 
 GBE_REGISTER_SERIALIZED_TYPE(Collider, ComponentBase);
 
-ANITO_SCRIPT_TYPE(Collider, "collider", "anito::Collider", true);
+ANITO_SCRIPT_TYPE(Collider, "collider", "anito::Collider", true, "physics");

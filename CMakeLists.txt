@@ -10,6 +10,7 @@ if (POLICY CMP0141)
 endif()
 
 project ("AnitoTracer_Rebuild" LANGUAGES C CXX)
+include(CTest)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -155,4 +156,3 @@ copy_required_dlls(AnitoTracer_Rebuild DXC_REQUIRED YES)
 #    "${SHADER_DST_DIR}"
 #    COMMENT "Copying Shaders to build directory..."
 #)
-
