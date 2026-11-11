@@ -97,6 +97,14 @@ void RigidBody::SetWorldGravity(const glm::vec3& gravity) {
 	PhysicsEngine::GetInstance().Get().SetGravity(gravity);
 }
 
+bool RigidBody::IsSimulated() const {
+	return mBody != nullptr;
+}
+
+glm::quat RigidBody::GetBodyRotation() const {
+	return mBody ? mBody->GetRotation() : glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+}
+
 PhysicsRaycastHit RigidBody::Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const {
 	if (!mBody) return {};
 
@@ -119,6 +127,13 @@ void RigidBody::SetMass(float mass) {
 
 float RigidBody::GetMass() const {
 	return mMass;
+}
+
+void RigidBody::SetLockRotation(bool lockX, bool lockY, bool lockZ) {
+	mLockRotationX = lockX;
+	mLockRotationY = lockY;
+	mLockRotationZ = lockZ;
+	ApplyRotationLocks();
 }
 
 void RigidBody::Rebuild(

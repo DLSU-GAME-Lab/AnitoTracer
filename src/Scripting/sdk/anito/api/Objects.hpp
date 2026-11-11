@@ -58,12 +58,12 @@ namespace detail {
 inline Variant ToVariant(const GameObject& v) { return Variant::OfObject(v.id); }
 } // namespace detail
 
-inline GameObject Transform::gameObject() const { return GameObject{id}; }
+inline GameObject generated::TransformHandle::gameObject() const { return GameObject{id}; }
 inline Transform Transform::parent() const { return Transform{detail::H().object.GetParent(id)}; }
-inline GameObject Camera::gameObject() const { return GameObject{id}; }
-inline GameObject Rigidbody::gameObject() const { return GameObject{id}; }
-inline GameObject Collider::gameObject() const { return GameObject{id}; }
-inline GameObject AudioSource::gameObject() const { return GameObject{id}; }
+inline GameObject generated::CameraHandle::gameObject() const { return GameObject{id}; }
+inline GameObject generated::RigidbodyHandle::gameObject() const { return GameObject{id}; }
+inline GameObject generated::ColliderHandle::gameObject() const { return GameObject{id}; }
+inline GameObject generated::AudioSourceHandle::gameObject() const { return GameObject{id}; }
 inline GameObject Script::gameObject() const { return GameObject{id}; }
 inline GameObject RaycastHit::gameObject() const { return GameObject{result.object}; }
 

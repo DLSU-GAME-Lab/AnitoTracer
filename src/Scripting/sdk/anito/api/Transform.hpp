@@ -1,33 +1,28 @@
 #pragma once
 
-#include "Common.hpp"
+#include "anito/generated/api/Transform.hpp"
 
 namespace anito {
-// ================================================================================================
-// Transform
-// ================================================================================================
-class Transform {
+class Transform : public generated::TransformHandle {
 public:
-    ObjectId id = 0;
+    using generated::TransformHandle::TransformHandle;
 
-    bool valid() const { return detail::H().object.IsValid(id); }
-    inline GameObject gameObject() const;
-    inline Transform parent() const;
+    bool valid() const { return generated::TransformHandle::valid(); }
+    Transform parent() const;
 
-    // World space (Unity default); local* are relative to the parent.
-    Vec3 position() const { Vec3 v{}; detail::H().transform.GetPosition(id, &v); return v; }
-    void setPosition(Vec3 v) const { detail::H().transform.SetPosition(id, v); }
-    Vec3 localPosition() const { Vec3 v{}; detail::H().transform.GetLocalPosition(id, &v); return v; }
-    void setLocalPosition(Vec3 v) const { detail::H().transform.SetLocalPosition(id, v); }
-    Quat rotation() const { Quat q; detail::H().transform.GetRotation(id, &q); return q; }
-    void setRotation(Quat q) const { detail::H().transform.SetRotation(id, q); }
-    Quat localRotation() const { Quat q; detail::H().transform.GetLocalRotation(id, &q); return q; }
-    void setLocalRotation(Quat q) const { detail::H().transform.SetLocalRotation(id, q); }
-    Vec3 localScale() const { Vec3 v{}; detail::H().transform.GetLocalScale(id, &v); return v; }
-    void setLocalScale(Vec3 v) const { detail::H().transform.SetLocalScale(id, v); }
-    Vec3 lossyScale() const { Vec3 v{}; detail::H().transform.GetLossyScale(id, &v); return v; }
-    Vec3 eulerAngles() const { Vec3 v{}; detail::H().transform.GetEulerAngles(id, &v); return v; }
-    void setEulerAngles(Vec3 v) const { detail::H().transform.SetEulerAngles(id, v); }
+    using generated::TransformHandle::eulerAngles;
+    using generated::TransformHandle::localPosition;
+    using generated::TransformHandle::localRotation;
+    using generated::TransformHandle::localScale;
+    using generated::TransformHandle::lossyScale;
+    using generated::TransformHandle::position;
+    using generated::TransformHandle::rotation;
+    using generated::TransformHandle::setEulerAngles;
+    using generated::TransformHandle::setLocalPosition;
+    using generated::TransformHandle::setLocalRotation;
+    using generated::TransformHandle::setLocalScale;
+    using generated::TransformHandle::setPosition;
+    using generated::TransformHandle::setRotation;
 
     Vec3 forward() const { return rotation() * Vec3{0.0f, 0.0f, 1.0f}; }
     Vec3 right() const { return rotation() * Vec3{1.0f, 0.0f, 0.0f}; }
@@ -42,7 +37,7 @@ public:
     Vec3 transformDirection(Vec3 local) const { return rotation() * local; }
     Vec3 inverseTransformDirection(Vec3 world) const { return rotation().inverse() * world; }
 
-    bool operator==(const Transform& o) const { return id == o.id; }
-    bool operator!=(const Transform& o) const { return id != o.id; }
+    bool operator==(const Transform& other) const { return id == other.id; }
+    bool operator!=(const Transform& other) const { return id != other.id; }
 };
 } // namespace anito
