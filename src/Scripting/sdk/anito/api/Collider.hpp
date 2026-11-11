@@ -1,16 +1,10 @@
 #pragma once
 
-#include "Common.hpp"
+#include "anito/generated/api/Physics.hpp"
 
 namespace anito {
-class Collider {
+class Collider : public generated::ColliderHandle {
 public:
-    ObjectId id = 0;
-
-    bool valid() const { return detail::H().physics.HasCollider(id); }
-    inline GameObject gameObject() const;
-
-    bool operator==(const Collider& o) const { return id == o.id; }
-    bool operator!=(const Collider& o) const { return id != o.id; }
+    using generated::ColliderHandle::ColliderHandle;
 };
-} // namespace anito
+}

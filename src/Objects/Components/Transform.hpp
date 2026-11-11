@@ -42,10 +42,7 @@ public:
     void SetWorldPosition(const glm::vec3& worldPosition);
     void SetWorldRotation(const glm::quat& worldRotation);
 
-    void SetRotation(const glm::quat& rotation) {
-        m_rotation = rotation;
-        m_eulerAnglesDegrees = glm::degrees(glm::eulerAngles(m_rotation));
-    }
+    void SetRotation(const glm::quat& rotation);
 
     void SetScale(const glm::vec3& scale) { m_scale = scale; }
 
@@ -82,7 +79,7 @@ private:
 
 GBE_REGISTER_SERIALIZED_TYPE(Transform, ComponentBase);
 
-ANITO_SCRIPT_TYPE(Transform, "transform", "anito::Transform", true);
+ANITO_SCRIPT_TYPE(Transform, "transform", "anito::Transform", true, "transform");
 ANITO_SCRIPT_PROPERTY(Transform, "transform", "position", GetPosition, SetWorldPosition);
 ANITO_SCRIPT_PROPERTY(Transform, "transform", "localPosition", GetLocalPosition, SetPosition);
 ANITO_SCRIPT_PROPERTY(Transform, "transform", "rotation", GetRotation, SetWorldRotation);

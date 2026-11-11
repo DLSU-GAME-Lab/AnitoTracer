@@ -37,7 +37,12 @@ public:
         gbe::InputSystem::RegisterMapping(INPUTKEY_PITCH_UP, gbe::Key::Shift, gbe::InputTrigger::All);
         gbe::InputSystem::RegisterMapping(INPUTKEY_YAW_LEFT, gbe::Key::D, gbe::InputTrigger::All);
         gbe::InputSystem::RegisterMapping(INPUTKEY_YAW_RIGHT, gbe::Key::A, gbe::InputTrigger::All);
-        gbe::InputSystem::RegisterMapping(INPUTKEY_PRIMARY, gbe::Key::MouseLeft, gbe::InputTrigger::All);
-        gbe::InputSystem::RegisterMapping(INPUTKEY_SECONDARY, gbe::Key::MouseRight, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_PRIMARY, gbe::Key::F, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping(INPUTKEY_SECONDARY, gbe::Key::R, gbe::InputTrigger::All);
+
+        gbe::InputSystem::RegisterMapping("FPS_LOOK_LEFT", gbe::Key::Left, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping("FPS_LOOK_RIGHT", gbe::Key::Right, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping("FPS_LOOK_UP", gbe::Key::Up, gbe::InputTrigger::All);
+        gbe::InputSystem::RegisterMapping("FPS_LOOK_DOWN", gbe::Key::Down, gbe::InputTrigger::All);
     }
 };

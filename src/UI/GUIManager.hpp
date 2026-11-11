@@ -6,6 +6,8 @@
 #include <compare>
 #include <filesystem>
 
+#include <glm/vec3.hpp>
+
 #include "Panels/BasePanel.hpp" 
 #include "MenuBar.hpp"
 #include "Gizmos/GizmoDrawer.hpp"
@@ -14,6 +16,8 @@
 #include "Panels/UserSettingsPanel.hpp"
 #include "Panels/ProfilerPanel.hpp"
 #include "Panels/FileExplorerPanel.hpp"
+#include "Panels/ScriptEditorPanel.hpp"
+#include "Panels/FileOpeners/ScriptFileOpener.hpp"
 #include "Panels/InspectorPanel/InspectorPanel.hpp"
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"
@@ -108,6 +112,11 @@ namespace Diligent {
         bool IsGameViewportHovered() const { return m_IsGameViewportHovered; }
         bool IsGameViewportFocused() const { return m_IsGameViewportFocused; }
 
+        glm::vec3 ScriptWorldToScreen(const glm::vec3& world) const;
+        void ScriptFillRect(const glm::vec3& min, const glm::vec3& max, const glm::vec3& rgb, float alpha) const;
+        void ScriptDrawRect(const glm::vec3& min, const glm::vec3& max, const glm::vec3& rgb, float alpha,
+                            float thickness) const;
+
         // Brings the Game panel to the front and gives it input focus (e.g. when Play starts).
         void RequestGameViewportFocus() { m_GameViewportFocusRequested = true; }
         bool ConsumeGameViewportFocusRequest() {
@@ -128,6 +137,7 @@ namespace Diligent {
         //Cache ref for laters
         HierarchyPanel* m_pHierarchyPanel = nullptr;
         FileExplorerPanel* m_pFileExplorerPanel = nullptr;
+        ScriptEditorPanel* m_pScriptEditorPanel = nullptr;
         GamePanel* m_pGamePanel = nullptr;
         EditorPanel* m_pEditorPanel = nullptr;
         std::vector<FileExplorerPanel::Opener> m_FileOpeners;
@@ -156,6 +166,8 @@ namespace Diligent {
         bool m_IsGameViewportFocused = false;
         bool m_GameViewportFocusRequested = false;
         bool m_FrameStarted = false;
+
+        void GetScriptViewport(ImVec2& pos, ImVec2& size) const;
     };
 
 }

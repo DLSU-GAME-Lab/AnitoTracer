@@ -1,28 +1,10 @@
 #pragma once
 
-#include "Transform.hpp"
-#include "Physics.hpp"
-#include "Camera.hpp"
-#include "Audio.hpp"
-#include "Object.hpp"
-#include "Scene.hpp"
-#include "Script.hpp"
-#include "Runtime.hpp"
+#include "anito/generated/host/HostIncludes.hpp"
 
 namespace anito {
 struct HostAPI {
-    void (*Log)(const char* message);
-    TransformAPI transform;
-    PhysicsAPI physics;
-    CameraAPI camera;
-    AudioAPI audio;
-    ObjectAPI object;
-    SceneAPI scene;
-    ScriptAPI script;
-    InputAPI input;
-    TimeAPI time;
-    GuiAPI gui;
-    FieldAPI field;
+#include "anito/generated/host/HostFields.inc"
 };
 
 namespace detail {
