@@ -19,91 +19,8 @@ static const float AO_RADIUS = 1.0;             // World units
 static const float REFLECTION_MAX_ROUGHNESS = 0.6; // Above this, specular occlusion from AO is enough
 static const float REFLECTION_RAY_DISTANCE = 100.0;
 
-// ------------------------------------------------------------------
-// Sampling helpers
-// ------------------------------------------------------------------
-
-// Point i of n on a unit disk, evenly spread, rotated by phi (radians)
-float2 VogelDisk(int i, int n, float phi)
-{
-    float r = sqrt((i + 0.5) / n);
-    float theta = i * 2.39996323 + phi; // Golden angle
-    return r * float2(cos(theta), sin(theta));
-}
-
-void BuildBasis(float3 n, out float3 t, out float3 b)
-{
-    float3 up = abs(n.y) < 0.999 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
-    t = normalize(cross(up, n));
-    b = cross(n, t);
-}
-
-// ------------------------------------------------------------------
-// Helper: Traces a visibility ray, returns 1 when nothing is hit
-// positionError: how far worldPos may be off the real surface (deferred depth reconstruction), added to the bias
-// ------------------------------------------------------------------
-float TraceShadowRay(float3 worldPos, float3 normal, float positionError, float3 lightDir, float maxDist)
-{
-    // Master! We offset the ray origin along the unperturbed geometric normal to prevent self-shadowing~♡
-    RayDesc ray;
-    ray.Origin = worldPos + (normal * (g_ShadowBias + positionError));
-    ray.Direction = lightDir;
-    ray.TMin = 0.001;
-    ray.TMax = maxDist;
-
-    RayQuery < RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > q;
-
-    // Force opaque so the RayQuery doesn't wait for any-hit shader confirmation!
-    q.TraceRayInline(g_TLAS, RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
-
-    // Traversal state machine loop~
-    while (q.Proceed())
-    {
-    }
-
-    if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
-    {
-        return 0.0;
-    }
-
-    return 1.0;
-}
-
-// Soft shadow from a directional light treated as a disk of SUN_ANGULAR_RADIUS
-float TraceDirectionalShadow(float3 worldPos, float3 geoN, float positionError, float3 L, float noise)
-{
-    float3 t, b;
-    BuildBasis(L, t, b);
-    float spread = tan(SUN_ANGULAR_RADIUS);
-
-    float visibility = 0.0;
-    for (int s = 0; s < SHADOW_SAMPLES; ++s)
-    {
-        float2 d = VogelDisk(s, SHADOW_SAMPLES, noise * 2.0 * PI) * spread;
-        visibility += TraceShadowRay(worldPos, geoN, positionError, normalize(L + t * d.x + b * d.y), 1000.0);
-    }
-    return visibility / SHADOW_SAMPLES;
-}
-
-// Soft shadow from a point light treated as a disk of POINT_LIGHT_RADIUS facing the surface
-float TracePointShadow(float3 worldPos, float3 geoN, float positionError, float3 lightPos, float3 L, float noise)
-{
-    float3 t, b;
-    BuildBasis(L, t, b);
-
-    float visibility = 0.0;
-    for (int s = 0; s < SHADOW_SAMPLES; ++s)
-    {
-        float2 d = VogelDisk(s, SHADOW_SAMPLES, noise * 2.0 * PI) * POINT_LIGHT_RADIUS;
-        float3 toSample = lightPos + t * d.x + b * d.y - worldPos;
-        float dist = length(toSample);
-        visibility += TraceShadowRay(worldPos, geoN, positionError, toSample / dist, dist - 0.01);
-    }
-    return visibility / SHADOW_SAMPLES;
-}
-
 // Ray-traced ambient occlusion. Also returns the bent normal (average unoccluded direction)
-float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, float3 N, float noise, out float3 bentNormal)
+float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, float3 N, float2 noise, out float3 bentNormal)
 {
     float3 t, b;
     BuildBasis(N, t, b);
@@ -113,7 +30,7 @@ float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, f
     for (int s = 0; s < AO_SAMPLES; ++s)
     {
         // Disk -> hemisphere projection gives a cosine-weighted distribution (Malley's method)
-        float2 d = VogelDisk(s, AO_SAMPLES, noise * 2.0 * PI);
+        float2 d = VogelDisk(s, AO_SAMPLES, noise.x * 2.0 * PI, noise.y);
         float3 dir = t * d.x + b * d.y + N * sqrt(saturate(1.0 - dot(d, d)));
 
         // Normal maps can tilt samples below the real surface; mirror them back above it
@@ -203,8 +120,9 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
     float3 F0 = lerp(float3(0.04, 0.04, 0.04), s.Albedo, metallic);
     float3 Lo = float3(0.0, 0.0, 0.0);
 
-    // Per-pixel rotation for all stochastic rays, so the sample patterns don't band
-    float noise = InterleavedGradientNoise(pixelPos);
+    // Per-pixel rotation for all stochastic rays, so the sample patterns don't band; changes every frame under TAA.
+    // Each light and the AO get their own shift of it (index k: dir lights 0-3, point lights 4-11, AO 12)
+    float2 noise = RayNoise(pixelPos);
 
     // Single scattering GGX loses energy on rough surfaces; scale it back up (Fdez-Aguera 2019)
     float2 envBRDF = EnvBRDFApprox(NdotV, roughness);
@@ -218,7 +136,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
         if (dot(N, L) <= 0.0)
             continue;
 
-        float shadowFactor = TraceDirectionalShadow(s.WorldPos, geoN, s.PositionError, L, noise);
+        float shadowFactor = TraceDirectionalShadow(s.WorldPos, geoN, s.PositionError, L, ShiftNoise(noise, i));
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
         Lo += ComputeLightRadiance(N, V, L, radiance, s.Albedo, metallic, roughness, F0, shadowFactor, energyCompensation);
@@ -236,7 +154,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
             if (dot(N, L) <= 0.0)
                 continue;
 
-            float shadowFactor = TracePointShadow(s.WorldPos, geoN, s.PositionError, g_PointLights[j].Position.xyz, L, noise);
+            float shadowFactor = TracePointShadow(s.WorldPos, geoN, s.PositionError, g_PointLights[j].Position.xyz, L, ShiftNoise(noise, 4 + j));
 
             float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
             attenuation *= attenuation;
@@ -248,7 +166,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
 
     // 3. Ambient: flat ambient color plus skybox light, both occluded by ray-traced AO
     float3 bentNormal;
-    float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, s.PositionError, N, noise, bentNormal);
+    float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, s.PositionError, N, ShiftNoise(noise, 4 + 8), bentNormal);
     float occlusion = min(s.AO, rtao);
 
     float envMipCount = GetEnvMipCount();

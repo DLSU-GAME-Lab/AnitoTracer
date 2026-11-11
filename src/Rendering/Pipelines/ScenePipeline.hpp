@@ -20,7 +20,8 @@ namespace Diligent {
             const ProjectSettings& settings, const FogConstants& fog);
 
         virtual void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
-        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings);
+        // noiseFrame is RenderData::NoiseFrame (see there)
+        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectLightingSettings& settings, uint32_t noiseFrame = 0);
         virtual void UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog);
 
         // Project settings specific to one pipeline (e.g. the cross hatching style)

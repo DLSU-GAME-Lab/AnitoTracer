@@ -159,13 +159,14 @@ std::vector<ShaderResourceVariableDesc> BasePipeline::GetStandardShaderVariables
 
 std::vector<ImmutableSamplerDesc> BasePipeline::GetStandardImmutableSamplers()
 {
-    SamplerDesc SamLinearWrapDesc = PipelineUtils::LinearWrapSampler();
+    // Anisotropic so material textures stay sharp on surfaces seen at grazing angles
+    SamplerDesc SamMaterialDesc = PipelineUtils::AnisotropicWrapSampler(m_pDevice);
 
     return {
-        {SHADER_TYPE_PIXEL, "g_BaseColorMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_NormalMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_AOMap_sampler", SamLinearWrapDesc},
-        {SHADER_TYPE_PIXEL, "g_EmissiveMap_sampler", SamLinearWrapDesc}
+        {SHADER_TYPE_PIXEL, "g_BaseColorMap_sampler", SamMaterialDesc},
+        {SHADER_TYPE_PIXEL, "g_MetallicRoughnessMap_sampler", SamMaterialDesc},
+        {SHADER_TYPE_PIXEL, "g_NormalMap_sampler", SamMaterialDesc},
+        {SHADER_TYPE_PIXEL, "g_AOMap_sampler", SamMaterialDesc},
+        {SHADER_TYPE_PIXEL, "g_EmissiveMap_sampler", SamMaterialDesc}
     };
 }

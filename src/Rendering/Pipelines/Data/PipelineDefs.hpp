@@ -46,7 +46,10 @@ namespace Diligent {
         float SkyLightIntensity = 1.0f;   // Hybrid only
         float ReflectionIntensity = 1.0f; // Hybrid only
         glm::vec4 AmbientColor{ 0.03f, 0.03f, 0.03f, 1.0f };
+        uint32_t NoiseFrame = 0;          // RenderData::NoiseFrame: varies ray sample patterns per frame under TAA, 0 keeps them still
+        float Padding[3] = { 0.0f, 0.0f, 0.0f };
     };
+    static_assert(sizeof(ShadowSettings) % 16 == 0, "ShadowSettings must be 16-byte aligned for HLSL");
 
     // Mirrors cbuffer FogConstants in Shaders/fog.hlsli
     struct FogConstants
@@ -68,7 +71,8 @@ namespace Diligent {
         int SampleCount = 24;
         float LightIntensity = 1.0f;
         float AmbientIntensity = 0.3f;
-        float Padding[2] = { 0.0f, 0.0f };
+        uint32_t NoiseFrame = 0;                                // RenderData::NoiseFrame: varies the march jitter per frame under TAA
+        float Padding = 0.0f;
     };
     static_assert(sizeof(FogConstants) % 16 == 0, "FogConstants must be 16-byte aligned for HLSL");
 

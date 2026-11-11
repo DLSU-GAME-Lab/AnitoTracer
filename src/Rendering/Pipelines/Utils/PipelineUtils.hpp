@@ -34,6 +34,9 @@ namespace Diligent::PipelineUtils {
         SET_SHADER_RESOURCE_FLAGS flags = SET_SHADER_RESOURCE_FLAG_NONE);
 
     SamplerDesc LinearWrapSampler();
+    // Wrap sampler with anisotropic filtering, keeping textures sharp at grazing angles (floors, walls toward the horizon).
+    // Anisotropy is capped at what the device supports; falls back to LinearWrapSampler when it supports none.
+    SamplerDesc AnisotropicWrapSampler(IRenderDevice* pDevice, Uint32 maxAnisotropy = 16);
     SamplerDesc LinearClampSampler();
     SamplerDesc PointClampSampler();
 

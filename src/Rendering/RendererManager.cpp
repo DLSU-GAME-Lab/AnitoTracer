@@ -186,6 +186,9 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::
             pSceneRTV = pTAAInputRTV;
             jitteredData = renderData;
             jitteredData.ProjectionMatrix = pTAA->GetJitteredProjection();
+            // TAA averages frames, so ray-traced shadows, AO and fog can change their sample pattern every frame
+            // (0 means "keep still", so skip it if the counter ever wraps)
+            jitteredData.NoiseFrame = pTAA->GetFrameIndex() != 0 ? pTAA->GetFrameIndex() : 1;
             pSceneData = &jitteredData;
         }
         else {
@@ -205,12 +208,12 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, Diligent::
     scene.Bind(m_pImmediateContext);
     scene.Clear(m_pImmediateContext, clearColor);
 
-    const Diligent::FogConstants fogConstants = Diligent::BuildFogConstants(settings.fog);
+    const Diligent::FogConstants fogConstants = Diligent::BuildFogConstants(settings.fog, pSceneData->NoiseFrame);
     m_SkyboxPipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
     m_SkyboxPipeline.Render(m_pImmediateContext, *pSceneData);
 
-    scenePipeline.Render(m_pImmediateContext, renderData, scene, settings, fogConstants);
-    //scenePipeline.Render(m_pImmediateContext, *pSceneData, scene, settings.lighting, fogConstants);
+    // Must use pSceneData: with TAA on it carries the jittered projection, which the skybox and overlays draw with too
+    scenePipeline.Render(m_pImmediateContext, *pSceneData, scene, settings, fogConstants);
 
     RenderOverlays(scene, *pSceneData);
 

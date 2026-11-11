@@ -145,7 +145,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     float keyShadow = 1.0;
 
 #ifdef CROSSHATCH_RAYTRACED_SHADOWS
-    float noise = InterleavedGradientNoise(In.Pos.xy);
+    float2 noise = RayNoise(In.Pos.xy);
 #endif
 
     for (int i = 0; i < g_NumDirLights; ++i)
@@ -157,7 +157,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 #ifdef CROSSHATCH_RAYTRACED_SHADOWS
         if (NdotL > 0.0)
         {
-            shadow = TraceDirectionalShadow(In.WorldPos, geoN, L, noise);
+            shadow = TraceDirectionalShadow(In.WorldPos, geoN, 0.0, L, ShiftNoise(noise, i));
         }
 #endif
         if (i == 0)
@@ -187,7 +187,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 #ifdef CROSSHATCH_RAYTRACED_SHADOWS
         if (NdotL > 0.0)
         {
-            shadow = TracePointShadow(In.WorldPos, geoN, g_PointLights[j].Position.xyz, L, noise);
+            shadow = TracePointShadow(In.WorldPos, geoN, 0.0, g_PointLights[j].Position.xyz, L, ShiftNoise(noise, 4 + j));
         }
 #endif
         if (j == 0 && g_NumDirLights == 0)
