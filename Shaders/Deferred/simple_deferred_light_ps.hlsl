@@ -7,6 +7,7 @@
 Texture2D g_GBufferAlbedo;
 Texture2D g_GBufferNormal;
 Texture2D g_GBufferWorldPos;
+Texture2D g_GBufferDepth;
 
 SamplerState g_GBuffer_sampler;
 
@@ -17,7 +18,7 @@ struct FullScreenPSInput
 };
 
 
-void main_ps(in FullScreenPSInput In, out float4 OutColor : SV_TARGET)
+void main_ps(in FullScreenPSInput In, out float4 OutColor : SV_TARGET, out float OutDepth : SV_DEPTH)
 {
     // Sample G-Buffer
     float4 albedoMetal = g_GBufferAlbedo.Sample(g_GBuffer_sampler, In.UV);
@@ -70,4 +71,5 @@ void main_ps(in FullScreenPSInput In, out float4 OutColor : SV_TARGET)
     float3 ambient = g_AmbientColor.rgb * albedo * g_AmbientMultiplier;
     float3 color = ApplyFog(ambient + Lo, WPos, In.Pos.xy);
     OutColor = float4(color, 1.0);
+    OutDepth = g_GBufferDepth.Load(int3(In.Pos.xy, 0)).r;
 }

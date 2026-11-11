@@ -12,7 +12,7 @@ void Diligent::DeferredPipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
             { "G-Buffer NormalRoughness", TEX_FORMAT_RGBA16_FLOAT, "g_GBufferNormal" },
             { "G-Buffer WorldPos",        TEX_FORMAT_RGBA32_FLOAT, "g_GBufferWorldPos" },
         },
-        { "Depth Buffer", GetDepthFormat(), nullptr });
+        { "Depth Buffer", TEX_FORMAT_D32_FLOAT, "g_GBufferDepth" });
     // Textures are created by PrepareFrame at the size of the view being drawn
 
     m_pPSO = CreateModelPSOBuilder("Deferred G-Buffer PSO", "Deferred/gbuffer_ps.hlsl")
@@ -28,13 +28,16 @@ void Diligent::DeferredPipeline::InitializeLightingPSO()
 {
     // The editor view always uses this pipeline, so the lighting pass must also write into the multisampled target when MSAA is on.
     // Shading is still per pixel (the G-buffer is single sampled), so geometry edges are not anti-aliased.
+    // Copy G-buffer depth to the scene target so later passes can depth-test against geometry.
     m_pLightingPSO = PSOBuilder("Deferred Lighting PSO")
         .Shaders("Deferred/fullscreen_vs.hlsl", "Deferred/simple_deferred_light_ps.hlsl")
-        .RenderTargets({ GetColorFormat() }, TEX_FORMAT_UNKNOWN) // No depth testing for lighting pass
+        .RenderTargets({ GetColorFormat() }, GetDepthFormat())
         .SampleCount(PipelineUtils::GetMSAASampleCount())
+        .Depth(true, true, COMPARISON_FUNC_ALWAYS)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferAlbedo", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferNormal", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferWorldPos", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
+        .Variable(SHADER_TYPE_PIXEL, "g_GBufferDepth", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "LightConstants")
         .Variable(SHADER_TYPE_PIXEL, "ShadowSettings")
         .Variable(SHADER_TYPE_PIXEL, "FogConstants")
@@ -66,8 +69,7 @@ void Diligent::DeferredPipeline::StartFrameRender(IDeviceContext* pContext, cons
 
 void Diligent::DeferredPipeline::FinishFrame(IDeviceContext* pContext, const FrameTarget& target)
 {
-    ITextureView* pRTV = target.pRTV;
-    pContext->SetRenderTargets(1, &pRTV, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    target.Bind(pContext);
 
     pContext->SetPipelineState(m_pLightingPSO);
     pContext->CommitShaderResources(m_pLightingSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
