@@ -48,9 +48,50 @@ namespace Diligent {
         glm::vec4 AmbientColor{ 0.03f, 0.03f, 0.03f, 1.0f };
         uint32_t NoiseFrame = 0;          // RenderData::NoiseFrame: varies ray sample patterns per frame under TAA, 0 keeps them still
         glm::vec2 SkyRotation{ 0.0f, 1.0f }; // Hybrid only: (sin, cos) of the sky's rotation around the up axis
-        float Padding = 0.0f;
+        float ReflectionMaxRoughness = 0.6f; // Hybrid only: surfaces rougher than this reflect the sky without tracing a ray
+
+        float ReflectionMaxDistance = 100.0f; // Hybrid only: how far a reflection ray looks for geometry
+        uint32_t ReflectionFlags = 0;         // Hybrid only: REFLECTION_* bits below
+        glm::vec2 Padding{ 0.0f };
     };
     static_assert(sizeof(ShadowSettings) % 16 == 0, "ShadowSettings must be 16-byte aligned for HLSL");
+
+    // Bits of ShadowSettings::ReflectionFlags. Mirror the REFLECTION_* constants in Shaders/hybrid_shading.hlsli
+    enum ReflectionFlags : uint32_t {
+        REFLECTION_TRACE = 1u << 0,        // Trace reflection rays; without it surfaces reflect only the sky
+        REFLECTION_SHADE_HITS = 1u << 1,   // Light and texture what a ray hits; without it a hit only blocks the sky
+        REFLECTION_HIT_SHADOWS = 1u << 2,  // Trace shadow rays from what a ray hits
+        REFLECTION_GLOSSY = 1u << 3,       // Spread rays over rough surfaces' highlight (only while TAA averages frames)
+    };
+
+    // What a ray hit needs to know about the triangle it landed on: where its vertices are in SceneGeometryPool and
+    // the material to shade it with. SceneTLAS writes one per (model instance, submesh) every frame.
+    // Mirrors SceneGeometryRecord in Shaders/rt_scene.hlsli.
+    struct SceneGeometryRecord
+    {
+        uint32_t FirstIndex = 0;                // Of the submesh, in the pool's index buffer
+        uint32_t BaseVertex = 0;                // Of the model, in the pool's vertex buffer; added to every index
+        int32_t BaseColorTexture = -1;          // Slots in the scene texture array, -1: no map
+        int32_t MetallicRoughnessTexture = -1;
+
+        glm::vec4 BaseColor{ 1.0f };
+
+        glm::vec3 Emissive{ 0.0f };             // Color * strength
+        int32_t EmissiveTexture = -1;
+
+        float Roughness = 1.0f;
+        float Metallic = 0.0f;
+        uint32_t Flags = 0;                     // SCENE_GEOMETRY_* bits below
+        float Padding = 0.0f;
+    };
+    static_assert(sizeof(SceneGeometryRecord) == 64, "SceneGeometryRecord must match Shaders/rt_scene.hlsli");
+
+    // Bits of SceneGeometryRecord::Flags. Mirror the SCENE_GEOMETRY_* constants in Shaders/rt_scene.hlsli
+    enum SceneGeometryFlags : uint32_t {
+        SCENE_GEOMETRY_IN_POOL = 1u << 0,           // FirstIndex / BaseVertex are valid; otherwise the hit can't be shaded
+        SCENE_GEOMETRY_ROUGHNESS_FIXED = 1u << 1,   // Roughness is a per-object override: ignore the texture's channel
+        SCENE_GEOMETRY_METALLIC_FIXED = 1u << 2,    // Same for metallic
+    };
 
     // Mirrors cbuffer SkyboxConstants in Shaders/Skybox/Skybox_ps.hlsl
     struct SkyboxConstants

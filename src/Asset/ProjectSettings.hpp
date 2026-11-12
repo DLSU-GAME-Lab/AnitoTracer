@@ -11,7 +11,20 @@ struct ProjectLightingSettings
 
     // Hybrid renderer only: the sky (ProjectSkySettings) lights the scene and shows up in reflections.
     float sky_light_intensity = 1.0f;
-    float reflection_intensity = 1.0f;
+    float reflection_intensity = 1.0f;  // Strength of all reflections; shown with ProjectReflectionSettings in the UI
+};
+
+// Ray-traced reflections of the Hybrid and Deferred Hybrid renderers.
+// Every surface always reflects the sky. With these on, a ray is traced along each reflection to find what is
+// really there: the sky, or an object, which then shows up lit, textured and shadowed.
+struct ProjectReflectionSettings
+{
+    bool enabled = true;            // Trace reflection rays. Off: surfaces reflect the sky only, even with objects in the way.
+    bool shade_hits = true;         // Show the objects rays hit. Off: an object only blocks the sky (the cheaper, older look).
+    bool hit_shadows = true;        // Reflected objects keep their shadows, for one more ray per light at each hit.
+    bool glossy = true;             // Rough surfaces blur what they reflect. Averaged over frames, so it needs TAA.
+    float max_roughness = 0.6f;     // Surfaces rougher than this reflect the sky only. Rays fade out toward it.
+    float max_distance = 100.0f;    // World units a ray travels looking for objects; beyond it the sky shows.
 };
 
 // Values of ProjectSkySettings::mode
@@ -192,7 +205,9 @@ struct ProjectAudioSettings
 struct ProjectSettings
 {
     ProjectLightingSettings lighting;
+    ProjectReflectionSettings reflections;
     ProjectSkySettings sky;
+
     ProjectFogSettings fog;
     ProjectHDRSettings hdr;
     ProjectColorCorrectionSettings color_correction;

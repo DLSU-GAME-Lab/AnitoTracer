@@ -41,7 +41,8 @@ namespace Diligent {
         return sky;
     }
 
-    ShadowSettings BuildShadowSettings(const ProjectLightingSettings& lighting, const ProjectSkySettings& sky, uint32_t noiseFrame)
+    ShadowSettings BuildShadowSettings(const ProjectLightingSettings& lighting, const ProjectSkySettings& sky,
+        const ProjectReflectionSettings& reflections, uint32_t noiseFrame)
     {
         const SkyboxConstants skybox = BuildSkyboxConstants(sky);
 
@@ -54,7 +55,19 @@ namespace Diligent {
         shadow.AmbientColor = glm::vec4(lighting.ambient_color[0], lighting.ambient_color[1], lighting.ambient_color[2], 1.0f);
         shadow.NoiseFrame = noiseFrame;
         shadow.SkyRotation = skybox.Rotation;
+
+        // The shader fades rays out between half this limit and the limit, which is undefined when both are 0
+
+        shadow.ReflectionMaxRoughness = glm::clamp(reflections.max_roughness, 0.01f, 1.0f);
+        shadow.ReflectionMaxDistance = glm::max(reflections.max_distance, 0.0f);
+        if (reflections.enabled) {
+            shadow.ReflectionFlags |= REFLECTION_TRACE;
+            if (reflections.shade_hits) shadow.ReflectionFlags |= REFLECTION_SHADE_HITS;
+            if (reflections.hit_shadows) shadow.ReflectionFlags |= REFLECTION_HIT_SHADOWS;
+            if (reflections.glossy) shadow.ReflectionFlags |= REFLECTION_GLOSSY;
+        }
         return shadow;
+
     }
 
     CrossHatchConstants BuildCrossHatchConstants(const ProjectCrossHatchSettings& settings)

@@ -45,6 +45,9 @@ public:
     void Shutdown();
 
     bool IsRayTracingSupported() const { return m_SupportsRayTracing; }
+    // True when reflections can show objects on this device, not just the sky (see SceneGeometryPool)
+    bool IsReflectionShadingSupported() const;
+
 
     Diligent::RenderTarget* CreateRenderTarget(const std::string& name);
     // Off screen rendering to tex. The game view uses the renderer selected in the Rendering menu, with post processing (god rays, color correction).

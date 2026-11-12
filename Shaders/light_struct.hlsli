@@ -37,5 +37,9 @@ cbuffer ShadowSettings
     float4 g_AmbientColor;
     uint g_NoiseFrame;           // Changes every frame while TAA is on, so ray sample patterns vary over time; 0 keeps them still
     float2 g_SkyRotation;        // Hybrid only: (sin, cos) of the sky's rotation around the up axis, see RotateSkyDirection
-    float g_ShadowPadding;
+    float g_ReflectionMaxRoughness; // Hybrid only: surfaces rougher than this reflect the sky without tracing a ray
+
+    float g_ReflectionMaxDistance;  // Hybrid only: how far a reflection ray looks for geometry
+    uint g_ReflectionFlags;         // Hybrid only: REFLECTION_* bits, see hybrid_shading.hlsli
+    float2 g_ShadowPadding;
 };

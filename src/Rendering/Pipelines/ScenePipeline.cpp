@@ -25,7 +25,8 @@ namespace Diligent {
 
     void ScenePipeline::UpdateShadowSettings(IDeviceContext* pContext, const ProjectSettings& settings, uint32_t noiseFrame)
     {
-        PipelineUtils::WriteCB(pContext, m_pShadowCB, BuildShadowSettings(settings.lighting, settings.sky, noiseFrame));
+        PipelineUtils::WriteCB(pContext, m_pShadowCB, BuildShadowSettings(settings.lighting, settings.sky, settings.reflections, noiseFrame));
+
     }
 
     void ScenePipeline::UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog)

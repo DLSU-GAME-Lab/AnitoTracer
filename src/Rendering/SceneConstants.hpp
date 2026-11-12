@@ -12,7 +12,9 @@ namespace Diligent {
 
     // noiseFrame is RenderData::NoiseFrame, which moves the ray-traced shadow and AO sample patterns every frame under TAA.
     // The sky's intensity and rotation are folded in, so sky lighting follows the skybox.
-    ShadowSettings BuildShadowSettings(const ProjectLightingSettings& lighting, const ProjectSkySettings& sky, uint32_t noiseFrame = 0);
+    ShadowSettings BuildShadowSettings(const ProjectLightingSettings& lighting, const ProjectSkySettings& sky,
+        const ProjectReflectionSettings& reflections, uint32_t noiseFrame = 0);
+
 
     // Layout expected by Shaders/Skybox/Skybox_ps.hlsl
     SkyboxConstants BuildSkyboxConstants(const ProjectSkySettings& settings);

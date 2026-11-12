@@ -27,7 +27,13 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
     );
 }
 
+bool RendererManager::IsReflectionShadingSupported() const
+{
+    return m_SupportsRayTracing && ModelManager::GetInstance().GetSceneGeometryPool().IsEnabled();
+}
+
 void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
+
 {
     SelectScenePipeline(args->targetPipeline);
     InitializePipelines();

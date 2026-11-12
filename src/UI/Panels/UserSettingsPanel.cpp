@@ -1,6 +1,7 @@
 #include "UserSettingsPanel.hpp"
 #include "../../UserSettings.hpp"
 #include "../../Asset/ProjectLoader.hpp"
+#include "RendererManager.hpp"
 #include "imgui.h"
 #include <filesystem>
 #include <iostream>
@@ -62,13 +63,6 @@ namespace Diligent {
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
-                ImGui::DragFloat("Reflection Intensity", &lightingSettings.reflection_intensity, 0.01f, 0.0f, 2.0f, "%.2f");
-                if (ImGui::IsItemHovered())
-                {
-                    ImGui::SetTooltip("Hybrid renderer: strength of skybox reflections on surfaces.");
-                }
-                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
-
                 ImGui::PopItemWidth();
 
                 ImGui::Spacing();
@@ -76,10 +70,98 @@ namespace Diligent {
                 // Convenient Reset Button
                 if (ImGui::Button("Reset to Defaults"))
                 {
+                    // The reflection intensity is edited (and reset) in the Reflections section below
+                    const float reflectionIntensity = lightingSettings.reflection_intensity;
                     lightingSettings = ProjectLightingSettings{};
+                    lightingSettings.reflection_intensity = reflectionIntensity;
                     saveProjectSettings();
                 }
             }
+
+            // ------------------------------------------------------------------
+            // Reflections Section (Hybrid and Deferred Hybrid renderers)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Reflections", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& reflectionSettings = projectSettings.reflections;
+                // Disabled controls still explain themselves
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                const bool objectsSupported = ::RendererManager::GetInstance().IsReflectionShadingSupported();
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+
+                // Everything that traces rays; greyed out as a group where rays can't be traced at all
+                ImGui::BeginDisabled(!rayTracingSupported);
+
+                if (ImGui::Checkbox("Ray-Traced Reflections", &reflectionSettings.enabled)) saveProjectSettings();
+                tooltip("Hybrid renderers: trace a ray along each reflection to find what is really there.\n"
+                    "Off: surfaces reflect the sky only, even where an object is in the way. Fastest.");
+
+                ImGui::BeginDisabled(!reflectionSettings.enabled);
+                ImGui::Indent();
+
+                ImGui::BeginDisabled(!objectsSupported);
+                if (ImGui::Checkbox("Show Reflected Objects", &reflectionSettings.shade_hits)) saveProjectSettings();
+                tooltip(objectsSupported
+                    ? "Objects appear in reflections, lit and textured.\nOff: an object only blocks the sky and leaves a dim patch. Faster."
+                    : "Not available on this device: it can't pick textures per pixel, which shading reflected objects needs.");
+
+                ImGui::BeginDisabled(!reflectionSettings.shade_hits);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Shadows in Reflections", &reflectionSettings.hit_shadows)) saveProjectSettings();
+                tooltip("Reflected objects keep their shadows.\nCosts one more ray per light for every reflecting pixel. Off: they are lit as if nothing shadowed them.");
+
+                if (ImGui::Checkbox("Blur on Rough Surfaces", &reflectionSettings.glossy)) saveProjectSettings();
+                tooltip("Rough surfaces blur what they reflect instead of showing it mirror sharp.\n"
+                    "Built up over several frames, so it only applies while TAA is on, and stays a little grainy.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::PushItemWidth(150.0f);
+
+                ImGui::SliderFloat("Max Roughness##Reflections", &reflectionSettings.max_roughness, 0.05f, 1.0f, "%.2f");
+                tooltip("Surfaces rougher than this reflect the sky only, without tracing a ray.\nRays fade out from half this value. Lower is faster.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Ray Distance##Reflections", &reflectionSettings.max_distance, 1.0f, 1.0f, 10000.0f, "%.0f");
+                tooltip("How far a reflection looks for objects, in world units. Anything farther away shows as sky.");
+                saveAfterEdit();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::PushItemWidth(150.0f);
+                ImGui::DragFloat("Intensity##Reflections", &lightingSettings.reflection_intensity, 0.01f, 0.0f, 2.0f, "%.2f");
+                tooltip("Hybrid renderers: strength of all reflections, the sky's included. 0 removes them.");
+                saveAfterEdit();
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Reflections to Defaults"))
+                {
+                    reflectionSettings = ProjectReflectionSettings{};
+                    lightingSettings.reflection_intensity = ProjectLightingSettings{}.reflection_intensity;
+                    saveProjectSettings();
+                }
+            }
+
 
             // ------------------------------------------------------------------
             // Skybox Section

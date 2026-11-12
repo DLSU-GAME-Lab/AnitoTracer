@@ -6,6 +6,8 @@ set(${CUR_TARGET_NAME}_src
 	Models/ModelStructs.hpp
 	Models/ModelManager.hpp
 	Models/ModelManager.cpp
+	Models/SceneGeometryPool.hpp
+	Models/SceneGeometryPool.cpp
 
 	RenderData.hpp
 	RenderData.cpp
@@ -40,6 +42,9 @@ set(${CUR_TARGET_NAME}_src
 	Pipelines/Utils/GBuffer.cpp
 	Pipelines/Utils/SceneTLAS.hpp
 	Pipelines/Utils/SceneTLAS.cpp
+	Pipelines/Utils/StructuredBufferArray.hpp
+	Pipelines/Utils/StructuredBufferArray.cpp
+
 	Pipelines/Utils/SkyEnvironment.hpp
 	Pipelines/Utils/SkyEnvironment.cpp
 	Pipelines/Utils/ScenePipelineRegistry.hpp

@@ -17,6 +17,7 @@ cbuffer DeferredHybridConstants
 {
     float4x4 g_InvViewProj;
     float4 g_ViewportSize; // xy: size in pixels, zw: 1 / size
+    float4 g_ViewParams;   // x: angle one pixel covers, in radians
 };
 
 struct FullScreenPSInput
@@ -70,6 +71,8 @@ void main_ps(in FullScreenPSInput In, out LightingOutput Out)
     surface.Roughness = g_GBufferRoughness.Load(texel).r;
     surface.AO = emissiveAO.a;
     surface.Emissive = emissiveAO.rgb;
+    surface.PixelSpread = g_ViewParams.x;
+
 
     Out.Color = float4(ShadeHybridSurface(surface, In.Pos.xy), 1.0);
     Out.Depth = depth;
