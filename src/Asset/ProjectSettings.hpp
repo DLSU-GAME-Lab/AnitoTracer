@@ -202,10 +202,39 @@ struct ProjectAudioSettings
     float sfx_volume = 100.0f;
 };
 
+// Values of ProjectGISettings::method
+enum ProjectGIMethod : int { GI_METHOD_SKY_AO = 0, GI_METHOD_PER_PIXEL = 1 };
+
+// Indirect light in the ray-traced renderers: what surfaces receive from the sky and from each other,
+// as opposed to straight from a light.
+struct ProjectGISettings
+{
+    // 0, Sky + AO: flat ambient color plus sky light, dimmed by ray-traced ambient occlusion. No noise, no color bleeding.
+    // 1, Per-pixel, one bounce: a ray per pixel gathers the light arriving from other surfaces and from the sky.
+    //    Runs in Deferred Hybrid on devices where reflections can show objects; everywhere else Sky + AO is used.
+    int method = GI_METHOD_PER_PIXEL;
+
+    // The rest only applies to Per-pixel
+    float intensity = 1.0f;         // Strength of the gathered light
+    float max_distance = 100.0f;    // World units a GI ray travels looking for surfaces; beyond it the sky shows
+    bool half_resolution = true;    // Trace for every 2x2 pixels instead of every pixel (a quarter of the rays), scaled back up afterwards
+    int rays_per_pixel = 4;         // Rays per traced pixel every frame, 1 to 8. More is cleaner and steadier, and costs more.
+    bool hit_shadows = true;        // Surfaces that bounce light keep their shadows, for one more ray per light
+    bool more_bounces = true;       // Light keeps bouncing: surfaces that bounce light are also lit by last frame's result
+    bool sky_bounce = true;         // Where that isn't known (off screen), they are lit by the sky if one more ray reaches it
+
+    float history_blend = 0.98f;    // Share of earlier frames kept every frame. Higher is smoother but slower to react.
+    int filter_passes = 5;          // Blur passes over the result, 0 to 5. Each doubles the blur's reach.
+
+
+};
+
 struct ProjectSettings
 {
     ProjectLightingSettings lighting;
     ProjectReflectionSettings reflections;
+    ProjectGISettings gi;
+
     ProjectSkySettings sky;
 
     ProjectFogSettings fog;

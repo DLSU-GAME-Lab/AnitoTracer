@@ -135,9 +135,16 @@ struct HybridSurface
     float3 Emissive;
     float PixelSpread; // Angle one screen pixel covers, in radians. Tells a reflection ray how wide its footprint is
                        // when it reads a texture (see SampleSceneTexture); 0 always reads the sharpest mip.
+
+    // Per-pixel GI (DiffuseGIPass), when the pipeline has it. With UseIndirectLight the ambient term comes from here
+    // and no ambient occlusion rays are traced; without it the surface is lit by "Sky + AO".
+    bool UseIndirectLight;
+    float4 IndirectLight; // rgb: light arriving from other surfaces and the sky, averaged over the hemisphere
+                          // a: how open the surroundings are, 0 enclosed .. 1 open
 };
 
-// Direct light with ray-traced soft shadows, RTAO-occluded ambient and ray-traced reflections, then fog
+// Direct light with ray-traced soft shadows, indirect light (per-pixel GI or sky light with ray-traced AO),
+// ray-traced reflections, then fog
 float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
 {
     float3 N = s.N;
@@ -195,14 +202,29 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
         }
     }
 
-    // 3. Ambient: flat ambient color plus skybox light, both occluded by ray-traced AO
-    float3 bentNormal;
-    float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, s.PositionError, N, ShiftNoise(noise, 4 + 8), bentNormal);
-    float occlusion = min(s.AO, rtao);
-
-    float3 irradiance = g_AmbientColor.rgb + SampleEnvIrradiance(bentNormal) * g_SkyLightIntensity;
+    // 3. Indirect light
     float3 kD = (1.0 - specularColor) * (1.0 - metallic);
-    float3 ambientDiffuse = irradiance * s.Albedo * kD * occlusion;
+    float occlusion;        // How much of the surroundings is open, for the reflections below
+    float3 irradiance;      // Average radiance arriving over the hemisphere
+    float3 ambientDiffuse;
+    if (s.UseIndirectLight)
+    {
+        // Per-pixel GI: the light was gathered by rays, so what blocks it is already accounted for.
+        // Only the material's AO map is applied, for crevices smaller than the rays resolve.
+        irradiance = s.IndirectLight.rgb;
+        occlusion = min(s.AO, s.IndirectLight.a);
+        ambientDiffuse = irradiance * s.Albedo * kD * s.AO;
+    }
+    else
+    {
+        // Sky + AO: flat ambient color plus skybox light, both occluded by ray-traced AO
+        float3 bentNormal;
+        float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, s.PositionError, N, ShiftNoise(noise, 4 + 8), bentNormal);
+        occlusion = min(s.AO, rtao);
+
+        irradiance = g_AmbientColor.rgb + SampleEnvIrradiance(bentNormal) * g_SkyLightIntensity;
+        ambientDiffuse = irradiance * s.Albedo * kD * occlusion;
+    }
 
     // 4. Reflections: the sky along the mirror direction, replaced by the scene where a reflection ray hits it
     float3 R = reflect(-V, N);
@@ -238,8 +260,13 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
                     // The pixel's footprint keeps widening along the reflected ray, and a rough reflector widens it further
                     float viewDistance = length(g_CameraPos.xyz - s.WorldPos);
                     float coneWidth = s.PixelSpread * (viewDistance + hit.Distance) + 0.5 * roughness * roughness * hit.Distance;
-                    bool hitShadows = (g_ReflectionFlags & REFLECTION_HIT_SHADOWS) != 0u;
-                    hitRadiance = ShadeSceneHit(hit, rayDir, coneWidth, ShiftNoise(noise, 14), hitShadows);
+                    uint hitFlags = HIT_SPECULAR;
+                    if ((g_ReflectionFlags & REFLECTION_HIT_SHADOWS) != 0u) hitFlags |= HIT_SHADOWS;
+                    // With per-pixel GI, the reflected object gets the indirect light gathered at this pixel rather
+                    // than open sky: it is usually close by, and a room without windows then stays dark in mirrors too
+                    hitFlags |= s.UseIndirectLight ? HIT_AMBIENT_GIVEN : HIT_AMBIENT_SKY;
+                    hitRadiance = ShadeSceneHit(hit, rayDir, coneWidth, ShiftNoise(noise, 14), hitFlags, irradiance);
+
                 }
                 envSpecular = lerp(envSpecular, hitRadiance, traceWeight);
             }

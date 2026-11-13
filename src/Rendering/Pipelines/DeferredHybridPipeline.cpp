@@ -10,6 +10,7 @@ namespace {
         glm::mat4 InvViewProj;
         glm::vec4 ViewportSize; // xy: size in pixels, zw: 1 / size
         glm::vec4 ViewParams;   // x: angle one pixel covers, in radians (sizes the texture mip a reflection ray reads)
+        glm::vec4 GIParams;     // x: 1 when per-pixel GI is on, y: view pixels per GI pixel (1 or 2), z: GI intensity
     };
     static_assert(sizeof(DeferredHybridConstants) % 16 == 0, "DeferredHybridConstants must be 16-byte aligned for HLSL");
 }
@@ -35,7 +36,21 @@ void Diligent::DeferredHybridPipeline::InitializePipeline(IRenderDevice* pDevice
 
     InitializeDepthPrepassPSO();
     InitializeGBufferPSO();
+    // Before the lighting pass: its trace SRB is one of GetRayTracingSRBs, which the lighting setup binds
+    InitializeDiffuseGI();
     InitializeLightingPSO();
+}
+
+void Diligent::DeferredHybridPipeline::InitializeDiffuseGI()
+{
+    // Created even while the project uses Sky + AO, so switching the GI method needs no rebuild
+    if (!SupportsPerPixelGI()) return;
+
+    m_GI.Initialize(m_pDevice, { GetRayTracingVariables(), GetRayTracingSamplers(), GetRayTracingMacros() });
+
+    // Its trace pass shades ray hits with the same lights as the lighting pass, starting from the same G-buffer
+    BindCommonBuffers(m_GI.GetTraceSRB());
+    m_GBuffer.BindToSRB(m_GI.GetTraceSRB());
 }
 
 void Diligent::DeferredHybridPipeline::InitializeDepthPrepassPSO()
@@ -79,6 +94,9 @@ void Diligent::DeferredHybridPipeline::InitializeLightingPSO()
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferEmissiveAO", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferRoughness", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferDepth", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
+        // Dynamic: the GI pass hands over different textures from frame to frame
+        .Variable(SHADER_TYPE_PIXEL, "g_GIResult")
+        .Variable(SHADER_TYPE_PIXEL, "g_GIGuide")
         .Variable(SHADER_TYPE_PIXEL, "DeferredHybridConstants")
         .Variable(SHADER_TYPE_PIXEL, "LightConstants")
         .Variable(SHADER_TYPE_PIXEL, "ShadowSettings")
@@ -94,6 +112,8 @@ void Diligent::DeferredHybridPipeline::InitializeLightingPSO()
 
     // Re-initialization recreates the SRB, so rebind an existing G-buffer
     m_GBuffer.BindToSRB(m_pLightingSRB);
+
+    if (!m_pNoGITexture) m_pNoGITexture = PipelineUtils::CreateSolidColorTexture(m_pDevice, "Deferred Hybrid No GI", 0x00000000);
 }
 
 void Diligent::DeferredHybridPipeline::PrepareFrame(const FrameTarget& target)
@@ -103,6 +123,7 @@ void Diligent::DeferredHybridPipeline::PrepareFrame(const FrameTarget& target)
 
     if (m_GBuffer.Resize(m_pDevice, m_ViewportWidth, m_ViewportHeight)) {
         m_GBuffer.BindToSRB(m_pLightingSRB);
+        m_GBuffer.BindToSRB(m_GI.GetTraceSRB());
     }
 }
 
@@ -117,20 +138,21 @@ void Diligent::DeferredHybridPipeline::StartFrameRender(IDeviceContext* pContext
     // Camera constants + TLAS rebuild
     HybridPipeline::StartFrameRender(pContext, renderData);
 
-    DeferredHybridConstants constants;
-    // Transposed like CameraConstants, so HLSL's mul(clipPos, g_InvViewProj) undoes mul(mul(worldPos, g_View), g_Proj)
-    constants.InvViewProj = glm::transpose(glm::inverse(renderData.ProjectionMatrix * renderData.ViewMatrix));
-    constants.ViewportSize = glm::vec4(
-        static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight),
-        1.0f / static_cast<float>((std::max)(m_ViewportWidth, 1u)), 1.0f / static_cast<float>((std::max)(m_ViewportHeight, 1u)));
+    // Kept for FinishFrame, where the GI and lighting passes need the camera the G-buffer was drawn with
+    m_ViewProj = renderData.ProjectionMatrix * renderData.ViewMatrix;
+    m_CameraPos = renderData.CameraPosition;
     // The projection's Y scale is 1 / tan(fovY / 2), so the view is 2 / scale tall at distance 1, spread over the viewport's rows
     const float projScaleY = renderData.ProjectionMatrix[1][1];
-    const float pixelAngle = projScaleY != 0.0f ? 2.0f / (std::abs(projScaleY) * static_cast<float>((std::max)(m_ViewportHeight, 1u))) : 0.0f;
-    constants.ViewParams = glm::vec4(pixelAngle, 0.0f, 0.0f, 0.0f);
-    PipelineUtils::WriteCB(pContext, m_pDeferredCB, constants);
+    m_PixelAngle = projScaleY != 0.0f ? 2.0f / (std::abs(projScaleY) * static_cast<float>((std::max)(m_ViewportHeight, 1u))) : 0.0f;
 
     m_GBuffer.SetRenderTargets(pContext, /*depthOnly*/ true);
     m_GBuffer.Clear(pContext, /*clearColor*/ false);
+}
+
+void Diligent::DeferredHybridPipeline::UpdateProjectSettings(IDeviceContext* /*pContext*/, const ProjectSettings& settings)
+
+{
+    m_GISettings = settings.gi;
 }
 
 void Diligent::DeferredHybridPipeline::RenderModels(IDeviceContext* pContext, const RenderData& renderData, bool renderOpaque)
@@ -155,8 +177,39 @@ void Diligent::DeferredHybridPipeline::RenderModels(IDeviceContext* pContext, co
 
 void Diligent::DeferredHybridPipeline::FinishFrame(IDeviceContext* pContext, const FrameTarget& target)
 {
-    // 3. Lighting: ray-traced shading once per visible pixel, composited over the skybox already in the target
+    // 3. Per-pixel GI, from the finished G-buffer. Any other GI method leaves the lighting pass on Sky + AO.
+    const bool traceGI = m_GISettings.method == GI_METHOD_PER_PIXEL && m_GI.IsInitialized();
+    if (traceGI) {
+        DiffuseGIPass::View view;
+        view.ViewProj = m_ViewProj;
+        view.CameraPos = m_CameraPos;
+        view.Width = m_ViewportWidth;
+        view.Height = m_ViewportHeight;
+        m_GI.Render(pContext, view, m_GISettings);
+    }
+    else {
+        // Whatever it had gathered is stale by the time it is switched back on
+        m_GI.ResetHistory();
+    }
+
+    const bool hasGI = traceGI && m_GI.GetResultSRV() && m_GI.GetGuideSRV();
+    ITextureView* pNoGI = m_pNoGITexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    PipelineUtils::BindVariable(m_pLightingSRB, SHADER_TYPE_PIXEL, "g_GIResult", hasGI ? m_GI.GetResultSRV() : pNoGI);
+    PipelineUtils::BindVariable(m_pLightingSRB, SHADER_TYPE_PIXEL, "g_GIGuide", hasGI ? m_GI.GetGuideSRV() : pNoGI);
+
+    DeferredHybridConstants constants;
+    // Transposed like CameraConstants, so HLSL's mul(clipPos, g_InvViewProj) undoes mul(mul(worldPos, g_View), g_Proj)
+    constants.InvViewProj = glm::transpose(glm::inverse(m_ViewProj));
+    constants.ViewportSize = glm::vec4(
+        static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight),
+        1.0f / static_cast<float>((std::max)(m_ViewportWidth, 1u)), 1.0f / static_cast<float>((std::max)(m_ViewportHeight, 1u)));
+    constants.ViewParams = glm::vec4(m_PixelAngle, 0.0f, 0.0f, 0.0f);
+    constants.GIParams = glm::vec4(hasGI ? 1.0f : 0.0f, static_cast<float>(m_GI.GetScale()), (std::max)(m_GISettings.intensity, 0.0f), 0.0f);
+    PipelineUtils::WriteCB(pContext, m_pDeferredCB, constants);
+
+    // 4. Lighting: ray-traced shading once per visible pixel, composited over the skybox already in the target
     target.Bind(pContext);
+
 
     pContext->SetPipelineState(m_pLightingPSO);
     pContext->CommitShaderResources(m_pLightingSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

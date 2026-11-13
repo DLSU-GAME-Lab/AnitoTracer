@@ -72,6 +72,10 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     surface.AO = ao;
     surface.Emissive = emissive;
     surface.PixelSpread = pixelSpread;
+    // Per-pixel GI needs a G-buffer, so the forward pass always lights with Sky + AO
+    surface.UseIndirectLight = false;
+    surface.IndirectLight = float4(0.0, 0.0, 0.0, 1.0);
+
 
 
     OutColor = float4(ShadeHybridSurface(surface, In.Pos.xy), albedo.a);
