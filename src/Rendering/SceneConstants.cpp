@@ -30,16 +30,44 @@ namespace Diligent {
         return fog;
     }
 
-    ShadowSettings BuildShadowSettings(const ProjectLightingSettings& settings, uint32_t noiseFrame)
+    SkyboxConstants BuildSkyboxConstants(const ProjectSkySettings& settings)
     {
+        // A solid color looks the same from every side, so only textures are rotated
+        const float rotation = settings.mode == SKY_MODE_TEXTURE ? glm::radians(settings.rotation) : 0.0f;
+
+        SkyboxConstants sky;
+        sky.Rotation = glm::vec2(glm::sin(rotation), glm::cos(rotation));
+        sky.Intensity = glm::max(settings.intensity, 0.0f);
+        return sky;
+    }
+
+    ShadowSettings BuildShadowSettings(const ProjectLightingSettings& lighting, const ProjectSkySettings& sky,
+        const ProjectReflectionSettings& reflections, uint32_t noiseFrame)
+    {
+        const SkyboxConstants skybox = BuildSkyboxConstants(sky);
+
         ShadowSettings shadow;
-        shadow.ShadowBias = settings.shadow_bias;
-        shadow.AmbientMultiplier = settings.ambient_multiplier;
-        shadow.SkyLightIntensity = settings.sky_light_intensity;
-        shadow.ReflectionIntensity = settings.reflection_intensity;
-        shadow.AmbientColor = glm::vec4(settings.ambient_color[0], settings.ambient_color[1], settings.ambient_color[2], 1.0f);
+        shadow.ShadowBias = lighting.shadow_bias;
+        shadow.AmbientMultiplier = lighting.ambient_multiplier;
+        // The lighting cubes hold the sky at intensity 1, so a brighter sky also casts more light
+        shadow.SkyLightIntensity = lighting.sky_light_intensity * skybox.Intensity;
+        shadow.ReflectionIntensity = lighting.reflection_intensity;
+        shadow.AmbientColor = glm::vec4(lighting.ambient_color[0], lighting.ambient_color[1], lighting.ambient_color[2], 1.0f);
         shadow.NoiseFrame = noiseFrame;
+        shadow.SkyRotation = skybox.Rotation;
+
+        // The shader fades rays out between half this limit and the limit, which is undefined when both are 0
+
+        shadow.ReflectionMaxRoughness = glm::clamp(reflections.max_roughness, 0.01f, 1.0f);
+        shadow.ReflectionMaxDistance = glm::max(reflections.max_distance, 0.0f);
+        if (reflections.enabled) {
+            shadow.ReflectionFlags |= REFLECTION_TRACE;
+            if (reflections.shade_hits) shadow.ReflectionFlags |= REFLECTION_SHADE_HITS;
+            if (reflections.hit_shadows) shadow.ReflectionFlags |= REFLECTION_HIT_SHADOWS;
+            if (reflections.glossy) shadow.ReflectionFlags |= REFLECTION_GLOSSY;
+        }
         return shadow;
+
     }
 
     CrossHatchConstants BuildCrossHatchConstants(const ProjectCrossHatchSettings& settings)

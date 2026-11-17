@@ -1,7 +1,34 @@
 #include "FileDialogue.hpp"
 
 #include <nfd.h>
+#include <algorithm>
+#include <cctype>
 #include <string>
+
+namespace {
+	std::string ToLower(std::string text)
+	{
+		std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		return text;
+	}
+
+	// extensions is one extension or a comma separated list, without dots
+	bool HasAnyExtension(const std::string& path, const std::string& extensions)
+	{
+		const std::string lowerPath = ToLower(path);
+
+		size_t start = 0;
+		while (start <= extensions.size()) {
+			size_t end = extensions.find(',', start);
+			if (end == std::string::npos) end = extensions.size();
+
+			const std::string extension = ToLower(extensions.substr(start, end - start));
+			if (!extension.empty() && lowerPath.ends_with(extension)) return true;
+			start = end + 1;
+		}
+		return false;
+	}
+}
 
 #ifdef _WIN32
 #include <windows.h>
@@ -70,7 +97,7 @@ std::string gbe::FileDialogue::GetFilePath(OpType optype, std::string extension)
 
 	if (!outPathStr.empty() && !extension.empty())
 	{
-		if (outPathStr.ends_with(extension) == false)
+		if (!HasAnyExtension(outPathStr, extension))
 			return "";
 	}
 

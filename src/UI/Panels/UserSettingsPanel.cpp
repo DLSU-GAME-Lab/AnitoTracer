@@ -1,7 +1,9 @@
 #include "UserSettingsPanel.hpp"
 #include "../../UserSettings.hpp"
 #include "../../Asset/ProjectLoader.hpp"
+#include "RendererManager.hpp"
 #include "imgui.h"
+#include <filesystem>
 #include <iostream>
 
 namespace Diligent {
@@ -57,14 +59,7 @@ namespace Diligent {
                 ImGui::DragFloat("Sky Light Intensity", &lightingSettings.sky_light_intensity, 0.01f, 0.0f, 10.0f, "%.2f");
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip("Hybrid renderer: how strongly the skybox lights the scene.");
-                }
-                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
-
-                ImGui::DragFloat("Reflection Intensity", &lightingSettings.reflection_intensity, 0.01f, 0.0f, 2.0f, "%.2f");
-                if (ImGui::IsItemHovered())
-                {
-                    ImGui::SetTooltip("Hybrid renderer: strength of skybox reflections on surfaces.");
+                    ImGui::SetTooltip("Hybrid renderer: how strongly the sky lights the scene, on top of the Skybox intensity.");
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
@@ -75,7 +70,178 @@ namespace Diligent {
                 // Convenient Reset Button
                 if (ImGui::Button("Reset to Defaults"))
                 {
+                    // The reflection intensity is edited (and reset) in the Reflections section below
+                    const float reflectionIntensity = lightingSettings.reflection_intensity;
                     lightingSettings = ProjectLightingSettings{};
+                    lightingSettings.reflection_intensity = reflectionIntensity;
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Reflections Section (Hybrid and Deferred Hybrid renderers)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Reflections", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& reflectionSettings = projectSettings.reflections;
+                // Disabled controls still explain themselves
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                const bool objectsSupported = ::RendererManager::GetInstance().IsReflectionShadingSupported();
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+
+                // Everything that traces rays; greyed out as a group where rays can't be traced at all
+                ImGui::BeginDisabled(!rayTracingSupported);
+
+                if (ImGui::Checkbox("Ray-Traced Reflections", &reflectionSettings.enabled)) saveProjectSettings();
+                tooltip("Hybrid renderers: trace a ray along each reflection to find what is really there.\n"
+                    "Off: surfaces reflect the sky only, even where an object is in the way. Fastest.");
+
+                ImGui::BeginDisabled(!reflectionSettings.enabled);
+                ImGui::Indent();
+
+                ImGui::BeginDisabled(!objectsSupported);
+                if (ImGui::Checkbox("Show Reflected Objects", &reflectionSettings.shade_hits)) saveProjectSettings();
+                tooltip(objectsSupported
+                    ? "Objects appear in reflections, lit and textured.\nOff: an object only blocks the sky and leaves a dim patch. Faster."
+                    : "Not available on this device: it can't pick textures per pixel, which shading reflected objects needs.");
+
+                ImGui::BeginDisabled(!reflectionSettings.shade_hits);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Shadows in Reflections", &reflectionSettings.hit_shadows)) saveProjectSettings();
+                tooltip("Reflected objects keep their shadows.\nCosts one more ray per light for every reflecting pixel. Off: they are lit as if nothing shadowed them.");
+
+                if (ImGui::Checkbox("Blur on Rough Surfaces", &reflectionSettings.glossy)) saveProjectSettings();
+                tooltip("Rough surfaces blur what they reflect instead of showing it mirror sharp.\n"
+                    "Built up over several frames, so it only applies while TAA is on, and stays a little grainy.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::PushItemWidth(150.0f);
+
+                ImGui::SliderFloat("Max Roughness##Reflections", &reflectionSettings.max_roughness, 0.05f, 1.0f, "%.2f");
+                tooltip("Surfaces rougher than this reflect the sky only, without tracing a ray.\nRays fade out from half this value. Lower is faster.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Ray Distance##Reflections", &reflectionSettings.max_distance, 1.0f, 1.0f, 10000.0f, "%.0f");
+                tooltip("How far a reflection looks for objects, in world units. Anything farther away shows as sky.");
+                saveAfterEdit();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::PushItemWidth(150.0f);
+                ImGui::DragFloat("Intensity##Reflections", &lightingSettings.reflection_intensity, 0.01f, 0.0f, 2.0f, "%.2f");
+                tooltip("Hybrid renderers: strength of all reflections, the sky's included. 0 removes them.");
+                saveAfterEdit();
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Reflections to Defaults"))
+                {
+                    reflectionSettings = ProjectReflectionSettings{};
+                    lightingSettings.reflection_intensity = ProjectLightingSettings{}.reflection_intensity;
+                    saveProjectSettings();
+                }
+            }
+
+
+            // ------------------------------------------------------------------
+            // Skybox Section
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& skySettings = projectSettings.sky;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::PushItemWidth(150.0f);
+
+                // Order matches ProjectSkyMode
+                const char* skyModeNames[] = { "Skybox Texture", "Solid Color" };
+                if (ImGui::Combo("Sky Type", &skySettings.mode, skyModeNames, IM_ARRAYSIZE(skyModeNames))) saveProjectSettings();
+                tooltip("What is drawn behind the scene.\nIn the ray-traced renderers the sky also lights the scene and shows up in reflections.");
+
+                if (skySettings.mode == SKY_MODE_TEXTURE)
+                {
+                    const bool usesDefault = skySettings.texture_path.empty();
+                    const std::string skyFileName = usesDefault
+                        ? std::string("Default skybox")
+                        : std::filesystem::path(skySettings.texture_path).filename().string();
+                    ImGui::Text("File: %s", skyFileName.c_str());
+                    if (!usesDefault && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", skySettings.texture_path.c_str());
+
+                    if (ImGui::Button("Browse...##Sky"))
+                    {
+                        const std::string picked = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, kSkyTextureExtensions);
+                        if (!picked.empty())
+                        {
+                            // Files inside the project are stored relative to it, so the project can be moved or shared
+                            std::filesystem::path skyPath(picked);
+                            const std::filesystem::path projectDir = ProjectLoader::GetCurrentProjectDir();
+                            if (!projectDir.empty())
+                            {
+                                const std::filesystem::path relative = skyPath.lexically_relative(projectDir);
+                                if (!relative.empty() && *relative.begin() != "..") skyPath = relative;
+                            }
+                            skySettings.texture_path = skyPath.generic_string();
+                            saveProjectSettings();
+                        }
+                    }
+                    tooltip("Pick a cubemap (.dds, .ktx) or a 360 degree panorama (.hdr, .png, .jpg, .tga).\n.hdr files keep the sky's real brightness, which gives the most convincing lighting.");
+
+                    ImGui::SameLine();
+                    ImGui::BeginDisabled(usesDefault);
+                    if (ImGui::Button("Use Default##Sky"))
+                    {
+                        skySettings.texture_path.clear();
+                        saveProjectSettings();
+                    }
+                    ImGui::EndDisabled();
+
+                    ImGui::SliderFloat("Rotation##Sky", &skySettings.rotation, -180.0f, 180.0f, "%.0f deg");
+                    tooltip("Turns the sky around the up axis, for example to move its sun.");
+                    saveAfterEdit();
+                }
+                else
+                {
+                    ImGui::ColorEdit3("Sky Color", skySettings.color.data());
+                    tooltip("The whole sky is this one color.");
+                    saveAfterEdit();
+                }
+
+                ImGui::DragFloat("Intensity##Sky", &skySettings.intensity, 0.01f, 0.0f, 1000.0f, "%.2f");
+                tooltip("Brightness of the sky, and of the light it casts in the ray-traced renderers.");
+                saveAfterEdit();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Skybox to Defaults"))
+                {
+                    skySettings = ProjectSkySettings{};
                     saveProjectSettings();
                 }
             }

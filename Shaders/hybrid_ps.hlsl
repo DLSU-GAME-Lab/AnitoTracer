@@ -8,6 +8,11 @@
 
 void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 {
+    // Angle between this pixel's view ray and its neighbours', for the mip of textures seen in reflections.
+    // Taken before any discard: a derivative needs all four pixels of the 2x2 block to still be running.
+    float3 viewRay = normalize(In.WorldPos - g_CameraPos.xyz);
+    float pixelSpread = max(length(ddx(viewRay)), length(ddy(viewRay)));
+
     // 1. Material Sampling
     float4 albedo = g_BaseColorFactor;
     if (g_UseBaseColorMap > 0.5)
@@ -66,6 +71,8 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     surface.Roughness = roughness;
     surface.AO = ao;
     surface.Emissive = emissive;
+    surface.PixelSpread = pixelSpread;
+
 
     OutColor = float4(ShadeHybridSurface(surface, In.Pos.xy), albedo.a);
 }

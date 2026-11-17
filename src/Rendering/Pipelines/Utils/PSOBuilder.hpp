@@ -7,6 +7,7 @@
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "Common/interface/RefCntAutoPtr.hpp"
+#include "Shaders/ShaderManager.hpp"
 
 namespace Diligent {
 
@@ -26,6 +27,8 @@ namespace Diligent {
 
         // Loaded through ShaderManager (cached)
         PSOBuilder& Shaders(const char* vsFile, const char* psFile, const char* vsEntry = "main_vs", const char* psEntry = "main_ps");
+        // #defines for the pixel shader, e.g. to compile in code only some devices support
+        PSOBuilder& PixelMacros(const ShaderMacroList& macros);
 
         // TEX_FORMAT_UNKNOWN for the depth format means no depth buffer, and also disables the depth test
         PSOBuilder& RenderTargets(std::initializer_list<TEXTURE_FORMAT> rtvFormats, TEXTURE_FORMAT dsvFormat);
@@ -55,6 +58,9 @@ namespace Diligent {
         IShader* m_pPS = nullptr;
         std::string m_VSFile;
         std::string m_PSFile;
+        std::string m_VSEntry;
+        std::string m_PSEntry;
+        ShaderMacroList m_PSMacros;
 
         std::vector<LayoutElement> m_Layout;
         std::vector<ShaderResourceVariableDesc> m_Variables;

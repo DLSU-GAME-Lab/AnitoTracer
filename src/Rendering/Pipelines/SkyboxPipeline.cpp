@@ -14,9 +14,12 @@ namespace Diligent {
             .Cull(CULL_MODE_FRONT)
             .Depth(true, false, COMPARISON_FUNC_LESS_EQUAL)
             .Variable(SHADER_TYPE_VERTEX, "CameraConstants")
-            .Variable(SHADER_TYPE_PIXEL, "g_Cubemap", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
+            // Dynamic: the sky is swapped while the app runs (another file, a solid color, every step of a color drag),
+            // and a mutable variable may only be set once per SRB
+            .Variable(SHADER_TYPE_PIXEL, "g_Cubemap", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC)
             .Variable(SHADER_TYPE_PIXEL, "LightConstants")
             .Variable(SHADER_TYPE_PIXEL, "FogConstants")
+            .Variable(SHADER_TYPE_PIXEL, "SkyboxConstants")
             .Sampler(SHADER_TYPE_PIXEL, "g_Cubemap_sampler", PipelineUtils::LinearWrapSampler())
             .Build(pDevice);
         m_pSRB = PipelineUtils::CreateSRB(m_pPSO);
@@ -26,11 +29,13 @@ namespace Diligent {
         m_pCameraCB = PipelineUtils::CreateDynamicCB<CameraConstants>(pDevice, "Skybox Camera Constant Buffer");
         m_pLightCB = PipelineUtils::CreateDynamicCB<LightConstants>(pDevice, "Skybox Light Constant Buffer");
         m_pFogCB = PipelineUtils::CreateDynamicCB<FogConstants>(pDevice, "Skybox Fog Constant Buffer");
+        m_pSkyCB = PipelineUtils::CreateDynamicCB<SkyboxConstants>(pDevice, "Skybox Sky Constant Buffer");
 
         // Bind the buffers to the shader variables permanently
         PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_VERTEX, "CameraConstants", m_pCameraCB);
         PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "LightConstants", m_pLightCB);
         PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "FogConstants", m_pFogCB);
+        PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "SkyboxConstants", m_pSkyCB);
     }
 
     void SkyboxPipeline::UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog) {
@@ -45,7 +50,7 @@ namespace Diligent {
         }
     }
 
-    void SkyboxPipeline::Render(IDeviceContext* pContext, const RenderData& renderData) {
+    void SkyboxPipeline::Render(IDeviceContext* pContext, const RenderData& renderData, const SkyboxConstants& sky) {
         if (!m_pPSO || !m_pSRB) return;
 
         // Map the view/proj matrices dynamically every frame!
@@ -54,6 +59,7 @@ namespace Diligent {
         camera.Proj = glm::transpose(renderData.ProjectionMatrix);
         PipelineUtils::WriteCB(pContext, m_pCameraCB, camera);
         PipelineUtils::WriteCB(pContext, m_pLightCB, renderData.Lights);
+        PipelineUtils::WriteCB(pContext, m_pSkyCB, sky);
 
         pContext->SetPipelineState(m_pPSO);
         pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

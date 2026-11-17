@@ -1,6 +1,7 @@
 #include "DeferredHybridPipeline.hpp"
 #include "../RenderData.hpp"
 #include <algorithm>
+#include <cmath>
 
 namespace {
     // Mirrors cbuffer DeferredHybridConstants in Shaders/DeferredHybrid/lighting_ps.hlsl
@@ -8,6 +9,7 @@ namespace {
     {
         glm::mat4 InvViewProj;
         glm::vec4 ViewportSize; // xy: size in pixels, zw: 1 / size
+        glm::vec4 ViewParams;   // x: angle one pixel covers, in radians (sizes the texture mip a reflection ray reads)
     };
     static_assert(sizeof(DeferredHybridConstants) % 16 == 0, "DeferredHybridConstants must be 16-byte aligned for HLSL");
 }
@@ -67,6 +69,7 @@ void Diligent::DeferredHybridPipeline::InitializeLightingPSO()
     // The shader outputs the G-buffer depth, so later passes (particles, debug lines) are occluded by the scene.
     m_pLightingPSO = PSOBuilder("Deferred Hybrid Lighting PSO")
         .Shaders("Deferred/fullscreen_vs.hlsl", "DeferredHybrid/lighting_ps.hlsl")
+        .PixelMacros(GetRayTracingMacros())
         .RenderTargets({ GetColorFormat() }, GetDepthFormat())
         .SampleCount(PipelineUtils::GetMSAASampleCount())
         .Cull(CULL_MODE_NONE)
@@ -81,7 +84,7 @@ void Diligent::DeferredHybridPipeline::InitializeLightingPSO()
         .Variable(SHADER_TYPE_PIXEL, "ShadowSettings")
         .Variable(SHADER_TYPE_PIXEL, "FogConstants")
         .Variables(GetRayTracingVariables())
-        .Samplers({ GetEnvironmentMapSampler() })
+        .Samplers(GetRayTracingSamplers())
         .Build(m_pDevice);
     m_pLightingSRB = PipelineUtils::CreateSRB(m_pLightingPSO);
 
@@ -120,6 +123,10 @@ void Diligent::DeferredHybridPipeline::StartFrameRender(IDeviceContext* pContext
     constants.ViewportSize = glm::vec4(
         static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight),
         1.0f / static_cast<float>((std::max)(m_ViewportWidth, 1u)), 1.0f / static_cast<float>((std::max)(m_ViewportHeight, 1u)));
+    // The projection's Y scale is 1 / tan(fovY / 2), so the view is 2 / scale tall at distance 1, spread over the viewport's rows
+    const float projScaleY = renderData.ProjectionMatrix[1][1];
+    const float pixelAngle = projScaleY != 0.0f ? 2.0f / (std::abs(projScaleY) * static_cast<float>((std::max)(m_ViewportHeight, 1u))) : 0.0f;
+    constants.ViewParams = glm::vec4(pixelAngle, 0.0f, 0.0f, 0.0f);
     PipelineUtils::WriteCB(pContext, m_pDeferredCB, constants);
 
     m_GBuffer.SetRenderTargets(pContext, /*depthOnly*/ true);
