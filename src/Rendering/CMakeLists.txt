@@ -46,6 +46,8 @@ set(${CUR_TARGET_NAME}_src
 	Pipelines/Utils/StructuredBufferArray.cpp
 	Pipelines/Utils/DiffuseGIPass.hpp
 	Pipelines/Utils/DiffuseGIPass.cpp
+	Pipelines/Utils/SignalDenoiser.hpp
+	Pipelines/Utils/SignalDenoiser.cpp
 
 
 	Pipelines/Utils/SkyEnvironment.hpp

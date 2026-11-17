@@ -125,7 +125,8 @@ namespace Diligent {
 
                 if (ImGui::Checkbox("Blur on Rough Surfaces", &reflectionSettings.glossy)) saveProjectSettings();
                 tooltip("Rough surfaces blur what they reflect instead of showing it mirror sharp.\n"
-                    "Built up over several frames, so it only applies while TAA is on, and stays a little grainy.");
+                    "Deferred Hybrid cleans the blur up with its denoiser (see Denoising).\n"
+                    "Without the denoiser it is built up over several frames, so it only applies while TAA is on, and stays a little grainy.");
 
                 ImGui::Unindent();
                 ImGui::EndDisabled();
@@ -212,6 +213,14 @@ namespace Diligent {
                     ImGui::TextDisabled("In use now: Sky + AO. Per-pixel needs the Deferred Hybrid renderer.");
                 }
 
+                // Sky + AO's own setting; the ones after it belong to Per-pixel
+                ImGui::BeginDisabled(perPixelChosen);
+                if (ImGui::Checkbox("Half-Resolution Occlusion##GI", &giSettings.ao_half_resolution)) saveProjectSettings();
+                tooltip("Sky + AO in the Deferred Hybrid renderer: trace and filter the ambient occlusion for every 2x2 pixels and scale the result up.\n"
+                    "A quarter of the rays and of the filtering, for slightly softer shading in corners and under objects.\n"
+                    "Off: trace for every pixel. For comparing the two.");
+                ImGui::EndDisabled();
+
                 ImGui::BeginDisabled(!perPixelChosen);
 
                 ImGui::DragFloat("Intensity##GI", &giSettings.intensity, 0.01f, 0.0f, 10.0f, "%.2f");
@@ -239,15 +248,20 @@ namespace Diligent {
                 if (ImGui::Checkbox("Sky Light on Bounces", &giSettings.sky_bounce)) saveProjectSettings();
                 tooltip("Surfaces that bounce light are also lit by the sky, where one more ray reaches it.\nSoftens shaded outdoor areas. Used where Further Bounces has nothing to reuse, or is off.");
 
+                // These two steer the denoiser, so they do nothing while it is off for indirect light
+                ImGui::BeginDisabled(!(projectSettings.denoise.enabled && projectSettings.denoise.indirect));
 
                 ImGui::SliderFloat("Smoothing over Time##GI", &giSettings.history_blend, 0.0f, 0.98f, "%.2f");
-                tooltip("How much of the earlier frames is kept every frame.\nHigher is smoother, but lighting changes and moving objects take longer to catch up.");
+                tooltip("How much of the earlier frames the denoiser keeps every frame.\nHigher is smoother, but lighting changes and moving objects take longer to catch up.\n"
+                    "Needs Denoising on for indirect light.");
                 saveAfterEdit();
 
                 ImGui::SliderInt("Blur Passes##GI", &giSettings.filter_passes, 0, 5);
-
-                tooltip("Blur passes that hide the remaining noise. Each doubles the blur's reach.\n0 shows the gathered light as it is.");
+                tooltip("The denoiser's blur passes, which hide the remaining noise. Each doubles the blur's reach.\n0 shows the light as gathered over time.\n"
+                    "Needs Denoising on for indirect light.");
                 saveAfterEdit();
+
+                ImGui::EndDisabled();
 
                 ImGui::EndDisabled();
 
@@ -259,6 +273,62 @@ namespace Diligent {
                 if (ImGui::Button("Reset Global Illumination to Defaults"))
                 {
                     giSettings = ProjectGISettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Denoising Section (Deferred Hybrid renderer)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Denoising", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& denoiseSettings = projectSettings.denoise;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                const bool deferredHybrid = UserSettings::GetInstance().GetRendererType() == DEFERRED_HYBRID;
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+                else if (!deferredHybrid)
+                {
+                    ImGui::TextDisabled("Only the Deferred Hybrid renderer denoises its rays.");
+                }
+
+                ImGui::BeginDisabled(!rayTracingSupported);
+
+                // The one switch for comparison tests: off skips every filter below
+                if (ImGui::Checkbox("Denoise Ray-Traced Light", &denoiseSettings.enabled)) saveProjectSettings();
+                tooltip("Deferred Hybrid renderer: every pixel traces one ray per light, one for its reflection and a few for indirect light.\n"
+                    "The filters average those rays over frames and blur them along surfaces.\n"
+                    "Off: every filter is skipped and the same rays are shown as traced, noise included. For comparing.");
+
+                ImGui::BeginDisabled(!denoiseSettings.enabled);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Shadows##Denoise", &denoiseSettings.shadows)) saveProjectSettings();
+                tooltip("Filter the shadows. Off: soft shadow edges show the grain of one ray per light.");
+
+                if (ImGui::Checkbox("Reflections##Denoise", &denoiseSettings.reflections)) saveProjectSettings();
+                tooltip("Filter the reflections. Off: rough surfaces show the grain of one ray per pixel.");
+
+                if (ImGui::Checkbox("Indirect Light##Denoise", &denoiseSettings.indirect)) saveProjectSettings();
+                tooltip("Filter the indirect light: per-pixel GI, or the ambient occlusion of Sky + AO.\n"
+                    "Off: it shows the grain of the few rays each pixel traces.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Denoising to Defaults"))
+                {
+                    denoiseSettings = ProjectDenoiseSettings{};
                     saveProjectSettings();
                 }
             }

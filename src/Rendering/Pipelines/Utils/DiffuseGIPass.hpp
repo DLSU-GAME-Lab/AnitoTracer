@@ -15,23 +15,17 @@
 namespace Diligent {
 
     // Per-pixel diffuse global illumination for a deferred pipeline: the light each visible surface receives from
-    // other surfaces and from the sky, gathered with one ray per pixel (Shaders/DeferredHybrid/gi_*.hlsl).
+    // other surfaces and from the sky, gathered with a few rays per pixel (Shaders/DeferredHybrid/gi_trace_ps.hlsl).
     //
-    // One ray is far too little on its own, so three passes turn it into a usable image:
-    //   1. Trace       one cosine-weighted ray per GI pixel from the G-buffer; a hit is shaded like a reflection hit
-    //                  and also lit by last frame's GI there (so light bounces on, frame after frame), a miss returns
-    //                  the sky. Also writes the "guide": each pixel's normal and distance.
-    //   2. Accumulate  blends the new rays into last frame's result, found by reprojecting each pixel. History is
-    //                  dropped where the guide says last frame showed a different surface there.
-    //   3. Filter      a few blur passes that stop at edges in the guide. The first one's output is what the next
-    //                  frame accumulates onto.
-
-    // The lighting pass then reads the result, scaling it up when it was traced at half resolution.
+    // This pass only traces: cosine-weighted rays per GI pixel from the G-buffer; a hit is shaded like a reflection
+    // hit and also lit by last frame's GI there (so light bounces on, frame after frame), a miss returns the sky.
+    // A few rays are far too little on their own, so the owner hands the result to a SignalDenoiser, which averages
+    // it over time and blurs it, and then to its lighting pass, which scales it up when it was traced at half resolution.
     //
     // It keeps one view's history, like TemporalAAPass: a pipeline that draws several views needs one per view.
     class DiffuseGIPass {
     public:
-        // The trace pass shades ray hits, so its PSO needs everything the owner's ray-traced lighting pass has
+        // The trace pass shades ray hits, so its PSO needs everything the owner's ray-traced passes have
         // (HybridPipeline::GetRayTracingVariables / Samplers / Macros)
         struct TraceSetup {
             std::vector<ShaderResourceVariableDesc> Variables;
@@ -40,9 +34,9 @@ namespace Diligent {
         };
 
         void Initialize(IRenderDevice* pDevice, const TraceSetup& rayTracing);
-        bool IsInitialized() const { return m_pTracePSO && m_pAccumulatePSO && m_pFilterPSO; }
+        bool IsInitialized() const { return m_pTracePSO != nullptr; }
 
-        // The owner binds into this what its own ray-traced pass gets: TLAS, sky cubes, scene buffers and textures,
+        // The owner binds into this what its own ray-traced passes get: TLAS, sky cubes, scene buffers and textures,
         // light and shadow constants, and the G-buffer (g_GBufferNormals, g_GBufferDepth)
         IShaderResourceBinding* GetTraceSRB() const { return m_pTraceSRB; }
 
@@ -51,21 +45,31 @@ namespace Diligent {
             glm::vec3 CameraPos{ 0.0f };
             Uint32 Width = 0;               // Size of the view in pixels (the G-buffer itself may be larger)
             Uint32 Height = 0;
+
+            // For light that bounces more than once: what a ray hits is lit by the GI gathered there last frame.
+            // pPrevGuide: last frame's guide (view sized; xy octahedral geometric normal, z distance from the
+            //             camera, w > 0 where there is a surface). nullptr: there is none, rays fall back to the sky.
+            // pPrevResult: last frame's GI as it was shown, i.e. after denoising. nullptr: this pass's own rays of
+            //             last frame are read instead (noisier; for when nothing denoises them).
+            ITextureView* pPrevGuide = nullptr;
+            ITextureView* pPrevResult = nullptr;
+
+            // True when a denoiser averages the result over frames: the rays then change every frame.
+            // Otherwise they only change with NoiseFrame (RenderData::NoiseFrame: moves under TAA, 0 stays still).
+            bool Denoised = false;
+            Uint32 NoiseFrame = 0;
         };
 
-        // Runs the three passes. Changes the bound render targets, so bind the frame's own afterwards.
-        void Render(IDeviceContext* pContext, const View& view, const ProjectGISettings& settings);
+        // Traces this frame's rays and returns them: rgb = indirect light arriving at the surface, a = how open its
+        // surroundings are (0 enclosed .. 1 open). GetScale(settings) times smaller than the view along each axis.
+        // Changes the bound render targets, so bind the frame's own afterwards.
+        ITextureView* Trace(IDeviceContext* pContext, const View& view, const ProjectGISettings& settings);
 
-        // Drops the accumulated light, so the next Render starts over (call on frames where GI isn't rendered)
+        // Forgets last frame, so the next Trace doesn't read it (call on frames where GI isn't traced)
         void ResetHistory() { m_HistoryValid = false; }
 
-        // Results of the last Render; nullptr before the first one.
-        // Result: rgb = indirect light arriving at the surface, a = how open its surroundings are (0 enclosed .. 1 open).
-        // Guide:  xy = octahedral geometric normal, z = distance from the camera, w = 1 where there is a surface.
-        // Both are GetScale() times smaller than the view along each axis.
-        ITextureView* GetResultSRV() const { return m_pResultSRV; }
-        ITextureView* GetGuideSRV() const { return m_pGuideSRV; }
-        Uint32 GetScale() const { return m_Scale; }
+        // View pixels per GI pixel along each axis
+        static Uint32 GetScale(const ProjectGISettings& settings) { return settings.half_resolution ? 2u : 1u; }
 
     private:
         void CreateTextures(Uint32 width, Uint32 height);
@@ -74,28 +78,13 @@ namespace Diligent {
 
         RefCntAutoPtr<IPipelineState> m_pTracePSO;
         RefCntAutoPtr<IShaderResourceBinding> m_pTraceSRB;
-        RefCntAutoPtr<IPipelineState> m_pAccumulatePSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pAccumulateSRB;
-        RefCntAutoPtr<IPipelineState> m_pFilterPSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pFilterSRB;
         RefCntAutoPtr<IBuffer> m_pConstantsCB;
 
-        // All GI-sized. The pairs are ping-ponged: one holds last frame's data while the other is written.
-        RefCntAutoPtr<ITexture> m_pTrace;           // This frame's rays
-        RefCntAutoPtr<ITexture> m_pAccumRaw;        // Rays averaged over time, before the first blur pass
-        RefCntAutoPtr<ITexture> m_pGuide[2];
-        RefCntAutoPtr<ITexture> m_pAccum[2];        // The result kept for the next frame: averaged over time and blurred once
-        RefCntAutoPtr<ITexture> m_pHistoryLength[2]; // How many frames each pixel has been accumulating
-        RefCntAutoPtr<ITexture> m_pFiltered[2];     // Scratch for the blur passes
-        Uint32 m_Current = 0;                       // Entry of the pairs written by the last Render
+        // GI sized. Ping-ponged: one holds last frame's rays while the other is written.
+        RefCntAutoPtr<ITexture> m_pRays[2];
+        Uint32 m_Current = 0;                       // Entry written by the last Trace
         Uint32 m_Width = 0;
         Uint32 m_Height = 0;
-        Uint32 m_Scale = 2;
-
-        ITexture* m_pLastResult = nullptr;          // The texture the last Render left its final result in
-        ITextureView* m_pResultSRV = nullptr;
-
-        ITextureView* m_pGuideSRV = nullptr;
 
         bool m_HistoryValid = false;
         Uint32 m_FrameIndex = 0;

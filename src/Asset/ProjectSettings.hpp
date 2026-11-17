@@ -22,7 +22,7 @@ struct ProjectReflectionSettings
     bool enabled = true;            // Trace reflection rays. Off: surfaces reflect the sky only, even with objects in the way.
     bool shade_hits = true;         // Show the objects rays hit. Off: an object only blocks the sky (the cheaper, older look).
     bool hit_shadows = true;        // Reflected objects keep their shadows, for one more ray per light at each hit.
-    bool glossy = true;             // Rough surfaces blur what they reflect. Averaged over frames, so it needs TAA.
+    bool glossy = true;             // Rough surfaces blur what they reflect. Needs frames averaged: the denoiser, or TAA.
     float max_roughness = 0.6f;     // Surfaces rougher than this reflect the sky only. Rays fade out toward it.
     float max_distance = 100.0f;    // World units a ray travels looking for objects; beyond it the sky shows.
 };
@@ -214,6 +214,10 @@ struct ProjectGISettings
     //    Runs in Deferred Hybrid on devices where reflections can show objects; everywhere else Sky + AO is used.
     int method = GI_METHOD_PER_PIXEL;
 
+    // Sky + AO in the Deferred Hybrid renderer: trace and filter the ambient occlusion for every 2x2 pixels instead of
+    // every pixel, scaled back up afterwards. A quarter of the cost, for slightly softer shading in corners.
+    bool ao_half_resolution = false;
+
     // The rest only applies to Per-pixel
     float intensity = 1.0f;         // Strength of the gathered light
     float max_distance = 100.0f;    // World units a GI ray travels looking for surfaces; beyond it the sky shows
@@ -223,10 +227,23 @@ struct ProjectGISettings
     bool more_bounces = true;       // Light keeps bouncing: surfaces that bounce light are also lit by last frame's result
     bool sky_bounce = true;         // Where that isn't known (off screen), they are lit by the sky if one more ray reaches it
 
+    // How the denoiser treats the result (while ProjectDenoiseSettings has it on)
     float history_blend = 0.98f;    // Share of earlier frames kept every frame. Higher is smoother but slower to react.
     int filter_passes = 5;          // Blur passes over the result, 0 to 5. Each doubles the blur's reach.
 
 
+};
+
+// Denoising of the Deferred Hybrid renderer's ray-traced light. Every pixel traces one ray per light, one for its
+// reflection and a few for indirect light. That is far too few on its own, so each result is averaged over frames
+// and blurred along surfaces (our own filters, in the style of SVGF).
+// Off shows the same rays as traced, noise included: for comparing against the filtered image.
+struct ProjectDenoiseSettings
+{
+    bool enabled = true;        // Off: nothing is denoised, whatever the switches below say
+    bool shadows = true;
+    bool reflections = true;
+    bool indirect = true;       // Per-pixel GI, or the ambient occlusion of Sky + AO
 };
 
 struct ProjectSettings
@@ -234,6 +251,7 @@ struct ProjectSettings
     ProjectLightingSettings lighting;
     ProjectReflectionSettings reflections;
     ProjectGISettings gi;
+    ProjectDenoiseSettings denoise;
 
     ProjectSkySettings sky;
 

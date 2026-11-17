@@ -1,8 +1,16 @@
 #ifndef HYBRID_SHADING_HLSLI
 #define HYBRID_SHADING_HLSLI
 
-// Ray-traced shading shared by the forward Hybrid pass (hybrid_ps.hlsl) and the
-// Deferred Hybrid lighting pass (DeferredHybrid/lighting_ps.hlsl), so both produce the same image.
+// Ray-traced shading shared by the forward Hybrid pass (hybrid_ps.hlsl) and the Deferred Hybrid passes
+// (DeferredHybrid/*.hlsl), so both produce the same image.
+//
+// It comes in two halves:
+//   tracing    TraceLightSlot, TraceAmbientOcclusion, TraceHybridReflection: what the rays from a surface find
+//   composing  ComposeHybridSurface: the surface's color, from its material and those results (HybridRays)
+// The forward pass does both at once for every pixel it draws (ShadeHybridSurface), with several rays per light.
+// Deferred Hybrid traces in passes of their own with one ray each, cleans the results up over time and space
+// (SignalDenoiser) and only composes in its lighting pass.
+//
 // Requires light_struct.hlsli, pbr_defs.hlsli and fog.hlsli to be included first.
 
 #include "rt_shadows.hlsli"
@@ -18,8 +26,11 @@ SamplerState g_EnvMap_sampler;
 // ------------------------------------------------------------------
 // Ray budget / quality knobs (shadow ray counts live in rt_shadows.hlsli)
 // ------------------------------------------------------------------
-static const int AO_SAMPLES = 6;                // Cosine-weighted occlusion rays
+static const int AO_SAMPLES = 6;                // Cosine-weighted occlusion rays of the forward pass
 static const float AO_RADIUS = 1.0;             // World units
+
+// Lights are numbered in one list for the ray passes: the directional lights first, then the point lights
+static const int MAX_LIGHT_SLOTS = 12;          // 4 directional + 8 point, see light_struct.hlsli
 
 // Bits of g_ReflectionFlags, from the project's reflection settings (mirror ReflectionFlags in PipelineDefs.hpp).
 // The roughness limit and ray distance are settings too: g_ReflectionMaxRoughness and g_ReflectionMaxDistance.
@@ -27,20 +38,21 @@ static const float AO_RADIUS = 1.0;             // World units
 static const uint REFLECTION_TRACE = 1u;        // Trace reflection rays; without it surfaces reflect only the sky
 static const uint REFLECTION_SHADE_HITS = 2u;   // Light and texture what a ray hits; without it a hit only blocks the sky
 static const uint REFLECTION_HIT_SHADOWS = 4u;  // Trace shadow rays from what a ray hits
-static const uint REFLECTION_GLOSSY = 8u;       // Spread rays over rough surfaces' highlight (only while TAA averages frames)
+static const uint REFLECTION_GLOSSY = 8u;       // Spread rays over rough surfaces' highlight (only while frames are averaged)
 
-// Ray-traced ambient occlusion. Also returns the bent normal (average unoccluded direction)
-float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, float3 N, float2 noise, out float3 bentNormal)
+// Ray-traced ambient occlusion with `samples` rays. Returns the share of them that got away, and in openDirection
+// the average direction of those (not normalized: it shortens as more rays are blocked).
+float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, float3 N, float2 noise, int samples, out float3 openDirection)
 {
     float3 t, b;
     BuildBasis(N, t, b);
 
     float visibility = 0.0;
-    float3 openDir = float3(0.0, 0.0, 0.0);
-    for (int s = 0; s < AO_SAMPLES; ++s)
+    openDirection = float3(0.0, 0.0, 0.0);
+    for (int s = 0; s < samples; ++s)
     {
         // Disk -> hemisphere projection gives a cosine-weighted distribution (Malley's method)
-        float2 d = VogelDisk(s, AO_SAMPLES, noise.x * 2.0 * PI, noise.y);
+        float2 d = VogelDisk(s, samples, noise.x * 2.0 * PI, noise.y);
         float3 dir = t * d.x + b * d.y + N * sqrt(saturate(1.0 - dot(d, d)));
 
         // Normal maps can tilt samples below the real surface; mirror them back above it
@@ -52,11 +64,11 @@ float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, f
 
         float v = TraceShadowRay(worldPos, geoN, positionError, dir, AO_RADIUS);
         visibility += v;
-        openDir += dir * v;
+        openDirection += dir * v;
     }
 
-    bentNormal = dot(openDir, openDir) > 0.0001 ? normalize(openDir) : N;
-    return visibility / AO_SAMPLES;
+    openDirection /= float(samples);
+    return visibility / float(samples);
 }
 
 // Specular occlusion from ambient occlusion (Lagarde & de Rousiers, "Moving Frostbite to PBR")
@@ -91,11 +103,12 @@ float3 SampleEnvSpecular(float3 R, float roughness)
 
 // Direction to trace a reflection ray in. A mirror reflects along R alone, but a rough surface gathers light from
 // a whole lobe of directions around it. With REFLECTION_GLOSSY each frame picks one direction out of that lobe (a
-// GGX half vector, then reflecting the view direction about it), and TAA averages the frames into a blurred reflection.
-// Without TAA the picks would never average out and only show as grain, so the ray stays on R.
+// GGX half vector, then reflecting the view direction about it), and averaging the frames (the denoiser in Deferred
+// Hybrid, TAA elsewhere) turns them into a blurred reflection.
+// With nothing to average them the picks would only show as grain, so the ray stays on R.
 float3 ReflectionRayDirection(float3 N, float3 geoN, float3 V, float3 R, float roughness, float2 noise)
 {
-    if ((g_ReflectionFlags & REFLECTION_GLOSSY) == 0u || g_NoiseFrame == 0u)
+    if ((g_ReflectionFlags & REFLECTION_GLOSSY) == 0u || !RaysAveraged())
     {
         return R;
     }
@@ -143,9 +156,151 @@ struct HybridSurface
                           // a: how open the surroundings are, 0 enclosed .. 1 open
 };
 
-// Direct light with ray-traced soft shadows, indirect light (per-pixel GI or sky light with ray-traced AO),
-// ray-traced reflections, then fog
-float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
+// What the rays from a surface found. Traced on the spot by the forward pass, read from the denoised signal
+// textures by the Deferred Hybrid lighting pass.
+struct HybridRays
+{
+    float LightVisibility[MAX_LIGHT_SLOTS]; // Per light slot: 0 in shadow .. 1 fully lit
+    // Ambient occlusion, for Sky + AO (not read with UseIndirectLight)
+    float AmbientVisibility;    // 0 enclosed .. 1 open
+    float3 OpenDirection;       // Average direction of the occlusion rays that got away, see TraceAmbientOcclusion
+    // The light arriving along the reflection, see TraceHybridReflection (not read where UsesReflectionRay is false)
+    float3 Reflection;
+};
+
+int LightSlotCount()
+{
+    return g_NumDirLights + g_NumPointLights;
+}
+
+// How much of a light reaches the surface, from `samples` shadow rays spread over the light's area.
+// Returns 1 without tracing where the light can't reach anyway (facing away, out of range, an empty slot):
+// the light's own shading is 0 there, and 1 keeps a blur over the result from darkening the lit side next to it.
+// noise: this pixel's RayNoise / HashNoise; each light shifts it differently.
+float TraceLightSlot(HybridSurface s, int slot, float2 noise, int samples)
+{
+    if (slot < g_NumDirLights)
+    {
+        float3 L = normalize(-g_DirLights[slot].Direction.xyz);
+        if (dot(s.N, L) <= 0.0)
+            return 1.0;
+
+        return TraceDirectionalShadow(s.WorldPos, s.GeoN, s.PositionError, L, ShiftNoise(noise, slot), samples);
+    }
+
+    int j = slot - g_NumDirLights;
+    if (j >= g_NumPointLights)
+        return 1.0;
+
+    float3 lightVec = g_PointLights[j].Position.xyz - s.WorldPos;
+    float dist = length(lightVec);
+    if (dist >= g_PointLights[j].Range)
+        return 1.0;
+
+    float3 L = lightVec / dist;
+    if (dot(s.N, L) <= 0.0)
+        return 1.0;
+
+    return TracePointShadow(s.WorldPos, s.GeoN, s.PositionError, g_PointLights[j].Position.xyz, L, ShiftNoise(noise, 4 + j), samples);
+}
+
+// The indirect light at a surface, from per-pixel GI or from the sky dimmed by ambient occlusion
+struct HybridAmbient
+{
+    float3 Irradiance;      // Average radiance arriving over the hemisphere
+    float Occlusion;        // How much of the surroundings is open, for the reflections
+    float DiffuseOcclusion; // What the diffuse part is dimmed by
+};
+
+HybridAmbient GetHybridAmbient(HybridSurface s, float ambientVisibility, float3 openDirection)
+{
+    HybridAmbient ambient;
+    if (s.UseIndirectLight)
+    {
+        // Per-pixel GI: the light was gathered by rays, so what blocks it is already accounted for.
+        // Only the material's AO map is applied, for crevices smaller than the rays resolve.
+        ambient.Irradiance = s.IndirectLight.rgb;
+        ambient.Occlusion = min(s.AO, s.IndirectLight.a);
+        ambient.DiffuseOcclusion = s.AO;
+    }
+    else
+    {
+        // Sky + AO: flat ambient color plus skybox light from the open side (the bent normal), both occluded by ray-traced AO
+        float3 bentNormal = dot(openDirection, openDirection) > 0.000001 ? normalize(openDirection) : s.N;
+        ambient.Occlusion = min(s.AO, ambientVisibility);
+        ambient.Irradiance = g_AmbientColor.rgb + SampleEnvIrradiance(bentNormal) * g_SkyLightIntensity;
+        ambient.DiffuseOcclusion = ambient.Occlusion;
+    }
+    return ambient;
+}
+
+// True where a reflection ray is traced for a surface of this roughness; rougher ones reflect the filtered sky only
+bool UsesReflectionRay(float roughness)
+{
+    return (g_ReflectionFlags & REFLECTION_TRACE) != 0u && roughness < g_ReflectionMaxRoughness && g_ReflectionIntensity > 0.0;
+}
+
+// True when reflection rays show what they hit, lit and textured, rather than only finding out that something is there
+bool ReflectionShadesHits()
+{
+#ifdef RT_SCENE_SHADING
+    return (g_ReflectionFlags & REFLECTION_SHADE_HITS) != 0u;
+#else
+    return false;
+#endif
+}
+
+// One reflection ray from a surface. Call only where UsesReflectionRay(s.Roughness).
+// rgb: the light arriving along the reflection: the object the ray hit, lit, or the sky filtered for this roughness
+//      where it hit nothing (which has no noise).
+// a:   how far away the hit was, in world units; g_ReflectionMaxDistance for the sky. The denoiser sizes its blur with it.
+// noise: this pixel's RayNoise / HashNoise.
+float4 TraceHybridReflection(HybridSurface s, HybridAmbient ambient, float2 noise)
+{
+    float3 V = normalize(g_CameraPos.xyz - s.WorldPos);
+    float3 R = reflect(-V, s.N);
+
+    float3 envSpecular = SampleEnvSpecular(R, s.Roughness) * g_SkyLightIntensity;
+    // Stand-in for something the ray hit but can't shade: a dim bounce of the light around this surface
+    float3 unshadedRadiance = ambient.Irradiance * 0.25 * ambient.Occlusion;
+
+#ifdef RT_SCENE_SHADING
+    if ((g_ReflectionFlags & REFLECTION_SHADE_HITS) != 0u)
+    {
+        float3 rayDir = ReflectionRayDirection(s.N, s.GeoN, V, R, s.Roughness, ShiftNoise(noise, 13));
+        float3 rayOrigin = s.WorldPos + s.GeoN * (g_ShadowBias + s.PositionError);
+
+        SceneHit hit;
+        if (!TraceSceneRay(rayOrigin, rayDir, g_ReflectionMaxDistance, hit))
+        {
+            return float4(envSpecular, g_ReflectionMaxDistance);
+        }
+
+        float3 hitRadiance = unshadedRadiance;
+        if (hit.Shadeable)
+        {
+            // The pixel's footprint keeps widening along the reflected ray, and a rough reflector widens it further
+            float viewDistance = length(g_CameraPos.xyz - s.WorldPos);
+            float coneWidth = s.PixelSpread * (viewDistance + hit.Distance) + 0.5 * s.Roughness * s.Roughness * hit.Distance;
+            uint hitFlags = HIT_SPECULAR;
+            if ((g_ReflectionFlags & REFLECTION_HIT_SHADOWS) != 0u) hitFlags |= HIT_SHADOWS;
+            // With per-pixel GI, the reflected object gets the indirect light gathered at this pixel rather
+            // than open sky: it is usually close by, and a room without windows then stays dark in mirrors too
+            hitFlags |= s.UseIndirectLight ? HIT_AMBIENT_GIVEN : HIT_AMBIENT_SKY;
+            hitRadiance = ShadeSceneHit(hit, rayDir, coneWidth, ShiftNoise(noise, 14), hitFlags, ambient.Irradiance);
+        }
+        return float4(hitRadiance, hit.Distance);
+    }
+#endif
+
+    // Visibility only: geometry in the way hides the sky but isn't shown. How far away it is stays unknown.
+    float reflectionVisibility = TraceShadowRay(s.WorldPos, s.GeoN, s.PositionError, R, g_ReflectionMaxDistance);
+    return float4(lerp(unshadedRadiance, envSpecular, reflectionVisibility), reflectionVisibility * g_ReflectionMaxDistance);
+}
+
+// The surface's color from its material and what its rays found: direct light with ray-traced shadows, indirect
+// light (per-pixel GI, or sky light with ray-traced AO), reflections, then fog
+float3 ComposeHybridSurface(HybridSurface s, HybridRays rays, float2 pixelPos)
 {
     float3 N = s.N;
     float3 geoN = s.GeoN;
@@ -156,11 +311,6 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
     float NdotV = saturate(dot(N, V)) + 0.0001;
     float3 F0 = lerp(float3(0.04, 0.04, 0.04), s.Albedo, metallic);
     float3 Lo = float3(0.0, 0.0, 0.0);
-
-    // Per-pixel rotation for all stochastic rays, so the sample patterns don't band; changes every frame under TAA.
-    // Each light and effect gets its own shift of it (index k: dir lights 0-3, point lights 4-11, AO 12,
-    // reflection ray 13, lights at the reflection's hit 14 onward)
-    float2 noise = RayNoise(pixelPos);
 
     // Single scattering GGX loses energy on rough surfaces; scale it back up (Fdez-Aguera 2019)
     float2 envBRDF = EnvBRDFApprox(NdotV, roughness);
@@ -174,7 +324,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
         if (dot(N, L) <= 0.0)
             continue;
 
-        float shadowFactor = TraceDirectionalShadow(s.WorldPos, geoN, s.PositionError, L, ShiftNoise(noise, i));
+        float shadowFactor = rays.LightVisibility[i];
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
         Lo += ComputeLightRadiance(N, V, L, radiance, s.Albedo, metallic, roughness, F0, shadowFactor, energyCompensation);
@@ -192,7 +342,7 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
             if (dot(N, L) <= 0.0)
                 continue;
 
-            float shadowFactor = TracePointShadow(s.WorldPos, geoN, s.PositionError, g_PointLights[j].Position.xyz, L, ShiftNoise(noise, 4 + j));
+            float shadowFactor = rays.LightVisibility[g_NumDirLights + j];
 
             float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
             attenuation *= attenuation;
@@ -203,83 +353,29 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
     }
 
     // 3. Indirect light
+    HybridAmbient indirect = GetHybridAmbient(s, rays.AmbientVisibility, rays.OpenDirection);
     float3 kD = (1.0 - specularColor) * (1.0 - metallic);
-    float occlusion;        // How much of the surroundings is open, for the reflections below
-    float3 irradiance;      // Average radiance arriving over the hemisphere
-    float3 ambientDiffuse;
-    if (s.UseIndirectLight)
-    {
-        // Per-pixel GI: the light was gathered by rays, so what blocks it is already accounted for.
-        // Only the material's AO map is applied, for crevices smaller than the rays resolve.
-        irradiance = s.IndirectLight.rgb;
-        occlusion = min(s.AO, s.IndirectLight.a);
-        ambientDiffuse = irradiance * s.Albedo * kD * s.AO;
-    }
-    else
-    {
-        // Sky + AO: flat ambient color plus skybox light, both occluded by ray-traced AO
-        float3 bentNormal;
-        float rtao = TraceAmbientOcclusion(s.WorldPos, geoN, s.PositionError, N, ShiftNoise(noise, 4 + 8), bentNormal);
-        occlusion = min(s.AO, rtao);
+    float3 ambientDiffuse = indirect.Irradiance * s.Albedo * kD * indirect.DiffuseOcclusion;
 
-        irradiance = g_AmbientColor.rgb + SampleEnvIrradiance(bentNormal) * g_SkyLightIntensity;
-        ambientDiffuse = irradiance * s.Albedo * kD * occlusion;
-    }
-
-    // 4. Reflections: the sky along the mirror direction, replaced by the scene where a reflection ray hits it
+    // 4. Reflections: the sky along the mirror direction, replaced by what the reflection ray found
     float3 R = reflect(-V, N);
-    float specOcclusion = SpecularOcclusion(NdotV, occlusion, roughness);
+    float specOcclusion = SpecularOcclusion(NdotV, indirect.Occlusion, roughness);
 
     // Normal maps can point reflections into the surface; fade those out
     float horizon = saturate(1.0 + dot(R, geoN));
     horizon *= horizon;
 
     float3 envSpecular = SampleEnvSpecular(R, roughness) * g_SkyLightIntensity;
-    if ((g_ReflectionFlags & REFLECTION_TRACE) != 0u && roughness < g_ReflectionMaxRoughness && g_ReflectionIntensity > 0.0)
+    if (UsesReflectionRay(roughness))
     {
         // Rays fade out toward the roughness limit, where one ray says little about such a wide highlight
         float traceWeight = 1.0 - smoothstep(g_ReflectionMaxRoughness * 0.5, g_ReflectionMaxRoughness, roughness);
-        // Stand-in for something the ray hit but can't shade: a dim bounce of the light around this surface
-        float3 unshadedRadiance = irradiance * 0.25 * occlusion;
+        envSpecular = lerp(envSpecular, rays.Reflection, traceWeight);
 
-        bool shadeHits = false;
-#ifdef RT_SCENE_SHADING
-        shadeHits = (g_ReflectionFlags & REFLECTION_SHADE_HITS) != 0u;
-        if (shadeHits)
+        // The ray settled what is visible along the reflection, so the AO-based guess only remains where rays fade out
+        if (ReflectionShadesHits())
         {
-            float3 rayDir = ReflectionRayDirection(N, geoN, V, R, roughness, ShiftNoise(noise, 13));
-            float3 rayOrigin = s.WorldPos + geoN * (g_ShadowBias + s.PositionError);
-
-            // A miss keeps the sky filtered for this roughness, which has no noise; a hit shows the object, lit
-            SceneHit hit;
-            if (TraceSceneRay(rayOrigin, rayDir, g_ReflectionMaxDistance, hit))
-            {
-                float3 hitRadiance = unshadedRadiance;
-                if (hit.Shadeable)
-                {
-                    // The pixel's footprint keeps widening along the reflected ray, and a rough reflector widens it further
-                    float viewDistance = length(g_CameraPos.xyz - s.WorldPos);
-                    float coneWidth = s.PixelSpread * (viewDistance + hit.Distance) + 0.5 * roughness * roughness * hit.Distance;
-                    uint hitFlags = HIT_SPECULAR;
-                    if ((g_ReflectionFlags & REFLECTION_HIT_SHADOWS) != 0u) hitFlags |= HIT_SHADOWS;
-                    // With per-pixel GI, the reflected object gets the indirect light gathered at this pixel rather
-                    // than open sky: it is usually close by, and a room without windows then stays dark in mirrors too
-                    hitFlags |= s.UseIndirectLight ? HIT_AMBIENT_GIVEN : HIT_AMBIENT_SKY;
-                    hitRadiance = ShadeSceneHit(hit, rayDir, coneWidth, ShiftNoise(noise, 14), hitFlags, irradiance);
-
-                }
-                envSpecular = lerp(envSpecular, hitRadiance, traceWeight);
-            }
-
-            // The ray settled what is visible along the reflection, so the AO-based guess only remains where rays fade out
             specOcclusion = lerp(specOcclusion, 1.0, traceWeight);
-        }
-#endif
-        if (!shadeHits)
-        {
-            // Visibility only: geometry in the way hides the sky but isn't shown
-            float reflectionVisibility = TraceShadowRay(s.WorldPos, geoN, s.PositionError, R, g_ReflectionMaxDistance);
-            envSpecular = lerp(envSpecular, lerp(unshadedRadiance, envSpecular, reflectionVisibility), traceWeight);
         }
     }
     float3 ambientSpecular = envSpecular * specularColor * energyCompensation * specOcclusion * horizon * g_ReflectionIntensity;
@@ -288,6 +384,38 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
     float3 ambient = (ambientDiffuse + ambientSpecular) * g_AmbientMultiplier;
     float3 color = ambient + Lo + s.Emissive;
     return ApplyFog(color, s.WorldPos, pixelPos);
+}
+
+// Traces and composes in one go, for a pass with nothing to clean up single rays: several rays per light and for
+// the ambient occlusion, their pattern rotated per pixel (and per frame under TAA)
+float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
+{
+    // Each light and effect gets its own shift of the pixel's noise (index k: dir lights 0-3, point lights 4-11,
+    // AO 12, reflection ray 13, lights at the reflection's hit 14 onward)
+    float2 noise = RayNoise(pixelPos);
+
+    HybridRays rays;
+    int slotCount = LightSlotCount();
+    for (int slot = 0; slot < MAX_LIGHT_SLOTS; ++slot)
+    {
+        rays.LightVisibility[slot] = slot < slotCount ? TraceLightSlot(s, slot, noise, SHADOW_SAMPLES) : 1.0;
+    }
+
+    rays.AmbientVisibility = 1.0;
+    rays.OpenDirection = s.N;
+    if (!s.UseIndirectLight)
+    {
+        rays.AmbientVisibility = TraceAmbientOcclusion(s.WorldPos, s.GeoN, s.PositionError, s.N, ShiftNoise(noise, 4 + 8), AO_SAMPLES, rays.OpenDirection);
+    }
+
+    rays.Reflection = float3(0.0, 0.0, 0.0);
+    if (UsesReflectionRay(s.Roughness))
+    {
+        HybridAmbient ambient = GetHybridAmbient(s, rays.AmbientVisibility, rays.OpenDirection);
+        rays.Reflection = TraceHybridReflection(s, ambient, noise).rgb;
+    }
+
+    return ComposeHybridSurface(s, rays, pixelPos);
 }
 
 #endif // HYBRID_SHADING_HLSLI

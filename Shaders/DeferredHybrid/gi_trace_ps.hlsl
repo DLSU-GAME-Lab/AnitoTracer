@@ -1,11 +1,11 @@
 // gi_trace_ps.hlsl
-// Per-pixel diffuse GI, pass 1 of 3 (DiffuseGIPass): traces this frame's rays. Paired with Deferred/fullscreen_vs.hlsl.
+// Per-pixel diffuse GI: traces this frame's rays (DiffuseGIPass). Paired with Deferred/fullscreen_vs.hlsl.
 //
 // For each GI pixel, a ray leaves the surface in the G-buffer in a random direction, more often near the normal
 // (cosine-weighted, which is how a matte surface collects light). Whatever the ray finds is the light arriving from
 // that direction: a surface, lit by the scene's lights, its own glow and the light it received itself last frame,
-// or the sky. A ray or two per pixel is only a noisy sample of all the light arriving; the next two passes average
-// rays over time and over neighbours.
+// or the sky. A ray or two per pixel is only a noisy sample of all the light arriving; SignalDenoiser then averages
+// the rays over time and over neighbours.
 //
 // Only built where ray hits can be shaded (RT_SCENE_SHADING, see rt_scene.hlsli).
 #include "../light_struct.hlsli"
@@ -18,36 +18,9 @@
 Texture2D g_GBufferNormals;
 Texture2D g_GBufferDepth;
 
-struct GITraceOutput
-{
-    float4 Light : SV_TARGET0; // rgb: radiance this pixel's rays brought back, a: how open the surroundings are along them
-    float4 Guide : SV_TARGET1; // xy: octahedral geometric normal, z: distance from the camera, w: 1 where there is a surface
-};
-
 // A single very bright sample (a ray that happens to land on a small strong light) would take many frames to average
 // out and would show as a slowly fading blotch. Capping it trades a little lost light for a steady image.
 static const float GI_MAX_SAMPLE_LUMINANCE = 64.0;
-
-// Scrambles an integer into another with no visible pattern (PCG hash)
-uint GIHash(uint v)
-{
-    uint state = v * 747796405u + 2891336453u;
-    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-    return (word >> 22u) ^ word;
-}
-
-// Two random numbers in [0, 1) for the index-th ray this pixel has ever traced. Unlike RayNoise this does not wait
-// for TAA: the GI averages over frames on its own.
-// Each pixel starts at its own random point and then steps through a sequence that fills the unit square evenly
-// (the R2 sequence), so the directions a pixel tries over a few dozen rays cover the hemisphere without clumps or
-// gaps, and neighbouring pixels don't try the same ones.
-float2 GINoise(int2 giPixel, uint index)
-{
-    uint h1 = GIHash(uint(giPixel.x) + GIHash(uint(giPixel.y)));
-    uint h2 = GIHash(h1);
-    float2 start = float2(h1 & 0xFFFFu, h2 & 0xFFFFu) / 65536.0;
-    return frac(start + float(index % 4096u) * float2(0.7548776662, 0.5698402910));
-}
 
 // One ray from a surface point. Returns the radiance it found (rgb) and how open the surroundings are along it (a).
 float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
@@ -121,22 +94,23 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
     return float4(light, openness);
 }
 
-void main_ps(in FullScreenPSInput In, out GITraceOutput Out)
+// rgb: radiance this pixel's rays brought back, a: how open the surroundings are along them
+float4 main_ps(in FullScreenPSInput In) : SV_TARGET
 {
     int2 giPixel = int2(In.Pos.xy);
     int2 viewPixel = GIViewPixel(giPixel);
 
-    Out.Light = float4(0.0, 0.0, 0.0, 1.0);
-    Out.Guide = float4(0.0, 0.0, 0.0, 0.0);
-
-    // Sky: nothing to light. The guide's w = 0 tells the later passes to leave this pixel out.
+    // Sky: nothing to light. The guide marks these pixels, so the later passes leave them out.
     float depth = g_GBufferDepth.Load(int3(viewPixel, 0)).r;
     if (depth >= 1.0)
     {
-        return;
+        return float4(0.0, 0.0, 0.0, 1.0);
     }
 
-    // World position from depth, and how far off it can be (see lighting_ps.hlsl)
+    // The rays below are averaged over frames, so effects that need that (soft shadows at the hits) may rely on it
+    s_RaysDenoised = (g_GIFlags & GI_FLAG_DENOISED) != 0u;
+
+    // World position from depth, and how far off it can be (see LoadGBufferSurface in deferred_common.hlsli)
     float2 uv = (float2(viewPixel) + 0.5) * g_GIViewportSize.zw;
     float4 clipPos = float4(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y, depth, 1.0);
     float4 worldPos = mul(clipPos, g_GIInvViewProj);
@@ -150,18 +124,14 @@ void main_ps(in FullScreenPSInput In, out GITraceOutput Out)
     float3 N = OctDecode(normals.xy);
     float3 geoN = OctDecode(normals.zw);
 
-    // The guide uses the geometric normal: a normal map's fine detail would make neighbouring pixels look like
-    // different surfaces and stop the blur from averaging them
-    float viewDistance = length(worldPos.xyz - g_GICameraPos.xyz);
-    Out.Guide = float4(normals.zw, viewDistance, 1.0);
-
     float3 origin = worldPos.xyz + geoN * (g_ShadowBias + positionError);
 
+    // Unlike RayNoise, the pixel's random numbers don't wait for TAA: g_GIFrame moves them (see HashNoise)
     uint rayCount = max(g_GIRayCount, 1u);
     float4 sum = float4(0.0, 0.0, 0.0, 0.0);
     for (uint r = 0u; r < rayCount; ++r)
     {
-        sum += TraceGIRay(origin, N, geoN, GINoise(giPixel, g_GIFrame * rayCount + r));
+        sum += TraceGIRay(origin, N, geoN, HashNoise(giPixel, g_GIFrame * rayCount + r));
     }
-    Out.Light = sum / float(rayCount);
+    return sum / float(rayCount);
 }

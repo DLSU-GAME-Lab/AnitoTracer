@@ -179,9 +179,9 @@ float TraceHitShadow(SceneHit hit, float3 L, float maxDistance, float spread, fl
 {
     float3 dir = L;
 
-    // While TAA averages frames, a different point of the light is tested each frame, which adds up to a soft edge.
-    // A single still ray can't be soft, so without TAA it aims at the light's centre.
-    if (g_NoiseFrame != 0u)
+    // While frames are averaged (by a denoiser or TAA), a different point of the light is tested each frame, which
+    // adds up to a soft edge. A single still ray can't be soft, so otherwise it aims at the light's centre.
+    if (RaysAveraged())
     {
         float3 t, b;
         BuildBasis(L, t, b);

@@ -1,13 +1,15 @@
 #ifndef DEFERRED_HYBRID_GI_COMMON_HLSLI
 #define DEFERRED_HYBRID_GI_COMMON_HLSLI
 
-// Shared by the three passes of the per-pixel diffuse GI (DiffuseGIPass): gi_trace_ps, gi_accumulate_ps, gi_filter_ps.
+// Constants and last-frame lookup of the per-pixel diffuse GI trace pass (DiffuseGIPass, gi_trace_ps.hlsl).
 //
 // The GI buffers are g_GIScale times smaller than the view along each axis (1 or 2). GI pixel p stands for the view
-// pixel p * g_GIScale: that is where its ray starts and where its guide (normal, distance) is taken from.
+// pixel p * g_GIScale: that is where its ray starts and where its guide (normal, distance) is.
 //
 // Light is stored as the average radiance arriving over the hemisphere (irradiance / PI), the same unit
 // SampleEnvIrradiance returns, so the lighting pass can use either one the same way.
+//
+// The rays are averaged over time and blurred afterwards by SignalDenoiser, like the other ray-traced signals.
 
 #include "gbuffer_common.hlsli"
 
@@ -23,23 +25,23 @@ cbuffer GIConstants
     float4 g_GISize;            // xy: GI buffer size in pixels, zw: 1 / size
 
     uint g_GIScale;             // View pixels per GI pixel along each axis
-    uint g_GIFrame;             // Counts up every frame
-    float g_GIHistoryValid;     // 0: there is no last frame to blend with
-    float g_GIMinBlend;         // Smallest share the new frame gets
-
+    uint g_GIFrame;             // Moves the rays: counts up every frame while they are averaged over time, else stays put
+    float g_GIHistoryValid;     // 0: there is no last frame to read (further bounces fall back to the sky)
     float g_GIMaxDistance;      // How far a GI ray looks for surfaces
+
     uint g_GIFlags;             // GI_FLAG_* bits
-    int g_GIFilterStep;         // Pixel spacing of the blur pass being drawn
     uint g_GIRayCount;          // Rays traced per GI pixel every frame
+    float2 g_GIPadding;
 };
 
 
 static const uint GI_FLAG_HIT_SHADOWS = 1u;     // Trace shadow rays from what a GI ray hits
 static const uint GI_FLAG_SKY_BOUNCE = 2u;      // What a GI ray hits is also lit by the sky, where one more ray reaches it
 static const uint GI_FLAG_MORE_BOUNCES = 4u;    // What a GI ray hits is also lit by last frame's GI, so light keeps bouncing
+static const uint GI_FLAG_DENOISED = 8u;        // A denoiser averages the rays over frames (so they may vary from frame to frame)
 
-// Last frame's result and guide, read by the trace pass (for further bounces) and the accumulate pass (to average over time)
-Texture2D g_GIPrevAccum;
+// Last frame's GI as it was shown (GI sized), and last frame's guide (view sized, see deferred_common.hlsli)
+Texture2D g_GIPrevResult;
 Texture2D g_GIPrevGuide;
 
 struct FullScreenPSInput
@@ -51,15 +53,7 @@ struct FullScreenPSInput
 // The view pixel a GI pixel stands for
 int2 GIViewPixel(int2 giPixel)
 {
-    return giPixel * int(g_GIScale);
-}
-
-// Direction from the camera through the centre of a view pixel
-float3 GIViewRay(int2 viewPixel)
-{
-    float2 uv = (float2(viewPixel) + 0.5) * g_GIViewportSize.zw;
-    float4 farPoint = mul(float4(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y, 1.0, 1.0), g_GIInvViewProj);
-    return normalize(farPoint.xyz / farPoint.w - g_GICameraPos.xyz);
+    return min(giPixel * int(g_GIScale), int2(g_GIViewportSize.xy) - 1);
 }
 
 // A value that broke somewhere (a NaN, an infinity, a negative) would spread through every frame after it
@@ -68,7 +62,7 @@ float3 GISanitize(float3 light)
     return (any(isnan(light)) || any(isinf(light))) ? float3(0.0, 0.0, 0.0) : max(light, 0.0);
 }
 
-// Where a world position was in last frame's GI buffers: the four GI pixels around it and how much each counts.
+// Where a world position was in last frame's GI: the four GI pixels around it and how much each counts.
 // A pixel only counts if last frame it showed the same surface (its guide has a matching distance and normal), so
 // WeightSum is 0 when the position was hidden or off screen then.
 struct GILastFrame
@@ -108,8 +102,8 @@ GILastFrame GIFindLastFrame(float3 worldPos, float3 N)
         if (any(tap < int2(0, 0)) || any(tap > maxPixel))
             continue;
 
-        float4 prevGuide = g_GIPrevGuide.Load(int3(tap, 0));
-        if (prevGuide.w < 0.5)
+        float4 prevGuide = g_GIPrevGuide.Load(int3(GIViewPixel(tap), 0));
+        if (prevGuide.w <= 0.0)
             continue;
         if (abs(prevGuide.z - expectedDistance) > 0.05 * expectedDistance + 0.02)
             continue;
@@ -123,7 +117,7 @@ GILastFrame GIFindLastFrame(float3 worldPos, float3 N)
     return last;
 }
 
-// Last frame's accumulated light at a position found with GIFindLastFrame (only meaningful when WeightSum > 0)
+// Last frame's GI at a position found with GIFindLastFrame (only meaningful when WeightSum > 0)
 float4 GILoadLastFrame(GILastFrame last)
 {
     float4 light = float4(0.0, 0.0, 0.0, 0.0);
@@ -131,7 +125,7 @@ float4 GILoadLastFrame(GILastFrame last)
     {
         if (last.Weights[k] > 0.0)
         {
-            light += g_GIPrevAccum.Load(int3(last.Base + int2(k & 1, k >> 1), 0)) * last.Weights[k];
+            light += g_GIPrevResult.Load(int3(last.Base + int2(k & 1, k >> 1), 0)) * last.Weights[k];
         }
     }
     return light / max(last.WeightSum, 0.0001);

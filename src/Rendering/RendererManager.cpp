@@ -226,6 +226,7 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, const Dili
             pSceneRTV = pTAAInputRTV;
             jitteredData = renderData;
             jitteredData.ProjectionMatrix = pTAA->GetJitteredProjection();
+            jitteredData.ProjectionJitter = pTAA->GetJitter();
             // TAA averages frames, so ray-traced shadows, AO and fog can change their sample pattern every frame
             // (0 means "keep still", so skip it if the counter ever wraps)
             jitteredData.NoiseFrame = pTAA->GetFrameIndex() != 0 ? pTAA->GetFrameIndex() : 1;
@@ -259,7 +260,7 @@ void RendererManager::RenderView(const Diligent::FrameTarget& output, const Dili
 
     if (m_MSAAEnabled) ResolveMSAA(pSceneRTV->GetTexture());
 
-    if (pTAA) pTAA->Resolve(m_pImmediateContext, GetSceneDepthSRV(scenePipeline, scene), pTAAOutputRTV);
+    if (pTAA) pTAA->Resolve(m_pImmediateContext, GetSceneDepthSRV(scenePipeline, scene), scenePipeline.GetVelocitySRV(), pTAAOutputRTV);
 
     passes.PostProcess.Apply(m_pImmediateContext);
 }

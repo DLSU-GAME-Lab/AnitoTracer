@@ -1,6 +1,8 @@
 // Temporal anti-aliasing resolve. Paired with Deferred/fullscreen_vs.hlsl.
 // The scene was drawn with a sub-pixel jittered projection. Each pixel is reprojected into last frame's accumulated history
-// using the scene depth, the history is clipped to this frame's local color range so stale colors don't ghost, and the two are blended.
+// (with the scene's motion vectors where the pipeline wrote them, which follow moving objects; otherwise from the scene
+// depth and the camera's own motion), the history is clipped to this frame's local color range so stale colors don't
+// ghost, and the two are blended.
 // Writes the anti-aliased image for the next stage (target 0) and the new history (target 1). Colors are the HDR scene color (linear).
 
 #include "hdr_common.hlsli"
@@ -9,6 +11,7 @@ Texture2D g_CurrentColor;   // This frame, same size as the view
 Texture2D g_HistoryColor;   // Accumulated result of last frame, same size as the view
 SamplerState g_HistoryColor_sampler;
 Texture2D g_SceneDepth;     // Read by pixel, so it may be larger than the view (only its top-left corner is used)
+Texture2D g_SceneVelocity;  // Motion vectors (xy, in UV units), read by pixel like the depth. Only read when g_HasVelocity is set.
 
 // Mirrors Diligent::TemporalAAConstants in src/Rendering/Pipelines/Data/PipelineDefs.hpp
 cbuffer TemporalAAConstants
@@ -21,6 +24,8 @@ cbuffer TemporalAAConstants
     float g_Sharpness;
     float g_HistoryValid;
     float g_HasDepth;
+    float g_HasVelocity;
+    float3 g_TAAPadding;
 };
 
 struct FullScreenPSInput
@@ -153,18 +158,33 @@ TAAOutput main_ps(in FullScreenPSInput In)
     float3 boxMin = max(minColor, mean - 1.25 * sigma);
     float3 boxMax = min(maxColor, mean + 1.25 * sigma);
 
-    // Reproject: rebuild the world position under the (jittered) sample, then compare where it lands now and last frame without jitter.
-    // Using the difference rather than the previous position directly removes the jitter, so a still camera reads the history in place.
-    float2 depthUV = (float2(pixel + closestOffset) + 0.5) * g_ViewportSize.zw;
-    float4 clipPos = float4(depthUV.x * 2.0 - 1.0, 1.0 - 2.0 * depthUV.y, closestDepth, 1.0);
-    float4 worldPos = mul(clipPos, g_InvViewProj);
-    worldPos /= worldPos.w;
+    float2 historyUV;
+    bool reprojected;
+    if (g_HasVelocity > 0.0 && closestDepth < 1.0)
+    {
+        // Motion vectors: the pipeline recorded how far this surface moved across the screen, so objects that move
+        // on their own are followed too. Taken at the closest neighbour, like the depth.
+        int2 velocityPixel = clamp(pixel + closestOffset, int2(0, 0), int2(g_ViewportSize.xy) - 1);
+        historyUV = uv - g_SceneVelocity.Load(int3(velocityPixel, 0)).xy;
+        reprojected = true;
+    }
+    else
+    {
+        // From depth: rebuild the world position under the (jittered) sample, then compare where it lands now and last frame
+        // without jitter. Using the difference rather than the previous position directly removes the jitter, so a still
+        // camera reads the history in place. Only right for things that stand still (and the sky, which has no motion vector).
+        float2 depthUV = (float2(pixel + closestOffset) + 0.5) * g_ViewportSize.zw;
+        float4 clipPos = float4(depthUV.x * 2.0 - 1.0, 1.0 - 2.0 * depthUV.y, closestDepth, 1.0);
+        float4 worldPos = mul(clipPos, g_InvViewProj);
+        worldPos /= worldPos.w;
 
-    float4 currClip = mul(float4(worldPos.xyz, 1.0), g_ViewProj);
-    float4 prevClip = mul(float4(worldPos.xyz, 1.0), g_PrevViewProj);
-    float2 historyUV = uv + (ClipToUV(prevClip) - ClipToUV(currClip));
+        float4 currClip = mul(float4(worldPos.xyz, 1.0), g_ViewProj);
+        float4 prevClip = mul(float4(worldPos.xyz, 1.0), g_PrevViewProj);
+        historyUV = uv + (ClipToUV(prevClip) - ClipToUV(currClip));
+        reprojected = prevClip.w > 0.0 && currClip.w > 0.0;
+    }
 
-    bool historyValid = g_HistoryValid > 0.0 && prevClip.w > 0.0 && currClip.w > 0.0
+    bool historyValid = g_HistoryValid > 0.0 && reprojected
         && all(historyUV >= 0.0) && all(historyUV <= 1.0);
 
     float3 resolved = current;

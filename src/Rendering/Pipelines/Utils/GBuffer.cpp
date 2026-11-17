@@ -122,4 +122,10 @@ namespace Diligent {
         return m_pDepthTexture ? m_pDepthTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
     }
 
+    ITextureView* GBuffer::GetColorSRV(size_t index) const
+    {
+        if (index >= m_ColorTextures.size() || !m_ColorTextures[index]) return nullptr;
+        return m_ColorTextures[index]->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+
 }

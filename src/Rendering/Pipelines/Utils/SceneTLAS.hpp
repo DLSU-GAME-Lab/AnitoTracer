@@ -27,6 +27,10 @@ namespace Diligent {
 
         ITopLevelAS* Get() const { return m_pTLAS; }
 
+        // False until a frame had something to build it from. An acceleration structure that was never built can't
+        // be traced, and the engine reports an error for every pass that binds one.
+        bool IsBuilt() const { return m_Built; }
+
         // This frame's records, or nullptr when they are off. The buffer can be replaced by Build, so bind it every frame.
         IBufferView* GetGeometryRecordsSRV() const { return m_GeometryRecords.GetSRV(); }
 
@@ -38,6 +42,7 @@ namespace Diligent {
         RefCntAutoPtr<IBuffer> m_pScratchBuffer;
         RefCntAutoPtr<IBuffer> m_pInstanceBuffer;
 
+        bool m_Built = false;
         bool m_WriteGeometryRecords = false;
         StructuredBufferArray m_GeometryRecords;
     };

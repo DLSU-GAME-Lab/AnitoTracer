@@ -36,4 +36,8 @@ void main_vs(in VertexInput In, out PSInput Out)
     Out.Tangent = normalize(mul(In.Tangent, (float3x3) g_NormalMatrix));
     Out.Bitangent = normalize(mul(In.Bitangent, (float3x3) g_NormalMatrix));
     Out.UV = In.uv;
+
+    // The outline pass writes no motion vectors
+    Out.CurrClip = Out.Pos;
+    Out.PrevClip = Out.Pos;
 }
