@@ -15,12 +15,15 @@ namespace Diligent {
         pEngineFactory->CreateDefaultShaderSourceStreamFactory(shaderDirectory, &m_pShaderSourceFactory);
     }
 
-    IShader* ShaderManager::GetShader(const std::string& filename, SHADER_TYPE type, const char* entryPoint)
+    IShader* ShaderManager::GetShader(const std::string& filename, SHADER_TYPE type, const char* entryPoint, const ShaderMacroList& macros)
     {
         if (!m_pDevice || !m_pShaderSourceFactory) return nullptr;
 
         // 1. Check if we already compiled this exact shader
         std::string cacheKey = filename + "|" + entryPoint + "|" + std::to_string(static_cast<int>(type));
+        for (const auto& macro : macros) {
+            cacheKey += "|" + macro.first + "=" + macro.second;
+        }
         auto it = m_ShaderCache.find(cacheKey);
         if (it != m_ShaderCache.end()) {
             return it->second;
@@ -38,6 +41,14 @@ namespace Diligent {
         ShaderCI.FilePath = filename.c_str(); // The actual file in the Shaders folder
         ShaderCI.ShaderCompiler = SHADER_COMPILER_DXC;
         ShaderCI.HLSLVersion = { 6, 5 };
+
+        // The create info only points at the strings, which `macros` keeps alive until CreateShader returns
+        std::vector<ShaderMacro> shaderMacros;
+        shaderMacros.reserve(macros.size());
+        for (const auto& macro : macros) {
+            shaderMacros.emplace_back(macro.first.c_str(), macro.second.c_str());
+        }
+        ShaderCI.Macros = { shaderMacros.data(), static_cast<Uint32>(shaderMacros.size()) };
 
         // 3. Compile the shader
         RefCntAutoPtr<IShader> pShader;

@@ -2,6 +2,9 @@
 // Each pixel marches toward the sun's screen position, accumulating bright pixels (the sky around the sun)
 // with exponential decay. Geometry in front of the sun is dark from the camera's side, so it naturally
 // blocks the shafts without needing the depth buffer.
+// Reads and writes the HDR scene color, before the display pass.
+
+#include "hdr_common.hlsli"
 
 Texture2D g_SceneColor;
 SamplerState g_SceneColor_sampler;
@@ -14,11 +17,13 @@ cbuffer GodRaysConstants
     float g_Density;        // Fraction of the distance to the sun covered by the march
     float g_Decay;          // Per-sample falloff
     float g_Weight;         // Per-sample contribution
-    float g_Threshold;      // Luminance below which pixels don't emit shafts
+    float g_Threshold;      // Luminance below which pixels don't emit shafts (HDR, so it can be above 1)
     float g_SunRadius;      // Radius (in UV, aspect-corrected) of the emitting region around the sun
     float g_AspectRatio;    // Width / height
     int g_SampleCount;
-    float3 g_Padding;
+    float g_Knee;           // Luminance range above the threshold over which pixels fade in to full emission
+    float g_MaxBrightness;  // Luminance cap of an emitting pixel
+    float g_Padding;
 };
 
 struct FullScreenPSInput
@@ -32,9 +37,13 @@ static const float3 LUMA_WEIGHTS = float3(0.2126, 0.7152, 0.0722);
 // How much a sample at this UV emits: bright pixels close to the sun
 float3 SampleOccluder(float2 uv)
 {
-    float3 color = g_SceneColor.SampleLevel(g_SceneColor_sampler, uv, 0).rgb;
+    float3 color = SanitizeHDR(g_SceneColor.SampleLevel(g_SceneColor_sampler, uv, 0).rgb);
     float luma = dot(color, LUMA_WEIGHTS);
-    float bright = saturate((luma - g_Threshold) / max(1.0 - g_Threshold, 1e-3));
+    float bright = saturate((luma - g_Threshold) / g_Knee);
+
+    // Scene color has no upper limit: without a cap, a few very bright pixels (the sun's disk, a strong emissive)
+    // would outweigh everything else along the march and flicker as they move
+    color *= min(1.0, g_MaxBrightness / max(luma, 1e-4));
 
     float2 toSun = (uv - g_SunUV) * float2(g_AspectRatio, 1.0);
     float sunMask = 1.0 - smoothstep(0.0, g_SunRadius, length(toSun));

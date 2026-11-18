@@ -13,6 +13,15 @@ namespace Diligent {
 
     class RenderData;
 
+    // What the PostProcessStack does for the view being drawn
+    struct PostProcessView {
+        // Optional effects (god rays) and color grading. Off for the editor view, which shows the scene as lit.
+        bool Effects = true;
+        // Exposure and the tone curve of the display pass. Off shows the scene clamped to the display range instead:
+        // for stylized pipelines whose colors are already final, or an editor view with tone mapping turned off.
+        bool ToneMap = true;
+    };
+
     // Fullscreen effect in the PostProcessStack. The previous stage renders into this effect's intermediate texture;
     // Apply samples it as g_SceneColor (with the cbuffer named in Desc::ConstantsName bound) and writes into the next stage.
     //
@@ -30,12 +39,14 @@ namespace Diligent {
         explicit PostProcessPipeline(const Desc& desc);
         virtual ~PostProcessPipeline() = default;
 
-        void Initialize(IRenderDevice* pDevice, TEXTURE_FORMAT RTVFormat);
+        // inputFormat is the format of the intermediate texture this effect reads (the HDR scene format).
+        // outputFormat is the format of what it writes into: the next effect's intermediate, or the display target for the last one.
+        void Initialize(IRenderDevice* pDevice, TEXTURE_FORMAT inputFormat, TEXTURE_FORMAT outputFormat);
 
         // Reads the effect's settings and builds this frame's constants. Returning false skips the effect for this view.
-        virtual bool Prepare(const ProjectSettings& settings, const RenderData& renderData, Uint32 width, Uint32 height) = 0;
+        virtual bool Prepare(const ProjectSettings& settings, const RenderData& renderData, const PostProcessView& view, Uint32 width, Uint32 height) = 0;
 
-        // Intermediate render target matching the final target, (re)created on resize
+        // Intermediate render target the size of the view, (re)created on resize
         ITextureView* GetIntermediateRTV(Uint32 width, Uint32 height);
 
         // Samples the intermediate texture, applies the effect and writes the result to pDstRTV
@@ -55,7 +66,7 @@ namespace Diligent {
         RefCntAutoPtr<IBuffer> m_pConstantsCB;
 
         RefCntAutoPtr<ITexture> m_pIntermediate;
-        TEXTURE_FORMAT m_Format = TEX_FORMAT_UNKNOWN;
+        TEXTURE_FORMAT m_InputFormat = TEX_FORMAT_UNKNOWN;
     };
 
     // PostProcessPipeline whose constants are a single struct mirroring the shader's cbuffer; Prepare fills m_Constants

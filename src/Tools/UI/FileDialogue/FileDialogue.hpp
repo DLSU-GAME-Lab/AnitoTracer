@@ -19,6 +19,8 @@ namespace gbe {
 
 		static void Init();
 
+		// extension filters the dialog. Several can be given as a comma separated list ("png,jpg,hdr").
+		// Returns an empty string when the dialog is cancelled or the picked file has none of the extensions.
 		static std::string GetFilePath(OpType optype, std::string extension = "");
 	};
 

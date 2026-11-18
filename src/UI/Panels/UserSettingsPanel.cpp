@@ -1,7 +1,9 @@
 #include "UserSettingsPanel.hpp"
 #include "../../UserSettings.hpp"
 #include "../../Asset/ProjectLoader.hpp"
+#include "RendererManager.hpp"
 #include "imgui.h"
+#include <filesystem>
 #include <iostream>
 
 namespace Diligent {
@@ -57,14 +59,7 @@ namespace Diligent {
                 ImGui::DragFloat("Sky Light Intensity", &lightingSettings.sky_light_intensity, 0.01f, 0.0f, 10.0f, "%.2f");
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip("Hybrid renderer: how strongly the skybox lights the scene.");
-                }
-                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
-
-                ImGui::DragFloat("Reflection Intensity", &lightingSettings.reflection_intensity, 0.01f, 0.0f, 2.0f, "%.2f");
-                if (ImGui::IsItemHovered())
-                {
-                    ImGui::SetTooltip("Hybrid renderer: strength of skybox reflections on surfaces.");
+                    ImGui::SetTooltip("Hybrid renderer: how strongly the sky lights the scene, on top of the Skybox intensity.");
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
@@ -75,7 +70,178 @@ namespace Diligent {
                 // Convenient Reset Button
                 if (ImGui::Button("Reset to Defaults"))
                 {
+                    // The reflection intensity is edited (and reset) in the Reflections section below
+                    const float reflectionIntensity = lightingSettings.reflection_intensity;
                     lightingSettings = ProjectLightingSettings{};
+                    lightingSettings.reflection_intensity = reflectionIntensity;
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Reflections Section (Hybrid and Deferred Hybrid renderers)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Reflections", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& reflectionSettings = projectSettings.reflections;
+                // Disabled controls still explain themselves
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                const bool objectsSupported = ::RendererManager::GetInstance().IsReflectionShadingSupported();
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+
+                // Everything that traces rays; greyed out as a group where rays can't be traced at all
+                ImGui::BeginDisabled(!rayTracingSupported);
+
+                if (ImGui::Checkbox("Ray-Traced Reflections", &reflectionSettings.enabled)) saveProjectSettings();
+                tooltip("Hybrid renderers: trace a ray along each reflection to find what is really there.\n"
+                    "Off: surfaces reflect the sky only, even where an object is in the way. Fastest.");
+
+                ImGui::BeginDisabled(!reflectionSettings.enabled);
+                ImGui::Indent();
+
+                ImGui::BeginDisabled(!objectsSupported);
+                if (ImGui::Checkbox("Show Reflected Objects", &reflectionSettings.shade_hits)) saveProjectSettings();
+                tooltip(objectsSupported
+                    ? "Objects appear in reflections, lit and textured.\nOff: an object only blocks the sky and leaves a dim patch. Faster."
+                    : "Not available on this device: it can't pick textures per pixel, which shading reflected objects needs.");
+
+                ImGui::BeginDisabled(!reflectionSettings.shade_hits);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Shadows in Reflections", &reflectionSettings.hit_shadows)) saveProjectSettings();
+                tooltip("Reflected objects keep their shadows.\nCosts one more ray per light for every reflecting pixel. Off: they are lit as if nothing shadowed them.");
+
+                if (ImGui::Checkbox("Blur on Rough Surfaces", &reflectionSettings.glossy)) saveProjectSettings();
+                tooltip("Rough surfaces blur what they reflect instead of showing it mirror sharp.\n"
+                    "Built up over several frames, so it only applies while TAA is on, and stays a little grainy.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::PushItemWidth(150.0f);
+
+                ImGui::SliderFloat("Max Roughness##Reflections", &reflectionSettings.max_roughness, 0.05f, 1.0f, "%.2f");
+                tooltip("Surfaces rougher than this reflect the sky only, without tracing a ray.\nRays fade out from half this value. Lower is faster.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Ray Distance##Reflections", &reflectionSettings.max_distance, 1.0f, 1.0f, 10000.0f, "%.0f");
+                tooltip("How far a reflection looks for objects, in world units. Anything farther away shows as sky.");
+                saveAfterEdit();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::PushItemWidth(150.0f);
+                ImGui::DragFloat("Intensity##Reflections", &lightingSettings.reflection_intensity, 0.01f, 0.0f, 2.0f, "%.2f");
+                tooltip("Hybrid renderers: strength of all reflections, the sky's included. 0 removes them.");
+                saveAfterEdit();
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Reflections to Defaults"))
+                {
+                    reflectionSettings = ProjectReflectionSettings{};
+                    lightingSettings.reflection_intensity = ProjectLightingSettings{}.reflection_intensity;
+                    saveProjectSettings();
+                }
+            }
+
+
+            // ------------------------------------------------------------------
+            // Skybox Section
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& skySettings = projectSettings.sky;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::PushItemWidth(150.0f);
+
+                // Order matches ProjectSkyMode
+                const char* skyModeNames[] = { "Skybox Texture", "Solid Color" };
+                if (ImGui::Combo("Sky Type", &skySettings.mode, skyModeNames, IM_ARRAYSIZE(skyModeNames))) saveProjectSettings();
+                tooltip("What is drawn behind the scene.\nIn the ray-traced renderers the sky also lights the scene and shows up in reflections.");
+
+                if (skySettings.mode == SKY_MODE_TEXTURE)
+                {
+                    const bool usesDefault = skySettings.texture_path.empty();
+                    const std::string skyFileName = usesDefault
+                        ? std::string("Default skybox")
+                        : std::filesystem::path(skySettings.texture_path).filename().string();
+                    ImGui::Text("File: %s", skyFileName.c_str());
+                    if (!usesDefault && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", skySettings.texture_path.c_str());
+
+                    if (ImGui::Button("Browse...##Sky"))
+                    {
+                        const std::string picked = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, kSkyTextureExtensions);
+                        if (!picked.empty())
+                        {
+                            // Files inside the project are stored relative to it, so the project can be moved or shared
+                            std::filesystem::path skyPath(picked);
+                            const std::filesystem::path projectDir = ProjectLoader::GetCurrentProjectDir();
+                            if (!projectDir.empty())
+                            {
+                                const std::filesystem::path relative = skyPath.lexically_relative(projectDir);
+                                if (!relative.empty() && *relative.begin() != "..") skyPath = relative;
+                            }
+                            skySettings.texture_path = skyPath.generic_string();
+                            saveProjectSettings();
+                        }
+                    }
+                    tooltip("Pick a cubemap (.dds, .ktx) or a 360 degree panorama (.hdr, .png, .jpg, .tga).\n.hdr files keep the sky's real brightness, which gives the most convincing lighting.");
+
+                    ImGui::SameLine();
+                    ImGui::BeginDisabled(usesDefault);
+                    if (ImGui::Button("Use Default##Sky"))
+                    {
+                        skySettings.texture_path.clear();
+                        saveProjectSettings();
+                    }
+                    ImGui::EndDisabled();
+
+                    ImGui::SliderFloat("Rotation##Sky", &skySettings.rotation, -180.0f, 180.0f, "%.0f deg");
+                    tooltip("Turns the sky around the up axis, for example to move its sun.");
+                    saveAfterEdit();
+                }
+                else
+                {
+                    ImGui::ColorEdit3("Sky Color", skySettings.color.data());
+                    tooltip("The whole sky is this one color.");
+                    saveAfterEdit();
+                }
+
+                ImGui::DragFloat("Intensity##Sky", &skySettings.intensity, 0.01f, 0.0f, 1000.0f, "%.2f");
+                tooltip("Brightness of the sky, and of the light it casts in the ray-traced renderers.");
+                saveAfterEdit();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Skybox to Defaults"))
+                {
+                    skySettings = ProjectSkySettings{};
                     saveProjectSettings();
                 }
             }
@@ -198,6 +364,105 @@ namespace Diligent {
             }
 
             // ------------------------------------------------------------------
+            // HDR Section: exposure and tone mapping of the display pass
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("HDR & Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& hdrSettings = projectSettings.hdr;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::TextDisabled("The scene is rendered in HDR. These settings fit it onto the screen.");
+
+                ImGui::PushItemWidth(150.0f);
+
+                // Order matches ProjectHDRSettings::tone_mapper
+                const char* toneMapperNames[] = { "Off (Clamp)", "AgX", "Khronos PBR Neutral" };
+                if (ImGui::Combo("Tone Mapper", &hdrSettings.tone_mapper, toneMapperNames, IM_ARRAYSIZE(toneMapperNames))) saveProjectSettings();
+                tooltip("How light brighter than white is fitted onto the screen.\n"
+                    "Off: clipped at white, as it was before HDR.\n"
+                    "AgX: film-like. Bright, saturated light fades toward white; softer contrast overall.\n"
+                    "Khronos PBR Neutral: shows colors as authored and only rolls off the highlights.\n"
+                    "The CrossHatch renderers are never tone mapped.");
+
+                ImGui::DragFloat("Exposure##HDR", &hdrSettings.exposure, 0.01f, -10.0f, 10.0f, "%.2f EV");
+                tooltip("Scene brightness in stops, applied before the tone mapper. +1 doubles the light, -1 halves it.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Apply to Editor View##HDR", &hdrSettings.apply_to_editor_view)) saveProjectSettings();
+                tooltip("Use the exposure and tone mapper in the Editor view too, so it matches the Game view.\nOff shows the Editor view clipped at white.");
+
+                if (ImGui::Checkbox("Dither", &hdrSettings.dither)) saveProjectSettings();
+                tooltip("Adds very fine noise to the final image, which hides banding in smooth gradients such as sky and fog.");
+
+                if (hdrSettings.tone_mapper == 1)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("AgX Look");
+
+                    // The three looks published with AgX
+                    auto setLook = [&](float slopeR, float slopeG, float slopeB, float power, float saturation) {
+                        hdrSettings.agx_slope = { slopeR, slopeG, slopeB };
+                        hdrSettings.agx_offset = 0.0f;
+                        hdrSettings.agx_power = power;
+                        hdrSettings.agx_saturation = saturation;
+                        saveProjectSettings();
+                    };
+                    if (ImGui::Button("Base")) setLook(1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+                    tooltip("The plain AgX curve.");
+                    ImGui::SameLine();
+                    if (ImGui::Button("Golden")) setLook(1.0f, 0.9f, 0.5f, 0.8f, 0.8f);
+                    tooltip("Warm and soft.");
+                    ImGui::SameLine();
+                    if (ImGui::Button("Punchy")) setLook(1.0f, 1.0f, 1.0f, 1.35f, 1.4f);
+                    tooltip("More contrast and saturation.");
+
+                    ImGui::DragFloat3("Slope##AgX", hdrSettings.agx_slope.data(), 0.005f, 0.0f, 2.0f, "%.2f");
+                    tooltip("Brightness per channel (red, green, blue). Unequal values tint the image.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Offset##AgX", &hdrSettings.agx_offset, 0.001f, -0.2f, 0.2f, "%.3f");
+                    tooltip("Lifts (positive) or crushes (negative) the darkest tones.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Power##AgX", &hdrSettings.agx_power, 0.005f, 0.1f, 3.0f, "%.2f");
+                    tooltip("Contrast. Above 1 darkens the midtones for a punchier image, below 1 lifts them.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Saturation##AgX", &hdrSettings.agx_saturation, 0.0f, 2.0f, "%.2f");
+                    tooltip("AgX lowers saturation by design; raise this to put some back. 1 = the plain curve.");
+                    saveAfterEdit();
+                }
+                else if (hdrSettings.tone_mapper == 2)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Khronos PBR Neutral");
+
+                    ImGui::SliderFloat("Highlight Start", &hdrSettings.neutral_compression_start, 0.1f, 0.99f, "%.2f");
+                    tooltip("Brightness where highlights start to roll off. Darker colors are shown as authored.\nLower gives a longer, softer roll-off. 0.80 is the Khronos default.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Highlight Desaturation", &hdrSettings.neutral_desaturation, 0.0f, 1.0f, "%.2f");
+                    tooltip("How quickly very bright colors fade toward white. 0.15 is the Khronos default.");
+                    saveAfterEdit();
+                }
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset HDR to Defaults"))
+                {
+                    hdrSettings = ProjectHDRSettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
             // Project God Rays Section (game view only)
             // ------------------------------------------------------------------
             if (ImGui::CollapsingHeader("God Rays", ImGuiTreeNodeFlags_DefaultOpen))
@@ -230,8 +495,16 @@ namespace Diligent {
                 tooltip("How quickly the shafts fade along their length. Closer to 1 = longer, softer shafts.");
                 saveAfterEdit();
 
-                ImGui::SliderFloat("Threshold", &grSettings.threshold, 0.0f, 0.99f, "%.2f");
-                tooltip("Only pixels brighter than this emit shafts. Raise it if bright objects near the sun cause unwanted rays.");
+                ImGui::DragFloat("Threshold", &grSettings.threshold, 0.01f, 0.0f, 100.0f, "%.2f");
+                tooltip("Only pixels brighter than this emit shafts. Raise it if bright objects near the sun cause unwanted rays.\nThe scene is HDR, so this can go above 1 (white).");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Threshold Softness", &grSettings.threshold_knee, 0.005f, 0.01f, 10.0f, "%.2f");
+                tooltip("Brightness range above the threshold over which pixels fade in to full strength. Lower gives a harder cut-off.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Max Brightness", &grSettings.max_brightness, 0.05f, 0.1f, 1000.0f, "%.2f");
+                tooltip("Caps how bright an emitting pixel counts. Keeps a few very bright pixels (the sun's disk, strong emissives)\nfrom dominating the shafts or flickering.");
                 saveAfterEdit();
 
                 ImGui::SliderFloat("Sun Radius", &grSettings.sun_radius, 0.01f, 2.0f, "%.2f");
@@ -279,13 +552,13 @@ namespace Diligent {
                 ImGui::PushItemWidth(150.0f);
 
                 if (ImGui::Checkbox("Enable Color Correction", &ccSettings.enabled)) saveProjectSettings();
-                tooltip("Grades the final game image. Only affects the Game view and release builds, not the Editor view.");
+                tooltip("Grades the final game image. Only affects the Game view and release builds, not the Editor view.\nExposure, white balance and the color filter act before the tone mapper; the rest acts on the tone mapped image.");
 
                 ImGui::BeginDisabled(!ccSettings.enabled);
                 ImGui::Indent();
 
                 ImGui::DragFloat("Exposure", &ccSettings.exposure, 0.01f, -10.0f, 10.0f, "%.2f EV");
-                tooltip("Brightness in stops. +1 doubles the brightness, -1 halves it.");
+                tooltip("Brightness in stops, on top of the HDR exposure. +1 doubles the brightness, -1 halves it.\nApplied to the scene light, before the tone mapper.");
                 saveAfterEdit();
 
                 ImGui::SliderFloat("Contrast", &ccSettings.contrast, 0.0f, 2.0f, "%.2f");

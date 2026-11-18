@@ -17,6 +17,9 @@ namespace Diligent {
         void RenderModels(IDeviceContext* pContext, const RenderData& renderData, bool renderOpaque = true) override;
         void UpdateProjectSettings(IDeviceContext* pContext, const ProjectSettings& settings) override;
 
+        // Ink and paper colors are the final image, not light to be tone mapped
+        bool OutputsDisplayColor() const override { return true; }
+
     protected:
         void BindCommonBuffers(IShaderResourceBinding* pSRB) override;
 

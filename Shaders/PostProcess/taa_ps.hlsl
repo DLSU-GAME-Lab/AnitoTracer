@@ -1,7 +1,9 @@
 // Temporal anti-aliasing resolve. Paired with Deferred/fullscreen_vs.hlsl.
 // The scene was drawn with a sub-pixel jittered projection. Each pixel is reprojected into last frame's accumulated history
 // using the scene depth, the history is clipped to this frame's local color range so stale colors don't ghost, and the two are blended.
-// Writes the anti-aliased image for the next stage (target 0) and the new history (target 1). Colors are linear (sRGB targets).
+// Writes the anti-aliased image for the next stage (target 0) and the new history (target 1). Colors are the HDR scene color (linear).
+
+#include "hdr_common.hlsli"
 
 Texture2D g_CurrentColor;   // This frame, same size as the view
 Texture2D g_HistoryColor;   // Accumulated result of last frame, same size as the view
@@ -46,7 +48,8 @@ float3 YCoCgToRGB(float3 c)
 
 float3 LoadCurrent(int2 pixel)
 {
-    return g_CurrentColor.Load(int3(clamp(pixel, int2(0, 0), int2(g_ViewportSize.xy) - 1), 0)).rgb;
+    // Sanitized so one bad pixel can't poison its neighbors' statistics or the history
+    return SanitizeHDR(g_CurrentColor.Load(int3(clamp(pixel, int2(0, 0), int2(g_ViewportSize.xy) - 1), 0)).rgb);
 }
 
 float LoadDepth(int2 pixel)
@@ -112,7 +115,7 @@ TAAOutput main_ps(in FullScreenPSInput In)
     float2 uv = In.Pos.xy * g_ViewportSize.zw;
 
     float4 currentSample = g_CurrentColor.Load(int3(pixel, 0));
-    float3 current = currentSample.rgb;
+    float3 current = SanitizeHDR(currentSample.rgb);
 
     // 3x3 neighborhood statistics, and the closest depth so silhouettes reproject with the foreground's motion
     float3 m1 = 0.0;
@@ -180,7 +183,14 @@ TAAOutput main_ps(in FullScreenPSInput In)
         resolved = current;
 
     // Unsharp mask against the neighborhood's mean. Only the displayed image is sharpened, so it never accumulates in the history.
-    float3 display = max(resolved + g_Sharpness * (resolved - YCoCgToRGB(mean)), 0.0);
+    float3 display = resolved;
+    if (g_Sharpness > 0.0)
+    {
+        // Kept inside the neighborhood's range: next to an HDR highlight the mean is far brighter than the pixel,
+        // and an unclamped mask would overshoot into a dark ring around it
+        float3 sharpened = RGBToYCoCg(resolved + g_Sharpness * (resolved - YCoCgToRGB(mean)));
+        display = max(YCoCgToRGB(clamp(sharpened, minColor, maxColor)), 0.0);
+    }
 
     TAAOutput Out;
     Out.Color = float4(display, currentSample.a);

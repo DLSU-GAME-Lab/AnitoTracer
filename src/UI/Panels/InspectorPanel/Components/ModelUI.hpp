@@ -4,6 +4,7 @@
 #include "../../../../Objects/Components/ModelComponent.hpp"
 #include "../../../PropertyDrawers/asset_drawer.hpp"
 #include <imgui.h>
+#include <glm/gtc/type_ptr.hpp>
 
 class ModelUI : public IComponentUI {
 public:
@@ -29,6 +30,7 @@ public:
         DrawMaterialOverride("Metallic", modelComponent,
             &ModelComponent::GetOverrideMetallic, &ModelComponent::SetOverrideMetallic,
             &ModelComponent::GetMetallic, &ModelComponent::SetMetallic);
+        DrawEmissiveOverride(modelComponent);
 
         ImGui::Separator();
         ImGui::Text("Path: %s", model->GetPath().generic_string().c_str());
@@ -66,6 +68,32 @@ private:
         float value = (component->*getValue)();
         if (ImGui::SliderFloat(label, &value, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
             (component->*setValue)(value);
+        ImGui::EndDisabled();
+
+        ImGui::PopID();
+    }
+
+    // Same layout as DrawMaterialOverride: checkbox, then a color and an unbounded strength greyed out while it's off
+    static void DrawEmissiveOverride(ModelComponent* component)
+    {
+        ImGui::PushID("Emissive");
+
+        bool enabled = component->GetOverrideEmissive();
+        if (ImGui::Checkbox("##Override", &enabled))
+            component->SetOverrideEmissive(enabled);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Override the material's emissive color and strength on every submesh.\nEmissive maps still mask the glow.");
+
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!enabled);
+        glm::vec3 color = component->GetEmissiveColor();
+        if (ImGui::ColorEdit3("Emissive", glm::value_ptr(color)))
+            component->SetEmissiveColor(color);
+
+        float strength = component->GetEmissiveStrength();
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x);
+        if (ImGui::DragFloat("Strength", &strength, 0.05f, 0.0f, 100.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
+            component->SetEmissiveStrength(strength);
         ImGui::EndDisabled();
 
         ImGui::PopID();

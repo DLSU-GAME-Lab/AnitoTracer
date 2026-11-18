@@ -18,10 +18,17 @@ namespace Diligent {
 
     PSOBuilder& PSOBuilder::Shaders(const char* vsFile, const char* psFile, const char* vsEntry, const char* psEntry)
     {
+        // Compiled in Build, so PixelMacros can be called before or after this
         m_VSFile = vsFile;
         m_PSFile = psFile;
-        m_pVS = ShaderManager::GetInstance().GetShader(vsFile, SHADER_TYPE_VERTEX, vsEntry);
-        m_pPS = ShaderManager::GetInstance().GetShader(psFile, SHADER_TYPE_PIXEL, psEntry);
+        m_VSEntry = vsEntry;
+        m_PSEntry = psEntry;
+        return *this;
+    }
+
+    PSOBuilder& PSOBuilder::PixelMacros(const ShaderMacroList& macros)
+    {
+        m_PSMacros.insert(m_PSMacros.end(), macros.begin(), macros.end());
         return *this;
     }
 
@@ -115,6 +122,9 @@ namespace Diligent {
     RefCntAutoPtr<IPipelineState> PSOBuilder::Build(IRenderDevice* pDevice)
     {
         RefCntAutoPtr<IPipelineState> pPSO;
+
+        m_pVS = m_VSFile.empty() ? nullptr : ShaderManager::GetInstance().GetShader(m_VSFile, SHADER_TYPE_VERTEX, m_VSEntry.c_str());
+        m_pPS = m_PSFile.empty() ? nullptr : ShaderManager::GetInstance().GetShader(m_PSFile, SHADER_TYPE_PIXEL, m_PSEntry.c_str(), m_PSMacros);
         if (!m_pVS || !m_pPS) {
             std::cout << "[Error] " << m_Name << ": shader failed to load (VS " << m_VSFile << ": " << (m_pVS ? "ok" : "null")
                 << ", PS " << m_PSFile << ": " << (m_pPS ? "ok" : "null") << ")" << std::endl;

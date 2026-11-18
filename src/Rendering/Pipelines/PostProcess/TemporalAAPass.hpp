@@ -26,6 +26,9 @@ namespace Diligent {
         // proj from Begin with this frame's sub-pixel offset; every scene pass should draw with it
         const glm::mat4& GetJitteredProjection() const { return m_JitteredProj; }
 
+        // Frames this pass has begun, 1 or more after the first Begin; seeds RenderData::NoiseFrame
+        Uint32 GetFrameIndex() const { return m_FrameIndex; }
+
         // pDepthSRV is the scene depth to reproject with. Without it every pixel is reprojected as if it were at the far plane,
         // which handles camera rotation but ghosts more when the camera moves.
         void Resolve(IDeviceContext* pContext, ITextureView* pDepthSRV, ITextureView* pDstRTV);

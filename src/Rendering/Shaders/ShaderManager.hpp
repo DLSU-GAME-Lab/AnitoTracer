@@ -2,11 +2,16 @@
 
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Common/interface/RefCntAutoPtr.hpp"
 
 namespace Diligent {
+
+    // Preprocessor definitions for one shader compile, as (name, value) pairs: { { "RT_SCENE_SHADING", "1" } }
+    using ShaderMacroList = std::vector<std::pair<std::string, std::string>>;
 
     class ShaderManager {
     public:
@@ -20,10 +25,13 @@ namespace Diligent {
         // Initialize the manager and stream factory
         void Initialize(IRenderDevice* pDevice, const char* shaderDirectory = "Shaders");
 
-        // Loads, compiles, and caches the shader
+        // Loads, compiles, and caches the shader.
+        // macros are #defined before the file is compiled, for code that only some devices or pipelines can use.
+        // The same file with different macros is compiled and cached separately.
         IShader* GetShader(const std::string& filename,
             SHADER_TYPE type,
-            const char* entryPoint = "main");
+            const char* entryPoint = "main",
+            const ShaderMacroList& macros = {});
 
         // Clears the cache
         void ClearCache();
@@ -45,7 +53,7 @@ namespace Diligent {
         RefCntAutoPtr<IRenderDevice> m_pDevice;
         RefCntAutoPtr<IShaderSourceInputStreamFactory> m_pShaderSourceFactory;
 
-        // Cache key combines filename, type, and entry point
+        // Cache key combines filename, type, entry point and macros
         std::unordered_map<std::string, RefCntAutoPtr<IShader>> m_ShaderCache;
     };
 

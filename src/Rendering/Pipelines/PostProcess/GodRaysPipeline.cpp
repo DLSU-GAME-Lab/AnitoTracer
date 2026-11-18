@@ -9,10 +9,10 @@ namespace Diligent {
     GodRaysPipeline::GodRaysPipeline()
         : PostProcessEffect("God Rays", "PostProcess/god_rays_ps.hlsl", "GodRaysConstants", PipelineUtils::LinearClampSampler()) {}
 
-    bool GodRaysPipeline::Prepare(const ProjectSettings& projectSettings, const RenderData& renderData, Uint32 width, Uint32 height)
+    bool GodRaysPipeline::Prepare(const ProjectSettings& projectSettings, const RenderData& renderData, const PostProcessView& view, Uint32 width, Uint32 height)
     {
         const ProjectGodRaysSettings& settings = projectSettings.god_rays;
-        if (!settings.enabled) return false;
+        if (!view.Effects || !settings.enabled) return false;
         if (renderData.Lights.NumDirLights <= 0 || width == 0 || height == 0) return false;
 
         const auto& sun = renderData.Lights.DirLights[0];
@@ -42,7 +42,10 @@ namespace Diligent {
         gr.Decay = decay;
         // Normalizes the decaying sum of all samples to 1, so decay and sample count only change the shape, not the brightness
         gr.Weight = (1.0f - decay) / (1.0f - std::pow(decay, static_cast<float>(sampleCount)));
-        gr.Threshold = glm::clamp(settings.threshold, 0.0f, 0.99f);
+        // The scene is HDR, so the threshold is not limited to 1. The cap keeps a few very bright pixels from dominating the shafts.
+        gr.Threshold = glm::max(settings.threshold, 0.0f);
+        gr.Knee = glm::max(settings.threshold_knee, 1e-3f);
+        gr.MaxBrightness = glm::max(settings.max_brightness, gr.Threshold + gr.Knee);
         gr.SunRadius = glm::max(settings.sun_radius, 0.01f);
         gr.AspectRatio = static_cast<float>(width) / static_cast<float>(height);
         gr.SampleCount = sampleCount;

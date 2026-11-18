@@ -10,8 +10,8 @@ namespace Diligent {
     public:
         GodRaysPipeline();
 
-        // Skipped when disabled, with no directional light, or when the sun is behind the camera
-        bool Prepare(const ProjectSettings& settings, const RenderData& renderData, Uint32 width, Uint32 height) override;
+        // Skipped when disabled, for views without effects, with no directional light, or when the sun is behind the camera
+        bool Prepare(const ProjectSettings& settings, const RenderData& renderData, const PostProcessView& view, Uint32 width, Uint32 height) override;
     };
 
 }

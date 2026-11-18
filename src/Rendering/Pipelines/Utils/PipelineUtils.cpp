@@ -52,6 +52,21 @@ namespace Diligent::PipelineUtils {
         return Desc;
     }
 
+    SamplerDesc AnisotropicWrapSampler(IRenderDevice* pDevice, Uint32 maxAnisotropy)
+    {
+        SamplerDesc Desc = LinearWrapSampler();
+
+        const Uint32 deviceMax = pDevice ? pDevice->GetAdapterInfo().Sampler.MaxAnisotropy : 1;
+        const Uint32 anisotropy = maxAnisotropy < deviceMax ? maxAnisotropy : deviceMax;
+        if (anisotropy > 1) {
+            Desc.MinFilter = FILTER_TYPE_ANISOTROPIC;
+            Desc.MagFilter = FILTER_TYPE_ANISOTROPIC;
+            Desc.MipFilter = FILTER_TYPE_ANISOTROPIC;
+            Desc.MaxAnisotropy = anisotropy;
+        }
+        return Desc;
+    }
+
     SamplerDesc LinearClampSampler()
     {
         SamplerDesc Desc = LinearWrapSampler();

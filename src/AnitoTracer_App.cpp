@@ -205,6 +205,9 @@ bool AnitoTracer_App::InitEngine()
     IEngineFactoryVk* pFactoryVk = Diligent::LoadAndGetEngineFactoryVk();
     EngineVkCreateInfo engineCI;
     engineCI.Features.RayTracing = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    // Lets a shader pick a texture out of an array per pixel, which reflection rays need to shade whatever they hit
+    // (SceneGeometryPool). Without it reflections show the sky only.
+    engineCI.Features.ShaderResourceRuntimeArrays = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
 
 #if defined(_DEBUG) || defined(DEBUG)
     // Enable the Vulkan validation layer in debug builds so driver-specific
