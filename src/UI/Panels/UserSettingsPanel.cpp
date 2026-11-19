@@ -401,6 +401,15 @@ namespace Diligent {
                 {
                     ImGui::SetTooltip("Draws sphere wireframes for the audio zone in the editor viewport. Inner sphere = music start; Outer sphere = music stop");
                 }
+
+                static bool reverb_enabled = false;
+                if (ImGui::Checkbox("Enable Reverb", &reverb_enabled)) {
+                    if (reverb_enabled) {
+                        AudioManager::GetInstance().SetSfxReverbWet(0.5f, 10000);
+                    } else {
+                        AudioManager::GetInstance().SetSfxReverbWet(0.0f, 10000);
+                    }
+                }
             }
 
             if (ImGui::CollapsingHeader("Debug Settings", ImGuiTreeNodeFlags_DefaultOpen))

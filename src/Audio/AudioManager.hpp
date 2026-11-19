@@ -52,7 +52,12 @@ public:
     void SetAudioGroupVolume(AudioGroupType groupType, float volume);
     void ApplyVolumes(float masterVolume, float bgmVolume, float sfxVolume);
 
+    // SFX reverb settings
+    void UpdateSfxReverb(float deltaTime);
     void SetSfxReverbWet(float target, uint64_t rampMs);
+    void ResetSfxReverb();
+    void SetSfxReverbRoomSize(float roomSize);
+    void SetSfxReverbDamping(float damping);
 
     // Set audio source position
     void SetSoundPosition(uint64_t soundID, glm::vec3 position);

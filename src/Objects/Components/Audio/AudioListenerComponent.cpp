@@ -3,9 +3,8 @@
 #include <glm/glm.hpp>
 
 void AudioListenerComponent::OnUpdate(float deltaTime) {
+    AudioManager::GetInstance().UpdateSfxReverb(deltaTime);
     if (!m_enabled) return;
-
-    (void)deltaTime;
 
     // Get Transform from component's owner
     HierarchyObject* owner = GetOwner().GetPtr();

@@ -11,7 +11,9 @@ public:
     AudioListenerComponent (gbe::IInstanceManager<HierarchyObject>::Ref owner = {}) 
         : ComponentBase("AudioListenerComponent", owner) {}
 
-    ~AudioListenerComponent() override = default;
+    ~AudioListenerComponent() override {
+        AudioManager::GetInstance().ResetSfxReverb();
+    }
 
     // Delete copy constructor/assignment to prevent object slicing and resource duplication
     AudioListenerComponent(const AudioListenerComponent&) = delete;

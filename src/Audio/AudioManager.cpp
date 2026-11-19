@@ -280,12 +280,54 @@ void AudioManager::ApplyVolumes(float masterVolume, float bgmVolume, float sfxVo
     SetAudioGroupVolume(AudioGroupType::SFX, sfxVolume);
 }
 
-// in progress
+void AudioManager::UpdateSfxReverb(float deltaTime) {
+    if (!m_SfxReverbInitialized || m_SfxReverbWetCurrent == m_SfxReverbWetTarget) return;
+
+    if (m_SfxReverbWetRamp == 0) {
+        m_SfxReverbWetCurrent = m_SfxReverbWetTarget;
+    } else {
+        float rampSeconds = m_SfxReverbWetRamp / 1000.0f;
+        float step = deltaTime / rampSeconds;
+        float distance = m_SfxReverbWetTarget - m_SfxReverbWetCurrent;
+
+        if (std::abs(distance) < step) {
+            m_SfxReverbWetCurrent = m_SfxReverbWetTarget;
+        } else {
+            if (distance > 0) {
+                m_SfxReverbWetCurrent = m_SfxReverbWetCurrent + step;
+            } else {
+                m_SfxReverbWetCurrent = m_SfxReverbWetCurrent - step;
+            }
+        }
+    }
+
+    verblib_set_wet(&m_SfxReverb.reverb, m_SfxReverbWetCurrent);
+}
+
 void AudioManager::SetSfxReverbWet(float target, uint64_t rampMs) {
     if (!m_SfxReverbInitialized) return;
 
     m_SfxReverbWetTarget = std::clamp(target, 0.0f, 1.0f);
     m_SfxReverbWetRamp = rampMs;
+}
+
+void AudioManager::ResetSfxReverb() {
+    m_SfxReverbWetCurrent = 0.0f;
+    m_SfxReverbWetTarget = 0.0f;
+
+    verblib_set_wet(&m_SfxReverb.reverb, 0.0f);
+}
+
+void AudioManager::SetSfxReverbRoomSize(float roomSize) {
+    if (!m_SfxReverbInitialized) return;
+
+    verblib_set_room_size(&m_SfxReverb.reverb, std::clamp(roomSize, 0.0f, 1.0f));
+}
+
+void AudioManager::SetSfxReverbDamping(float damping) {
+    if (!m_SfxReverbInitialized) return;
+
+    verblib_set_damping(&m_SfxReverb.reverb, std::clamp(damping, 0.0f, 1.0f));
 }
 
 void AudioManager::SetSoundPosition(uint64_t soundID, glm::vec3 position) {
