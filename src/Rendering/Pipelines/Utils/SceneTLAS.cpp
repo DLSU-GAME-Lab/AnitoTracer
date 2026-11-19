@@ -62,6 +62,7 @@ namespace Diligent {
         TLASDesc.Flags = RAYTRACING_BUILD_AS_PREFER_FAST_TRACE | RAYTRACING_BUILD_AS_ALLOW_UPDATE;
 
         m_pTLAS.Release();
+        m_Built = false;
         pDevice->CreateTLAS(TLASDesc, &m_pTLAS);
         if (!m_pTLAS) return;
 
@@ -166,6 +167,7 @@ namespace Diligent {
         BuildAttribs.ScratchBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
 
         pContext->BuildTLAS(BuildAttribs);
+        m_Built = true;
     }
 
 }

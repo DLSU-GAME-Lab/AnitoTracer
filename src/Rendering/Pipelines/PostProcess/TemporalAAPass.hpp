@@ -25,13 +25,17 @@ namespace Diligent {
 
         // proj from Begin with this frame's sub-pixel offset; every scene pass should draw with it
         const glm::mat4& GetJitteredProjection() const { return m_JitteredProj; }
+        // The shift GetJitteredProjection adds to proj, in clip space units (RenderData::ProjectionJitter)
+        const glm::vec2& GetJitter() const { return m_Jitter; }
 
         // Frames this pass has begun, 1 or more after the first Begin; seeds RenderData::NoiseFrame
         Uint32 GetFrameIndex() const { return m_FrameIndex; }
 
         // pDepthSRV is the scene depth to reproject with. Without it every pixel is reprojected as if it were at the far plane,
         // which handles camera rotation but ghosts more when the camera moves.
-        void Resolve(IDeviceContext* pContext, ITextureView* pDepthSRV, ITextureView* pDstRTV);
+        // pVelocitySRV holds the scene's motion vectors (ScenePipeline::GetVelocitySRV), which also follow objects that
+        // move on their own. Without it, or where there is no surface, pixels are reprojected from depth and the camera alone.
+        void Resolve(IDeviceContext* pContext, ITextureView* pDepthSRV, ITextureView* pVelocitySRV, ITextureView* pDstRTV);
 
     private:
         void CreateTextures(Uint32 width, Uint32 height);
@@ -52,6 +56,7 @@ namespace Diligent {
 
         Uint32 m_FrameIndex = 0;
         glm::mat4 m_JitteredProj{ 1.0f };
+        glm::vec2 m_Jitter{ 0.0f };
         glm::mat4 m_ViewProj{ 1.0f };
         glm::mat4 m_PrevViewProj{ 1.0f };
         TemporalAAConstants m_Constants;

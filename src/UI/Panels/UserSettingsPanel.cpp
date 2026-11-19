@@ -45,7 +45,8 @@ namespace Diligent {
                 ImGui::ColorEdit3("Ambient Color", lightingSettings.ambient_color.data());
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip("Color of the constant ambient contribution.");
+                    ImGui::SetTooltip("Color of the constant ambient contribution.\nNot added where per-pixel GI is in use: that gathers the real indirect light instead.");
+
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
@@ -124,7 +125,8 @@ namespace Diligent {
 
                 if (ImGui::Checkbox("Blur on Rough Surfaces", &reflectionSettings.glossy)) saveProjectSettings();
                 tooltip("Rough surfaces blur what they reflect instead of showing it mirror sharp.\n"
-                    "Built up over several frames, so it only applies while TAA is on, and stays a little grainy.");
+                    "Deferred Hybrid cleans the blur up with its denoiser (see Denoising).\n"
+                    "Without the denoiser it is built up over several frames, so it only applies while TAA is on, and stays a little grainy.");
 
                 ImGui::Unindent();
                 ImGui::EndDisabled();
@@ -158,6 +160,175 @@ namespace Diligent {
                 {
                     reflectionSettings = ProjectReflectionSettings{};
                     lightingSettings.reflection_intensity = ProjectLightingSettings{}.reflection_intensity;
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Global Illumination Section (Hybrid and Deferred Hybrid renderers)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Global Illumination", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& giSettings = projectSettings.gi;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                // Per-pixel GI shades what its rays hit, which needs the same device support as reflections of objects,
+                // and it reads the G-buffer, which only Deferred Hybrid has
+                const bool perPixelSupported = ::RendererManager::GetInstance().IsReflectionShadingSupported();
+                const bool deferredHybrid = UserSettings::GetInstance().GetRendererType() == DEFERRED_HYBRID;
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+
+                ImGui::BeginDisabled(!rayTracingSupported);
+                ImGui::PushItemWidth(170.0f);
+
+                // Order matches ProjectGIMethod. Where per-pixel can't run, the box shows what is used instead.
+                const char* giMethodNames[] = { "Sky + AO", "Per-pixel, one bounce" };
+                int shownMethod = perPixelSupported ? (giSettings.method == GI_METHOD_PER_PIXEL ? GI_METHOD_PER_PIXEL : GI_METHOD_SKY_AO) : GI_METHOD_SKY_AO;
+                ImGui::BeginDisabled(!perPixelSupported);
+                if (ImGui::Combo("GI Method", &shownMethod, giMethodNames, IM_ARRAYSIZE(giMethodNames)))
+                {
+                    giSettings.method = shownMethod;
+                    saveProjectSettings();
+                }
+                ImGui::EndDisabled();
+                tooltip(perPixelSupported
+                    ? "How surfaces are lit by the sky and by each other.\n"
+                      "Sky + AO: flat ambient color plus sky light, dimmed in corners. No noise, but no color bleeding, and rooms are lit by sky they can't see.\n"
+                      "Per-pixel, one bounce: a ray per pixel gathers the light that really arrives. Deferred Hybrid renderer only."
+                    : "Per-pixel GI is not available on this device: it can't pick textures per pixel, which shading what the rays hit needs.");
+
+                const bool perPixelChosen = perPixelSupported && giSettings.method == GI_METHOD_PER_PIXEL;
+                if (rayTracingSupported && perPixelChosen && !deferredHybrid)
+                {
+                    ImGui::TextDisabled("In use now: Sky + AO. Per-pixel needs the Deferred Hybrid renderer.");
+                }
+
+                // Sky + AO's own setting; the ones after it belong to Per-pixel
+                ImGui::BeginDisabled(perPixelChosen);
+                if (ImGui::Checkbox("Half-Resolution Occlusion##GI", &giSettings.ao_half_resolution)) saveProjectSettings();
+                tooltip("Sky + AO in the Deferred Hybrid renderer: trace and filter the ambient occlusion for every 2x2 pixels and scale the result up.\n"
+                    "A quarter of the rays and of the filtering, for slightly softer shading in corners and under objects.\n"
+                    "Off: trace for every pixel. For comparing the two.");
+                ImGui::EndDisabled();
+
+                ImGui::BeginDisabled(!perPixelChosen);
+
+                ImGui::DragFloat("Intensity##GI", &giSettings.intensity, 0.01f, 0.0f, 10.0f, "%.2f");
+                tooltip("Strength of the gathered light. 1 is physically right.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Ray Distance##GI", &giSettings.max_distance, 1.0f, 1.0f, 10000.0f, "%.0f");
+                tooltip("How far a ray looks for surfaces, in world units. Anything farther away counts as sky.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Half Resolution##GI", &giSettings.half_resolution)) saveProjectSettings();
+                tooltip("Trace for every 2x2 pixels and scale the result up.\nA quarter of the rays for a slightly softer result. Off: trace for every pixel.");
+
+                ImGui::SliderInt("Rays per Pixel##GI", &giSettings.rays_per_pixel, 1, 8);
+                tooltip("Rays traced per frame for each traced pixel.\nMore rays give a cleaner, steadier result, most visibly where a room is lit by a small bright area. The cost grows with the count.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Shadows on Bounce Light", &giSettings.hit_shadows)) saveProjectSettings();
+                tooltip("Surfaces only bounce the light that reaches them.\nCosts one more ray per light. Off: light bounces off surfaces that are in shadow too.");
+
+                if (ImGui::Checkbox("Further Bounces", &giSettings.more_bounces)) saveProjectSettings();
+                tooltip("Light keeps bouncing from surface to surface, one more bounce every frame, by reusing the last frame's result.\n"
+                    "Fills in rooms lit through a small opening. Only surfaces on screen pass light on. Off: light bounces exactly once.");
+
+                if (ImGui::Checkbox("Sky Light on Bounces", &giSettings.sky_bounce)) saveProjectSettings();
+                tooltip("Surfaces that bounce light are also lit by the sky, where one more ray reaches it.\nSoftens shaded outdoor areas. Used where Further Bounces has nothing to reuse, or is off.");
+
+                // These two steer the denoiser, so they do nothing while it is off for indirect light
+                ImGui::BeginDisabled(!(projectSettings.denoise.enabled && projectSettings.denoise.indirect));
+
+                ImGui::SliderFloat("Smoothing over Time##GI", &giSettings.history_blend, 0.0f, 0.98f, "%.2f");
+                tooltip("How much of the earlier frames the denoiser keeps every frame.\nHigher is smoother, but lighting changes and moving objects take longer to catch up.\n"
+                    "Needs Denoising on for indirect light.");
+                saveAfterEdit();
+
+                ImGui::SliderInt("Blur Passes##GI", &giSettings.filter_passes, 0, 5);
+                tooltip("The denoiser's blur passes, which hide the remaining noise. Each doubles the blur's reach.\n0 shows the light as gathered over time.\n"
+                    "Needs Denoising on for indirect light.");
+                saveAfterEdit();
+
+                ImGui::EndDisabled();
+
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Global Illumination to Defaults"))
+                {
+                    giSettings = ProjectGISettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Denoising Section (Deferred Hybrid renderer)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Denoising", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& denoiseSettings = projectSettings.denoise;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                const bool deferredHybrid = UserSettings::GetInstance().GetRendererType() == DEFERRED_HYBRID;
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+                else if (!deferredHybrid)
+                {
+                    ImGui::TextDisabled("Only the Deferred Hybrid renderer denoises its rays.");
+                }
+
+                ImGui::BeginDisabled(!rayTracingSupported);
+
+                // The one switch for comparison tests: off skips every filter below
+                if (ImGui::Checkbox("Denoise Ray-Traced Light", &denoiseSettings.enabled)) saveProjectSettings();
+                tooltip("Deferred Hybrid renderer: every pixel traces one ray per light, one for its reflection and a few for indirect light.\n"
+                    "The filters average those rays over frames and blur them along surfaces.\n"
+                    "Off: every filter is skipped and the same rays are shown as traced, noise included. For comparing.");
+
+                ImGui::BeginDisabled(!denoiseSettings.enabled);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Shadows##Denoise", &denoiseSettings.shadows)) saveProjectSettings();
+                tooltip("Filter the shadows. Off: soft shadow edges show the grain of one ray per light.");
+
+                if (ImGui::Checkbox("Reflections##Denoise", &denoiseSettings.reflections)) saveProjectSettings();
+                tooltip("Filter the reflections. Off: rough surfaces show the grain of one ray per pixel.");
+
+                if (ImGui::Checkbox("Indirect Light##Denoise", &denoiseSettings.indirect)) saveProjectSettings();
+                tooltip("Filter the indirect light: per-pixel GI, or the ambient occlusion of Sky + AO.\n"
+                    "Off: it shows the grain of the few rays each pixel traces.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Denoising to Defaults"))
+                {
+                    denoiseSettings = ProjectDenoiseSettings{};
                     saveProjectSettings();
                 }
             }

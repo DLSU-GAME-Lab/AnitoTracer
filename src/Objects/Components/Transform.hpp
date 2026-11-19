@@ -14,11 +14,7 @@
 class Transform : public ComponentBase {
 public:
     Transform(gbe::IInstanceManager<HierarchyObject>::Ref owner = nullptr)
-        : ComponentBase("Transform", owner),
-        m_position(0.0f, 0.0f, 0.0f),
-        m_rotation(1.0f, 0.0f, 0.0f, 0.0f),
-        m_eulerAnglesDegrees(0.0f, 0.0f, 0.0f),
-        m_scale(1.0f, 1.0f, 1.0f) {}
+        : ComponentBase("Transform", owner) {}
 
     ~Transform() override = default;
 
@@ -57,21 +53,23 @@ public:
     void SyncChildrenPhysics();
 
 private:
-    glm::vec3 m_position;
+    // Defaults live here, not in a constructor, so the generated serializer
+    // constructor (scene load, paste, Add Component) gets them too.
+    glm::vec3 m_position{ 0.0f, 0.0f, 0.0f };
     GBE_SERIALIZE_FIELD_W_NAME_CB(m_position, "Position", [this](glm::vec3 pos) {
         m_position = pos;
 		SyncPhysics();
     });
 
-    glm::quat m_rotation; // Don't serialize this anymore, rely on euler angles.
+    glm::quat m_rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f); // Don't serialize this anymore, rely on euler angles.
 
-    glm::vec3 m_eulerAnglesDegrees;
+    glm::vec3 m_eulerAnglesDegrees{ 0.0f, 0.0f, 0.0f };
     GBE_SERIALIZE_FIELD_W_NAME_CB(m_eulerAnglesDegrees, "Rotation", [this](glm::vec3 eulerDegrees) {
         SetEulerAnglesDegrees(eulerDegrees);
         SyncPhysics();
     });
     
-    glm::vec3 m_scale;
+    glm::vec3 m_scale{ 1.0f, 1.0f, 1.0f };
     GBE_SERIALIZE_FIELD_W_NAME(m_scale, "Scale");
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(Transform, ComponentBase);

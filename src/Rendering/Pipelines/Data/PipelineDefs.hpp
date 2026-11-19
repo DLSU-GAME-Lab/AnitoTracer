@@ -61,7 +61,7 @@ namespace Diligent {
         REFLECTION_TRACE = 1u << 0,        // Trace reflection rays; without it surfaces reflect only the sky
         REFLECTION_SHADE_HITS = 1u << 1,   // Light and texture what a ray hits; without it a hit only blocks the sky
         REFLECTION_HIT_SHADOWS = 1u << 2,  // Trace shadow rays from what a ray hits
-        REFLECTION_GLOSSY = 1u << 3,       // Spread rays over rough surfaces' highlight (only while TAA averages frames)
+        REFLECTION_GLOSSY = 1u << 3,       // Spread rays over rough surfaces' highlight (only while frames are averaged: by TAA or a denoiser)
     };
 
     // What a ray hit needs to know about the triangle it landed on: where its vertices are in SceneGeometryPool and
@@ -184,6 +184,8 @@ namespace Diligent {
         float Sharpness = 0.0f;
         float HistoryValid = 0.0f;          // 0 on the first frame and after a reset: output this frame as is
         float HasDepth = 0.0f;              // 0 reprojects every pixel as if it were at the far plane
+        float HasVelocity = 0.0f;           // 1 when the pipeline supplied motion vectors, which also follow moving objects
+        glm::vec3 Padding{ 0.0f };
     };
     static_assert(sizeof(TemporalAAConstants) % 16 == 0, "TemporalAAConstants must be 16-byte aligned for HLSL");
     // Mirrors cbuffer CrossHatchConstants in Shaders/CrossHatch/crosshatch_common.hlsli
@@ -249,14 +251,20 @@ namespace Diligent {
         glm::vec4 EmissiveFactor{ 0.0f }; // rgb: emissive color * strength (HDR), multiplied with the emissive map
     };
 
+    // Mirrors cbuffer CameraConstants in Shaders/common_struct.hlsli. Shaders that only declare View and Proj read the start of it.
     struct CameraConstants {
         glm::mat4 View;
         glm::mat4 Proj;
+        // For motion vectors: world -> clip space this frame and last frame, both without TAA's sub-pixel jitter
+        glm::mat4 ViewProjNoJitter{ 1.0f };
+        glm::mat4 PrevViewProjNoJitter{ 1.0f };
     };
 
+    // Mirrors cbuffer ModelConstants in Shaders/common_struct.hlsli
     struct ModelConstants {
         glm::mat4 Model;
         glm::mat4 NormalMatrix;
+        glm::mat4 PrevModel{ 1.0f };    // Last frame's Model, for motion vectors
     };
 
 }

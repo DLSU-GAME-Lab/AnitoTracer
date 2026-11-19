@@ -39,6 +39,11 @@ namespace Diligent {
         // drawing into the target's. Read by passes that reproject the scene, like TAA. May be larger than the view.
         virtual ITextureView* GetDepthSRV() const { return nullptr; }
 
+        // Motion vectors from the last Render, for pipelines that write them: how far each pixel's surface moved across
+        // the screen since the frame before (xy, in UV units; subtract from a pixel's UV to get where it was), with the
+        // camera's and the objects' own motion together. Same size rules as GetDepthSRV. nullptr: reproject with depth.
+        virtual ITextureView* GetVelocitySRV() const { return nullptr; }
+
         // True for stylized pipelines whose output is already the final on-screen color (e.g. cross hatching's ink and paper)
         // rather than scene light. The display pass then leaves out the exposure and tone curve, which would grey their whites.
         virtual bool OutputsDisplayColor() const { return false; }

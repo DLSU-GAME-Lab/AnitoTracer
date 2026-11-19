@@ -179,9 +179,9 @@ float TraceHitShadow(SceneHit hit, float3 L, float maxDistance, float spread, fl
 {
     float3 dir = L;
 
-    // While TAA averages frames, a different point of the light is tested each frame, which adds up to a soft edge.
-    // A single still ray can't be soft, so without TAA it aims at the light's centre.
-    if (g_NoiseFrame != 0u)
+    // While frames are averaged (by a denoiser or TAA), a different point of the light is tested each frame, which
+    // adds up to a soft edge. A single still ray can't be soft, so otherwise it aims at the light's centre.
+    if (RaysAveraged())
     {
         float3 t, b;
         BuildBasis(L, t, b);
@@ -193,13 +193,25 @@ float TraceHitShadow(SceneHit hit, float3 L, float maxDistance, float spread, fl
     return TraceShadowRay(hit.Position, hit.GeoN, hit.Distance * 0.0005, dir, maxDistance);
 }
 
-// Light leaving a ray hit back along the ray: the scene's lights (one shadow ray each when traceShadows is set),
-// the sky and the surface's own glow. This is what a reflection shows of the object.
+// What ShadeSceneHit takes into account
+static const uint HIT_SHADOWS = 1u;         // One shadow ray per light from the hit; without it lights pass through everything
+static const uint HIT_SPECULAR = 2u;        // Highlights and the hit's own reflection of its surroundings, as a mirror shows
+                                            // them. Without it the hit is shaded as a matte surface, which is all bounce light needs.
+// Indirect light arriving at the hit (pick one, or none for direct light only):
+static const uint HIT_AMBIENT_SKY = 4u;     // The sky and the flat ambient color, as if nothing were in the way
+static const uint HIT_AMBIENT_GIVEN = 8u;   // The caller's `ambient` (average radiance arriving), e.g. the GI at the reflecting pixel
+static const uint HIT_AMBIENT_TRACED = 16u; // The sky, only where one more ray finds it: no sky light leaks into closed rooms
+
+// Light leaving a ray hit back along the ray: the scene's lights, the surface's own glow and, depending on flags
+// (HIT_* above), indirect light. This is what a reflection shows of the object, or what a GI ray brings back from it.
 // coneWidth: width of the ray's cone at the hit, in world units (the pixel's size carried along the ray, plus the
 // spread a rough reflector adds). It decides how blurry the hit's textures are read.
-// The hit is not checked for what is around it: sky light reaches it unoccluded, and it does not reflect other objects.
-float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 noise, bool traceShadows)
+// The hit does not reflect other objects.
+float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 noise, uint flags, float3 ambient)
 {
+    bool traceShadows = (flags & HIT_SHADOWS) != 0u;
+    bool specular = (flags & HIT_SPECULAR) != 0u;
+
     SceneGeometryRecord material = hit.Material;
 
     // Seen at a slant, the cone covers a longer stretch of the surface
@@ -243,7 +255,9 @@ float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 
         float shadowFactor = traceShadows ? TraceHitShadow(hit, L, 1000.0, tan(SUN_ANGULAR_RADIUS), ShiftNoise(noise, i)) : 1.0;
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
-        Lo += ComputeLightRadiance(N, V, L, radiance, albedo, metallic, roughness, F0, shadowFactor);
+        Lo += specular
+            ? ComputeLightRadiance(N, V, L, radiance, albedo, metallic, roughness, F0, shadowFactor)
+            : albedo / PI * radiance * dot(N, L) * shadowFactor;
     }
 
     // 2. Point lights
@@ -264,19 +278,59 @@ float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 
         attenuation *= attenuation;
         float3 radiance = g_PointLights[j].Color.rgb * g_PointLights[j].Color.a * attenuation;
 
-        Lo += ComputeLightRadiance(N, V, L, radiance, albedo, metallic, roughness, F0, shadowFactor);
+        Lo += specular
+            ? ComputeLightRadiance(N, V, L, radiance, albedo, metallic, roughness, F0, shadowFactor)
+            : albedo / PI * radiance * dot(N, L) * shadowFactor;
     }
 
-    // 3. Ambient: flat ambient color plus the sky, as diffuse light and as the hit's own (sky-only) reflection
-    float NdotV = saturate(dot(N, V)) + 0.0001;
-    float2 envBRDF = EnvBRDFApprox(NdotV, roughness);
-    float3 specularColor = F0 * envBRDF.x + envBRDF.y;
+    // 3. Indirect light arriving at the hit, as the average radiance over the hemisphere above it
+    float3 irradiance = float3(0.0, 0.0, 0.0);
+    bool skyReflection = false;
+    if ((flags & HIT_AMBIENT_SKY) != 0u)
+    {
+        irradiance = g_AmbientColor.rgb + SampleEnvIrradiance(N) * g_SkyLightIntensity;
+        skyReflection = true;
+    }
+    else if ((flags & HIT_AMBIENT_GIVEN) != 0u)
+    {
+        irradiance = ambient;
+    }
+    else if ((flags & HIT_AMBIENT_TRACED) != 0u)
+    {
+        // One cosine-weighted ray stands in for the whole hemisphere: averaged over frames it adds up to the sky
+        // light that really reaches this point
+        float3 t, b;
+        BuildBasis(N, t, b);
+        float2 skyNoise = ShiftNoise(noise, 15); // Apart from the lights' shadow rays, which use shifts 0 to 11
+        float2 d = VogelDisk(0, 1, skyNoise.x * 2.0 * PI, skyNoise.y);
+        float3 skyDir
+ = normalize(t * d.x + b * d.y + N * sqrt(saturate(1.0 - dot(d, d))));
+        if (dot(skyDir, hit.GeoN) > 0.0 && TraceShadowRay(hit.Position, hit.GeoN, hit.Distance * 0.0005, skyDir, 1000.0) > 0.5)
+        {
+            // A blurred mip, so one ray doesn't have to find a small bright sun on its own
+            irradiance = SampleEnvSpecular(skyDir, 0.5) * g_SkyLightIntensity;
+        }
+    }
 
-    float3 irradiance = g_AmbientColor.rgb + SampleEnvIrradiance(N) * g_SkyLightIntensity;
-    float3 ambient = irradiance * albedo * (1.0 - specularColor) * (1.0 - metallic);
-    ambient += SampleEnvSpecular(reflect(rayDirection, N), roughness) * g_SkyLightIntensity * specularColor * g_ReflectionIntensity;
+    float3 indirect;
+    if (specular)
+    {
+        // Diffuse light, plus the hit's own reflection: of the sky when that is what lights it, else of the light around it
+        float NdotV = saturate(dot(N, V)) + 0.0001;
+        float2 envBRDF = EnvBRDFApprox(NdotV, roughness);
+        float3 specularColor = F0 * envBRDF.x + envBRDF.y;
 
-    return ambient * g_AmbientMultiplier + Lo + emissive;
+        float3 reflected = skyReflection ? SampleEnvSpecular(reflect(rayDirection, N), roughness) * g_SkyLightIntensity : irradiance;
+        indirect = irradiance * albedo * (1.0 - specularColor) * (1.0 - metallic) + reflected * specularColor * g_ReflectionIntensity;
+    }
+    else
+    {
+        // Matte: the base color is close to the share of light a surface sends back, for metals too
+        indirect = irradiance * albedo;
+    }
+
+    return indirect * g_AmbientMultiplier + Lo + emissive;
 }
+
 
 #endif // RT_SCENE_HLSLI

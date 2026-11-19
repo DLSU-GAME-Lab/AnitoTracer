@@ -78,7 +78,9 @@ Diligent::ShaderMacroList Diligent::HybridPipeline::GetRayTracingMacros()
 void Diligent::HybridPipeline::BindRayTracingResources()
 {
     // The TLAS is bound here, so it MUST have a valid state before rendering!
-    PipelineUtils::BindVariable(GetRayTracingSRB(), SHADER_TYPE_PIXEL, "g_TLAS", m_SceneTLAS.Get());
+    for (IShaderResourceBinding* pSRB : GetRayTracingSRBs()) {
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_TLAS", m_SceneTLAS.Get());
+    }
     SetSkyLighting(m_pEnvIrradianceSRV, m_pEnvSpecularSRV);
 
     // A new SRB starts with an empty texture array
@@ -87,15 +89,16 @@ void Diligent::HybridPipeline::BindRayTracingResources()
 
 void Diligent::HybridPipeline::BindSceneTextures()
 {
-    IShaderResourceBinding* pSRB = GetRayTracingSRB();
-    IShaderResourceVariable* pTextures = pSRB ? pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_SceneTextures") : nullptr;
-    if (!pTextures) return;
-
     const SceneGeometryPool& pool = ModelManager::GetInstance().GetSceneGeometryPool();
     const std::vector<IDeviceObject*>& textures = pool.GetTextureArray();
 
-    // Every slot is bound (unused ones hold a white texture), since the shader may index any of them
-    pTextures->SetArray(textures.data(), 0, static_cast<Uint32>(textures.size()), SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+    for (IShaderResourceBinding* pSRB : GetRayTracingSRBs()) {
+        IShaderResourceVariable* pTextures = pSRB ? pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_SceneTextures") : nullptr;
+        if (!pTextures) continue;
+
+        // Every slot is bound (unused ones hold a white texture), since the shader may index any of them
+        pTextures->SetArray(textures.data(), 0, static_cast<Uint32>(textures.size()), SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+    }
     m_BoundTextureVersion = pool.GetTextureVersion();
 }
 
@@ -106,8 +109,10 @@ void Diligent::HybridPipeline::SetSkyLighting(ITextureView* pIrradianceSRV, ITex
     if (!m_pFallbackEnvMap) return;
 
     ITextureView* pFallback = m_pFallbackEnvMap->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
-    PipelineUtils::BindVariable(GetRayTracingSRB(), SHADER_TYPE_PIXEL, "g_EnvIrradiance", pIrradianceSRV ? pIrradianceSRV : pFallback);
-    PipelineUtils::BindVariable(GetRayTracingSRB(), SHADER_TYPE_PIXEL, "g_EnvSpecular", pSpecularSRV ? pSpecularSRV : pFallback);
+    for (IShaderResourceBinding* pSRB : GetRayTracingSRBs()) {
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_EnvIrradiance", pIrradianceSRV ? pIrradianceSRV : pFallback);
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_EnvSpecular", pSpecularSRV ? pSpecularSRV : pFallback);
+    }
 }
 
 void Diligent::HybridPipeline::SyncSceneRayData(IDeviceContext* pContext)
@@ -115,10 +120,12 @@ void Diligent::HybridPipeline::SyncSceneRayData(IDeviceContext* pContext)
     SceneGeometryPool& pool = ModelManager::GetInstance().GetSceneGeometryPool();
     pool.Sync(pContext);
 
-    IShaderResourceBinding* pSRB = GetRayTracingSRB();
-    PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_SceneVertices", pool.GetVertexSRV());
-    PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_SceneIndices", pool.GetIndexSRV());
-    PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_SceneGeometry", m_SceneTLAS.GetGeometryRecordsSRV());
+    for (IShaderResourceBinding* pSRB : GetRayTracingSRBs()) {
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_SceneVertices", pool.GetVertexSRV());
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_SceneIndices", pool.GetIndexSRV());
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_SceneGeometry", m_SceneTLAS.GetGeometryRecordsSRV());
+    }
+
 
     if (m_BoundTextureVersion != pool.GetTextureVersion()) {
         // The array is rewritten in place, and frames already sent to the GPU may still be reading it. Wait for them
