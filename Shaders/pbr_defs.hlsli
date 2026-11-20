@@ -18,6 +18,8 @@ cbuffer PBRMaterialConstants
     float g_OverrideFlags; // Bit 1: roughness overridden, bit 2: metallic overridden
 
     float4 g_EmissiveFactor; // rgb: emissive color * strength (HDR)
+
+    float4 g_MaterialParams; // x: alpha cutoff (0: not a cutout, nothing is discarded), y: index of refraction
 };
 
 // Applies the metallic/roughness texture, skipping channels overridden by the model component
@@ -26,6 +28,13 @@ void ApplyMetallicRoughnessMap(float4 mrSample, inout float metallic, inout floa
     uint flags = (uint)g_OverrideFlags;
     if ((flags & 1u) == 0u) roughness *= mrSample.g;
     if ((flags & 2u) == 0u) metallic *= mrSample.b;
+}
+
+// Cutout materials (fences, leaves) discard pixels whose alpha is below their cutoff. Every other material keeps
+// them: opaque ones ignore alpha, and blended ones are drawn by the glass pass, which uses it as their opacity.
+bool PassesAlphaTest(float alpha)
+{
+    return g_MaterialParams.x <= 0.0 || alpha >= g_MaterialParams.x;
 }
 
 // Define a matching sampler for every texture for Vulkan compatibility

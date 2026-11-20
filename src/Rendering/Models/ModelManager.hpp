@@ -31,6 +31,10 @@ public:
     // normal maps), causing incorrect lighting/normals.
     ITextureView* LoadTexture(const std::string& filepath, bool isSRGB = false);
 
+    // True when a texture loaded by LoadTexture has see-through texels (a fence's gaps, the area around a leaf).
+    // Judged when it was loaded. Tells cutout materials from opaque ones in formats that don't say.
+    bool HasCutoutAlpha(ITextureView* pTexture) const;
+
     // Ideally for Skyboxes
     ITextureView* LoadCubemap(const std::string& filepath, bool isSRGB = true);
 
@@ -85,6 +89,7 @@ private:
 
     std::unordered_map<std::string, std::unique_ptr<Model>> m_ModelCache;
     std::unordered_map<std::string, RefCntAutoPtr<ITextureView>> m_TextureCache;
+    std::unordered_set<const ITextureView*> m_CutoutTextures;
 
     // Default white tex
     RefCntAutoPtr<ITextureView> m_pDefaultTextureView;

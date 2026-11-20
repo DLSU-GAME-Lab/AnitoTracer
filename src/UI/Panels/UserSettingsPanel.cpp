@@ -333,6 +333,84 @@ namespace Diligent {
                 }
             }
 
+            // ------------------------------------------------------------------
+            // Transparency Section (Hybrid and Deferred Hybrid renderers)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Transparency", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& transparencySettings = projectSettings.transparency;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                // Telling a cutout's gaps from its solid parts, and what glass lets through, means reading the scene's
+                // materials from a ray: the same device support as shading the objects a reflection shows
+                const bool sceneRaysSupported = ::RendererManager::GetInstance().IsReflectionShadingSupported();
+                const PipelineType rendererType = UserSettings::GetInstance().GetRendererType();
+                const bool rayTracedRenderer = rendererType == HYBRID || rendererType == DEFERRED_HYBRID;
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+                else if (!sceneRaysSupported)
+                {
+                    ImGui::TextDisabled("This device can't read materials from a ray: cutouts and glass are solid to rays.");
+                }
+                else if (!rayTracedRenderer)
+                {
+                    ImGui::TextDisabled("Only the Hybrid and Deferred Hybrid renderers draw glass and trace cutouts.");
+                }
+
+                ImGui::BeginDisabled(!rayTracingSupported);
+
+                // The one switch for comparison tests: off is how the renderers behaved before
+                if (ImGui::Checkbox("Cutouts and Glass", &transparencySettings.enabled)) saveProjectSettings();
+                tooltip("Cutout materials (fences, leaves) cast shadows shaped like their texture and show in reflections with their holes.\n"
+                    "Blended materials are drawn as glass: tinted, refracting, reflecting the scene and casting a tinted shadow.\n"
+                    "Off: every triangle blocks every ray, and blended materials are not drawn. For comparing.");
+
+                ImGui::BeginDisabled(!transparencySettings.enabled);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Cutouts in Rays##Transparency", &transparencySettings.cutout_rays)) saveProjectSettings();
+                tooltip("Shadows, reflections and bounced light see the holes in cutout materials.\n"
+                    "Off: a cutout's whole card is solid to rays, though it is still drawn with its holes.");
+
+                if (ImGui::Checkbox("Draw Glass##Transparency", &transparencySettings.glass)) saveProjectSettings();
+                tooltip("Draw blended materials over the scene, farthest first.\n"
+                    "Off: they are not drawn, and rays go through them.");
+
+                ImGui::BeginDisabled(!transparencySettings.glass);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Tinted Shadows##Transparency", &transparencySettings.tinted_shadows)) saveProjectSettings();
+                tooltip("Light that passes through glass takes its color, as much as the glass is opaque.\n"
+                    "Deferred Hybrid carries the color for the first four lights; any others only lose brightness.\n"
+                    "Off: glass casts a solid shadow.");
+
+                if (ImGui::Checkbox("Refraction##Transparency", &transparencySettings.refraction)) saveProjectSettings();
+                tooltip("Glass bends what is behind it, using the material's index of refraction, and tints it.\n"
+                    "A closed shape (a ball, a slab) bends the view in and out again; a single sheet shows it unbent.\n"
+                    "Off: plain alpha blending, which shows what is behind the glass where it is.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Transparency to Defaults"))
+                {
+                    transparencySettings = ProjectTransparencySettings{};
+                    saveProjectSettings();
+                }
+            }
+
 
             // ------------------------------------------------------------------
             // Skybox Section

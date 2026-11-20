@@ -38,12 +38,15 @@ cbuffer DeferredHybridConstants
     uint g_SignalFrame;     // Counts up every frame: moves the rays of the signals a denoiser averages
     uint g_DenoiseFlags;    // DENOISE_* bits: the signals that go through a denoiser this frame
     uint g_ShadowLayer;     // shadow_trace_ps: which four light slots this draw covers (slots 4 * layer onward)
-    uint g_DeferredPadding;
+    uint g_GlassFlags;      // GLASS_* bits below
 };
 
 static const uint DENOISE_SHADOWS = 1u;
 static const uint DENOISE_INDIRECT = 2u;
 static const uint DENOISE_REFLECTIONS = 4u;
+
+// Bits of g_GlassFlags
+static const uint GLASS_TINT_SHADOWS = 1u;  // The shadow pass wrote the color glass tints the direct light with (g_GlassTint)
 
 // The guide: xy = octahedral geometric normal, z = distance from the camera, w = roughness (0: sky, nothing drawn).
 // Same size as the view.

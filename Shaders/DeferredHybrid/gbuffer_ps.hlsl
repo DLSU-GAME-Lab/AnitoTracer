@@ -23,7 +23,7 @@ void main_ps(in PSInput In, out GBufferOutput Out)
         albedo *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV);
     }
 
-    if (albedo.a < 0.5)
+    if (!PassesAlphaTest(albedo.a))
     {
         discard;
     }

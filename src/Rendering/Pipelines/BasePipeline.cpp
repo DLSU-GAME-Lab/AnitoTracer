@@ -93,6 +93,9 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
             const glm::vec3 materialEmissive = glm::vec3(mat.EmissiveFactor.r, mat.EmissiveFactor.g, mat.EmissiveFactor.b) * mat.EmissiveStrength;
             matCBData.EmissiveFactor = glm::vec4(modelData.OverrideEmissive ? modelData.Emissive : materialEmissive, 0.0f);
 
+            // Only mask materials cut pixels out; every other one ignores the alpha channel of its base color map
+            matCBData.MaterialParams = glm::vec4(mat.AlphaMode == MaterialAlphaMode::Mask ? mat.AlphaCutoff : 0.0f, mat.IOR, 0.0f, 0.0f);
+
             // Missing maps still need a valid texture bound; the Use*Map flags tell the shader to ignore it
             ITextureView* pSafeFallbackTexture = mat.BaseColor;
             auto BindMap = [&](const char* name, ITextureView* pMap, float& useFlag) {

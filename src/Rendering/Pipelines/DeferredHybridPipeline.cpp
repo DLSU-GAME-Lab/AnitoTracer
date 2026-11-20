@@ -19,7 +19,7 @@ namespace {
         uint32_t SignalFrame = 0;   // Counts up every frame: moves the rays of the signals a denoiser averages
         uint32_t DenoiseFlags = 0;  // DENOISE_* bits below
         uint32_t ShadowLayer = 0;   // Shadow trace pass: which four light slots this draw covers
-        uint32_t Padding = 0;
+        uint32_t GlassFlags = 0;    // GLASS_* bits below
     };
     static_assert(sizeof(DeferredHybridConstants) % 16 == 0, "DeferredHybridConstants must be 16-byte aligned for HLSL");
 
@@ -31,7 +31,12 @@ namespace {
         DENOISE_REFLECTIONS = 1u << 2,
     };
 
+    // Bits of DeferredHybridConstants::GlassFlags. Mirror the GLASS_* constants in Shaders/DeferredHybrid/deferred_common.hlsli
+    constexpr uint32_t GLASS_TINT_SHADOWS = 1u;
+
     constexpr TEXTURE_FORMAT kGuideFormat = TEX_FORMAT_RGBA16_FLOAT;
+    // Glass tints light by a color, which can be brighter than white in one channel
+    constexpr TEXTURE_FORMAT kGlassTintFormat = TEX_FORMAT_RGBA16_FLOAT;
     // A shadow ray is 0 or 1
     constexpr TEXTURE_FORMAT kShadowRaysFormat = TEX_FORMAT_RGBA8_UNORM;
     // HDR light, and for ambient occlusion a direction, whose components can be negative
@@ -58,6 +63,9 @@ namespace {
     constexpr int kReflectionFilterPasses = 4;
     constexpr float kReflectionClampSigma = 2.0f;
     constexpr float kReflectionBrightnessSigma = 4.0f;
+    // The glass tint: like shadows, it follows glass that moves and keeps its edges, but it is smooth everywhere else
+    constexpr float kGlassTintMinBlend = 0.1f;
+    constexpr int kGlassTintFilterPasses = 2;
 
     RefCntAutoPtr<ITexture> CreateTarget(IRenderDevice* pDevice, const char* name, TEXTURE_FORMAT format, Uint32 width, Uint32 height)
     {
@@ -163,6 +171,7 @@ Diligent::PSOBuilder Diligent::DeferredHybridPipeline::CreateSignalPassBuilder(c
         .Variable(SHADER_TYPE_PIXEL, "g_ShadowSignal1")
         .Variable(SHADER_TYPE_PIXEL, "g_ShadowSignal2")
         .Variable(SHADER_TYPE_PIXEL, "g_ReflectionSignal")
+        .Variable(SHADER_TYPE_PIXEL, "g_GlassTint")
         .Variable(SHADER_TYPE_PIXEL, "DeferredHybridConstants")
         .Variable(SHADER_TYPE_PIXEL, "LightConstants")
         .Variable(SHADER_TYPE_PIXEL, "ShadowSettings")
@@ -194,6 +203,13 @@ void Diligent::DeferredHybridPipeline::InitializeSignalPasses()
     m_pShadowTraceSRB = PipelineUtils::CreateSRB(m_pShadowTracePSO);
     BindSignalPassResources(m_pShadowTraceSRB);
 
+    m_pShadowTraceTintPSO = CreateSignalPassBuilder("Deferred Hybrid Shadow Trace PSO (glass)", "DeferredHybrid/shadow_trace_ps.hlsl")
+        .PixelMacros({ { "GLASS_TINT_OUTPUT", "1" } })
+        .RenderTargets({ kShadowRaysFormat, kGlassTintFormat }, TEX_FORMAT_UNKNOWN)
+        .Build(m_pDevice);
+    m_pShadowTraceTintSRB = PipelineUtils::CreateSRB(m_pShadowTraceTintPSO);
+    BindSignalPassResources(m_pShadowTraceTintSRB);
+
     m_pAOTracePSO = CreateSignalPassBuilder("Deferred Hybrid AO Trace PSO", "DeferredHybrid/ao_trace_ps.hlsl")
         .RenderTargets({ kLightRaysFormat }, TEX_FORMAT_UNKNOWN)
         .Build(m_pDevice);
@@ -221,18 +237,33 @@ void Diligent::DeferredHybridPipeline::InitializeLightingPSO()
     m_pLightingSRB = PipelineUtils::CreateSRB(m_pLightingPSO);
     BindSignalPassResources(m_pLightingSRB);
 
+    // Draws the glass over the lit scene
+    InitializeGlassPSO();
+
     // Every SRB of GetRayTracingSRBs exists by now
     BindRayTracingResources();
 }
 
+void Diligent::DeferredHybridPipeline::RebuildRayPipelines()
+{
+    // The passes that trace rays: the GI pass, the guide and trace passes, the lighting pass and the glass pass
+    InitializeDiffuseGI();
+    InitializeSignalPasses();
+    InitializeLightingPSO();
+
+    // What was gathered went through the old passes
+    m_GuideValid = false;
+    ResetSignalHistory();
+}
+
 std::vector<Diligent::IShaderResourceBinding*> Diligent::DeferredHybridPipeline::GetRayTracingSRBs()
 {
-    return { m_pLightingSRB, m_GI.GetTraceSRB(), m_pShadowTraceSRB, m_pAOTraceSRB, m_pReflectionTraceSRB };
+    return { m_pLightingSRB, m_GI.GetTraceSRB(), m_pShadowTraceSRB, m_pShadowTraceTintSRB, m_pAOTraceSRB, m_pReflectionTraceSRB, m_pGlassSRB };
 }
 
 std::vector<Diligent::IShaderResourceBinding*> Diligent::DeferredHybridPipeline::GetGBufferSRBs()
 {
-    return { m_pLightingSRB, m_GI.GetTraceSRB(), m_pGuideSRB, m_pShadowTraceSRB, m_pAOTraceSRB, m_pReflectionTraceSRB };
+    return { m_pLightingSRB, m_GI.GetTraceSRB(), m_pGuideSRB, m_pShadowTraceSRB, m_pShadowTraceTintSRB, m_pAOTraceSRB, m_pReflectionTraceSRB };
 }
 
 void Diligent::DeferredHybridPipeline::PrepareFrame(const FrameTarget& target)
@@ -285,8 +316,9 @@ void Diligent::DeferredHybridPipeline::UpdateShadowSettings(IDeviceContext* pCon
     m_NoiseFrame = noiseFrame;
 }
 
-void Diligent::DeferredHybridPipeline::UpdateProjectSettings(IDeviceContext* /*pContext*/, const ProjectSettings& settings)
+void Diligent::DeferredHybridPipeline::UpdateProjectSettings(IDeviceContext* pContext, const ProjectSettings& settings)
 {
+    HybridPipeline::UpdateProjectSettings(pContext, settings);
     m_GISettings = settings.gi;
     m_DenoiseSettings = settings.denoise;
     m_ReflectionSettings = settings.reflections;
@@ -320,12 +352,13 @@ void Diligent::DeferredHybridPipeline::ResetSignalHistory()
     }
     m_IndirectHistory.Reset();
     m_ReflectionHistory.Reset();
+    m_TintHistory.Reset();
     m_GI.ResetHistory();
 }
 
 void Diligent::DeferredHybridPipeline::PrepareSignalTargets(Uint32 width, Uint32 height)
 {
-    if (width == m_SignalWidth && height == m_SignalHeight && m_pGuide[0] && m_pGuide[1] && m_pReflectionRays) return;
+    if (width == m_SignalWidth && height == m_SignalHeight && m_pGuide[0] && m_pGuide[1] && m_pReflectionRays && m_pGlassTintRays) return;
 
     m_SignalWidth = width;
     m_SignalHeight = height;
@@ -333,6 +366,7 @@ void Diligent::DeferredHybridPipeline::PrepareSignalTargets(Uint32 width, Uint32
     m_pGuide[0] = CreateTarget(m_pDevice, "Deferred Hybrid Guide 0", kGuideFormat, width, height);
     m_pGuide[1] = CreateTarget(m_pDevice, "Deferred Hybrid Guide 1", kGuideFormat, width, height);
     m_pReflectionRays = CreateTarget(m_pDevice, "Deferred Hybrid Reflection Rays", kLightRaysFormat, width, height);
+    m_pGlassTintRays = CreateTarget(m_pDevice, "Deferred Hybrid Glass Tint Rays", kGlassTintFormat, width, height);
     // Created again when a frame needs them
     for (RefCntAutoPtr<ITexture>& pShadowRays : m_pShadowRays) {
         pShadowRays.Release();
@@ -354,6 +388,15 @@ void Diligent::DeferredHybridPipeline::DrawSignalPass(IDeviceContext* pContext, 
     PipelineUtils::DrawFullscreenTriangle(pContext);
 }
 
+void Diligent::DeferredHybridPipeline::DrawSignalPass(IDeviceContext* pContext, IPipelineState* pPSO, IShaderResourceBinding* pSRB, ITexture* pTarget0, ITexture* pTarget1)
+{
+    ITextureView* pRTVs[] = { pTarget0->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET), pTarget1->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET) };
+    pContext->SetRenderTargets(2, pRTVs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->SetPipelineState(pPSO);
+    pContext->CommitShaderResources(pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    PipelineUtils::DrawFullscreenTriangle(pContext);
+}
+
 void Diligent::DeferredHybridPipeline::FinishFrame(IDeviceContext* pContext, const FrameTarget& target)
 {
     const Uint32 width = m_ViewportWidth;
@@ -369,7 +412,7 @@ void Diligent::DeferredHybridPipeline::FinishFrame(IDeviceContext* pContext, con
     }
 
     PrepareSignalTargets(width, height);
-    if (!m_pGuide[0] || !m_pGuide[1] || !m_pReflectionRays || !m_pGuidePSO || !m_pShadowTracePSO || !m_pAOTracePSO
+    if (!m_pGuide[0] || !m_pGuide[1] || !m_pReflectionRays || !m_pGlassTintRays || !m_pGuidePSO || !m_pShadowTracePSO || !m_pShadowTraceTintPSO || !m_pAOTracePSO
         || !m_pReflectionTracePSO || !m_pLightingPSO) return;
 
     // Which signals go through the denoiser (the project's Denoising settings). The others are shown as traced.
@@ -377,6 +420,11 @@ void Diligent::DeferredHybridPipeline::FinishFrame(IDeviceContext* pContext, con
     const bool denoiseShadows = denoise && m_DenoiseSettings.shadows;
     const bool denoiseIndirect = denoise && m_DenoiseSettings.indirect;
     const bool denoiseReflections = denoise && m_DenoiseSettings.reflections;
+
+    // Light that crosses glass takes its color. That needs a signal of its own, written by the first shadow layer's
+    // pass, so it covers the first four lights (the others still lose the glass's brightness)
+    const bool tintShadows = m_TransparencySettings.enabled && m_TransparencySettings.glass && m_TransparencySettings.tinted_shadows
+        && m_SceneTLAS.HasGlass() && (m_NumDirLights + m_NumPointLights) > 0;
 
     // Per-pixel GI, where the project asks for it and the device can run it; any other GI method is Sky + AO
     const bool perPixelGI = m_GISettings.method == GI_METHOD_PER_PIXEL && m_GI.IsInitialized();
@@ -391,6 +439,7 @@ void Diligent::DeferredHybridPipeline::FinishFrame(IDeviceContext* pContext, con
     constants.ViewOrigin = glm::vec4(m_CameraPos, 1.0f);
     constants.GIParams = glm::vec4(perPixelGI ? 1.0f : 0.0f, static_cast<float>(indirectScale), (std::max)(m_GISettings.intensity, 0.0f), 0.0f);
     constants.SignalFrame = ++m_SignalFrame;
+    if (tintShadows) constants.GlassFlags |= GLASS_TINT_SHADOWS;
     if (denoiseShadows) constants.DenoiseFlags |= DENOISE_SHADOWS;
     if (denoiseIndirect) constants.DenoiseFlags |= DENOISE_INDIRECT;
     if (denoiseReflections) constants.DenoiseFlags |= DENOISE_REFLECTIONS;
@@ -450,7 +499,12 @@ void Diligent::DeferredHybridPipeline::FinishFrame(IDeviceContext* pContext, con
 
         constants.ShadowLayer = layer;
         PipelineUtils::WriteCB(pContext, m_pDeferredCB, constants);
-        DrawSignalPass(pContext, m_pShadowTracePSO, m_pShadowTraceSRB, m_pShadowRays[layer]);
+        if (tintShadows && layer == 0) {
+            DrawSignalPass(pContext, m_pShadowTraceTintPSO, m_pShadowTraceTintSRB, m_pShadowRays[layer], m_pGlassTintRays);
+        }
+        else {
+            DrawSignalPass(pContext, m_pShadowTracePSO, m_pShadowTraceSRB, m_pShadowRays[layer]);
+        }
 
         pShadows[layer] = SRV(m_pShadowRays[layer]);
         if (denoiseShadows) {
@@ -459,6 +513,27 @@ void Diligent::DeferredHybridPipeline::FinishFrame(IDeviceContext* pContext, con
         else {
             m_ShadowHistory[layer].Reset();
         }
+    }
+
+    // The glass tint, from the pass that traced layer 0's shadows
+    ITextureView* pGlassTint = SRV(m_pWhiteTexture);
+    if (tintShadows) {
+        pGlassTint = SRV(m_pGlassTintRays);
+        if (denoiseShadows) {
+            SignalDenoiser::Settings tintSettings;
+            tintSettings.SignalKind = SignalDenoiser::SIGNAL_LIGHT;
+            tintSettings.MinBlend = kGlassTintMinBlend;
+            tintSettings.FilterPasses = kGlassTintFilterPasses;
+            tintSettings.ClampSigma = kShadowClampSigma;
+            tintSettings.BrightnessSigma = kShadowBrightnessSigma;
+            pGlassTint = m_Denoiser.Denoise(pContext, frame, m_TintHistory, pGlassTint, 1, tintSettings);
+        }
+        else {
+            m_TintHistory.Reset();
+        }
+    }
+    else {
+        m_TintHistory.Reset();
     }
 
     // 4b. Indirect light: per-pixel GI rays, or one ambient occlusion ray for Sky + AO. The two fill the same
@@ -552,12 +627,16 @@ void Diligent::DeferredHybridPipeline::FinishFrame(IDeviceContext* pContext, con
     PipelineUtils::BindVariable(m_pLightingSRB, SHADER_TYPE_PIXEL, "g_ShadowSignal1", pShadows[1]);
     PipelineUtils::BindVariable(m_pLightingSRB, SHADER_TYPE_PIXEL, "g_ShadowSignal2", pShadows[2]);
     PipelineUtils::BindVariable(m_pLightingSRB, SHADER_TYPE_PIXEL, "g_ReflectionSignal", pReflection);
+    PipelineUtils::BindVariable(m_pLightingSRB, SHADER_TYPE_PIXEL, "g_GlassTint", pGlassTint);
 
     target.Bind(pContext);
 
     pContext->SetPipelineState(m_pLightingPSO);
     pContext->CommitShaderResources(m_pLightingSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     PipelineUtils::DrawFullscreenTriangle(pContext);
+
+    // 6. Glass, over the lit scene. The depth the lighting pass wrote is what it is tested against.
+    RenderGlass(pContext, target);
 
     // This frame becomes "last frame"
     m_GuideCurrent = currentGuide;

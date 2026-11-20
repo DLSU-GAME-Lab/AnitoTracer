@@ -41,5 +41,6 @@ cbuffer ShadowSettings
 
     float g_ReflectionMaxDistance;  // Hybrid only: how far a reflection ray looks for geometry
     uint g_ReflectionFlags;         // Hybrid only: REFLECTION_* bits, see hybrid_shading.hlsli
-    float2 g_ShadowPadding;
+    uint g_TransparencyFlags;       // TRANSPARENCY_* bits, see rt_shadows.hlsli
+    float g_ShadowPadding;
 };

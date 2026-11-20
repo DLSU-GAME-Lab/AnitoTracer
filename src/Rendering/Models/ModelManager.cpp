@@ -54,7 +54,11 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB
     std::filesystem::path modelFilePath(filepath);
     std::string fullPath = modelFilePath.string();
 
-    CreateTextureFromFile(fullPath.c_str(), loadInfo, m_pDevice, &pTexture);
+    RefCntAutoPtr<ITextureLoader> pLoader;
+    CreateTextureLoaderFromFile(fullPath.c_str(), IMAGE_FILE_FORMAT_UNKNOWN, loadInfo, &pLoader);
+    if (pLoader) {
+        pLoader->CreateTexture(m_pDevice, &pTexture);
+    }
 
     if (!pTexture) {
         std::cerr << "Failed to load texture: " << fullPath << std::endl;
@@ -63,10 +67,32 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB
 
     RefCntAutoPtr<ITextureView> pSRV(pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
 
+    // Does the picture have gaps? A few stray see-through texels (an antialiased edge) don't count; a fence's or
+    // a leaf card's surroundings do. Only the top mip is looked at; the loader forced RGBA8 above.
+    {
+        const TextureDesc& desc = pLoader->GetTextureDesc();
+        const TextureSubResData& top = pLoader->GetSubresourceData(0, 0);
+        if (top.pData && desc.Format != TEX_FORMAT_UNKNOWN) {
+            const Uint8* rows = static_cast<const Uint8*>(top.pData);
+            Uint64 clear = 0;
+            for (Uint32 y = 0; y < desc.Height; ++y) {
+                const Uint8* row = rows + static_cast<Uint64>(y) * top.Stride;
+                for (Uint32 x = 0; x < desc.Width; ++x) {
+                    if (row[x * 4 + 3] < 128) ++clear;
+                }
+            }
+            if (clear * 500 > static_cast<Uint64>(desc.Width) * desc.Height) m_CutoutTextures.insert(pSRV.RawPtr());
+        }
+    }
+
     // Optimized cache insertion using emplace and moving the key string
     m_TextureCache.emplace(std::move(cacheKey), pSRV);
 
     return pSRV;
+}
+
+bool ModelManager::HasCutoutAlpha(ITextureView* pTexture) const {
+    return pTexture && m_CutoutTextures.count(pTexture) != 0;
 }
 
 ITextureView* ModelManager::LoadCubemap(const std::string& filepath, bool isSRGB)
@@ -202,6 +228,7 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
 
     bool modelHasAnyPBR = false;
     bool modelHasTransparency = false;
+    bool modelHasAlphaGeometry = false;
 
     for (unsigned int i = 0; i < pScene->mNumMaterials; i++) {
         aiMaterial* material = pScene->mMaterials[i];
@@ -212,16 +239,15 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
         if (material->Get(AI_MATKEY_BASE_COLOR, color) == AI_SUCCESS ||
             material->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS) {
             pbrMat.BaseColorFactor = float4(color.r, color.g, color.b, color.a);
-            if (color.a < 1.0f) pbrMat.IsTransparent = true;
         }
 
+        // OBJ and FBX give the opacity as a number of its own (d, Tr)
         float opacity = 1.0f;
-        if (material->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS) {
-            if (opacity < 1.0f) pbrMat.IsTransparent = true;
-        }
+        const bool hasOpacity = material->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS;
 
-        if (pbrMat.IsTransparent) {
-            modelHasTransparency = true;
+        float refractiveIndex = 1.5f;
+        if (material->Get(AI_MATKEY_REFRACTI, refractiveIndex) == AI_SUCCESS) {
+            pbrMat.IOR = std::clamp(refractiveIndex, 1.0f, 3.0f);
         }
 
         // Metallic / Roughness Factors
@@ -232,7 +258,8 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
         }
 
         float roughness = 1.0f;
-        if (material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS) {
+        const bool hasRoughness = material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS;
+        if (hasRoughness) {
             pbrMat.RoughnessFactor = roughness;
             currentMatHasPBR = true;
         }
@@ -240,6 +267,38 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
         // Texture extraction with standardized fallbacks
         pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_BASE_COLOR, modelDir, currentMatHasPBR, true);
         if (!pbrMat.BaseColor) pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_DIFFUSE, modelDir, currentMatHasPBR, true);
+
+        // Alpha mode. glTF names it. OBJ and FBX don't, so it is worked out from the opacity and the base color map:
+        // a see-through factor means glass, a map with gaps means a cutout, and anything else is opaque.
+        aiString alphaModeName;
+        if (material->Get(AI_MATKEY_GLTF_ALPHAMODE, alphaModeName) == AI_SUCCESS) {
+            const std::string mode = alphaModeName.C_Str();
+            if (mode == "MASK") {
+                pbrMat.AlphaMode = MaterialAlphaMode::Mask;
+                float cutoff = 0.5f;
+                material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, cutoff);
+                pbrMat.AlphaCutoff = std::clamp(cutoff, 0.01f, 1.0f);
+            }
+            else if (mode == "BLEND") {
+                pbrMat.AlphaMode = MaterialAlphaMode::Blend;
+            }
+        }
+        else if (pbrMat.BaseColorFactor.a < 1.0f || (hasOpacity && opacity < 1.0f)) {
+            pbrMat.AlphaMode = MaterialAlphaMode::Blend;
+            // The opacity is a number of its own, apart from the color's alpha (which these formats leave at 1)
+            if (hasOpacity) pbrMat.BaseColorFactor.a *= opacity;
+        }
+        else if (HasCutoutAlpha(pbrMat.BaseColor)) {
+            pbrMat.AlphaMode = MaterialAlphaMode::Mask;
+            pbrMat.AlphaCutoff = 0.5f;
+        }
+        pbrMat.IsTransparent = pbrMat.AlphaMode == MaterialAlphaMode::Blend;
+        if (pbrMat.AlphaMode != MaterialAlphaMode::Opaque) modelHasAlphaGeometry = true;
+        if (pbrMat.IsTransparent) {
+            modelHasTransparency = true;
+            // Glass is smooth; formats without a roughness would otherwise leave it at the rough default
+            if (!hasRoughness) pbrMat.RoughnessFactor = 0.05f;
+        }
 
         pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_METALNESS, modelDir, currentMatHasPBR, false);
         if (!pbrMat.MetallicRoughness) pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_DIFFUSE_ROUGHNESS, modelDir, currentMatHasPBR, false);
@@ -285,6 +344,7 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
 
     pModel->HasPBRProperties = modelHasAnyPBR;
     pModel->HasTransparency = modelHasTransparency;
+    pModel->HasAlphaGeometry = modelHasAlphaGeometry;
 }
 
 void ModelManager::ProcessMeshes(const aiScene* pScene, Model* pModel, std::vector<Vertex>& outVertices, std::vector<Uint32>& outIndices) {
@@ -466,6 +526,13 @@ void ModelManager::BuildBLAS(Model* pModel) {
         // Indices already count from the model's first vertex, so only the start in the index buffer differs
         Tri.IndexOffset = static_cast<Uint64>(submesh.IndexOffset) * sizeof(Uint32);
         Tri.PrimitiveCount = submesh.IndexCount / 3;
+
+        // Flagged opaque, a hit is final without the shader being asked. Cutouts and glass are left for rays to test
+        // (rt_scene.hlsli), which costs more, so only they go without the flag.
+        const bool opaque = submesh.MaterialIndex >= pModel->PBRMaterials.size()
+            || pModel->PBRMaterials[submesh.MaterialIndex].AlphaMode == MaterialAlphaMode::Opaque;
+        // A triangle can be reported more than once; for glass that would tint a shadow twice
+        Tri.Flags = opaque ? RAYTRACING_GEOMETRY_FLAG_OPAQUE : RAYTRACING_GEOMETRY_FLAG_NO_DUPLICATE_ANY_HIT_INVOCATION;
     }
 
     BuildBLASAttribs BuildAttribs{};

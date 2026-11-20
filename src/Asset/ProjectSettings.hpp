@@ -234,6 +234,17 @@ struct ProjectGISettings
 
 };
 
+// Cutout materials (fences, leaves) and blended ones (glass) in the ray-traced renderers.
+// Off shows what they did before: every triangle blocks every ray, and blended surfaces are not drawn.
+struct ProjectTransparencySettings
+{
+    bool enabled = true;            // Off: nothing below applies
+    bool cutout_rays = true;        // Shadows, reflections and light bouncing around see the holes in cutout materials
+    bool glass = true;              // Blended materials are drawn, as glass
+    bool tinted_shadows = true;     // Light passes through glass, tinted by its color. Off: glass casts a solid shadow.
+    bool refraction = true;         // Glass bends what is behind it. Off: plain alpha blending.
+};
+
 // Denoising of the Deferred Hybrid renderer's ray-traced light. Every pixel traces one ray per light, one for its
 // reflection and a few for indirect light. That is far too few on its own, so each result is averaged over frames
 // and blurred along surfaces (our own filters, in the style of SVGF).
@@ -252,6 +263,7 @@ struct ProjectSettings
     ProjectReflectionSettings reflections;
     ProjectGISettings gi;
     ProjectDenoiseSettings denoise;
+    ProjectTransparencySettings transparency;
 
     ProjectSkySettings sky;
 

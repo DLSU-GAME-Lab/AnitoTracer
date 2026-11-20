@@ -8,6 +8,7 @@ namespace Diligent {
     public:
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
         void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
+        void UpdateProjectSettings(IDeviceContext* pContext, const ProjectSettings& settings) override;
 
         // Sky lighting cubes: irradiance for diffuse light, prefiltered for reflections. nullptr falls back to black.
         void SetSkyLighting(ITextureView* pIrradianceSRV, ITextureView* pSpecularSRV) override;
@@ -17,6 +18,20 @@ namespace Diligent {
         static bool SupportsSceneRayShading();
 
     protected:
+        // Draws the blended materials over the lit scene, farthest first (Shaders/glass_ps.hlsl). Call once the scene
+        // is in the target; does nothing without glass in the frame or with glass switched off in the project.
+        void RenderGlass(IDeviceContext* pContext, const FrameTarget& target);
+
+        // The glass pass's PSO and SRB, built with the ray tracing variables like the pass that lights the scene
+        void InitializeGlassPSO();
+
+        // Builds the PSOs of every pass that traces rays again, with the macros as they stand now, and binds
+        // their resources. Done when the scene gains or loses its cutouts and glass: see UpdateAlphaRays.
+        virtual void RebuildRayPipelines();
+
+        // The forward pass draws the glass once its opaque geometry is in
+        void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) override;
+
         // TLAS and fallback environment map, created once and kept across re-initialization
         void InitializeRayTracingResources();
 
@@ -24,21 +39,32 @@ namespace Diligent {
         // when hits can be shaded, the scene's geometry, materials and textures (Shaders/rt_scene.hlsli)
         static std::vector<ShaderResourceVariableDesc> GetRayTracingVariables();
         static std::vector<ImmutableSamplerDesc> GetRayTracingSamplers();
-        static ShaderMacroList GetRayTracingMacros();
+        // RT_ALPHA_TEST is among them while the scene holds cutouts or glass (see UpdateAlphaRays)
+        ShaderMacroList GetRayTracingMacros() const;
 
         // Binds the TLAS, sky lighting cubes and scene textures into the SRBs of the passes that trace rays
         void BindRayTracingResources();
 
         // SRBs of the passes that trace rays, each built with GetRayTracingVariables: the forward pass here,
         // the lighting and GI passes in DeferredHybridPipeline. Null entries are skipped.
-        virtual std::vector<IShaderResourceBinding*> GetRayTracingSRBs() { return { m_pSRB }; }
+        virtual std::vector<IShaderResourceBinding*> GetRayTracingSRBs() { return { m_pSRB, m_pGlassSRB }; }
 
         SceneTLAS m_SceneTLAS;
+        RefCntAutoPtr<IPipelineState> m_pGlassPSO;
+        RefCntAutoPtr<IShaderResourceBinding> m_pGlassSRB;
+        ProjectTransparencySettings m_TransparencySettings;     // From UpdateProjectSettings
+        const RenderData* m_pFrameData = nullptr;               // This frame's, from StartFrameRender until the frame is done
         RefCntAutoPtr<ITextureView> m_pEnvIrradianceSRV;
         RefCntAutoPtr<ITextureView> m_pEnvSpecularSRV;
         RefCntAutoPtr<ITexture> m_pFallbackEnvMap;
 
     private:
+        // Compiles the code that lets rays judge cutouts and glass in while the scene holds any, and out again once it has
+        // not for a while. Rebuilds the ray passes' PSOs when that changes, which hitches for a moment.
+        void UpdateAlphaRays();
+        bool m_AlphaRays = false;
+        int m_FramesWithoutAlphaGeometry = 0;
+
         // Per frame: uploads newly loaded geometry, and rebinds the scene buffers and (when it changed) the texture array
         void SyncSceneRayData(IDeviceContext* pContext);
         void BindSceneTextures();

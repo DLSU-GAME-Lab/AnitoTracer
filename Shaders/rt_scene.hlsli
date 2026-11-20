@@ -16,49 +16,7 @@
 // able to pick a texture from an array per pixel. Included by hybrid_shading.hlsli, after the sky lighting functions it uses.
 // Requires light_struct.hlsli, pbr_defs.hlsli and rt_shadows.hlsli.
 
-// SceneGeometryPool::kMaxTextures. The pipeline passes the real value; this default is for compiling the file on its own.
-#ifndef SCENE_TEXTURE_COUNT
-#define SCENE_TEXTURE_COUNT 512
-#endif
-
-// Mirrors SceneGeometryPool::PoolVertex. Object space.
-struct SceneVertex
-{
-    float3 Position;
-    float U;
-    float3 Normal;
-    float V;
-};
-
-// Mirrors SceneGeometryRecord in PipelineDefs.hpp
-struct SceneGeometryRecord
-{
-    uint FirstIndex;                // Of the submesh, in g_SceneIndices
-    uint BaseVertex;                // Of the model, in g_SceneVertices; added to every index
-    int BaseColorTexture;           // Slots in g_SceneTextures, -1: no map
-    int MetallicRoughnessTexture;
-
-    float4 BaseColor;
-
-    float3 Emissive;                // Color * strength
-    int EmissiveTexture;
-
-    float Roughness;
-    float Metallic;
-    uint Flags;                     // SCENE_GEOMETRY_* bits
-    float Padding;
-};
-
-static const uint SCENE_GEOMETRY_IN_POOL = 1u;          // The triangle's vertices can be read; otherwise the hit can't be shaded
-static const uint SCENE_GEOMETRY_ROUGHNESS_FIXED = 2u;  // Roughness is a per-object override: ignore the texture's channel
-static const uint SCENE_GEOMETRY_METALLIC_FIXED = 4u;   // Same for metallic
-
-StructuredBuffer<SceneVertex> g_SceneVertices;
-StructuredBuffer<uint> g_SceneIndices;
-StructuredBuffer<SceneGeometryRecord> g_SceneGeometry;
-
-Texture2D g_SceneTextures[SCENE_TEXTURE_COUNT];
-SamplerState g_SceneTextures_sampler;
+#include "rt_scene_data.hlsli"
 
 // The surface point a ray landed on
 struct SceneHit
@@ -70,14 +28,26 @@ struct SceneHit
     float2 UV;
     float UVPerWorldArea;   // The triangle's area in UV space over its area in the world: how densely its texture covers it
     bool Shadeable;         // False when the triangle's data isn't available. Only Distance and Position are meaningful then.
+    bool BackFacing;        // The ray arrived on the side the surface's normal points away from: from inside a closed object
     SceneGeometryRecord Material;
 };
 
+// How a ray treats glass (blended materials)
+static const uint GLASS_IGNORE = 0u;    // Goes straight through: glass isn't seen
+static const uint GLASS_SOLID = 1u;     // A surface like any other: the ray stops there
+static const uint GLASS_TINT = 2u;      // Goes through, and what the ray finds beyond is lit by the glass's color (see `tint`)
+
+// Panes of glass a GLASS_TINT ray keeps track of
+static const uint MAX_TRACKED_PANES = 4u;
+
 // Finds the closest surface along a ray. Returns false when the ray leaves the scene without hitting anything.
-// Every surface counts as solid: cut-out and transparent materials block the ray like the rest.
-bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out SceneHit hit)
+// Cutout materials are solid where their alpha reaches the cutoff and see-through elsewhere. Glass is handled as
+// glassMode says; in GLASS_TINT mode `tint` is the color of the panes the ray crossed before the hit (white without any),
+// which whatever the ray brings back has to be multiplied by.
+bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, uint glassMode, out float3 tint, out SceneHit hit)
 {
     hit = (SceneHit) 0;
+    tint = float3(1.0, 1.0, 1.0);
 
     RayDesc ray;
     ray.Origin = origin;
@@ -85,13 +55,77 @@ bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out Scene
     ray.TMin = 0.001;
     ray.TMax = maxDistance;
 
+    bool found;
+
+#ifdef RT_ALPHA_TEST
+    // Without the project's switch every triangle is solid, as before cutouts and glass
+    RayQuery < RAY_FLAG_NONE > q;
+    q.TraceRayInline(g_TLAS, (g_TransparencyFlags & TRANSPARENCY_TEST_RAYS) != 0u ? RAY_FLAG_NONE : RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
+
+    // The panes the ray went through. Triangles are met in no particular order, and one beyond the final hit
+    // mustn't tint anything, so they are only applied once the hit is known.
+    float paneDistance[MAX_TRACKED_PANES];
+    float3 paneTint[MAX_TRACKED_PANES];
+    uint paneCount = 0u;
+
+    while (q.Proceed())
+    {
+        // Triangles flagged opaque are final without being asked; these are cutouts and glass
+        if (q.CandidateType() != CANDIDATE_NON_OPAQUE_TRIANGLE)
+        {
+            continue;
+        }
+
+        SceneGeometryRecord candidate = g_SceneGeometry[q.CandidateInstanceID() + q.CandidateGeometryIndex()];
+        uint primitive = q.CandidatePrimitiveIndex();
+        float2 bary = q.CandidateTriangleBarycentrics();
+
+        if ((candidate.Flags & SCENE_GEOMETRY_BLEND) != 0u)
+        {
+            if ((g_TransparencyFlags & TRANSPARENCY_GLASS) == 0u || glassMode == GLASS_IGNORE)
+            {
+                continue;
+            }
+            if (glassMode == GLASS_SOLID)
+            {
+                q.CommitNonOpaqueTriangleHit();
+            }
+            else if (paneCount < MAX_TRACKED_PANES)
+            {
+                paneDistance[paneCount] = q.CandidateTriangleRayT();
+                paneTint[paneCount] = GlassTransmittanceAt(candidate, primitive, bary);
+                ++paneCount;
+            }
+            continue;
+        }
+
+        if (SceneCutoutBlocks(candidate, primitive, bary))
+        {
+            q.CommitNonOpaqueTriangleHit();
+        }
+    }
+
+    found = q.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+    float endDistance = found ? q.CommittedRayT() : maxDistance;
+    for (uint pane = 0u; pane < paneCount; ++pane)
+    {
+        if (paneDistance[pane] < endDistance)
+        {
+            tint *= paneTint[pane];
+        }
+    }
+
+#else
+    // The scene has no cutouts or glass: every triangle is solid, and the ray takes the fastest path there is
     RayQuery < RAY_FLAG_FORCE_OPAQUE > q;
     q.TraceRayInline(g_TLAS, RAY_FLAG_NONE, 0xFF, ray);
     while (q.Proceed())
     {
     }
+    found = q.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+#endif
 
-    if (q.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
+    if (!found)
     {
         return false;
     }
@@ -143,6 +177,8 @@ bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out Scene
     float3 worldNormal = mul(objectNormal, worldToObject);
     float normalLength = length(worldNormal);
     hit.N = normalLength > 1e-6 ? worldNormal / normalLength : hit.GeoN;
+    // The surface faces away from the ray: it came from inside a closed object, such as the far side of a glass ball
+    hit.BackFacing = dot(hit.N, direction) > 0.0;
 
     // Surfaces are two-sided for rays: use the side the ray arrived on
     if (dot(hit.GeoN, direction) > 0.0)
@@ -155,6 +191,14 @@ bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out Scene
     }
 
     return true;
+}
+
+
+// Same, with glass left out of the picture: rays go through it (reflections and indirect light don't show glass)
+bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out SceneHit hit)
+{
+    float3 tint;
+    return TraceSceneRay(origin, direction, maxDistance, GLASS_IGNORE, tint, hit);
 }
 
 // Samples a material texture at a ray hit.

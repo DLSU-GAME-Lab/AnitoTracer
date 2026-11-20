@@ -40,6 +40,14 @@ namespace Diligent {
                     record.BaseColorTexture = pool.GetTextureSlot(mat.BaseColor);
                     record.MetallicRoughnessTexture = pool.GetTextureSlot(mat.MetallicRoughness);
                     record.EmissiveTexture = pool.GetTextureSlot(mat.Emissive);
+
+                    if (mat.AlphaMode == MaterialAlphaMode::Mask) {
+                        record.Flags |= SCENE_GEOMETRY_ALPHA_MASK;
+                        record.AlphaCutoff = mat.AlphaCutoff;
+                    }
+                    else if (mat.AlphaMode == MaterialAlphaMode::Blend) {
+                        record.Flags |= SCENE_GEOMETRY_BLEND;
+                    }
                 }
 
                 records.push_back(record);
@@ -105,6 +113,9 @@ namespace Diligent {
         std::vector<SceneGeometryRecord> GeometryRecords;
         if (m_WriteGeometryRecords) GeometryRecords.reserve(renderData.Models.size());
 
+        bool hasGlass = false;
+        bool hasAlphaGeometry = false;
+
         for (size_t i = 0; i < renderData.Models.size(); ++i) {
             const auto& modelInstance = renderData.Models[i];
 
@@ -113,7 +124,7 @@ namespace Diligent {
                 ModelManager::GetInstance().BuildBLAS(modelInstance.ModelData);
             }
 
-            if (!modelInstance.ModelData->pBLAS || modelInstance.OpaqueSubmeshIndices.empty())
+            if (!modelInstance.ModelData->pBLAS || (modelInstance.OpaqueSubmeshIndices.empty() && modelInstance.TransparentSubmeshIndices.empty()))
                 continue;
 
             TLASBuildInstanceData tlasInst{};
@@ -142,10 +153,14 @@ namespace Diligent {
             }
 
             Instances.push_back(tlasInst);
+            if (!modelInstance.TransparentSubmeshIndices.empty()) hasGlass = true;
+            if (modelInstance.ModelData->HasAlphaGeometry) hasAlphaGeometry = true;
         }
 
         // An empty build would pass a null pInstances; the previous frame's TLAS stays valid instead
         if (Instances.empty()) return;
+        m_HasGlass = hasGlass;
+        m_HasAlphaGeometry = hasAlphaGeometry;
 
         // Rebuilt together with the TLAS, since the instances' custom IDs point into it
         if (m_WriteGeometryRecords) {

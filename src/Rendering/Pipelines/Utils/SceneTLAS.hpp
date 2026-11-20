@@ -31,6 +31,12 @@ namespace Diligent {
         // be traced, and the engine reports an error for every pass that binds one.
         bool IsBuilt() const { return m_Built; }
 
+        // True when this frame's TLAS holds glass (blended materials), which tints the light rays that cross it
+        bool HasGlass() const { return m_HasGlass; }
+
+        // True when this frame's TLAS holds a cutout or glass, whose triangles rays have to judge
+        bool HasAlphaGeometry() const { return m_HasAlphaGeometry; }
+
         // This frame's records, or nullptr when they are off. The buffer can be replaced by Build, so bind it every frame.
         IBufferView* GetGeometryRecordsSRV() const { return m_GeometryRecords.GetSRV(); }
 
@@ -43,6 +49,8 @@ namespace Diligent {
         RefCntAutoPtr<IBuffer> m_pInstanceBuffer;
 
         bool m_Built = false;
+        bool m_HasGlass = false;
+        bool m_HasAlphaGeometry = false;
         bool m_WriteGeometryRecords = false;
         StructuredBufferArray m_GeometryRecords;
     };

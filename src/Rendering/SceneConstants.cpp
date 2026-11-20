@@ -42,7 +42,7 @@ namespace Diligent {
     }
 
     ShadowSettings BuildShadowSettings(const ProjectLightingSettings& lighting, const ProjectSkySettings& sky,
-        const ProjectReflectionSettings& reflections, uint32_t noiseFrame)
+        const ProjectReflectionSettings& reflections, const ProjectTransparencySettings& transparency, uint32_t noiseFrame)
     {
         const SkyboxConstants skybox = BuildSkyboxConstants(sky);
 
@@ -65,6 +65,17 @@ namespace Diligent {
             if (reflections.shade_hits) shadow.ReflectionFlags |= REFLECTION_SHADE_HITS;
             if (reflections.hit_shadows) shadow.ReflectionFlags |= REFLECTION_HIT_SHADOWS;
             if (reflections.glossy) shadow.ReflectionFlags |= REFLECTION_GLOSSY;
+        }
+
+        // Without the master switch every triangle is solid to every ray, as it was before cutouts and glass
+        if (transparency.enabled) {
+            shadow.TransparencyFlags |= TRANSPARENCY_TEST_RAYS;
+            if (transparency.cutout_rays) shadow.TransparencyFlags |= TRANSPARENCY_CUTOUT;
+            if (transparency.glass) {
+                shadow.TransparencyFlags |= TRANSPARENCY_GLASS;
+                if (transparency.tinted_shadows) shadow.TransparencyFlags |= TRANSPARENCY_TINTED_SHADOWS;
+                if (transparency.refraction) shadow.TransparencyFlags |= TRANSPARENCY_REFRACTION;
+            }
         }
         return shadow;
 
