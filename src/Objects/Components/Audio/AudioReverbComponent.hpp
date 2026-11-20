@@ -2,13 +2,21 @@
 
 #include "Components/ComponentBase.hpp"
 #include "Types/UpdateTrigger.hpp"
+#include "HierarchyObject.hpp"
+#include "AudioManager.hpp"
+#include "DebugLine.hpp"
 
 class AudioReverbComponent : public ComponentBase, public gbe::ITrigger<UpdateTrigger> {
 public:
     AudioReverbComponent(gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
         : ComponentBase("AudioReverbComponent", owner) {}
 
-    ~AudioReverbComponent() override = default;
+    ~AudioReverbComponent() override {
+        if (m_isActive) {
+            AudioManager::GetInstance().SetSfxReverbWet(0.0f, m_rampMs);
+            m_isActive = false;
+        }
+    }
 
     // Delete copy constructor/assignment to prevent object slicing and resource duplication
     AudioReverbComponent(const AudioReverbComponent&) = delete;
@@ -19,6 +27,7 @@ public:
     AudioReverbComponent& operator=(AudioReverbComponent&&) = default;
 
     void OnUpdate(float deltaTime) override;
+    void AppendDebugLines(std::vector<DebugLineVertex>& out) const;
 
 private:
     float m_reverbRadius = 1.0f;
@@ -35,6 +44,13 @@ private:
 
     float m_reverbDamping = 0.5f;
     GBE_SERIALIZE_FIELD_W_NAME_CB(m_reverbDamping, "Damping", [this](float) { m_reverbDamping = std::clamp(m_reverbDamping, 0.0f, 1.0f); });
+
+    bool m_isActive = false;
+    static constexpr uint64_t m_rampMs = 120;
+
+    // Wireframe sphere for zone visibility
+    static void AddCircle(std::vector<DebugLineVertex>& out, const glm::vec3& center, float radius, int axisA, int axisB, const glm::vec4& color);
+    static void AddSphere(std::vector<DebugLineVertex>& out, const glm::vec3& center, float radius, const glm::vec4& color);
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(AudioReverbComponent, ComponentBase);
 };

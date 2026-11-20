@@ -23,6 +23,7 @@
 #include "Components/Lights/PointLight.hpp"
 
 #include "Components/Audio/AudioZoneComponent.hpp"
+#include "Components/Audio/AudioReverbComponent.hpp"
 
 #include ANITO_SERIALIZATION_INCLUDES
 #include ANITO_EVENT_INCLUDES
@@ -113,6 +114,7 @@ public:
     bool GetMainCameraPosition(glm::vec3& outPosition) const;
 
     void GatherAudioZoneDebugLines(std::vector<DebugLineVertex>& outAudioZone) const;
+    void GatherAudioReverbDebugLines(std::vector<DebugLineVertex>& outAudioReverb) const;
 
     // ========================================================================
     // Event Dispatching Methods

@@ -90,6 +90,7 @@ struct ProjectAudioSettings
     float bgm_volume = 100.0f;
     float sfx_volume = 100.0f;
     bool show_audio_zone_wireframes = false;
+    bool show_audio_reverb_wireframes = false;
 };
 
 struct ProjectSettings

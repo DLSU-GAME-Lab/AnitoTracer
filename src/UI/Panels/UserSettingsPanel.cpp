@@ -393,23 +393,24 @@ namespace Diligent {
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
-                if (ImGui::Checkbox("Show Audio Zone Wireframes", &projectSettings.audio.show_audio_zone_wireframes)) 
+                if (ImGui::Checkbox("Show Music Zone Wireframes", &projectSettings.audio.show_audio_zone_wireframes)) 
                 {
                     saveProjectSettings();
                 }
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip("Draws sphere wireframes for the audio zone in the editor viewport. Inner sphere = music start; Outer sphere = music stop");
+                    ImGui::SetTooltip("Draws sphere wireframes for the music zone in the editor viewport. Inner sphere = music start; Outer sphere = music stop");
                 }
 
-                static bool reverb_enabled = false;
-                if (ImGui::Checkbox("Enable Reverb", &reverb_enabled)) {
-                    if (reverb_enabled) {
-                        AudioManager::GetInstance().SetSfxReverbWet(0.5f, 10000);
-                    } else {
-                        AudioManager::GetInstance().SetSfxReverbWet(0.0f, 10000);
-                    }
+                if (ImGui::Checkbox("Show Sound FX Reverb Zone Wireframes", &projectSettings.audio.show_audio_reverb_wireframes)) 
+                {
+                    saveProjectSettings();
                 }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Draws sphere wireframes for the SFX reverb zones in the editor viewport. Inner sphere = full reverb; Outer sphere = reverb fades out to zero");
+                }
+
             }
 
             if (ImGui::CollapsingHeader("Debug Settings", ImGuiTreeNodeFlags_DefaultOpen))
