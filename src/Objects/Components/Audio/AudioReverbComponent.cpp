@@ -98,10 +98,10 @@ void AudioReverbComponent::AppendDebugLines(std::vector<DebugLineVertex>& out) c
     float outerEdge = reverbRadius + fadeDistance;
 
      // Reverb area colors
-    const glm::vec4 innerIdleColor(0.65f, 0.35f, 1.0f, 1.0f);
-    const glm::vec4 innerActiveColor(1.0f, 0.3f, 0.8f, 1.0f);
+    const glm::vec4 innerIdleColor(0.0f, 0.85f, 1.0f, 1.0f);
+    const glm::vec4 innerActiveColor(1.0f, 0.1f, 0.45f, 1.0f);
     glm::vec4 innerColor = m_isActive ? innerActiveColor : innerIdleColor;
-    const glm::vec4 outerColor(0.5f, 0.45f, 0.65f, 1.0f);
+    const glm::vec4 outerColor(0.9f, 0.9f, 0.95f, 1.0f);
 
     AddSphere(out, reverbCenter, reverbRadius, innerColor);
     AddSphere(out, reverbCenter, outerEdge, outerColor);
