@@ -31,6 +31,15 @@ public:
             &ModelComponent::GetOverrideMetallic, &ModelComponent::SetOverrideMetallic,
             &ModelComponent::GetMetallic, &ModelComponent::SetMetallic);
         DrawEmissiveOverride(modelComponent);
+        DrawMaterialOverride("Alpha", modelComponent,
+            &ModelComponent::GetOverrideAlpha, &ModelComponent::SetOverrideAlpha,
+            &ModelComponent::GetAlpha, &ModelComponent::SetAlpha);
+        if (modelComponent->GetOverrideAlpha()) {
+            // Wrapped: this panel is narrow
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::TextWrapped("Drawn as glass. Only the Hybrid and Deferred Hybrid renderers draw it.");
+            ImGui::PopStyleColor();
+        }
 
         ImGui::Separator();
         ImGui::Text("Path: %s", model->GetPath().generic_string().c_str());

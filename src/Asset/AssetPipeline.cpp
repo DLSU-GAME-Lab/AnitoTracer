@@ -13,7 +13,7 @@ AssetPipeline::AssetPipeline() {
 
     gbe::BatchLoader::RegisterCategory<IModel>(
         ASSETTYPE_MODEL,
-        { ".obj", ".fbx" },
+        { ".obj", ".fbx", ".gltf", ".glb" },
         ".ani",
         [](const fs::path& src) { 
             return ModelManager::GetInstance().LoadModel(src.string()); //Connect asset system to asset loader

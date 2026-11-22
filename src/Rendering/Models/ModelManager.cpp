@@ -34,6 +34,18 @@ void ModelManager::LoadDefaultWhite() {
     m_pDefaultTextureView = pDefaultTex->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 }
 
+namespace {
+    // Only color data (base color, emissive) is gamma decoded. Normal, metallic-roughness and AO maps are linear:
+    // reading them as sRGB would distort them, most visibly the "flat" middle of a normal map.
+    TextureLoadInfo MakeTextureLoadInfo(bool isSRGB) {
+        TextureLoadInfo loadInfo{};
+        loadInfo.IsSRGB = isSRGB;
+        loadInfo.GenerateMips = true;
+        loadInfo.Format = isSRGB ? Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB : Diligent::TEX_FORMAT_RGBA8_UNORM;
+        return loadInfo;
+    }
+}
+
 ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB) {
     // Check cache first (cache key includes sRGB-ness to avoid returning a
     // texture loaded with the wrong gamma interpretation)
@@ -43,25 +55,45 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB
         return it->second;
     }
 
-    // Load texture using Diligent's utility
-    RefCntAutoPtr<ITexture> pTexture;
-    TextureLoadInfo loadInfo{};
-    loadInfo.IsSRGB = isSRGB; // Only true for color data (BaseColor/Emissive).
-    // Normal/Metallic-Roughness/AO maps store linear data and must NOT be gamma decoded.
-    loadInfo.GenerateMips = true;
-    loadInfo.Format = isSRGB ? Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB : Diligent::TEX_FORMAT_RGBA8_UNORM;
-
     std::filesystem::path modelFilePath(filepath);
     std::string fullPath = modelFilePath.string();
 
     RefCntAutoPtr<ITextureLoader> pLoader;
-    CreateTextureLoaderFromFile(fullPath.c_str(), IMAGE_FILE_FORMAT_UNKNOWN, loadInfo, &pLoader);
+    CreateTextureLoaderFromFile(fullPath.c_str(), IMAGE_FILE_FORMAT_UNKNOWN, MakeTextureLoadInfo(isSRGB), &pLoader);
+    return FinishTexture(pLoader, std::move(cacheKey), fullPath);
+}
+
+ITextureView* ModelManager::LoadEmbeddedTexture(const aiTexture* pEmbedded, const std::string& name, bool isSRGB) {
+    std::string cacheKey = name + (isSRGB ? "|srgb" : "|linear");
+    auto it = m_TextureCache.find(cacheKey);
+    if (it != m_TextureCache.end()) {
+        return it->second;
+    }
+
+    if (!pEmbedded || !pEmbedded->pcData) {
+        return nullptr;
+    }
+
+    // glTF and GLB keep their images as PNG or JPEG data: mHeight is 0 and mWidth is the size in bytes
+    if (pEmbedded->mHeight != 0) {
+        std::cerr << "Embedded texture is not a compressed image, skipped: " << name << std::endl;
+        return nullptr;
+    }
+
+    RefCntAutoPtr<ITextureLoader> pLoader;
+    CreateTextureLoaderFromMemory(static_cast<const void*>(pEmbedded->pcData), pEmbedded->mWidth, /*MakeCopy*/ true,
+        MakeTextureLoadInfo(isSRGB), &pLoader);
+    return FinishTexture(pLoader, std::move(cacheKey), name);
+}
+
+ITextureView* ModelManager::FinishTexture(ITextureLoader* pLoader, std::string cacheKey, const std::string& label) {
+    RefCntAutoPtr<ITexture> pTexture;
     if (pLoader) {
         pLoader->CreateTexture(m_pDevice, &pTexture);
     }
 
     if (!pTexture) {
-        std::cerr << "Failed to load texture: " << fullPath << std::endl;
+        std::cerr << "Failed to load texture: " << label << std::endl;
         return nullptr;
     }
 
@@ -89,6 +121,14 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB
     m_TextureCache.emplace(std::move(cacheKey), pSRV);
 
     return pSRV;
+}
+
+namespace {
+    bool IsGltfPath(const std::string& path) {
+        std::string extension = std::filesystem::path(path).extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return extension == ".gltf" || extension == ".glb";
+    }
 }
 
 bool ModelManager::HasCutoutAlpha(ITextureView* pTexture) const {
@@ -147,11 +187,18 @@ ITextureView* ModelManager::LoadCubemap(const std::string& filepath, bool isSRGB
     return pSRV;
 }
 
-ITextureView* ModelManager::LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty, bool isSRGB) {
+ITextureView* ModelManager::LoadMaterialTexture(const aiScene* pScene, const std::string& modelPath, aiMaterial* material, aiTextureType type,
+    const std::string& modelDir, bool& outHasProperty, bool isSRGB) {
     aiString texPath;
     if (material->GetTextureCount(type) > 0) {
         if (material->GetTexture(type, 0, &texPath) == AI_SUCCESS && texPath.length > 0) {
             outHasProperty = true;
+
+            // An image inside the model file (GLB, or a glTF with the image as a data URI) is named "*0", "*1", ...
+            if (const aiTexture* pEmbedded = pScene->GetEmbeddedTexture(texPath.C_Str())) {
+                return LoadEmbeddedTexture(pEmbedded, modelPath + "|" + texPath.C_Str(), isSRGB);
+            }
+
             std::string finalTexPath = modelDir + texPath.C_Str();
             return LoadTexture(finalTexPath, isSRGB);
         }
@@ -176,10 +223,16 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
 
     Assimp::Importer importer;
     // Optimize for Vulkan/Modern APIs: Triangulate, Gen Normals, Flip UVs (Diligent uses Top-Left UVs)
-    const aiScene* pScene = importer.ReadFile(fullPath,
-        aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace |
-        aiProcess_MakeLeftHanded | aiProcess_FlipUVs | aiProcess_FlipWindingOrder |
-        aiProcess_JoinIdenticalVertices);
+    unsigned int importFlags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace |
+        aiProcess_MakeLeftHanded | aiProcess_FlipWindingOrder | aiProcess_JoinIdenticalVertices;
+    // (assimp turns glTF's UVs to start at the bottom left like the other formats' before this flips them)
+    importFlags |= aiProcess_FlipUVs;
+    if (IsGltfPath(fullPath)) {
+        // glTF puts each mesh's place in the scene on its nodes (many models are stored turned or scaled), and a model here
+        // is one flat list of meshes, so the nodes' transforms are baked into the vertices
+        importFlags |= aiProcess_PreTransformVertices;
+    }
+    const aiScene* pScene = importer.ReadFile(fullPath, importFlags);
 
     if (!pScene || pScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !pScene->mRootNode) {
         std::cerr << "Assimp error: " << importer.GetErrorString() << std::endl;
@@ -196,7 +249,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     }
 
     // --- Pipeline Stages ---
-    ProcessMaterials(pScene, pModel.get(), modelDir);
+    ProcessMaterials(pScene, pModel.get(), modelDir, fullPath);
     ProcessMeshes(pScene, pModel.get(), vertices, indices);
     CreateHardwareBuffers(pModel.get(), vertices, indices);
 
@@ -221,7 +274,8 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     return rawPtr;
 }
 
-void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const std::string& modelDir) {
+void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const std::string& modelDir, const std::string& modelPath) {
+    const bool isGltf = IsGltfPath(modelPath);
     pModel->Materials.resize(pScene->mNumMaterials);
     pModel->MaterialColors.resize(pScene->mNumMaterials, float4(1.0f, 1.0f, 1.0f, 1.0f));
     pModel->PBRMaterials.resize(pScene->mNumMaterials);
@@ -265,8 +319,8 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
         }
 
         // Texture extraction with standardized fallbacks
-        pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_BASE_COLOR, modelDir, currentMatHasPBR, true);
-        if (!pbrMat.BaseColor) pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_DIFFUSE, modelDir, currentMatHasPBR, true);
+        pbrMat.BaseColor = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_BASE_COLOR, modelDir, currentMatHasPBR, true);
+        if (!pbrMat.BaseColor) pbrMat.BaseColor = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_DIFFUSE, modelDir, currentMatHasPBR, true);
 
         // Alpha mode. glTF names it. OBJ and FBX don't, so it is worked out from the opacity and the base color map:
         // a see-through factor means glass, a map with gaps means a cutout, and anything else is opaque.
@@ -283,12 +337,12 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
                 pbrMat.AlphaMode = MaterialAlphaMode::Blend;
             }
         }
-        else if (pbrMat.BaseColorFactor.a < 1.0f || (hasOpacity && opacity < 1.0f)) {
+        else if (!isGltf && (pbrMat.BaseColorFactor.a < 1.0f || (hasOpacity && opacity < 1.0f))) {
             pbrMat.AlphaMode = MaterialAlphaMode::Blend;
             // The opacity is a number of its own, apart from the color's alpha (which these formats leave at 1)
             if (hasOpacity) pbrMat.BaseColorFactor.a *= opacity;
         }
-        else if (HasCutoutAlpha(pbrMat.BaseColor)) {
+        else if (!isGltf && HasCutoutAlpha(pbrMat.BaseColor)) {
             pbrMat.AlphaMode = MaterialAlphaMode::Mask;
             pbrMat.AlphaCutoff = 0.5f;
         }
@@ -300,16 +354,18 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
             if (!hasRoughness) pbrMat.RoughnessFactor = 0.05f;
         }
 
-        pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_METALNESS, modelDir, currentMatHasPBR, false);
-        if (!pbrMat.MetallicRoughness) pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_DIFFUSE_ROUGHNESS, modelDir, currentMatHasPBR, false);
+        // glTF packs roughness (green) and metallic (blue) into one image, which has a slot of its own
+        pbrMat.MetallicRoughness = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_GLTF_METALLIC_ROUGHNESS, modelDir, currentMatHasPBR, false);
+        if (!pbrMat.MetallicRoughness) pbrMat.MetallicRoughness = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_METALNESS, modelDir, currentMatHasPBR, false);
+        if (!pbrMat.MetallicRoughness) pbrMat.MetallicRoughness = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_DIFFUSE_ROUGHNESS, modelDir, currentMatHasPBR, false);
 
-        pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_NORMALS, modelDir, currentMatHasPBR, false);
-        if (!pbrMat.Normal) pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_HEIGHT, modelDir, currentMatHasPBR, false);
+        pbrMat.Normal = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_NORMALS, modelDir, currentMatHasPBR, false);
+        if (!pbrMat.Normal) pbrMat.Normal = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_HEIGHT, modelDir, currentMatHasPBR, false);
 
-        pbrMat.AO = LoadMaterialTexture(material, aiTextureType_AMBIENT_OCCLUSION, modelDir, currentMatHasPBR, false);
-        if (!pbrMat.AO) pbrMat.AO = LoadMaterialTexture(material, aiTextureType_LIGHTMAP, modelDir, currentMatHasPBR, false);
+        pbrMat.AO = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_AMBIENT_OCCLUSION, modelDir, currentMatHasPBR, false);
+        if (!pbrMat.AO) pbrMat.AO = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_LIGHTMAP, modelDir, currentMatHasPBR, false);
 
-        pbrMat.Emissive = LoadMaterialTexture(material, aiTextureType_EMISSIVE, modelDir, currentMatHasPBR, true);
+        pbrMat.Emissive = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_EMISSIVE, modelDir, currentMatHasPBR, true);
 
         // Emissive color (glTF emissiveFactor, OBJ Ke) and strength (KHR_materials_emissive_strength)
         aiColor3D emissiveColor(0.0f, 0.0f, 0.0f);

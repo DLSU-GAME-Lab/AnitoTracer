@@ -54,7 +54,16 @@ private:
 
     void LoadDefaultWhite();
 
-    ITextureView* LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty, bool isSRGB = false);
+    // A material's texture of one kind: a file next to the model, or an image embedded in it (GLB files, glTF data
+    // URIs), which assimp names "*0", "*1" and so on. modelPath tells embedded images of different models apart.
+    ITextureView* LoadMaterialTexture(const aiScene* pScene, const std::string& modelPath, aiMaterial* material, aiTextureType type,
+        const std::string& modelDir, bool& outHasProperty, bool isSRGB = false);
+
+    // An image stored inside the model file as PNG or JPEG data. name keeps it apart from the other images in the cache.
+    ITextureView* LoadEmbeddedTexture(const aiTexture* pEmbedded, const std::string& name, bool isSRGB);
+
+    // Creates the texture a loader prepared, notes whether it has gaps (HasCutoutAlpha) and caches it under cacheKey
+    ITextureView* FinishTexture(ITextureLoader* pLoader, std::string cacheKey, const std::string& label);
 
     // --- Refactored Pipeline Stages ---
 
@@ -64,7 +73,7 @@ private:
     /// <param name="pScene">Pointer to the imported Assimp scene.</param>
     /// <param name="pModel">Pointer to the model being populated.</param>
     /// <param name="modelDir">Directory path of the model for texture loading.</param>
-    void ProcessMaterials(const aiScene* pScene, Model* pModel, const std::string& modelDir);
+    void ProcessMaterials(const aiScene* pScene, Model* pModel, const std::string& modelDir, const std::string& modelPath);
 
     /// <summary>
     /// Extracts vertices and indices from the Assimp scene meshes and calculates bounding boxes.

@@ -382,11 +382,13 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
             instance.Metallic = modelComp->GetMetallic();
             instance.OverrideEmissive = modelComp->GetOverrideEmissive();
             instance.Emissive = modelComp->GetEmissiveColor() * modelComp->GetEmissiveStrength();
+            instance.OverrideAlpha = modelComp->GetOverrideAlpha();
+            instance.Alpha = glm::clamp(modelComp->GetAlpha(), 0.0f, 1.0f);
 
             // ADDED: Sort submeshes based on material transparency
             for (uint32_t i = 0; i < pModel->SubMeshes.size(); ++i) {
                 uint32_t matIndex = pModel->SubMeshes[i].MaterialIndex;
-                if (pModel->PBRMaterials[matIndex].IsTransparent) {
+                if (instance.OverrideAlpha || pModel->PBRMaterials[matIndex].IsTransparent) {
                     instance.TransparentSubmeshIndices.push_back(i);
                 }
                 else {

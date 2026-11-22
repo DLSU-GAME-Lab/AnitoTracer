@@ -50,6 +50,13 @@ namespace Diligent {
                     }
                 }
 
+                // Glass whatever the material says: rays see it with the override's alpha
+                if (instance.OverrideAlpha) {
+                    record.BaseColor.a = instance.Alpha;
+                    record.Flags = (record.Flags & ~static_cast<uint32_t>(SCENE_GEOMETRY_ALPHA_MASK)) | SCENE_GEOMETRY_BLEND;
+                    record.AlphaCutoff = 0.0f;
+                }
+
                 records.push_back(record);
             }
         }
@@ -140,7 +147,9 @@ namespace Diligent {
                 tlasInst.CustomId = static_cast<Uint32>(GeometryRecords.size());
                 AppendGeometryRecords(modelInstance, GeometryRecords);
             }
-            tlasInst.Flags = RAYTRACING_INSTANCE_NONE;
+            // A model whose geometry is flagged opaque is solid to rays; an object turned into glass by the alpha
+            // override isn't, so its triangles are handed to the shader to judge
+            tlasInst.Flags = modelInstance.OverrideAlpha ? RAYTRACING_INSTANCE_FORCE_NO_OPAQUE : RAYTRACING_INSTANCE_NONE;
             tlasInst.Mask = 0xFF;
 
             // 3x4 row-major transform from the column-major world matrix
@@ -154,7 +163,7 @@ namespace Diligent {
 
             Instances.push_back(tlasInst);
             if (!modelInstance.TransparentSubmeshIndices.empty()) hasGlass = true;
-            if (modelInstance.ModelData->HasAlphaGeometry) hasAlphaGeometry = true;
+            if (modelInstance.ModelData->HasAlphaGeometry || modelInstance.OverrideAlpha) hasAlphaGeometry = true;
         }
 
         // An empty build would pass a null pInstances; the previous frame's TLAS stays valid instead

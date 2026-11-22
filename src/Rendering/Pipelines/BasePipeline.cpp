@@ -85,7 +85,7 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
 
             auto colorFactor = mat.BaseColorFactor;
             PBRMaterialConstants matCBData{};
-            matCBData.BaseColorFactor = glm::vec4(colorFactor.r, colorFactor.g, colorFactor.b, colorFactor.a);
+            matCBData.BaseColorFactor = glm::vec4(colorFactor.r, colorFactor.g, colorFactor.b, modelData.OverrideAlpha ? modelData.Alpha : colorFactor.a);
             matCBData.MetallicFactor = modelData.OverrideMetallic ? modelData.Metallic : mat.MetallicFactor;
             matCBData.RoughnessFactor = modelData.OverrideRoughness ? modelData.Roughness : mat.RoughnessFactor;
             matCBData.OverrideFlags = static_cast<float>((modelData.OverrideRoughness ? 1 : 0) | (modelData.OverrideMetallic ? 2 : 0));
@@ -94,7 +94,9 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
             matCBData.EmissiveFactor = glm::vec4(modelData.OverrideEmissive ? modelData.Emissive : materialEmissive, 0.0f);
 
             // Only mask materials cut pixels out; every other one ignores the alpha channel of its base color map
-            matCBData.MaterialParams = glm::vec4(mat.AlphaMode == MaterialAlphaMode::Mask ? mat.AlphaCutoff : 0.0f, mat.IOR, 0.0f, 0.0f);
+            // (An object drawn as glass by the alpha override is blended whole: nothing is cut out of it.)
+            const bool cutsOut = mat.AlphaMode == MaterialAlphaMode::Mask && !modelData.OverrideAlpha;
+            matCBData.MaterialParams = glm::vec4(cutsOut ? mat.AlphaCutoff : 0.0f, mat.IOR, 0.0f, 0.0f);
 
             // Missing maps still need a valid texture bound; the Use*Map flags tell the shader to ignore it
             ITextureView* pSafeFallbackTexture = mat.BaseColor;
