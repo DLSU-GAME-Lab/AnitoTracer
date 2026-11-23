@@ -1,75 +1,41 @@
 #include "FileExplorerPanel.hpp"
 
 #include "ProjectLoader.hpp"
-#include "HierarchyManager.hpp"
 #include "imgui.h"
+#include "FileOpeners/ModelFileOpener.hpp"
+#include "FileOpeners/PrefabFileOpener.hpp"
+#include "FileOpeners/SceneFileOpener.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <cstring>
 #include <system_error>
+#include <utility>
 
 #include "HierarchyFeatures/PrefabFeature.hpp"
 
 namespace Diligent
 {
-    namespace
-    {
-        std::filesystem::path Normalize(const std::filesystem::path& path)
-        {
-            std::error_code error;
-            auto absolute = std::filesystem::absolute(path, error);
-            return error ? path.lexically_normal() : absolute.lexically_normal();
-        }
-
-        bool IsSceneFile(const std::filesystem::path& path)
-        {
-            std::string extension = path.extension().string();
-            std::transform(extension.begin(), extension.end(), extension.begin(),
-                [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
-            return extension == ".ascene";
-        }
-
-        bool IsPrefabFile(const std::filesystem::path& path)
-        {
-            std::string extension = path.extension().string();
-            std::transform(extension.begin(), extension.end(), extension.begin(),
-                [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
-            return extension == ".aprefab";
-        }
-    }
-
     FileExplorerPanel::FileExplorerPanel(const std::string& name) : BasePanel(name)
     {
         SetRoot(ProjectLoader::GetCurrentProjectDir().empty() ? std::filesystem::current_path() : ProjectLoader::GetCurrentProjectDir());
-        // TODO: Register file-type openers through a shared application registry instead of
-        // coupling this panel directly to ProjectLoader.
-        RegisterOpener([](const std::filesystem::path& path) {
-            if (IsSceneFile(path))
-                ProjectLoader::RequestSceneLoad(Normalize(path));
-        });
-
-        RegisterOpener([this](const std::filesystem::path& path) {
-            if (!IsPrefabFile(path)) {
-                return;
-            }
-
-            HierarchyObject::Ref created =
-                PrefabFeature::GetInstance().InstantiatePrefab(Normalize(path));
-            m_Status = created ? "Prefab instantiated." : "Failed to instantiate prefab.";
-        });
+        RegisterOpener(FileOpeners::CreateSceneFileOpener());
+        RegisterOpener(FileOpeners::CreatePrefabFileOpener(
+            [this](std::string status) { m_Status = std::move(status); }));
+        RegisterOpener(FileOpeners::CreateModelFileOpener(
+            [this](std::string status) { m_Status = std::move(status); }));
     }
 
     void FileExplorerPanel::RegisterOpener(Opener opener) { if (opener) m_Openers.push_back(std::move(opener)); }
 
     void FileExplorerPanel::SetRoot(const std::filesystem::path& root)
     {
-        m_RootDirectory = Normalize(root); m_CurrentDirectory = m_RootDirectory; m_Selection.clear();
+        m_RootDirectory = FileOpeners::NormalizePath(root); m_CurrentDirectory = m_RootDirectory; m_Selection.clear();
     }
 
     bool FileExplorerPanel::IsInsideRoot(const std::filesystem::path& path) const
     {
-        const auto root = Normalize(m_RootDirectory); const auto candidate = Normalize(path);
+        const auto root = FileOpeners::NormalizePath(m_RootDirectory);
+        const auto candidate = FileOpeners::NormalizePath(path);
         auto rootIt = root.begin(); auto candidateIt = candidate.begin();
         for (; rootIt != root.end() && candidateIt != candidate.end(); ++rootIt, ++candidateIt)
             if (*rootIt != *candidateIt) return false;
@@ -80,7 +46,7 @@ namespace Diligent
     {
         std::error_code error;
         if (std::filesystem::is_directory(directory, error) && IsInsideRoot(directory))
-        { m_CurrentDirectory = Normalize(directory); m_Selection.clear(); }
+        { m_CurrentDirectory = FileOpeners::NormalizePath(directory); m_Selection.clear(); }
     }
 
     void FileExplorerPanel::Select(const std::filesystem::path& path, bool additive)
@@ -105,7 +71,8 @@ namespace Diligent
     void FileExplorerPanel::SyncProjectRoot()
     {
         const auto projectDirectory = ProjectLoader::GetCurrentProjectDir();
-        const auto expectedRoot = Normalize(projectDirectory.empty() ? std::filesystem::current_path() : projectDirectory);
+        const auto expectedRoot = FileOpeners::NormalizePath(
+            projectDirectory.empty() ? std::filesystem::current_path() : projectDirectory);
         if (expectedRoot == m_RootDirectory)
             return;
 
@@ -206,10 +173,7 @@ namespace Diligent
 
             if (ImGui::MenuItem("Open", nullptr, false, m_Selection.size() == 1)) OpenSelected();
             if (ImGui::MenuItem("Instantiate Prefab", nullptr, false, canInstantiatePrefab))
-            {
-                HierarchyObject::Ref created = PrefabFeature::GetInstance().InstantiatePrefab(m_Selection.front());
-                m_Status = created ? "Prefab instantiated." : "Failed to instantiate prefab.";
-            }
+                OpenFile(m_Selection.front());
             if (ImGui::MenuItem("Copy", "Ctrl+C", false, !m_Selection.empty())) CopySelection(false);
             if (ImGui::MenuItem("Cut", "Ctrl+X", false, !m_Selection.empty())) CopySelection(true);
             if (ImGui::MenuItem("Paste", "Ctrl+V", false, !m_Clipboard.empty())) PasteClipboard();
@@ -274,7 +238,13 @@ namespace Diligent
         if (m_Selection.size() != 1) return;
         std::error_code error;
         if (std::filesystem::is_directory(m_Selection.front(), error)) NavigateTo(m_Selection.front());
-        else for (const auto& opener : m_Openers) opener(m_Selection.front());
+        else OpenFile(m_Selection.front());
+    }
+
+    void FileExplorerPanel::OpenFile(const std::filesystem::path& path)
+    {
+        for (const auto& opener : m_Openers)
+            opener(path);
     }
 
     void FileExplorerPanel::CopySelection(bool cut) { m_Clipboard = m_Selection; m_ClipboardIsCut = cut; }

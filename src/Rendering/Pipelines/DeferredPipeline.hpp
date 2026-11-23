@@ -1,26 +1,28 @@
 #pragma once
-#include "BasePipeline.hpp"
+#include "ScenePipeline.hpp"
+#include "Utils/GBuffer.hpp"
 
 namespace Diligent {
-    class DeferredPipeline : public BasePipeline {
+    // Rasterized deferred shading:
+    //   1. G-buffer pass   - albedo/metallic, normal/roughness and world position (Shaders/Deferred/gbuffer_ps.hlsl)
+    //   2. Lighting pass   - fullscreen shading from the G-buffer into the target (Shaders/Deferred/simple_deferred_light_ps.hlsl)
+    // The G-buffer is sized to the view being drawn and single sampled, so this pipeline doesn't support MSAA for the game view.
+    // The lighting pass can still write into a multisampled target, which the editor view needs since it is always deferred.
+    class DeferredPipeline : public ScenePipeline {
     public:
         void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
-        void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
+        void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
+        ITextureView* GetDepthSRV() const override { return m_GBuffer.GetDepthSRV(); }
 
-        void OnWindowResize(IRenderDevice* pDevice, Uint32 Width, Uint32 Height);
-        void RenderLightingPass(IDeviceContext* pContext, ITextureView* pTargetRTV);
+    protected:
+        void PrepareFrame(const FrameTarget& target) override;
+        void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) override;
 
     private:
-        void CreateGBuffers(IRenderDevice* pDevice, Uint32 Width, Uint32 Height);
-        void InitializeGBufferPSO(IRenderDevice* pDevice);
-        void InitializeLightingPSO(IRenderDevice* pDevice);
+        void InitializeLightingPSO();
 
+        GBuffer m_GBuffer;
         RefCntAutoPtr<IPipelineState>         m_pLightingPSO;
         RefCntAutoPtr<IShaderResourceBinding> m_pLightingSRB;
-
-        RefCntAutoPtr<ITexture> m_pGBufferAlbedo;
-        RefCntAutoPtr<ITexture> m_pGBufferNormal;
-        RefCntAutoPtr<ITexture> m_pGBufferWorldPos;
-        RefCntAutoPtr<ITexture> m_pDepthBuffer;
     };
 }

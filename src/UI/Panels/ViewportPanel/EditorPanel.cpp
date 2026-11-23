@@ -31,6 +31,10 @@ namespace Diligent {
                 }
                 ImGui::EndMenu();
             }
+
+            // Shared with the Game panel
+            DrawResolutionMenu();
+
             ImGui::EndMenuBar();
         }
 

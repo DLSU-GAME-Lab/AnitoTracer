@@ -1,12 +1,5 @@
-#include "Gameplay/PlayerMovementComponent.hpp"
-#include "Gameplay/PlayerLookComponent.hpp"
-#include "Gameplay/PickupComponent.hpp"
-#include "Gameplay/CameraProximityTrigger.hpp"
-#include "Gameplay/PlacementComponent.hpp"
-#include "Gameplay/PlayerController.hpp"
-#include "Gameplay/ObjectRotatorComponent.hpp"
-
 #include "Global/TeleportMainCamera.hpp"
+#include "Particles/ParticleSystemComponent.hpp"
 #include "Components/Physics/RigidBody.hpp"
 #include "Components/Physics/StaticBody.hpp"
 #include "Components/Physics/Collider.hpp"

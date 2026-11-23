@@ -1,6 +1,11 @@
 #include "HierarchyPanel.hpp"
 
 #include "HierarchyFeatures/PrefabFeature.hpp"
+#include "../../Objects/ObjectFactory.hpp"
+
+#include <algorithm>
+#include <cstdio>
+#include <iostream>
 
 namespace Diligent {
 
@@ -43,6 +48,21 @@ namespace Diligent {
             // Retrieve the active root nodes from the singleton manager
             const auto& rootObjects = HierarchyManager::GetInstance().GetRootObjects();
 
+            m_VisibleOrder.clear();
+
+            if (m_RenameTarget && !m_RenameTarget.IsValid()) {
+                m_RenameTarget = nullptr;
+            }
+            if (m_SelectedObject && !m_RenameTarget &&
+                ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+                ImGui::IsKeyPressed(ImGuiKey_F2) && !ImGui::GetIO().WantTextInput)
+            {
+                m_RenameTarget = m_SelectedObject;
+                m_RenameFocusPending = true;
+                std::snprintf(m_RenameBuffer, sizeof(m_RenameBuffer), "%s",
+                    m_SelectedObject.GetPtr()->GetName().c_str());
+            }
+
             // Iterate and draw each root node
             for (const auto& root : rootObjects)
             {
@@ -51,9 +71,72 @@ namespace Diligent {
                 }
             }
 
+            if (m_PendingCreateEmpty) {
+                const auto parent = m_PendingCreateParent;
+                m_PendingCreateParent = nullptr;
+                m_PendingCreateEmpty = false;
+                CreateEmptyObject(parent);
+            }
+
+            if (m_PendingLightType != 0) {
+                const auto parent = m_PendingLightParent;
+                const bool directional = m_PendingLightType == 2;
+                m_PendingLightParent = nullptr;
+                m_PendingLightType = 0;
+                CreateLightObject(directional, parent);
+            }
+
+            if (!m_PendingPrimitiveName.empty()) {
+                const auto parent = m_PendingPrimitiveParent;
+                const std::string name = std::move(m_PendingPrimitiveName);
+                m_PendingPrimitiveName.clear();
+                m_PendingPrimitiveParent = nullptr;
+                CreatePrimitiveObject(name, parent);
+            }
+
+            ResolvePendingRangeSelection();
+
+            ImVec2 emptySpaceSize = ImGui::GetContentRegionAvail();
+            if (emptySpaceSize.x < 1.0f) emptySpaceSize.x = 1.0f;
+            if (emptySpaceSize.y < 1.0f) emptySpaceSize.y = 1.0f;
+            ImGui::InvisibleButton("##HierarchyEmptySpace", emptySpaceSize);
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+                SetSelectedObject(nullptr);
+            }
+            if (ImGui::BeginPopupContextItem("HierarchyEmptySpaceContextMenu")) {
+                if (ImGui::MenuItem("Create Empty")) {
+                    CreateEmptyObject(nullptr);
+                }
+                DrawAddLightMenu(nullptr);
+                DrawAddPrimitiveMenu(nullptr);
+                if (ImGui::MenuItem("Paste", "Ctrl+V",
+                    false, HierarchyManager::GetInstance().HasCopiedObject())) {
+                    PasteAndSelect(nullptr);
+                }
+                ImGui::EndPopup();
+            }
+            if (ImGui::BeginDragDropTarget()) {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_HIERARCHY_OBJ")) {
+                    auto* draggedObject = *static_cast<HierarchyObject* const*>(payload->Data);
+                    if (draggedObject) {
+                        m_pendingDraggedObject = draggedObject;
+                        m_pendingDropParent = nullptr;
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
+
             if (m_pendingDraggedObject) {
-                HierarchyManager::GetInstance().ReparentObject(
-                    m_pendingDraggedObject, m_pendingDropParent);
+                // Dragging a selected node moves the whole selection.
+                if (IsSelected(m_pendingDraggedObject)) {
+                    for (const auto& obj : GetSelectedRoots()) {
+                        HierarchyManager::GetInstance().ReparentObject(obj, m_pendingDropParent);
+                    }
+                }
+                else {
+                    HierarchyManager::GetInstance().ReparentObject(
+                        m_pendingDraggedObject, m_pendingDropParent);
+                }
                 m_pendingDraggedObject = nullptr;
                 m_pendingDropParent = nullptr;
             }
@@ -68,7 +151,9 @@ namespace Diligent {
             if (m_SelectedObject && ImGui::IsKeyPressed(ImGuiKey_Delete) &&
                 !ImGui::GetIO().WantTextInput)
             {
-                HierarchyManager::GetInstance().QueueObjectDeletion(m_SelectedObject);
+                for (const auto& obj : GetSelectedRoots()) {
+                    HierarchyManager::GetInstance().QueueObjectDeletion(obj);
+                }
                 SetSelectedObject(nullptr);
             }
 
@@ -81,16 +166,14 @@ namespace Diligent {
             if (!ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl &&
                 ImGui::IsKeyPressed(ImGuiKey_C) && m_SelectedObject)
             {
-                HierarchyManager::GetInstance().CopyObject(m_SelectedObject);
+                HierarchyManager::GetInstance().CopyObjects(GetSelectedRoots());
             }
 
             if (!ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl &&
                 ImGui::IsKeyPressed(ImGuiKey_V) &&
                 HierarchyManager::GetInstance().HasCopiedObject())
             {
-                HierarchyObject::Ref pastedObject =
-                    HierarchyManager::GetInstance().PasteObject(m_SelectedObject);
-                if (pastedObject) SetSelectedObject(pastedObject);
+                PasteAndSelect(m_SelectedObject);
             }
         }
         ImGui::End();
@@ -98,11 +181,218 @@ namespace Diligent {
 
     void HierarchyPanel::SetSelectedObject(HierarchyObject::Ref obj)
     {
-        if (IsEditorCameraObject(obj)) {
+        m_Selection.clear();
+        if (!obj || IsEditorCameraObject(obj)) {
             m_SelectedObject = nullptr;
+            m_SelectionAnchor = nullptr;
             return;
         }
         m_SelectedObject = obj;
+        m_SelectionAnchor = obj;
+        m_Selection.push_back(obj);
+    }
+
+    std::vector<HierarchyObject::Ref> HierarchyPanel::GetSelectedObjects() const
+    {
+        std::vector<HierarchyObject::Ref> result;
+        result.reserve(m_Selection.size());
+        for (const auto& obj : m_Selection) {
+            if (obj.IsValid()) result.push_back(obj);
+        }
+        return result;
+    }
+
+    std::vector<HierarchyObject::Ref> HierarchyPanel::GetSelectedRoots() const
+    {
+        const auto selected = GetSelectedObjects();
+        std::vector<HierarchyObject::Ref> roots;
+        for (const auto& obj : selected) {
+            bool hasSelectedAncestor = false;
+            for (HierarchyObject* p = obj.GetPtr()->GetParent().GetPtr(); p != nullptr; p = p->GetParent().GetPtr()) {
+                if (IsSelected(p->getRef())) { hasSelectedAncestor = true; break; }
+            }
+            if (!hasSelectedAncestor) roots.push_back(obj);
+        }
+        return roots;
+    }
+
+    bool HierarchyPanel::IsSelected(HierarchyObject::Ref obj) const
+    {
+        if (!obj) return false;
+        for (const auto& s : m_Selection) {
+            if (s == obj) return true;
+        }
+        return false;
+    }
+
+    void HierarchyPanel::ToggleSelectedObject(HierarchyObject::Ref obj)
+    {
+        if (!obj || IsEditorCameraObject(obj)) return;
+
+        // Drop stale entries so the primary can fall back to a live object.
+        m_Selection = GetSelectedObjects();
+
+        for (auto it = m_Selection.begin(); it != m_Selection.end(); ++it) {
+            if (*it == obj) {
+                m_Selection.erase(it);
+                if (m_SelectedObject == obj) {
+                    m_SelectedObject = m_Selection.empty() ? HierarchyObject::Ref(nullptr) : m_Selection.back();
+                }
+                m_SelectionAnchor = m_SelectedObject;
+                return;
+            }
+        }
+
+        m_Selection.push_back(obj);
+        m_SelectedObject = obj;
+        m_SelectionAnchor = obj;
+    }
+
+    void HierarchyPanel::PasteAndSelect(HierarchyObject::Ref parent)
+    {
+        const auto pasted = HierarchyManager::GetInstance().PasteObjects(parent);
+        if (pasted.empty()) return;
+
+        SetSelectedObject(pasted.front());
+        for (size_t i = 1; i < pasted.size(); ++i) {
+            ToggleSelectedObject(pasted[i]);
+        }
+    }
+
+    void HierarchyPanel::CreateEmptyObject(HierarchyObject::Ref parent)
+    {
+        auto& hierarchy = HierarchyManager::GetInstance();
+        hierarchy.BeginUndoableAction();
+        const auto created = ObjectFactory::GetInstance().CreateRootObjectWithTransform("Empty Object");
+        const bool parented = !parent || hierarchy.ReparentObject(created, parent);
+        hierarchy.EndUndoableAction();
+
+        if (!parented) {
+            std::cerr << "Unable to parent the new empty object in the hierarchy." << std::endl;
+            return;
+        }
+
+        SetSelectedObject(created);
+    }
+
+    void HierarchyPanel::DrawAddLightMenu(HierarchyObject::Ref parent)
+    {
+        if (!ImGui::BeginMenu("Add Light")) return;
+        if (ImGui::MenuItem("Add Point Light")) {
+            m_PendingLightType = 1;
+            m_PendingLightParent = parent;
+        }
+        if (ImGui::MenuItem("Add Directional Light")) {
+            m_PendingLightType = 2;
+            m_PendingLightParent = parent;
+        }
+        ImGui::EndMenu();
+    }
+
+    void HierarchyPanel::CreateLightObject(bool directional, HierarchyObject::Ref parent)
+    {
+        auto& hierarchy = HierarchyManager::GetInstance();
+        hierarchy.BeginUndoableAction();
+        auto& factory = ObjectFactory::GetInstance();
+        const auto created = directional
+            ? factory.CreateDirectionalLightObject("Directional Light")
+            : factory.CreatePointLightObject("Point Light");
+        const bool parented = !parent || hierarchy.ReparentObject(created, parent);
+
+        if (parented) {
+            Transform* transform = created.GetPtr()->GetTransform();
+            if (parent) {
+                transform->SetPosition(glm::vec3(0.0f));
+            }
+            else if (auto* camera = hierarchy.GetEditorCamera()) {
+                transform->SetWorldPosition(camera->GetPivotPosition());
+            }
+        }
+        hierarchy.EndUndoableAction();
+
+        if (!parented) {
+            std::cerr << "Unable to parent the new light in the hierarchy." << std::endl;
+            return;
+        }
+
+        SetSelectedObject(created);
+    }
+
+    void HierarchyPanel::DrawAddPrimitiveMenu(HierarchyObject::Ref parent)
+    {
+        if (!ImGui::BeginMenu("Add Primitive")) return;
+        static const char* const kPrimitives[] = { "Capsule", "Cube", "Sphere", "Plane" };
+        for (const char* name : kPrimitives) {
+            if (ImGui::MenuItem(name)) {
+                m_PendingPrimitiveName = name;
+                m_PendingPrimitiveParent = parent;
+            }
+        }
+        ImGui::EndMenu();
+    }
+
+    void HierarchyPanel::CreatePrimitiveObject(const std::string& name, HierarchyObject::Ref parent)
+    {
+        auto& hierarchy = HierarchyManager::GetInstance();
+        hierarchy.BeginUndoableAction();
+        std::string lower = name;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const auto created = ObjectFactory::GetInstance().CreateModelObject(
+            name, "Assets/Primitives/" + lower + ".obj");
+        const bool parented = !parent || hierarchy.ReparentObject(created, parent);
+
+        if (parented) {
+            Transform* transform = created.GetPtr()->GetTransform();
+            if (parent) {
+                transform->SetPosition(glm::vec3(0.0f));
+            }
+            else if (auto* camera = hierarchy.GetEditorCamera()) {
+                transform->SetWorldPosition(camera->GetPivotPosition());
+            }
+        }
+        hierarchy.EndUndoableAction();
+
+        if (!parented) {
+            std::cerr << "Unable to parent the new primitive in the hierarchy." << std::endl;
+            return;
+        }
+
+        SetSelectedObject(created);
+    }
+
+    void HierarchyPanel::ResolvePendingRangeSelection()
+    {
+        const HierarchyObject::Ref target = m_PendingRangeTarget;
+        m_PendingRangeTarget = nullptr;
+        if (!target) return;
+
+        int anchorIdx = -1, targetIdx = -1;
+        for (int i = 0; i < (int)m_VisibleOrder.size(); ++i) {
+            if (m_VisibleOrder[i] == m_SelectionAnchor) anchorIdx = i;
+            if (m_VisibleOrder[i] == target) targetIdx = i;
+        }
+        if (targetIdx < 0) return;
+        // Anchor hidden (collapsed/removed): range collapses to the clicked node.
+        if (anchorIdx < 0) anchorIdx = targetIdx;
+
+        std::vector<HierarchyObject::Ref> selection =
+            m_PendingRangeAdditive ? GetSelectedObjects() : std::vector<HierarchyObject::Ref>{};
+
+        const int lo = std::min(anchorIdx, targetIdx);
+        const int hi = std::max(anchorIdx, targetIdx);
+        for (int i = lo; i <= hi; ++i) {
+            const auto& obj = m_VisibleOrder[i];
+            if (std::find(selection.begin(), selection.end(), obj) == selection.end()) {
+                selection.push_back(obj);
+            }
+        }
+
+        // The anchor is kept so successive shift-clicks extend from the same origin.
+        const HierarchyObject::Ref anchor = m_SelectionAnchor;
+        m_Selection = std::move(selection);
+        m_SelectedObject = target;
+        m_SelectionAnchor = anchor ? anchor : target;
     }
 
     void HierarchyPanel::DrawNode(HierarchyObject::Ref node)
@@ -122,20 +412,45 @@ namespace Diligent {
         }
 
         // Highlight the node if it is the currently selected object
-        if (m_SelectedObject == node)
+        if (IsSelected(node))
         {
             flags |= ImGuiTreeNodeFlags_Selected;
         }
 
         // Render the node using the object's memory address as a unique ID
         const bool isPrefabInstance = node.GetPtr()->IsPrefabInstance();
+        const bool renaming = m_RenameTarget == node;
         bool nodeOpen = ImGui::TreeNodeEx(
             (void*)node.GetID(), flags, "%s%s",
-            node.GetPtr()->GetName().c_str(),
-            isPrefabInstance ? " [Prefab]" : "");
+            renaming ? "##RenameNode" : node.GetPtr()->GetName().c_str(),
+            (!renaming && isPrefabInstance) ? " [Prefab]" : "");
+        m_VisibleOrder.push_back(node);
+        const bool nodeClicked = !renaming && ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen();
+
+        if (renaming) {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            if (m_RenameFocusPending) {
+                ImGui::SetKeyboardFocusHere();
+                m_RenameFocusPending = false;
+            }
+            const bool committed = ImGui::InputText("##RenameNodeInput", m_RenameBuffer,
+                sizeof(m_RenameBuffer), ImGuiInputTextFlags_EnterReturnsTrue |
+                ImGuiInputTextFlags_AutoSelectAll);
+            const bool canceled = ImGui::IsKeyPressed(ImGuiKey_Escape);
+            if (committed || ImGui::IsItemDeactivatedAfterEdit()) {
+                if (!canceled && m_RenameBuffer[0] != '\0') {
+                    node.GetPtr()->SetName(m_RenameBuffer);
+                }
+                m_RenameTarget = nullptr;
+            }
+            else if (canceled || ImGui::IsItemDeactivated()) {
+                m_RenameTarget = nullptr;
+            }
+        }
 
         //For drag drop hierarchy / component references
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+        if (!renaming && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
         {
             // We pass the raw pointer address as the payload data
             HierarchyObject* objPtr = node.GetPtr();
@@ -147,7 +462,7 @@ namespace Diligent {
             ImGui::EndDragDropSource();
         }
 
-        if (ImGui::BeginDragDropTarget())
+        if (!renaming && ImGui::BeginDragDropTarget())
         {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_HIERARCHY_OBJ"))
             {
@@ -161,26 +476,53 @@ namespace Diligent {
         }
 
         // Update the selected object when clicked
-        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+        if (nodeClicked)
         {
-            SetSelectedObject(node);
+            const ImGuiIO& io = ImGui::GetIO();
+            if (io.KeyShift)
+            {
+                // Resolved after the frame's nodes are known so the range covers visible rows only.
+                m_PendingRangeTarget = node;
+                m_PendingRangeAdditive = io.KeyCtrl;
+            }
+            else if (io.KeyCtrl)
+            {
+                ToggleSelectedObject(node);
+            }
+            else
+            {
+                SetSelectedObject(node);
+            }
         }
 
-        if (ImGui::BeginPopupContextItem("ObjectContextMenu"))
+        if (!renaming && ImGui::BeginPopupContextItem("ObjectContextMenu"))
         {
-            if (ImGui::MenuItem("Copy Object", "Ctrl+C"))
+            if (!IsSelected(node)) SetSelectedObject(node);
+
+            if (ImGui::MenuItem("Create Empty"))
             {
-                SetSelectedObject(node);
-                HierarchyManager::GetInstance().CopyObject(node);
+                m_PendingCreateParent = node;
+                m_PendingCreateEmpty = true;
             }
 
-            if (ImGui::MenuItem("Paste Object", "Ctrl+V",
+            DrawAddLightMenu(node);
+            DrawAddPrimitiveMenu(node);
+
+            if (ImGui::MenuItem("Create Empty as Sibling"))
+            {
+                m_PendingCreateParent = node.GetPtr()->GetParent();
+                m_PendingCreateEmpty = true;
+            }
+
+            if (ImGui::MenuItem("Copy", "Ctrl+C"))
+            {
+                HierarchyManager::GetInstance().CopyObjects(GetSelectedRoots());
+            }
+
+            if (ImGui::MenuItem("Paste (as children)", "Ctrl+V",
                 false, HierarchyManager::GetInstance().HasCopiedObject()))
             {
-                SetSelectedObject(node);
-                HierarchyObject::Ref pastedObject =
-                    HierarchyManager::GetInstance().PasteObject(node);
-                if (pastedObject) SetSelectedObject(pastedObject);
+                PasteAndSelect(node);
             }
 
             if (ImGui::MenuItem("Create Prefab Asset"))
@@ -211,10 +553,16 @@ namespace Diligent {
             ImGui::Separator();
             if (ImGui::MenuItem("Delete Object", "Del"))
             {
-                HierarchyManager::GetInstance().QueueObjectDeletion(node);
-                if (m_SelectedObject == node)
+                if (IsSelected(node))
                 {
+                    for (const auto& obj : GetSelectedRoots()) {
+                        HierarchyManager::GetInstance().QueueObjectDeletion(obj);
+                    }
                     SetSelectedObject(nullptr);
+                }
+                else
+                {
+                    HierarchyManager::GetInstance().QueueObjectDeletion(node);
                 }
             }
             ImGui::EndPopup();

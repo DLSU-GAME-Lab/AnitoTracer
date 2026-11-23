@@ -2,6 +2,7 @@
 #include "HierarchyManager.hpp"
 
 #include "../AppConfig.hpp"
+#include "../AppState.hpp"
 #include "ObjectFactory.hpp"
 #include "HierarchyFeatures/PrefabFeature.hpp"
 
@@ -21,28 +22,33 @@ namespace {
     };
 }
 
+// Play mode is discarded on stop (scene reload), so no undo bookkeeping while playing.
 void HierarchyManager::BeginUndoableAction() {
+    if (AppState::isPlaying) return;
     gbe::UndoRedoManager::GetInstance().BeginAction(GetGUID());
 }
 
 void HierarchyManager::EndUndoableAction() {
+    if (AppState::isPlaying) return;
     gbe::UndoRedoManager::GetInstance().EndAction();
 }
 
 void HierarchyManager::Undo() {
+    if (AppState::isPlaying) return;
     gbe::UndoRedoManager::GetInstance().Undo();
 }
 
 void HierarchyManager::Redo() {
+    if (AppState::isPlaying) return;
     gbe::UndoRedoManager::GetInstance().Redo();
 }
 
 bool HierarchyManager::CanUndo() const {
-    return gbe::UndoRedoManager::GetInstance().CanUndo();
+    return !AppState::isPlaying && gbe::UndoRedoManager::GetInstance().CanUndo();
 }
 
 bool HierarchyManager::CanRedo() const {
-    return gbe::UndoRedoManager::GetInstance().CanRedo();
+    return !AppState::isPlaying && gbe::UndoRedoManager::GetInstance().CanRedo();
 }
 
 CameraComponent* HierarchyManager::GetMainCamera() const {
@@ -56,6 +62,11 @@ HierarchyObject::Ref HierarchyManager::AddRootObject(std::unique_ptr<HierarchyOb
 
     m_rootNodes.push_back(std::move(rootObj));
     auto newref = m_rootNodes.back()->getRef();
+
+    // Colliders may have been built mid-deserialization, before transforms/parents were final.
+    if (Transform* t = m_rootNodes.back()->GetTransform()) {
+        t->SyncPhysics();
+    }
 
     gbe::EventSystem::DispatchTo(EVENT_ONOBJECTCREATED,std::make_unique<HierarchyObjectArgs>(newref));
 
@@ -124,62 +135,129 @@ bool HierarchyManager::ReparentObject(HierarchyObject::Ref object, HierarchyObje
     else {
         m_rootNodes.push_back(std::move(detachedObject));
     }
+
+    // The world transform changed with the new parent, so bodies must follow.
+    if (Transform* t = objectPtr->GetTransform()) {
+        t->SyncPhysics();
+    }
     return true;
 }
 
 bool HierarchyManager::CopyObject(HierarchyObject::Ref object) {
-    HierarchyObject* objectPtr = object.GetPtr();
-    if (!objectPtr) return false;
+    return CopyObjects({ object });
+}
 
-    m_copiedObject = objectPtr->Serialize();
-    for (auto it = m_copiedObject.serialized_variables.begin();
-         it != m_copiedObject.serialized_variables.end();) {
+bool HierarchyManager::CopyObjects(const std::vector<HierarchyObject::Ref>& objects) {
+    std::vector<gbe::SerializedData> clipboard;
+    for (const auto& object : objects) {
+        HierarchyObject* objectPtr = object.GetPtr();
+        if (!objectPtr) continue;
+
+        gbe::SerializedData data = objectPtr->Serialize();
+        for (auto it = data.serialized_variables.begin();
+             it != data.serialized_variables.end();) {
+            const std::string& key = it->first;
+            if (key == "m_guid" ||
+                (key.size() > 7 && key.compare(key.size() - 7, 7, ".m_guid") == 0)) {
+                it = data.serialized_variables.erase(it);
+            }
+            else {
+                ++it;
+            }
+        }
+        data.label = "HierarchyObjectClipboard";
+        clipboard.push_back(std::move(data));
+    }
+
+    if (clipboard.empty()) return false;
+
+    m_copiedObjects = std::move(clipboard);
+    m_hasCopiedObject = true;
+    return true;
+}
+
+bool HierarchyManager::CopyComponent(ComponentBase* component) {
+    if (!component) return false;
+
+    m_copiedComponent = component->Serialize();
+    for (auto it = m_copiedComponent.serialized_variables.begin();
+         it != m_copiedComponent.serialized_variables.end();) {
         const std::string& key = it->first;
-        if (key == "m_guid" ||
-            (key.size() > 7 && key.compare(key.size() - 7, 7, ".m_guid") == 0)) {
-            it = m_copiedObject.serialized_variables.erase(it);
+        if (key == "m_guid") {
+            it = m_copiedComponent.serialized_variables.erase(it);
         }
         else {
             ++it;
         }
     }
-    m_copiedObject.label = "HierarchyObjectClipboard";
-    m_hasCopiedObject = true;
+    m_copiedComponentType = typeid(*component).name();
+    m_copiedComponentName = component->GetName();
+    m_hasCopiedComponent = true;
+    return true;
+}
+
+bool HierarchyManager::PasteComponent(HierarchyObject::Ref object) {
+    if (!m_hasCopiedComponent || !object) return false;
+
+    gbe::SerializedData componentData = m_copiedComponent;
+    gbe::ISerializable* rawComponent =
+        gbe::TypeRegistry::Instantiate(m_copiedComponentType, componentData);
+    auto* component = dynamic_cast<ComponentBase*>(rawComponent);
+    if (!component) {
+        delete rawComponent;
+        std::cerr << "Unable to instantiate copied component type: "
+                  << m_copiedComponentType << std::endl;
+        return false;
+    }
+
+    component->Deserialize(componentData);
+    UndoScope undoScope;
+    object.GetPtr()->AddComponent(std::unique_ptr<ComponentBase>(component));
     return true;
 }
 
 HierarchyObject::Ref HierarchyManager::PasteObject(HierarchyObject::Ref parent) {
-    if (!m_hasCopiedObject) return nullptr;
+    const auto pasted = PasteObjects(parent);
+    return pasted.empty() ? HierarchyObject::Ref(nullptr) : pasted.front();
+}
+
+std::vector<HierarchyObject::Ref> HierarchyManager::PasteObjects(HierarchyObject::Ref parent) {
+    std::vector<HierarchyObject::Ref> results;
+    if (!m_hasCopiedObject) return results;
 
     UndoScope undoScope;
 
-    gbe::SerializedData pasteData = m_copiedObject;
-    gbe::ISerializable* rawObject = gbe::TypeRegistry::Instantiate(
-        typeid(HierarchyObject).name(), pasteData);
-    auto* pastedObject = dynamic_cast<HierarchyObject*>(rawObject);
-    if (!pastedObject) {
-        delete rawObject;
-        return nullptr;
+    for (const auto& copied : m_copiedObjects) {
+        gbe::SerializedData pasteData = copied;
+        gbe::ISerializable* rawObject = gbe::TypeRegistry::Instantiate(
+            typeid(HierarchyObject).name(), pasteData);
+        auto* pastedObject = dynamic_cast<HierarchyObject*>(rawObject);
+        if (!pastedObject) {
+            delete rawObject;
+            continue;
+        }
+
+        pastedObject->Deserialize(pasteData);
+
+        std::unique_ptr<HierarchyObject> ownedObject(pastedObject);
+        HierarchyObject::Ref pastedRef = AddRootObject(std::move(ownedObject));
+        if (!pastedRef) continue;
+
+        //If parent assigned, but reparenting fails, do not continue pasting.
+        if (parent && !ReparentObject(pastedRef, parent)) {
+            RemoveRootObject(pastedRef);
+            std::cerr << "Pasting to an invalid parent." << std::endl;
+            return results;
+        }
+
+        if (pastedRef.GetPtr()->IsPrefabInstance()) {
+            PrefabFeature::RefreshPrefabInstance(pastedRef);
+        }
+
+        results.push_back(pastedRef);
     }
 
-    pastedObject->Deserialize(pasteData);
-
-    std::unique_ptr<HierarchyObject> ownedObject(pastedObject);
-    HierarchyObject::Ref pastedRef = AddRootObject(std::move(ownedObject));
-    if (!pastedRef) return nullptr;
-
-    //If parent assigned, but reparenting fails, do not continue pasting.
-    if (parent && !ReparentObject(pastedRef, parent)) {
-        RemoveRootObject(pastedRef);
-        std::cerr << "Pasting to an invalid parent." << std::endl;
-        return nullptr;
-    }
-
-    if (pastedRef.GetPtr()->IsPrefabInstance()) {
-        PrefabFeature::RefreshPrefabInstance(pastedRef);
-    }
-
-    return pastedRef;
+    return results;
 }
 
 size_t HierarchyManager::CommitDeferredDeletions() {
@@ -298,6 +376,12 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
             instance.ModelData = pModel;
             instance.WorldTransform = currentWorldMatrix;
             instance.OwnerID = obj.GetID();
+            instance.OverrideRoughness = modelComp->GetOverrideRoughness();
+            instance.Roughness = modelComp->GetRoughness();
+            instance.OverrideMetallic = modelComp->GetOverrideMetallic();
+            instance.Metallic = modelComp->GetMetallic();
+            instance.OverrideEmissive = modelComp->GetOverrideEmissive();
+            instance.Emissive = modelComp->GetEmissiveColor() * modelComp->GetEmissiveStrength();
 
             // ADDED: Sort submeshes based on material transparency
             for (uint32_t i = 0; i < pModel->SubMeshes.size(); ++i) {

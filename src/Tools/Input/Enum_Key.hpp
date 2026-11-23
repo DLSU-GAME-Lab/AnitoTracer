@@ -7,7 +7,7 @@ namespace gbe {
         Num0, Num1, Num2, Num3, Num4, Num5, Num6, Num7, Num8, Num9,
 
         // Controls & Cursors
-        Space, Enter, Escape, Tab, Backspace,
+        Space, Enter, Escape, Tab, Backspace, Shift,
         Up, Down, Left, Right,
 
         // Mouse Buttons

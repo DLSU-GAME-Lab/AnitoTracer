@@ -4,6 +4,12 @@
 #include "../ComponentBase.hpp"
 #include "PhysicsBase.hpp"
 #include "../../../Physics/IPhysicsEngine.hpp"
+#include "ScriptApiRegistry.hpp"
+
+enum class MeshSource {
+	FromPath,
+	FromOwner
+};
 
 class Collider : public ComponentBase {
 public:
@@ -24,24 +30,16 @@ public:
 	void SetShapeType(IPhysicsEngine::ShapeType type);
 	void SetShapeParams(const IPhysicsEngine::ShapeParams& params);
 	void SetOffset(const glm::vec3& offset);
+	void SetMeshPath(const std::string& path);
+	void SetMeshSource(MeshSource source);
 
 	IPhysicsEngine::ShapeType GetShapeType() const { return mShapeType; }
 	const IPhysicsEngine::ShapeParams& GetShapeParams() const { return mShapeParams; }
 	const glm::vec3& GetOffset() const { return mOffset; }
+	const std::string& GetMeshPath() const { return mMeshPath; }
+	MeshSource GetMeshSource() const { return mMeshSource; }
 
-	IPhysicsEngine::ColliderShape GetShapeDescriptor() const {
-		glm::vec3 scale(1.0f);
-		if (HierarchyObject* o = m_owner.GetPtr()) {
-			if (Transform* t = o->GetTransform()) {
-				scale = t->GetScale();
-			}
-		}
-
-		IPhysicsEngine::ShapeParams scaledParams = mShapeParams;
-		scaledParams.v *= scale;
-
-		return { mShapeType, scaledParams, mOffset * scale };
-	}
+	IPhysicsEngine::ColliderShape GetShapeDescriptor() const;
 
 	// Used only by Physicsbase/RigidBody when handling this Collider off
 	void Reparent(PhysicsBase* newOwner) { mOwnerBody = newOwner; }
@@ -55,12 +53,20 @@ protected:
 	IPhysicsEngine::ShapeType mShapeType = IPhysicsEngine::ShapeType::Box;
 	IPhysicsEngine::ShapeParams mShapeParams = {};
 	glm::vec3 mOffset = glm::vec3(0.0f);
+	std::string mMeshPath;
+	MeshSource mMeshSource = MeshSource::FromOwner;
 
 
 	GBE_SERIALIZE_FIELD_W_CB(mShapeType, [this](IPhysicsEngine::ShapeType&) {
 		if (mOwnerBody) mOwnerBody->RebuildShapes();
 		});
 	GBE_SERIALIZE_FIELD_W_CB(mShapeParams, [this](IPhysicsEngine::ShapeParams&) {
+		if (mOwnerBody) mOwnerBody->RebuildShapes();
+		});
+	GBE_SERIALIZE_FIELD_W_CB(mMeshPath, [this](std::string&) {
+		if (mOwnerBody) mOwnerBody->RebuildShapes();
+		});
+	GBE_SERIALIZE_FIELD_W_CB(mMeshSource, [this](MeshSource&) {
 		if (mOwnerBody) mOwnerBody->RebuildShapes();
 		});
 	GBE_SERIALIZE_FIELD(mOffset);
@@ -75,3 +81,5 @@ protected:
 };
 
 GBE_REGISTER_SERIALIZED_TYPE(Collider, ComponentBase);
+
+ANITO_SCRIPT_TYPE(Collider, "collider", "anito::Collider", true, "physics");

@@ -552,6 +552,7 @@ HierarchyObject::Ref PrefabFeature::InstantiatePrefab(
                         {
                             objTransform->SetPosition(spawnPosition);
                         }
+                        objTransform->SyncPhysics();
                     }
                 }
             }
@@ -599,6 +600,8 @@ bool PrefabFeature::RevertPrefabInstance(HierarchyObject::Ref object)
     objectPtr->Deserialize(prefabData);
     objectPtr->MutablePrefabAssetPath() = prefabAssetPath;
     objectPtr->MutablePrefabOverrides().clear();
+    if (Transform *t = objectPtr->GetTransform())
+        t->SyncPhysics();
 
     return true;
 }
@@ -628,6 +631,8 @@ bool PrefabFeature::RefreshPrefabInstance(HierarchyObject::Ref object)
     objectPtr->Deserialize(mergedData);
     objectPtr->MutablePrefabAssetPath() = prefabAssetPath;
     objectPtr->MutablePrefabOverrides() = prefabOverrides;
+    if (Transform *t = objectPtr->GetTransform())
+        t->SyncPhysics();
 
     return true;
 }

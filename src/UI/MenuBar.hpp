@@ -3,7 +3,6 @@
 #include <vector>
 #include <memory>
 #include "Panels/BasePanel.hpp"
-#include "../Objects/ObjectFactory.hpp"
 #include "imgui.h"
 
 #include "FileDialog.hpp"

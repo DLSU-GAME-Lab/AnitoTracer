@@ -11,4 +11,7 @@ void main_vs(in VertexInput In, out PSInput Out)
     Out.Tangent = normalize(mul(In.Tangent, (float3x3) g_NormalMatrix));
     Out.Bitangent = normalize(mul(In.Bitangent, (float3x3) g_NormalMatrix));
     Out.UV = In.uv;
+
+    Out.CurrClip = mul(worldPos, g_ViewProjNoJitter);
+    Out.PrevClip = mul(mul(float4(In.Pos, 1.0), g_PrevModel), g_PrevViewProjNoJitter);
 }

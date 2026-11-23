@@ -31,23 +31,21 @@ set(${CUR_TARGET_NAME}_src
 	Components/Physics/StaticBody.hpp
 	Components/Physics/Collider.hpp
 	Components/Physics/Collider.cpp
-	Components/Gameplay/PlayerMovementComponent.hpp
-	Components/Gameplay/PickupComponent.hpp
-	Components/Gameplay/PickupComponent.cpp
-	Components/Gameplay/PlacementComponent.hpp
-	Components/Gameplay/PlacementComponent.cpp
-	Components/Gameplay/PlayerController.hpp
-	Components/Gameplay/PlayerController.cpp
-	Components/Gameplay/CameraProximityTrigger.cpp
-	Components/Gameplay/ParticleSpawnerComponent.cpp
-	
-	Components/Gameplay/CameraProximityTrigger.cpp
-	Components/Gameplay/CameraProximityTrigger.cpp
 	
 	Components/Global/SceneChanger.cpp
 	Components/Global/SceneChanger.hpp
 	Components/Global/TeleportMainCamera.cpp
 	Components/Global/TeleportMainCamera.hpp
+
+	Components/Audio/AudioSourceComponent.hpp
+	Components/Audio/AudioSourceComponent.cpp
+	Components/Audio/AudioListenerComponent.hpp
+	Components/Audio/AudioListenerComponent.cpp
+
+	Components/Particles/ParticleSystemComponent.hpp
+	Components/Particles/ParticleSystemComponent.cpp
+	Components/Particles/ParticleGather.hpp
+	Components/Particles/ParticleGather.cpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp
@@ -57,6 +55,8 @@ set(${CUR_TARGET_NAME}_src
 
 	HierarchyFeatures/PrefabFeature.hpp
 	HierarchyFeatures/PrefabFeature.cpp
+	HierarchyFeatures/PrefabRef.hpp
+	HierarchyFeatures/PrefabRef.cpp
 
 	ObjectFactory.hpp
 	ObjectFactory.cpp
@@ -74,6 +74,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	anito::asset
 	anito::common
 	anito::event
+	anito::audio
 )
 
 #PRIVATE

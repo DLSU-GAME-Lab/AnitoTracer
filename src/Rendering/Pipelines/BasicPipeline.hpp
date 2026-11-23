@@ -10,9 +10,9 @@ namespace Diligent {
     /// </summary>
     class BasicPipeline : public BasePipeline {
     public:
-        void InitializePipeline(IRenderDevice* pDevice, ISwapChain* _pSwapChain) override;
-        void StartFrameRender(IDeviceContext* pContext, RenderData renderData) override;
-        void RenderModel(IDeviceContext* pContext, const ModelRenderInstance model, bool renderOpaque = true) override;
+        void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
+        void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
+        void RenderModel(IDeviceContext* pContext, const ModelRenderInstance& model, bool renderOpaque = true) override;
     };
 
 }

@@ -1,8 +1,19 @@
 #pragma once
 
 #include "PhysicsBase.hpp"
+#include "ScriptApiRegistry.hpp"
 #include "../../HierarchyObject.hpp"
 #include "../../../ObjectSystems/Event/Types/FixedUpdateTrigger.hpp"
+
+#include <cstdint>
+
+struct PhysicsRaycastHit {
+	bool hit = false;
+	glm::vec3 point{ 0.0f };
+	std::uint64_t object = 0;
+};
+
+ANITO_SCRIPT_TYPE_MAPPING(PhysicsRaycastHit, "raycasthit")
 
 class RigidBody
 	: public PhysicsBase
@@ -28,14 +39,21 @@ public:
 
 	// Physics API
 	void ApplyForce(const glm::vec3& force);
+	void ApplyTorque(const glm::vec3& torque);
 	void ApplyImpulse(const glm::vec3& impulse);
 	void SetVelocity(const glm::vec3& velocity);
 	glm::vec3 GetVelocity() const;
 	void SetAngularVelocity(const glm::vec3& angularVelocity);
 	glm::vec3 GetAngularVelocity() const;
+	glm::vec3 GetWorldGravity() const;
+	void SetWorldGravity(const glm::vec3& gravity);
+	bool IsSimulated() const;
+	glm::quat GetBodyRotation() const;
+	PhysicsRaycastHit Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const;
 
 	virtual void SetMass(float mass);
 	float GetMass() const;
+	void SetLockRotation(bool lockX, bool lockY, bool lockZ);
 	void SetLockRotationX(bool lock) { mLockRotationX = lock; ApplyRotationLocks(); }
 	void SetLockRotationY(bool lock) { mLockRotationY = lock; ApplyRotationLocks(); }
 	void SetLockRotationZ(bool lock) { mLockRotationZ = lock; ApplyRotationLocks(); }
@@ -51,6 +69,7 @@ public:
 	virtual std::string GetLabel() override { return "RigidBody"; }
 
 protected:
+	bool mPlacedFromTransform = false;
 	float mMass = 1.0f;
 	IPhysicsEngine::ShapeType mShapeType = IPhysicsEngine::ShapeType::Box;
 	IPhysicsEngine::ShapeParams mShapeParams = {};
@@ -76,3 +95,17 @@ protected:
 };
 
 GBE_REGISTER_SERIALIZED_TYPE(RigidBody, PhysicsBase);
+
+ANITO_SCRIPT_TYPE(RigidBody, "rigidbody", "anito::Rigidbody", true, "physics");
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "velocity", GetVelocity, SetVelocity);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "angularVelocity", GetAngularVelocity, SetAngularVelocity);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "mass", GetMass, SetMass);
+ANITO_SCRIPT_PROPERTY_RO(RigidBody, "rigidbody", "simulated", IsSimulated);
+ANITO_SCRIPT_PROPERTY_RO(RigidBody, "rigidbody", "rotation", GetBodyRotation);
+ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "worldGravity", GetWorldGravity, SetWorldGravity);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addForce", ApplyForce);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addTorque", ApplyTorque);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addImpulse", ApplyImpulse);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "teleport", Teleport);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "lockRotation", SetLockRotation);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "raycast", Raycast);

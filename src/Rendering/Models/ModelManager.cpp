@@ -9,6 +9,7 @@ void ModelManager::Initialize(IRenderDevice* pDevice, IDeviceContext* mContext, 
     m_isRayTracingEnabled = isRayTracingEnabled;
 
     LoadDefaultWhite();
+    m_ScenePool.Initialize(pDevice, isRayTracingEnabled);
 }
 
 /// <summary>
@@ -68,6 +69,58 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB
     return pSRV;
 }
 
+ITextureView* ModelManager::LoadCubemap(const std::string& filepath, bool isSRGB)
+{
+    // Check cache first, using a unique cubemap identifier to avoid collisions with 2D textures
+    std::string cacheKey = filepath + (isSRGB ? "|cubemap_srgb" : "|cubemap_linear");
+    auto it = m_TextureCache.find(cacheKey);
+    if (it != m_TextureCache.end()) {
+        return it->second;
+    }
+
+    std::filesystem::path modelFilePath(filepath);
+    std::string fullPath = modelFilePath.string();
+
+    // Ensure the file actually exists before sending it to Diligent[cite: 20]
+    if (!std::filesystem::exists(modelFilePath)) {
+        std::cerr << "[ModelManager] Master, the skybox file is missing! " << fullPath << std::endl;
+        return nullptr;
+    }
+
+    RefCntAutoPtr<ITexture> pTexture;
+    TextureLoadInfo loadInfo{};
+    loadInfo.IsSRGB = isSRGB;
+
+    // ✨ Maid's Fix: Do NOT force RGBA8! 
+    // Setting it to UNKNOWN lets Diligent read the native compressed format directly from the DDS header.
+    loadInfo.Format = Diligent::TEX_FORMAT_UNKNOWN;
+
+    // DDS cubemaps should ideally have mipmaps baked in during export. 
+    // We let Diligent generate them just in case they are missing!
+    loadInfo.GenerateMips = true;
+
+    // Diligent's utility parses the .dds header and automatically assigns RESOURCE_DIM_TEX_CUBE[cite: 20]
+    CreateTextureFromFile(fullPath.c_str(), loadInfo, m_pDevice, &pTexture);
+
+    if (!pTexture) {
+        std::cerr << "[ModelManager] Failed to load cubemap (Check if it's a valid DDS!): " << fullPath << std::endl;
+        return nullptr;
+    }
+
+    // ✨ Maid's Safety Check: Ensure the engine actually created a TextureCube![cite: 20]
+    if (pTexture->GetDesc().Type != RESOURCE_DIM_TEX_CUBE) {
+        std::cerr << "[ModelManager] Error: Texture is not a cubemap! Did you use a standard 2D image? " << fullPath << std::endl;
+        return nullptr;
+    }
+
+    RefCntAutoPtr<ITextureView> pSRV(pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+
+    // Optimized cache insertion[cite: 20]
+    m_TextureCache.emplace(std::move(cacheKey), pSRV);
+
+    return pSRV;
+}
+
 ITextureView* ModelManager::LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty, bool isSRGB) {
     aiString texPath;
     if (material->GetTextureCount(type) > 0) {
@@ -120,6 +173,14 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     ProcessMaterials(pScene, pModel.get(), modelDir);
     ProcessMeshes(pScene, pModel.get(), vertices, indices);
     CreateHardwareBuffers(pModel.get(), vertices, indices);
+
+    // CPU-side data for physics mesh colliders
+    pModel->CollisionData = std::make_shared<CollisionMeshData>();
+    pModel->CollisionData->vertices.reserve(vertices.size());
+    for (const Vertex& v : vertices) {
+        pModel->CollisionData->vertices.emplace_back(v.pos.x, v.pos.y, v.pos.z);
+    }
+    pModel->CollisionData->indices.assign(indices.begin(), indices.end());
 
     // Only build if raytracing is enabled
     if (m_isRayTracingEnabled) {
@@ -190,6 +251,27 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
         if (!pbrMat.AO) pbrMat.AO = LoadMaterialTexture(material, aiTextureType_LIGHTMAP, modelDir, currentMatHasPBR, false);
 
         pbrMat.Emissive = LoadMaterialTexture(material, aiTextureType_EMISSIVE, modelDir, currentMatHasPBR, true);
+
+        // Emissive color (glTF emissiveFactor, OBJ Ke) and strength (KHR_materials_emissive_strength)
+        aiColor3D emissiveColor(0.0f, 0.0f, 0.0f);
+        bool hasEmissiveColor = material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor) == AI_SUCCESS;
+        pbrMat.EmissiveFactor = float3(emissiveColor.r, emissiveColor.g, emissiveColor.b);
+
+        // A map with no (or black) color would never glow; exporters often leave Ke at 0 next to map_Ke, so let the map through
+        if (pbrMat.Emissive && (!hasEmissiveColor || emissiveColor.IsBlack())) {
+            pbrMat.EmissiveFactor = float3(1.0f, 1.0f, 1.0f);
+        }
+
+        float emissiveStrength = 1.0f;
+        if (material->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissiveStrength) == AI_SUCCESS) {
+            pbrMat.EmissiveStrength = emissiveStrength;
+        }
+
+        // The maps a reflection shows: ray hits look these up in the scene texture array.
+        // (Before the default white fallback below, which needs no slot: a hit without a map uses the color factor alone.)
+        m_ScenePool.RegisterTexture(pbrMat.BaseColor);
+        m_ScenePool.RegisterTexture(pbrMat.MetallicRoughness);
+        m_ScenePool.RegisterTexture(pbrMat.Emissive);
 
         // Enforce fallback to default white if no base color texture was found
         if (!pbrMat.BaseColor) {
@@ -292,6 +374,9 @@ void ModelManager::CreateHardwareBuffers(Model* pModel, const std::vector<Vertex
     IBData.pData = indices.data();
     IBData.DataSize = IndBuffDesc.Size;
     m_pDevice->CreateBuffer(IndBuffDesc, &IBData, &pModel->pIndexBuffer);
+
+    // A copy for ray hits, which can land on any model and so can't use per-model buffers
+    m_ScenePool.AddModel(*pModel, vertices, indices);
 }
 
 void ModelManager::BuildBLAS(Model* pModel) {
@@ -307,23 +392,44 @@ void ModelManager::BuildBLAS(Model* pModel) {
 
     // Dynamically query sizes directly from the hardware buffers
     Uint32 vertexCount = static_cast<Uint32>(pModel->pVertexBuffer->GetDesc().Size / sizeof(Vertex));
-    Uint32 indexCount = static_cast<Uint32>(pModel->pIndexBuffer->GetDesc().Size / sizeof(Uint32));
-    Uint32 primitiveCount = indexCount / 3;
 
-    // 1. Describe Acceleration Structure (Zero-initialized for safety)
-    BLASTriangleDesc TriangleDesc{};
-    TriangleDesc.GeometryName = "ModelGeometry";
-    TriangleDesc.MaxVertexCount = vertexCount;
-    TriangleDesc.VertexValueType = VT_FLOAT32;
-    TriangleDesc.VertexComponentCount = 3;
-    TriangleDesc.MaxPrimitiveCount = primitiveCount;
-    TriangleDesc.IndexType = VT_UINT32;
+    // One geometry per submesh, so a ray hit can tell which submesh (and so which material) it landed on.
+    // All of them share the model's vertex and index buffers; each covers its own range of the index buffer.
+    pModel->BLASSubmeshes.clear();
+    for (Uint32 i = 0; i < pModel->SubMeshes.size(); ++i) {
+        // A geometry must have at least one triangle
+        if (pModel->SubMeshes[i].IndexCount >= 3) pModel->BLASSubmeshes.push_back(i);
+    }
+    if (pModel->BLASSubmeshes.empty())
+        return;
+
+    const Uint32 geometryCount = static_cast<Uint32>(pModel->BLASSubmeshes.size());
+
+    // The descriptions only point at their names, so the strings must outlive CreateBLAS and BuildBLAS
+    std::vector<std::string> geometryNames(geometryCount);
+    for (Uint32 g = 0; g < geometryCount; ++g) {
+        geometryNames[g] = "Submesh_" + std::to_string(pModel->BLASSubmeshes[g]);
+    }
+
+    // 1. Describe Acceleration Structure
+    std::vector<BLASTriangleDesc> TriangleDescs(geometryCount);
+    for (Uint32 g = 0; g < geometryCount; ++g) {
+        const SubMesh& submesh = pModel->SubMeshes[pModel->BLASSubmeshes[g]];
+
+        BLASTriangleDesc& TriangleDesc = TriangleDescs[g];
+        TriangleDesc.GeometryName = geometryNames[g].c_str();
+        TriangleDesc.MaxVertexCount = vertexCount;
+        TriangleDesc.VertexValueType = VT_FLOAT32;
+        TriangleDesc.VertexComponentCount = 3;
+        TriangleDesc.MaxPrimitiveCount = submesh.IndexCount / 3;
+        TriangleDesc.IndexType = VT_UINT32;
+    }
 
     BottomLevelASDesc ASDesc{};
     ASDesc.Name = "Model BLAS";
     ASDesc.Flags = RAYTRACING_BUILD_AS_PREFER_FAST_TRACE;
-    ASDesc.pTriangles = &TriangleDesc;
-    ASDesc.TriangleCount = 1;
+    ASDesc.pTriangles = TriangleDescs.data();
+    ASDesc.TriangleCount = geometryCount;
 
     m_pDevice->CreateBLAS(ASDesc, &pModel->pBLAS);
 
@@ -342,24 +448,30 @@ void ModelManager::BuildBLAS(Model* pModel) {
     RefCntAutoPtr<IBuffer> pScratchBuffer;
     m_pDevice->CreateBuffer(ScratchBuffDesc, nullptr, &pScratchBuffer);
 
-    // 3. Build BLAS on GPU (Zero-initialized descriptor)
-    BLASBuildTriangleData TriData{};
-    TriData.GeometryName = "ModelGeometry";
-    TriData.pVertexBuffer = pModel->pVertexBuffer;
-    TriData.VertexStride = sizeof(Vertex);
-    TriData.VertexOffset = 0;
-    TriData.VertexCount = vertexCount;
-    TriData.VertexValueType = VT_FLOAT32;
-    TriData.VertexComponentCount = 3;
-    TriData.pIndexBuffer = pModel->pIndexBuffer;
-    TriData.IndexType = VT_UINT32;
-    TriData.IndexOffset = 0;
-    TriData.PrimitiveCount = primitiveCount;
+    // 3. Build BLAS on GPU. The order here is the geometry index a ray hit reports, so it must match BLASSubmeshes.
+    std::vector<BLASBuildTriangleData> TriData(geometryCount);
+    for (Uint32 g = 0; g < geometryCount; ++g) {
+        const SubMesh& submesh = pModel->SubMeshes[pModel->BLASSubmeshes[g]];
+
+        BLASBuildTriangleData& Tri = TriData[g];
+        Tri.GeometryName = geometryNames[g].c_str();
+        Tri.pVertexBuffer = pModel->pVertexBuffer;
+        Tri.VertexStride = sizeof(Vertex);
+        Tri.VertexOffset = 0;
+        Tri.VertexCount = vertexCount;
+        Tri.VertexValueType = VT_FLOAT32;
+        Tri.VertexComponentCount = 3;
+        Tri.pIndexBuffer = pModel->pIndexBuffer;
+        Tri.IndexType = VT_UINT32;
+        // Indices already count from the model's first vertex, so only the start in the index buffer differs
+        Tri.IndexOffset = static_cast<Uint64>(submesh.IndexOffset) * sizeof(Uint32);
+        Tri.PrimitiveCount = submesh.IndexCount / 3;
+    }
 
     BuildBLASAttribs BuildAttribs{};
     BuildAttribs.pBLAS = pModel->pBLAS;
-    BuildAttribs.pTriangleData = &TriData;
-    BuildAttribs.TriangleDataCount = 1;
+    BuildAttribs.pTriangleData = TriData.data();
+    BuildAttribs.TriangleDataCount = geometryCount;
     BuildAttribs.pScratchBuffer = pScratchBuffer;
 
     // Transition the buffers so Vulkan can safely read/write during the BLAS build
@@ -373,4 +485,5 @@ void ModelManager::BuildBLAS(Model* pModel) {
 void ModelManager::ClearCache() {
     m_ModelCache.clear();
     m_TextureCache.clear();
+    m_ScenePool.Clear();
 }

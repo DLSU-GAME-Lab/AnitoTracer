@@ -1,9 +1,12 @@
 #include "GUIManager.hpp"
+#include "Panels/InspectorPanel/Components/ScriptComponentUI.hpp"
 
+#include "../AppState.hpp"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/SwapChain.h"
 #include "Platforms/interface/NativeWindow.h"
+#include "../Objects/HierarchyManager.hpp"
 
 #if PLATFORM_WIN32
 #include <windows.h>
@@ -14,7 +17,10 @@
 #include "Imgui/interface/ImGuiImplDiligent.hpp"
 #include "../Objects/Components/EditorCamera.hpp"
 #include "../Objects/Components/GameCamera.hpp"
+#include <imgui.h>
+#include <glm/glm.hpp>
 #include <utility>
+#include <algorithm>
 
 #include "Theme.hpp"
 
@@ -69,6 +75,14 @@ void Diligent::GUIManager::NewFrame(Uint32 width, Uint32 height, SURFACE_TRANSFO
 
     // Prevent starting a frame with invalid dimensions
     if (width == 0 || height == 0) return;
+
+    if (!m_PendingLayout.empty())
+    {
+        const auto path = GetLayoutsDirectory() / (m_PendingLayout + ".ini");
+        m_PendingLayout.clear();
+        if (std::filesystem::exists(path))
+            ImGui::LoadIniSettingsFromDisk(path.string().c_str());
+    }
 
     m_pImGuiRenderer->NewFrame(width, height, transform);
     ImGuizmo::BeginFrame();
@@ -132,6 +146,12 @@ void Diligent::GUIManager::InitializeDefaultPanels()
         m_pFileExplorerPanel->RegisterOpener(std::move(opener));
     m_FileOpeners.clear();
     Diligent::GUIManager::GetInstance().AddPanel(std::move(fileExplorerPanel));
+
+    auto scriptEditorPanel = std::make_unique<Diligent::ScriptEditorPanel>("Script Editor");
+    m_pScriptEditorPanel = scriptEditorPanel.get();
+    m_pFileExplorerPanel->RegisterOpener(FileOpeners::CreateScriptFileOpener(
+        [panel = m_pScriptEditorPanel](const std::filesystem::path& path) { panel->OpenFile(path); }));
+    Diligent::GUIManager::GetInstance().AddPanel(std::move(scriptEditorPanel));
 }
 
 void Diligent::GUIManager::InitializeComponentDrawers()
@@ -144,6 +164,9 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
     InspectorRegistry::GetInstance().RegisterUI<Collider, ColliderUI>();
+    InspectorRegistry::GetInstance().RegisterUI<AudioSourceComponent, AudioSourceUI>();
+    InspectorRegistry::GetInstance().RegisterUI<ScriptComponent, ScriptComponentUI>();
+    InspectorRegistry::GetInstance().RegisterUI<ParticleSystemComponent, ParticleSystemUI>();
 }
 
 void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)
@@ -156,19 +179,65 @@ void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)
     }
 }
 
+void Diligent::GUIManager::ToggleSelectedObject(HierarchyObject::Ref obj)
+{
+    if (m_pHierarchyPanel)
+    {
+        m_pHierarchyPanel->ToggleSelectedObject(obj);
+    }
+}
+
 void Diligent::GUIManager::DrawGizmos(CameraComponent* pActiveCamera, float x, float y, float width, float height) {
     
     auto selectedObj = GetSelectedObject();
-    if (selectedObj != nullptr) {
-        m_GizmoDrawer.Draw(pActiveCamera, selectedObj, x, y, width, height);
+    if (selectedObj == nullptr) {
+        return;
+    }
+
+    const auto roots = GetSelectedRoots();
+    if (roots.size() > 1) {
+        m_GizmoDrawer.DrawGroup(pActiveCamera, roots, selectedObj, x, y, width, height);
+    }
+    else {
+        m_GizmoDrawer.Draw(pActiveCamera, roots.empty() ? selectedObj : roots.front(), x, y, width, height);
     }
 
 }
 
 void Diligent::GUIManager::RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter)
 {
-    AddPanel(std::make_unique<GamePanel>("Game Camera", std::move(gameSrvGetter)));
-    AddPanel(std::make_unique<EditorPanel>("Editor Camera", std::move(editorSrvGetter)));
+    auto gamePanel = std::make_unique<GamePanel>("Game Camera", std::move(gameSrvGetter));
+    auto editorPanel = std::make_unique<EditorPanel>("Editor Camera", std::move(editorSrvGetter));
+    m_pGamePanel = gamePanel.get();
+    m_pEditorPanel = editorPanel.get();
+    AddPanel(std::move(gamePanel));
+    AddPanel(std::move(editorPanel));
+}
+
+std::vector<std::string> Diligent::GUIManager::GetAvailableLayouts() const
+{
+    std::vector<std::string> layouts;
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(GetLayoutsDirectory(), ec))
+    {
+        if (entry.is_regular_file() && entry.path().extension() == ".ini")
+            layouts.push_back(entry.path().stem().string());
+    }
+    std::sort(layouts.begin(), layouts.end());
+    return layouts;
+}
+
+bool Diligent::GUIManager::SaveCurrentLayout(const std::string& name)
+{
+    // Reject anything that isn't a plain file name
+    if (name.empty() || name.find_first_of("\\/:*?\"<>|") != std::string::npos || name == "." || name == "..")
+        return false;
+
+    std::error_code ec;
+    std::filesystem::create_directories(GetLayoutsDirectory(), ec);
+    const auto path = GetLayoutsDirectory() / (name + ".ini");
+    ImGui::SaveIniSettingsToDisk(path.string().c_str());
+    return std::filesystem::exists(path);
 }
 
 Diligent::GUIManager::~GUIManager() = default;
@@ -178,4 +247,70 @@ void Diligent::GUIManager::RegisterFileOpener(FileExplorerPanel::Opener opener)
         m_pFileExplorerPanel->RegisterOpener(std::move(opener));
     else if (opener)
         m_FileOpeners.push_back(std::move(opener));
+}
+
+namespace {
+
+ImU32 ScriptColor(const glm::vec3& rgb, float alpha)
+{
+    const auto channel = [](float value) {
+        return static_cast<int>(std::clamp(value, 0.0f, 1.0f) * 255.0f);
+    };
+    return IM_COL32(channel(rgb.r), channel(rgb.g), channel(rgb.b), channel(alpha));
+}
+
+}
+
+void Diligent::GUIManager::GetScriptViewport(ImVec2& pos, ImVec2& size) const
+{
+    pos = ImVec2(0.0f, 0.0f);
+    size = ImGui::GetIO().DisplaySize;
+    if (!AppState::isReleaseBuild) {
+        pos = GetGameViewportPos();
+        size = GetGameViewportSize();
+    }
+}
+
+glm::vec3 Diligent::GUIManager::ScriptWorldToScreen(const glm::vec3& world) const
+{
+    constexpr float HiddenDepth = -1.0f;
+    glm::vec3 result{0.0f, 0.0f, HiddenDepth};
+    glm::mat4 view(1.0f), projection(1.0f);
+    HierarchyManager& hierarchy = HierarchyManager::GetInstance();
+    if (!hierarchy.GetMainCamera() || !hierarchy.GetMainCameraMatrices(view, projection)) return result;
+
+    ImVec2 pos, size;
+    GetScriptViewport(pos, size);
+    if (size.x <= 1.0f || size.y <= 1.0f) return result;
+
+    const glm::vec4 clip = projection * view * glm::vec4(world, 1.0f);
+    if (clip.w <= 0.0001f) return result;
+    const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+    const bool visible = ndc.z >= 0.0f && ndc.z <= 1.0f;
+    result = {pos.x + (ndc.x * 0.5f + 0.5f) * size.x,
+              pos.y + (1.0f - (ndc.y * 0.5f + 0.5f)) * size.y,
+              visible ? ndc.z : HiddenDepth};
+    return result;
+}
+
+void Diligent::GUIManager::ScriptFillRect(const glm::vec3& min, const glm::vec3& max, const glm::vec3& rgb,
+                                          float alpha) const
+{
+    ImVec2 pos, size;
+    GetScriptViewport(pos, size);
+    ImDrawList* list = ImGui::GetForegroundDrawList();
+    list->PushClipRect(pos, ImVec2(pos.x + size.x, pos.y + size.y), true);
+    list->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, max.y), ScriptColor(rgb, alpha));
+    list->PopClipRect();
+}
+
+void Diligent::GUIManager::ScriptDrawRect(const glm::vec3& min, const glm::vec3& max, const glm::vec3& rgb,
+                                          float alpha, float thickness) const
+{
+    ImVec2 pos, size;
+    GetScriptViewport(pos, size);
+    ImDrawList* list = ImGui::GetForegroundDrawList();
+    list->PushClipRect(pos, ImVec2(pos.x + size.x, pos.y + size.y), true);
+    list->AddRect(ImVec2(min.x, min.y), ImVec2(max.x, max.y), ScriptColor(rgb, alpha), 0.0f, 0, thickness);
+    list->PopClipRect();
 }

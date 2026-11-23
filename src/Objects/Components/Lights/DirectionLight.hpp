@@ -6,8 +6,7 @@
 class DirectionalLight : public LightBase {
 public:
     DirectionalLight(gbe::IInstanceManager<HierarchyObject>::Ref owner = nullptr)
-        : LightBase("DirectionalLight", owner),
-        m_localDirection(0.0f, -1.0f, 0.0f) {}
+        : LightBase("DirectionalLight", owner) {}
 
     ~DirectionalLight() override = default;
 
@@ -27,7 +26,9 @@ public:
     }
 
 private:
-    glm::vec3 m_localDirection;
+    // Not serialized. Initialised here, not in a constructor, so the generated
+    // serializer constructor (scene load, paste, Add Component) gets it too.
+    glm::vec3 m_localDirection{ 0.0f, -1.0f, 0.0f };
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(DirectionalLight, LightBase);
 };

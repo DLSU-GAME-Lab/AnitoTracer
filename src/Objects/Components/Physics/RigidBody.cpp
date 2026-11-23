@@ -37,6 +37,16 @@ void RigidBody::OnFixedUpdate(float deltaTime) {
 	Transform* transform = owner->GetTransform();
 	if (!transform) return;
 
+	// The body may have been created during deserialization, before the Transform was loaded.
+	if (!mPlacedFromTransform) {
+		mPlacedFromTransform = true;
+		RebuildShapes();
+		mBody->SetPositionAndRotation(transform->GetPosition(), transform->GetRotation());
+		mBody->SetVelocity(glm::vec3(0.0f));
+		mBody->SetAngularVelocity(glm::vec3(0.0f));
+		return;
+	}
+
 	transform->SetWorldPosition(mBody->GetPosition());
 	transform->SetWorldRotation(mBody->GetRotation());
 }
@@ -44,6 +54,12 @@ void RigidBody::OnFixedUpdate(float deltaTime) {
 void RigidBody::ApplyForce(const glm::vec3& force) {
 	if (mBody) {
 		mBody->ApplyForce(force);
+	}
+}
+
+void RigidBody::ApplyTorque(const glm::vec3& torque) {
+	if (mBody) {
+		mBody->ApplyTorque(torque);
 	}
 }
 
@@ -73,6 +89,35 @@ glm::vec3 RigidBody::GetAngularVelocity() const {
 	return mBody ? mBody->GetAngularVelocity() : glm::vec3(0.0f);
 }
 
+glm::vec3 RigidBody::GetWorldGravity() const {
+	return PhysicsEngine::GetInstance().Get().GetGravity();
+}
+
+void RigidBody::SetWorldGravity(const glm::vec3& gravity) {
+	PhysicsEngine::GetInstance().Get().SetGravity(gravity);
+}
+
+bool RigidBody::IsSimulated() const {
+	return mBody != nullptr;
+}
+
+glm::quat RigidBody::GetBodyRotation() const {
+	return mBody ? mBody->GetRotation() : glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+}
+
+PhysicsRaycastHit RigidBody::Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const {
+	if (!mBody) return {};
+
+	std::shared_ptr<IPhysicsBody> hitBody;
+	glm::vec3 hitPoint{ 0.0f };
+	if (!PhysicsEngine::GetInstance().Get().Raycast(origin, direction, maxDistance, hitBody, hitPoint, mBody.get())) {
+		return {};
+	}
+
+	HierarchyObject* hitOwner = PhysicsBase::FindOwnerByBody(hitBody.get());
+	return { true, hitPoint, hitOwner ? hitOwner->getId() : 0 };
+}
+
 void RigidBody::SetMass(float mass) {
 	mMass = mass;
 	if (mBody) {
@@ -82,6 +127,13 @@ void RigidBody::SetMass(float mass) {
 
 float RigidBody::GetMass() const {
 	return mMass;
+}
+
+void RigidBody::SetLockRotation(bool lockX, bool lockY, bool lockZ) {
+	mLockRotationX = lockX;
+	mLockRotationY = lockY;
+	mLockRotationZ = lockZ;
+	ApplyRotationLocks();
 }
 
 void RigidBody::Rebuild(

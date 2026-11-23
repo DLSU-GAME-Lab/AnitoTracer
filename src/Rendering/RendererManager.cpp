@@ -1,8 +1,9 @@
 #include "RendererManager.hpp"
-#include "RendererManager.hpp"
-#include "RendererManager.hpp"
+#include "Pipelines/Utils/ScenePipelineRegistry.hpp"
+#include "SceneConstants.hpp"
+#include "../Asset/ProjectLoader.hpp"
+#include "../AppState.hpp"
 #include <iostream>
-#include <type_traits>
 
 void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, bool supportsRayTracing)
 {
@@ -10,37 +11,14 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
     m_pImmediateContext = pContext;
     m_pSwapChain = pSwapChain;
     m_SupportsRayTracing = supportsRayTracing;
-
-    auto& userSettings = Diligent::UserSettings::GetInstance();
+    m_MSAAEnabled = Diligent::UserSettings::GetInstance().GetEnableMSAA();
 
     // Initialize pipeline based on the saved user setting
-    if (userSettings.GetRendererType() == Diligent::PipelineType::HYBRID && supportsRayTracing)
-    {
-        m_bLitPipeline.emplace<Diligent::HybridPipeline>();
-        std::cout << "[Info] Hardware Ray Tracing detected. Using HybridPipeline." << std::endl;
-    }
-    else if (userSettings.GetRendererType() == Diligent::PipelineType::DEFERRED)
-    {
-        m_bLitPipeline.emplace<Diligent::DeferredPipeline>();
-        std::cout << "[Info] Using DeferredPipeline." << std::endl;
-    }
-    else
-    {
-        m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
-        userSettings.GetRendererType() = Diligent::PipelineType::BASIC_LIT; // Force valid fallback
+    SelectScenePipeline(Diligent::UserSettings::GetInstance().GetRendererType());
 
-        if (userSettings.GetRendererType() == Diligent::PipelineType::HYBRID && !supportsRayTracing)
-        {
-            std::cout << "[Warn] Hardware Ray Tracing not available. Falling back to BasicLitPipeline." << std::endl;
-        }
-        else
-        {
-            std::cout << "[Info] Using BasicLitPipeline." << std::endl;
-        }
+    if (!AppState::isReleaseBuild) {
+        m_pEditorPipeline = Diligent::ScenePipelineRegistry::Find(Diligent::PipelineType::DEFERRED)->Create();
     }
-
-    m_LastMSAAState = userSettings.GetEnableMSAA();
-    CreateMSAABuffers();
 
     m_OnRendererChangeSub = gbe::ScopedSubscription::Create<RendererChangeArgs>(
         EVENT_RENDER_CHANGE,
@@ -49,106 +27,105 @@ void RendererManager::Initialize(Diligent::IRenderDevice* pDevice, Diligent::IDe
     );
 }
 
-void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
+bool RendererManager::IsReflectionShadingSupported() const
 {
-    auto& userSettings = Diligent::UserSettings::GetInstance();
-    bool isMSAAEnabled = userSettings.GetEnableMSAA();
+    return m_SupportsRayTracing && ModelManager::GetInstance().GetSceneGeometryPool().IsEnabled();
+}
 
-    if (args->targetPipeline == Diligent::PipelineType::DEFERRED)
-    {
-        if (isMSAAEnabled)
-        {
-            std::cout << "[Warn] Deferred rendering does not support MSAA with current setup. Reverting to Hybrid/Basic Lit." << std::endl;
-            if (m_SupportsRayTracing)
-            {
-                m_bLitPipeline.emplace<Diligent::HybridPipeline>();
-                userSettings.GetRendererType() = Diligent::PipelineType::HYBRID;
-            }
-            else
-            {
-                m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
-                userSettings.GetRendererType() = Diligent::PipelineType::BASIC_LIT;
-            }
-        }
-        else
-        {
-            m_bLitPipeline.emplace<Diligent::DeferredPipeline>();
-            userSettings.GetRendererType() = Diligent::PipelineType::DEFERRED;
-            std::cout << "[RendererManager] Swapped to Deferred Pipeline." << std::endl;
-        }
-    }
-    else if (args->targetPipeline == Diligent::PipelineType::HYBRID && m_SupportsRayTracing)
-    {
-        m_bLitPipeline.emplace<Diligent::HybridPipeline>();
-        userSettings.GetRendererType() = Diligent::PipelineType::HYBRID;
-        std::cout << "[RendererManager] Swapped to Hybrid Pipeline." << std::endl;
-    }
-    else
-    {
-        m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
-        userSettings.GetRendererType() = Diligent::PipelineType::BASIC_LIT;
-        std::cout << "[RendererManager] Swapped to Basic Lit Pipeline." << std::endl;
-    }
+void RendererManager::HandleRendererChangeEvent(const RendererChangeArgs* args)
 
+{
+    SelectScenePipeline(args->targetPipeline);
     InitializePipelines();
+}
+
+void RendererManager::SelectScenePipeline(Diligent::PipelineType requested)
+{
+    const Diligent::ScenePipelineInfo& selected = Diligent::ScenePipelineRegistry::Resolve(requested, m_SupportsRayTracing, m_MSAAEnabled);
+
+    if (selected.Type != requested) {
+        const Diligent::ScenePipelineInfo* pRequested = Diligent::ScenePipelineRegistry::Find(requested);
+        const char* reason = (pRequested && pRequested->RequiresRayTracing && !m_SupportsRayTracing)
+            ? "hardware ray tracing is not available"
+            : "it does not support MSAA";
+        std::cout << "[Warn] " << (pRequested ? pRequested->DisplayName : "Unknown pipeline") << " can't be used because "
+            << reason << ". Falling back to " << selected.DisplayName << "." << std::endl;
+    }
+
+    Diligent::UserSettings::GetInstance().GetRendererType() = selected.Type;
+    if (m_pScenePipeline && m_ScenePipelineType == selected.Type) return;
+
+    m_pScenePipeline = selected.Create();
+    m_ScenePipelineType = selected.Type;
+    std::cout << "[RendererManager] Using " << selected.DisplayName << "." << std::endl;
 }
 
 void RendererManager::InitializePipelines()
 {
-    std::visit([&](auto& pipeline) {
-        pipeline.InitializePipeline(m_pDevice, m_pSwapChain);
-        }, m_bLitPipeline);
+    const auto& SCDesc = m_pSwapChain->GetDesc();
+
+    // Every scene pass draws in the HDR scene format. Only the display pass at the end of each post stack writes the
+    // 8-bit targets of the views, which are created with the swap chain's format (the back buffer in release builds).
+    const Diligent::TEXTURE_FORMAT sceneFormat = Diligent::PipelineUtils::SceneColorFormat();
+    const Diligent::TEXTURE_FORMAT displayFormat = SCDesc.ColorBufferFormat;
+
+    m_pScenePipeline->InitializePipeline(m_pDevice, m_pSwapChain);
+    if (m_pEditorPipeline) m_pEditorPipeline->InitializePipeline(m_pDevice, m_pSwapChain);
+    m_DebugLinePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
+    m_ParticlePipeline.InitializePipeline(m_pDevice, m_pSwapChain);
+    m_SkyboxPipeline.Initialize(m_pDevice, sceneFormat, SCDesc.DepthBufferFormat);
+    m_PostProcess.Initialize(m_pDevice, sceneFormat, displayFormat);
+    if (m_pEditorPipeline) m_EditorPostProcess.Initialize(m_pDevice, sceneFormat, displayFormat);
+    m_GameTAA.Initialize(m_pDevice, sceneFormat);
+    m_EditorTAA.Initialize(m_pDevice, sceneFormat);
+
+    // The pipelines above were (re)created, so they need the sky again even when it did not change
+    m_Sky.Initialize(m_pDevice);
+    SyncSky();
+    BindSky();
 }
 
-void RendererManager::CreateMSAABuffers()
+void RendererManager::SyncSky()
 {
-    if (!m_pSwapChain) return;
+    // Only the ray-traced renderers light the scene with the sky, so its lighting cubes are skipped where those can't run
+    const ProjectSettings& settings = ProjectLoader::GetProjectSettings();
+    if (m_Sky.Update(m_pImmediateContext, settings.sky, ProjectLoader::GetCurrentProjectDir(), m_SupportsRayTracing)) {
+        BindSky();
+    }
+}
 
-    const auto& SCDesc = m_pSwapChain->GetDesc();
-    Diligent::Uint8 sampleCount = Diligent::UserSettings::GetInstance().GetEnableMSAA() ? 4 : 1;
+void RendererManager::BindSky()
+{
+    m_SkyboxPipeline.SetCubemap(m_Sky.GetSkySRV());
+    if (m_pScenePipeline) m_pScenePipeline->SetSkyLighting(m_Sky.GetIrradianceSRV(), m_Sky.GetSpecularSRV());
+    if (m_pEditorPipeline) m_pEditorPipeline->SetSkyLighting(m_Sky.GetIrradianceSRV(), m_Sky.GetSpecularSRV());
+}
 
-    Diligent::TextureDesc ColorDesc;
-    ColorDesc.Name = "MSAA Color Target";
-    ColorDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
-    ColorDesc.Width = SCDesc.Width;
-    ColorDesc.Height = SCDesc.Height;
-    ColorDesc.BindFlags = Diligent::BIND_RENDER_TARGET;
-    ColorDesc.Format = SCDesc.ColorBufferFormat;
-    ColorDesc.SampleCount = sampleCount;
+void RendererManager::SyncMSAAState()
+{
+    const bool msaaEnabled = Diligent::UserSettings::GetInstance().GetEnableMSAA();
+    if (msaaEnabled == m_MSAAEnabled) return;
 
-    m_pMSAATarget.Release();
-    m_pDevice->CreateTexture(ColorDesc, nullptr, &m_pMSAATarget);
-    m_pMSAARTV = m_pMSAATarget->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+    m_MSAAEnabled = msaaEnabled;
+    if (!msaaEnabled) m_MSAATarget.Release();
 
-    Diligent::TextureDesc DepthDesc = ColorDesc;
-    DepthDesc.Name = "MSAA Depth Buffer";
-    DepthDesc.BindFlags = Diligent::BIND_DEPTH_STENCIL;
-    DepthDesc.Format = SCDesc.DepthBufferFormat;
-
-    m_pMSAADepth.Release();
-    m_pDevice->CreateTexture(DepthDesc, nullptr, &m_pMSAADepth);
-    m_pMSAADSV = m_pMSAADepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
+    SelectScenePipeline(Diligent::UserSettings::GetInstance().GetRendererType());
+    InitializePipelines();
 }
 
 void RendererManager::OnResize(Diligent::Uint32 width, Diligent::Uint32 height)
 {
-    if (m_pSwapChain)
-    {
-        // Let the swap chain handle the raw dimensions
-        m_pSwapChain->Resize(width, height);
+    if (!m_pSwapChain) return;
 
-        // Fetch the actual resolved dimensions
-        const auto& SCDesc = m_pSwapChain->GetDesc();
+    // Let the swap chain handle the raw dimensions, then use the actual resolved ones
+    m_pSwapChain->Resize(width, height);
+    const auto& SCDesc = m_pSwapChain->GetDesc();
 
-        // Prevent creating 0-sized G-Buffers when minimized or transitioning
-        if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
+    // Prevent creating 0-sized G-Buffers when minimized or transitioning
+    if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
 
-        if (auto* pDeferred = std::get_if<Diligent::DeferredPipeline>(&m_bLitPipeline))
-        {
-            // Use the safe SwapChain descriptor dimensions
-            pDeferred->OnWindowResize(m_pDevice, SCDesc.Width, SCDesc.Height);
-        }
-    }
+    if (m_pScenePipeline) m_pScenePipeline->OnResize(SCDesc.Width, SCDesc.Height);
+    if (m_pEditorPipeline) m_pEditorPipeline->OnResize(SCDesc.Width, SCDesc.Height);
 }
 
 void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
@@ -156,77 +133,164 @@ void RendererManager::RenderFrame(const Diligent::RenderData& renderData)
     const auto& SCDesc = m_pSwapChain->GetDesc();
     if (SCDesc.Width == 0 || SCDesc.Height == 0) return;
 
-    bool isMSAAEnabled = UserSettings::GetInstance().GetEnableMSAA();
+    SyncMSAAState();
+    SyncSky();
 
-    if (m_pMSAATarget->GetDesc().Width != SCDesc.Width ||
-        m_pMSAATarget->GetDesc().Height != SCDesc.Height ||
-        m_LastMSAAState != isMSAAEnabled)
-    {
-        CreateMSAABuffers();
+    // The release build is the game itself, so post processing always applies here
+    const Diligent::FrameTarget backBuffer{ m_pSwapChain->GetCurrentBackBufferRTV(), m_pSwapChain->GetDepthBufferDSV(), SCDesc.Width, SCDesc.Height };
+    RenderView(backBuffer, renderData, GameViewPasses());
 
-        if (m_LastMSAAState != isMSAAEnabled)
-        {
-            //TODO Fix this for deffered later
-            // If deferred is active and MSAA was just turned ON, force a switch to a compatible pipeline
-            if (isMSAAEnabled && std::holds_alternative<Diligent::DeferredPipeline>(m_bLitPipeline))
-            {
-                if (m_SupportsRayTracing)
-                    m_bLitPipeline.emplace<Diligent::HybridPipeline>();
-                else
-                    m_bLitPipeline.emplace<Diligent::BasicLitPipeline>();
-            }
+    // Leave the back buffer bound for the UI
+    backBuffer.Bind(m_pImmediateContext);
+}
 
-            InitializePipelines();
-            m_LastMSAAState = isMSAAEnabled;
+void RendererManager::RenderGameView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
+{
+    RenderToTarget(pTarget, renderData, GameViewPasses());
+}
+
+void RendererManager::RenderEditorView(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
+{
+    if (!m_pEditorPipeline) return;
+    RenderToTarget(pTarget, renderData, EditorViewPasses());
+}
+
+RendererManager::ViewPasses RendererManager::GameViewPasses()
+{
+    const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
+
+    Diligent::PostProcessView view;
+    view.Effects = true;
+    // Stylized renderers output their final colors, so only renderers that output scene light are tone mapped
+    view.ToneMap = !m_pScenePipeline->OutputsDisplayColor();
+    return { *m_pScenePipeline, m_PostProcess, view, SelectTAA(m_GameTAA, taa.Enabled) };
+}
+
+RendererManager::ViewPasses RendererManager::EditorViewPasses()
+{
+    const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
+
+    // No effects or grading, so the editor shows the scene as lit and stays cheap: one extra full-screen pass
+    Diligent::PostProcessView view;
+    view.Effects = false;
+    view.ToneMap = ProjectLoader::GetProjectSettings().hdr.apply_to_editor_view && !m_pEditorPipeline->OutputsDisplayColor();
+    return { *m_pEditorPipeline, m_EditorPostProcess, view, SelectTAA(m_EditorTAA, taa.Enabled && taa.ApplyToEditorView) };
+}
+
+void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData, const ViewPasses& passes)
+{
+    if (!pTarget || !pTarget->IsValid()) return;
+
+    SyncMSAAState();
+    SyncSky();
+    RenderView(pTarget->AsFrameTarget(), renderData, passes);
+}
+
+Diligent::TemporalAAPass* RendererManager::SelectTAA(Diligent::TemporalAAPass& pass, bool enabled)
+{
+    if (enabled) return &pass;
+    pass.ResetHistory();
+    return nullptr;
+}
+
+Diligent::ITextureView* RendererManager::GetSceneDepthSRV(const Diligent::ScenePipeline& scenePipeline, const Diligent::FrameTarget& scene)
+{
+    if (Diligent::ITextureView* pSRV = scenePipeline.GetDepthSRV()) return pSRV;
+    if (!scene.pDSV) return nullptr;
+
+    // The swap chain's and multisampled depth buffers can't be sampled
+    Diligent::ITexture* pDepth = scene.pDSV->GetTexture();
+    const Diligent::TextureDesc& desc = pDepth->GetDesc();
+    if (desc.SampleCount > 1 || (desc.BindFlags & Diligent::BIND_SHADER_RESOURCE) == 0) return nullptr;
+    return pDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+}
+
+void RendererManager::RenderView(const Diligent::FrameTarget& output, const Diligent::RenderData& renderData, const ViewPasses& passes)
+{
+    const ProjectSettings& settings = ProjectLoader::GetProjectSettings();
+    Diligent::ScenePipeline& scenePipeline = passes.Scene;
+    Diligent::TemporalAAPass* pTAA = passes.pTAA;
+
+    // Each active post effect renders into its own HDR intermediate texture: scene -> god rays -> display pass -> output.
+    // The display pass always runs, so the scene never draws into the 8-bit output directly.
+    Diligent::ITextureView* pSceneRTV = passes.PostProcess.Begin(settings, renderData, passes.View, output.pRTV, output.Width, output.Height);
+
+    // TAA resolves into where the scene would have gone, so the scene passes draw into its input with a jittered camera instead.
+    // Post effects still get the unjittered renderData, since they run on the resolved image.
+    Diligent::ITextureView* pTAAOutputRTV = pSceneRTV;
+    Diligent::RenderData jitteredData;
+    const Diligent::RenderData* pSceneData = &renderData;
+    if (pTAA) {
+        const Diligent::TAASettings& taa = Diligent::UserSettings::GetInstance().GetTAASettings();
+        if (Diligent::ITextureView* pTAAInputRTV = pTAA->Begin(taa, renderData.ViewMatrix, renderData.ProjectionMatrix, output.Width, output.Height)) {
+            pSceneRTV = pTAAInputRTV;
+            jitteredData = renderData;
+            jitteredData.ProjectionMatrix = pTAA->GetJitteredProjection();
+            jitteredData.ProjectionJitter = pTAA->GetJitter();
+            // TAA averages frames, so ray-traced shadows, AO and fog can change their sample pattern every frame
+            // (0 means "keep still", so skip it if the counter ever wraps)
+            jitteredData.NoiseFrame = pTAA->GetFrameIndex() != 0 ? pTAA->GetFrameIndex() : 1;
+            pSceneData = &jitteredData;
         }
+        else {
+            pTAA = nullptr;
+        }
+    }
+
+    // With MSAA the scene passes draw into the multisampled target (matching the PSOs' sample count), resolved into pSceneRTV after
+    Diligent::FrameTarget scene{ pSceneRTV, output.pDSV, output.Width, output.Height };
+    if (m_MSAAEnabled) {
+        const auto& SCDesc = m_pSwapChain->GetDesc();
+        m_MSAATarget.Create(m_pDevice, output.Width, output.Height, Diligent::PipelineUtils::SceneColorFormat(), SCDesc.DepthBufferFormat, Diligent::PipelineUtils::GetMSAASampleCount());
+        scene = m_MSAATarget.AsFrameTarget();
     }
 
     const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
-    Diligent::ITextureView* pActiveRTV = isMSAAEnabled ? m_pMSAARTV : m_pSwapChain->GetCurrentBackBufferRTV();
-    Diligent::ITextureView* pActiveDSV = isMSAAEnabled ? m_pMSAADSV : m_pSwapChain->GetDepthBufferDSV();
+    scene.Bind(m_pImmediateContext);
+    scene.Clear(m_pImmediateContext, clearColor);
 
-    m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    m_pImmediateContext->ClearRenderTarget(pActiveRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    m_pImmediateContext->ClearDepthStencil(pActiveDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    const Diligent::FogConstants fogConstants = Diligent::BuildFogConstants(settings.fog, pSceneData->NoiseFrame);
+    m_SkyboxPipeline.UpdateFogConstants(m_pImmediateContext, fogConstants);
+    m_SkyboxPipeline.Render(m_pImmediateContext, *pSceneData, Diligent::BuildSkyboxConstants(settings.sky));
 
-    std::visit([&](auto& pipeline) {
-        pipeline.StartFrameRender(m_pImmediateContext, renderData);
-        pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
-        pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
-        pipeline.RenderModels(m_pImmediateContext, renderData, true);
+    // Must use pSceneData: with TAA on it carries the jittered projection, which the skybox and overlays draw with too
+    scenePipeline.Render(m_pImmediateContext, *pSceneData, scene, settings, fogConstants);
 
-        using T = std::decay_t<decltype(pipeline)>;
-        if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>)
-        {
-            pipeline.RenderLightingPass(m_pImmediateContext, nullptr);
-        }
-        }, m_bLitPipeline);
+    RenderOverlays(scene, *pSceneData);
 
-    auto* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
-    auto* pDefaultDSV = m_pSwapChain->GetDepthBufferDSV();
+    if (m_MSAAEnabled) ResolveMSAA(pSceneRTV->GetTexture());
 
-    if (isMSAAEnabled)
-    {
-        Diligent::ResolveTextureSubresourceAttribs ResolveAttribs;
-        ResolveAttribs.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-        ResolveAttribs.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    if (pTAA) pTAA->Resolve(m_pImmediateContext, GetSceneDepthSRV(scenePipeline, scene), scenePipeline.GetVelocitySRV(), pTAAOutputRTV);
 
-        m_pImmediateContext->ResolveTextureSubresource(
-            m_pMSAATarget,
-            pBackBufferRTV->GetTexture(),
-            ResolveAttribs
-        );
+    passes.PostProcess.Apply(m_pImmediateContext);
+}
+
+void RendererManager::RenderOverlays(const Diligent::FrameTarget& target, const Diligent::RenderData& renderData)
+{
+    if (!renderData.Particles.empty()) {
+        target.Bind(m_pImmediateContext);
+        m_ParticlePipeline.RenderParticles(m_pImmediateContext, renderData);
     }
 
-    m_pImmediateContext->SetRenderTargets(1, &pBackBufferRTV, pDefaultDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!renderData.DebugLines.empty()) {
+        target.Bind(m_pImmediateContext);
+        m_DebugLinePipeline.StartFrameRender(m_pImmediateContext, renderData);
+        m_DebugLinePipeline.RenderLines(m_pImmediateContext, renderData.DebugLines);
+    }
+}
+
+void RendererManager::ResolveMSAA(Diligent::ITexture* pDestination)
+{
+    Diligent::ResolveTextureSubresourceAttribs ResolveAttribs;
+    ResolveAttribs.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    ResolveAttribs.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+
+    m_pImmediateContext->ResolveTextureSubresource(m_MSAATarget.GetColorTexture(), pDestination, ResolveAttribs);
 }
 
 void RendererManager::Shutdown()
 {
-    m_pMSAARTV.Release();
-    m_pMSAADSV.Release();
-    m_pMSAATarget.Release();
-    m_pMSAADepth.Release();
+    m_MSAATarget.Release();
     m_pSwapChain.Release();
     m_pImmediateContext.Release();
     m_pDevice.Release();
@@ -238,56 +302,4 @@ Diligent::RenderTarget* RendererManager::CreateRenderTarget(const std::string& n
     Diligent::RenderTarget* ptr = rt.get();
     m_RenderTargets.push_back(std::move(rt));
     return ptr;
-}
-
-void RendererManager::RenderToTarget(Diligent::RenderTarget* pTarget, const Diligent::RenderData& renderData)
-{
-    if (!pTarget || !pTarget->GetRTV() || !pTarget->GetDSV()) return;
-
-    bool isMSAAEnabled = UserSettings::GetInstance().GetEnableMSAA();
-
-    // 1. Route to MSAA buffers if enabled, to match the Pipeline's expected SampleCount
-    Diligent::ITextureView* pActiveRTV = isMSAAEnabled ? m_pMSAARTV : pTarget->GetRTV();
-    Diligent::ITextureView* pActiveDSV = isMSAAEnabled ? m_pMSAADSV : pTarget->GetDSV();
-
-    const float clearColor[] = { 0.1f, 0.15f, 0.25f, 1.0f };
-    m_pImmediateContext->SetRenderTargets(1, &pActiveRTV, pActiveDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    m_pImmediateContext->ClearRenderTarget(pActiveRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    m_pImmediateContext->ClearDepthStencil(pActiveDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    // 2. EXPLICITLY set the Viewport! Without this, Vulkan won't know where to draw.
-    Diligent::Viewport Viewport;
-    Viewport.Width = static_cast<float>(pTarget->GetWidth());
-    Viewport.Height = static_cast<float>(pTarget->GetHeight());
-    Viewport.TopLeftX = 0;
-    Viewport.TopLeftY = 0;
-    Viewport.MinDepth = 0.0f;
-    Viewport.MaxDepth = 1.0f;
-    m_pImmediateContext->SetViewports(1, &Viewport, pTarget->GetWidth(), pTarget->GetHeight());
-
-    std::visit([&](auto& pipeline) {
-        pipeline.StartFrameRender(m_pImmediateContext, renderData);
-        pipeline.UpdateLights(m_pImmediateContext, renderData.Lights);
-        pipeline.UpdateShadowSettings(m_pImmediateContext, UserSettings::GetInstance().GetShadowSettings());
-        pipeline.RenderModels(m_pImmediateContext, renderData, true);
-
-        using T = std::decay_t<decltype(pipeline)>;
-        if constexpr (std::is_same_v<T, Diligent::DeferredPipeline>) {
-            pipeline.RenderLightingPass(m_pImmediateContext, pActiveRTV);
-        }
-        }, m_bLitPipeline);
-
-    // 3. Resolve the MSAA buffer into the target's actual 1-sample texture for ImGui
-    if (isMSAAEnabled)
-    {
-        Diligent::ResolveTextureSubresourceAttribs ResolveAttribs;
-        ResolveAttribs.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-        ResolveAttribs.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-
-        m_pImmediateContext->ResolveTextureSubresource(
-            m_pMSAATarget,
-            pTarget->GetRTV()->GetTexture(),
-            ResolveAttribs
-        );
-    }
 }

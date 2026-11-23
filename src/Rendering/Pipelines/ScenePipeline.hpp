@@ -1,0 +1,64 @@
+#pragma once
+#include "BasePipeline.hpp"
+#include "../FrameTarget.hpp"
+
+namespace Diligent {
+
+    // Base for the pipelines that light and draw the scene (the renderers in the Rendering menu, see ScenePipelineRegistry).
+    // RendererManager draws the skybox into the target, then calls Render once per view.
+    //
+    // A new pipeline implements InitializePipeline (building m_pPSO / m_pSRB, usually with CreateModelPSOBuilder) and
+    // overrides only the hooks it needs:
+    //   PrepareFrame      - size per-view resources to the target (e.g. a G-buffer)
+    //   StartFrameRender  - per-frame uploads and binding its own targets (e.g. clear and bind a G-buffer)
+    //   RenderModels      - extra geometry passes (e.g. a depth prepass)
+    //   FinishFrame       - passes after geometry that write into the target (e.g. deferred lighting)
+    class ScenePipeline : public BasePipeline {
+    public:
+        // Draws the scene's opaque models into target
+        void Render(IDeviceContext* pContext, const RenderData& renderData, const FrameTarget& target,
+            const ProjectSettings& settings, const FogConstants& fog);
+
+        virtual void UpdateLights(IDeviceContext* pContext, const LightConstants& lights);
+        // Lighting and sky settings shared by the lit shaders. noiseFrame is RenderData::NoiseFrame (see there)
+        virtual void UpdateShadowSettings(IDeviceContext* pContext, const ProjectSettings& settings, uint32_t noiseFrame = 0);
+        virtual void UpdateFogConstants(IDeviceContext* pContext, const FogConstants& fog);
+
+        // Project settings specific to one pipeline (e.g. the cross hatching style)
+        virtual void UpdateProjectSettings(IDeviceContext* pContext, const ProjectSettings& settings) {}
+
+        // The sky's lighting cubemaps from SkyEnvironment, for pipelines that light with the sky:
+        // the irradiance cube (diffuse light) and the prefiltered cube (reflections, one roughness per mip).
+        // nullptr for either means no sky lighting.
+        virtual void SetSkyLighting(ITextureView* pIrradianceSRV, ITextureView* pSpecularSRV) {}
+
+        // The swap chain was resized, for pipelines with swap chain sized resources
+        virtual void OnResize(Uint32 width, Uint32 height) {}
+
+        // Scene depth from the last Render, for pipelines that keep their own depth buffer (e.g. a G-buffer) instead of
+        // drawing into the target's. Read by passes that reproject the scene, like TAA. May be larger than the view.
+        virtual ITextureView* GetDepthSRV() const { return nullptr; }
+
+        // Motion vectors from the last Render, for pipelines that write them: how far each pixel's surface moved across
+        // the screen since the frame before (xy, in UV units; subtract from a pixel's UV to get where it was), with the
+        // camera's and the objects' own motion together. Same size rules as GetDepthSRV. nullptr: reproject with depth.
+        virtual ITextureView* GetVelocitySRV() const { return nullptr; }
+
+        // True for stylized pipelines whose output is already the final on-screen color (e.g. cross hatching's ink and paper)
+        // rather than scene light. The display pass then leaves out the exposure and tone curve, which would grey their whites.
+        virtual bool OutputsDisplayColor() const { return false; }
+
+    protected:
+        virtual void PrepareFrame(const FrameTarget& target) {}
+        virtual void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) {}
+
+        // Camera, model, material, light, shadow and fog buffers; only creates the ones that don't exist yet
+        void CreateCommonConstantBuffers();
+        void BindCommonBuffers(IShaderResourceBinding* pSRB) override;
+
+        RefCntAutoPtr<IBuffer> m_pLightCB;
+        RefCntAutoPtr<IBuffer> m_pShadowCB;
+        RefCntAutoPtr<IBuffer> m_pFogCB;
+    };
+
+}

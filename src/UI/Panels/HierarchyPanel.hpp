@@ -4,6 +4,7 @@
 #include "../../Objects/HierarchyManager.hpp"
 #include "../../Objects/Components/EditorCamera.hpp"
 #include <string>
+#include <vector>
 #include "imgui.h"
 
 namespace Diligent {
@@ -18,11 +19,47 @@ namespace Diligent {
         // Implementation of the abstract Draw method
         void Draw() override;
 
+        // Primary (active) selection; the inspector, focus and copy features use this one.
         HierarchyObject::Ref GetSelectedObject() const { return m_SelectedObject; }
+        // Replaces the whole selection with a single object (or clears it when null).
         void SetSelectedObject(HierarchyObject::Ref obj);
+
+        // All valid selected objects, primary included.
+        std::vector<HierarchyObject::Ref> GetSelectedObjects() const;
+        // Selected objects with no selected ancestor; use for group transforms/deletes/reparenting.
+        std::vector<HierarchyObject::Ref> GetSelectedRoots() const;
+        bool IsSelected(HierarchyObject::Ref obj) const;
+        // Ctrl+click behaviour: adds/removes obj without touching the rest of the selection.
+        void ToggleSelectedObject(HierarchyObject::Ref obj);
 
     private:
         HierarchyObject::Ref m_SelectedObject = nullptr;
+        std::vector<HierarchyObject::Ref> m_Selection;
+        HierarchyObject::Ref m_SelectionAnchor = nullptr;
+
+        // Nodes submitted this frame, in on-screen order, for shift range selection.
+        std::vector<HierarchyObject::Ref> m_VisibleOrder;
+        HierarchyObject::Ref m_PendingRangeTarget = nullptr;
+        bool m_PendingRangeAdditive = false;
+
+        HierarchyObject::Ref m_RenameTarget = nullptr;
+        bool m_RenameFocusPending = false;
+        char m_RenameBuffer[256] = {};
+
+        void ResolvePendingRangeSelection();
+        // Pastes the clipboard under parent and selects everything pasted.
+        void PasteAndSelect(HierarchyObject::Ref parent);
+        void CreateEmptyObject(HierarchyObject::Ref parent);
+        HierarchyObject::Ref m_PendingCreateParent = nullptr;
+        bool m_PendingCreateEmpty = false;
+        void CreateLightObject(bool directional, HierarchyObject::Ref parent);
+        void DrawAddLightMenu(HierarchyObject::Ref parent);
+        HierarchyObject::Ref m_PendingLightParent = nullptr;
+        int m_PendingLightType = 0; // 0 = none, 1 = point, 2 = directional
+        void CreatePrimitiveObject(const std::string& name, HierarchyObject::Ref parent);
+        void DrawAddPrimitiveMenu(HierarchyObject::Ref parent);
+        HierarchyObject::Ref m_PendingPrimitiveParent = nullptr;
+        std::string m_PendingPrimitiveName;
         HierarchyObject::Ref m_pendingDraggedObject = nullptr;
         HierarchyObject::Ref m_pendingDropParent = nullptr;
 

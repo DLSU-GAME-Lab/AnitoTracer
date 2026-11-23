@@ -34,12 +34,14 @@ public:
 	glm::vec3 GetAngularVelocity() const override;
 
 	void ApplyForce(const glm::vec3& force) override;
+	void ApplyTorque(const glm::vec3& torque) override;
 	void ApplyImpulse(const glm::vec3& impulse) override;
 
 	JPH::BodyID GetBodyID() const { return mBodyID; }
 private:
 	void WakeSurroundingBodies();
 	void ApplyMassProperties();
+	void UpdateSleepPolicy();
 
 	JPH::BodyID mBodyID;
 	JPH::BodyInterface* mBodyInterface;

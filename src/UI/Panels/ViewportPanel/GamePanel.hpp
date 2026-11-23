@@ -9,7 +9,5 @@ namespace Diligent {
         void DrawTopBar() override;
         void OnBeforeBegin() override;
         void OnViewportDrawn(ImVec2 pos, ImVec2 size, bool hovered, bool focused) override;
-    private:
-        int m_SelectedResolution = 1; // Default to 1080p
     };
 }

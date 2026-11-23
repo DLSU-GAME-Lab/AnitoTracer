@@ -1,180 +1,145 @@
 #include "HybridPipeline.hpp"
 #include "../RenderData.hpp"
-#include "../../UserSettings.hpp"
-#include <string>
 
-void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* _pSwapChain)
+bool Diligent::HybridPipeline::SupportsSceneRayShading()
 {
-    pSwapChain = _pSwapChain;
-    m_pDevice = pDevice;
-
-    Uint8 sampleCount = UserSettings::GetInstance().GetEnableMSAA() ? 4 : 1;
-
-    if (!m_pTLAS) {
-        InitializeTLAS(pDevice);
-    }
-
-    GraphicsPipelineStateCreateInfo PSOCreateInfo;
-    PipelineStateDesc& PSODesc = PSOCreateInfo.PSODesc;
-    GraphicsPipelineDesc& GraphicsPipeline = PSOCreateInfo.GraphicsPipeline;
-
-    PSODesc.Name = "PBR Rendering PSO";
-    PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
-
-    SetupDefaultGraphicsPipeline(GraphicsPipeline);
-    GraphicsPipeline.SmplDesc.Count = sampleCount;
-
-    std::vector<LayoutElement> std_layout = VertexLayouts::GetStandardLayout();
-    GraphicsPipeline.InputLayout.LayoutElements = std_layout.data();
-    GraphicsPipeline.InputLayout.NumElements = static_cast<Uint32>(std_layout.size());
-
-    // Use the same as the deferred now
-    auto pVS = ShaderManager::GetInstance().GetShader("main_vs.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_vs");
-    auto pPS = ShaderManager::GetInstance().GetShader("hybrid_ps.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_ps");
-    PSOCreateInfo.pVS = pVS;
-    PSOCreateInfo.pPS = pPS;
-
-    std::vector<ShaderResourceVariableDesc> Variables = GetStandardShaderVariables();
-    Variables.push_back({ SHADER_TYPE_PIXEL, "g_TLAS", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC }); // Hybrid-only requirement
-
-    PSODesc.ResourceLayout.Variables = Variables.data();
-    PSODesc.ResourceLayout.NumVariables = static_cast<Uint32>(Variables.size());
-
-    std::vector<ImmutableSamplerDesc> ImtblSamplers = GetStandardImmutableSamplers();
-    PSODesc.ResourceLayout.ImmutableSamplers = ImtblSamplers.data();
-    PSODesc.ResourceLayout.NumImmutableSamplers = static_cast<Uint32>(ImtblSamplers.size());
-
-    m_pPSO.Release();
-    pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
-
-    if (!m_pCameraCB) CreateCameraConstantBuffer(pDevice);
-    if (!m_pModelCB) CreateModelConstantBuffer(pDevice);
-
-    // Utilize refactored buffer helper
-    CreateCommonConstantBuffers(pDevice);
-
-    m_pSRB.Release();
-    m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
-
-    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants")) pVar->Set(m_pCameraCB);
-    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "ModelConstants"))  pVar->Set(m_pModelCB);
-    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "LightConstants"))   pVar->Set(m_pLightCB);
-    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "PBRMaterialConstants")) pVar->Set(m_pMaterialCB);
-    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "ShadowSettings"))   pVar->Set(m_pShadowCB);
-
-    // The TLAS is bound here, so it MUST have a valid state before rendering!
-    if (auto* pVar = m_pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_TLAS"))           pVar->Set(m_pTLAS);
+    return ModelManager::GetInstance().GetSceneGeometryPool().IsEnabled();
 }
 
-void Diligent::HybridPipeline::StartFrameRender(IDeviceContext* pContext, RenderData renderData)
+void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain)
+{
+    SetDevice(pDevice, pSwapChain);
+    CreateCommonConstantBuffers();
+    InitializeRayTracingResources();
+
+    m_pPSO = CreateModelPSOBuilder("PBR Rendering PSO", "hybrid_ps.hlsl")
+        .SampleCount(PipelineUtils::GetMSAASampleCount())
+        .PixelMacros(GetRayTracingMacros())
+        .Variables(GetRayTracingVariables())
+        .Samplers(GetRayTracingSamplers())
+        .Build(pDevice);
+    m_pSRB = PipelineUtils::CreateSRB(m_pPSO);
+    BindCommonBuffers(m_pSRB);
+    BindRayTracingResources();
+}
+
+void Diligent::HybridPipeline::InitializeRayTracingResources()
+{
+    if (!m_SceneTLAS.IsInitialized()) m_SceneTLAS.Initialize(m_pDevice, 1000, SupportsSceneRayShading());
+
+    // 1x1 black cube so the shader can always sample the sky lighting cubes; sky light simply contributes nothing
+    if (!m_pFallbackEnvMap) m_pFallbackEnvMap = PipelineUtils::CreateSolidColorTexture(m_pDevice, "Hybrid Fallback Environment Map", 0xFF000000, true);
+}
+
+std::vector<Diligent::ShaderResourceVariableDesc> Diligent::HybridPipeline::GetRayTracingVariables()
+{
+    std::vector<ShaderResourceVariableDesc> variables = {
+        { SHADER_TYPE_PIXEL, "g_TLAS", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
+        // Dynamic so the sky can be swapped after the fallback is bound
+        { SHADER_TYPE_PIXEL, "g_EnvIrradiance", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC },
+        { SHADER_TYPE_PIXEL, "g_EnvSpecular", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC }
+    };
+
+    if (SupportsSceneRayShading()) {
+        // Dynamic: these buffers are replaced when they grow (more models, more instances), and are bound again every frame
+        variables.push_back({ SHADER_TYPE_PIXEL, "g_SceneVertices", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC });
+        variables.push_back({ SHADER_TYPE_PIXEL, "g_SceneIndices", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC });
+        variables.push_back({ SHADER_TYPE_PIXEL, "g_SceneGeometry", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC });
+        // Mutable: a dynamic variable is written again for every draw, far too much for an array of hundreds of
+        // textures in the forward pass. It only changes when a model loads; see BindSceneTextures.
+        variables.push_back({ SHADER_TYPE_PIXEL, "g_SceneTextures", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE });
+    }
+    return variables;
+}
+
+std::vector<Diligent::ImmutableSamplerDesc> Diligent::HybridPipeline::GetRayTracingSamplers()
+{
+    std::vector<ImmutableSamplerDesc> samplers = {
+        { SHADER_TYPE_PIXEL, "g_EnvMap_sampler", PipelineUtils::LinearClampSampler() }
+    };
+
+    if (SupportsSceneRayShading()) {
+        // Ray hits choose the mip themselves (there are no screen-space derivatives at a hit), so plain trilinear is enough
+        samplers.push_back({ SHADER_TYPE_PIXEL, "g_SceneTextures_sampler", PipelineUtils::LinearWrapSampler() });
+    }
+    return samplers;
+}
+
+Diligent::ShaderMacroList Diligent::HybridPipeline::GetRayTracingMacros()
+{
+    if (!SupportsSceneRayShading()) return {};
+
+    return {
+        { "RT_SCENE_SHADING", "1" },
+        { "SCENE_TEXTURE_COUNT", std::to_string(SceneGeometryPool::kMaxTextures) }
+    };
+}
+
+void Diligent::HybridPipeline::BindRayTracingResources()
+{
+    // The TLAS is bound here, so it MUST have a valid state before rendering!
+    for (IShaderResourceBinding* pSRB : GetRayTracingSRBs()) {
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_TLAS", m_SceneTLAS.Get());
+    }
+    SetSkyLighting(m_pEnvIrradianceSRV, m_pEnvSpecularSRV);
+
+    // A new SRB starts with an empty texture array
+    if (SupportsSceneRayShading()) BindSceneTextures();
+}
+
+void Diligent::HybridPipeline::BindSceneTextures()
+{
+    const SceneGeometryPool& pool = ModelManager::GetInstance().GetSceneGeometryPool();
+    const std::vector<IDeviceObject*>& textures = pool.GetTextureArray();
+
+    for (IShaderResourceBinding* pSRB : GetRayTracingSRBs()) {
+        IShaderResourceVariable* pTextures = pSRB ? pSRB->GetVariableByName(SHADER_TYPE_PIXEL, "g_SceneTextures") : nullptr;
+        if (!pTextures) continue;
+
+        // Every slot is bound (unused ones hold a white texture), since the shader may index any of them
+        pTextures->SetArray(textures.data(), 0, static_cast<Uint32>(textures.size()), SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+    }
+    m_BoundTextureVersion = pool.GetTextureVersion();
+}
+
+void Diligent::HybridPipeline::SetSkyLighting(ITextureView* pIrradianceSRV, ITextureView* pSpecularSRV)
+{
+    m_pEnvIrradianceSRV = pIrradianceSRV;
+    m_pEnvSpecularSRV = pSpecularSRV;
+    if (!m_pFallbackEnvMap) return;
+
+    ITextureView* pFallback = m_pFallbackEnvMap->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    for (IShaderResourceBinding* pSRB : GetRayTracingSRBs()) {
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_EnvIrradiance", pIrradianceSRV ? pIrradianceSRV : pFallback);
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_EnvSpecular", pSpecularSRV ? pSpecularSRV : pFallback);
+    }
+}
+
+void Diligent::HybridPipeline::SyncSceneRayData(IDeviceContext* pContext)
+{
+    SceneGeometryPool& pool = ModelManager::GetInstance().GetSceneGeometryPool();
+    pool.Sync(pContext);
+
+    for (IShaderResourceBinding* pSRB : GetRayTracingSRBs()) {
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_SceneVertices", pool.GetVertexSRV());
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_SceneIndices", pool.GetIndexSRV());
+        PipelineUtils::BindVariable(pSRB, SHADER_TYPE_PIXEL, "g_SceneGeometry", m_SceneTLAS.GetGeometryRecordsSRV());
+    }
+
+
+    if (m_BoundTextureVersion != pool.GetTextureVersion()) {
+        // The array is rewritten in place, and frames already sent to the GPU may still be reading it. Wait for them
+        // first. This only happens on a frame in which a model with new textures was loaded, which hitches anyway.
+        m_pDevice->IdleGPU();
+        BindSceneTextures();
+    }
+}
+
+void Diligent::HybridPipeline::StartFrameRender(IDeviceContext* pContext, const RenderData& renderData)
 {
     BasePipeline::StartFrameRender(pContext, renderData);
-    BuildSceneTLAS(pContext, renderData);
-}
+    m_SceneTLAS.Build(pContext, renderData);
 
-void Diligent::HybridPipeline::InitializeTLAS(IRenderDevice* pDevice, Uint32 maxInstances)
-{
-    TopLevelASDesc TLASDesc;
-    TLASDesc.Name = "Scene TLAS";
-    TLASDesc.MaxInstanceCount = maxInstances;
-    TLASDesc.Flags = RAYTRACING_BUILD_AS_PREFER_FAST_TRACE | RAYTRACING_BUILD_AS_ALLOW_UPDATE;
-
-    pDevice->CreateTLAS(TLASDesc, &m_pTLAS);
-
-    ScratchBufferSizes ScratchSizes = m_pTLAS->GetScratchBufferSizes();
-
-    BufferDesc ScratchBuffDesc;
-    ScratchBuffDesc.Name = "TLAS Build Scratch Buffer";
-    ScratchBuffDesc.Size = ScratchSizes.Build;
-    ScratchBuffDesc.Usage = USAGE_DEFAULT;
-    ScratchBuffDesc.BindFlags = BIND_RAY_TRACING;
-
-    pDevice->CreateBuffer(ScratchBuffDesc, nullptr, &m_pTLASScratchBuffer);
-}
-
-void Diligent::HybridPipeline::BuildSceneTLAS(IDeviceContext* pContext, const RenderData& renderData)
-{
-    // Do not return early if models are empty! We must always satisfy the TLAS build state.
-    if (!m_pTLAS) return;
-
-    std::vector<TLASBuildInstanceData> Instances;
-    Instances.reserve(renderData.Models.size());
-
-    std::vector<std::string> InstanceNames;
-    InstanceNames.reserve(renderData.Models.size());
-
-    for (size_t i = 0; i < renderData.Models.size(); ++i) {
-        const auto& modelInstance = renderData.Models[i];
-
-        // Catch models loaded during deferred rendering and build their BLAS now
-        if (!modelInstance.ModelData->pBLAS) {
-            ModelManager::GetInstance().BuildBLAS(modelInstance.ModelData);
-        }
-
-        if (!modelInstance.ModelData->pBLAS || modelInstance.OpaqueSubmeshIndices.empty())
-            continue;
-
-        TLASBuildInstanceData tlasInst{};
-
-        InstanceNames.push_back("ModelInstance_" + std::to_string(i));
-        tlasInst.InstanceName = InstanceNames.back().c_str();
-
-        tlasInst.pBLAS = modelInstance.ModelData->pBLAS;
-        tlasInst.CustomId = static_cast<Uint32>(i);
-        tlasInst.Flags = RAYTRACING_INSTANCE_NONE;
-        tlasInst.Mask = 0xFF;
-
-        const glm::mat4& world = modelInstance.WorldTransform;
-        float* pTransformData = reinterpret_cast<float*>(&tlasInst.Transform);
-
-        pTransformData[0] = world[0][0]; pTransformData[1] = world[1][0];
-        pTransformData[2] = world[2][0]; pTransformData[3] = world[3][0];
-
-        pTransformData[4] = world[0][1]; pTransformData[5] = world[1][1];
-        pTransformData[6] = world[2][1]; pTransformData[7] = world[3][1];
-
-        pTransformData[8] = world[0][2]; pTransformData[9] = world[1][2];
-        pTransformData[10] = world[2][2]; pTransformData[11] = world[3][2];
-
-        Instances.push_back(tlasInst);
-    }
-
-    // Safely abort if the scene is entirely empty to prevent pInstances nullptr crash
-    if (Instances.empty()) {
-        return;
-    }
-
-    Uint32 requiredInstanceBufferSize = static_cast<Uint32>(Instances.size() * sizeof(TLASBuildInstanceData));
-
-    // Only recreate the buffer if we actually have instances and need more space
-    if (requiredInstanceBufferSize > 0 && (!m_pTLASInstanceBuffer || m_pTLASInstanceBuffer->GetDesc().Size < requiredInstanceBufferSize)) {
-        if (m_pTLASInstanceBuffer) {
-            m_pTLASInstanceBuffer.Release();
-        }
-
-        BufferDesc InstBuffDesc;
-        InstBuffDesc.Name = "TLAS Instance Buffer";
-        InstBuffDesc.Size = requiredInstanceBufferSize * 2; // Allocate extra buffer space
-        InstBuffDesc.Usage = USAGE_DEFAULT;
-        InstBuffDesc.BindFlags = BIND_RAY_TRACING;
-        InstBuffDesc.CPUAccessFlags = CPU_ACCESS_NONE;
-
-        m_pDevice->CreateBuffer(InstBuffDesc, nullptr, &m_pTLASInstanceBuffer);
-    }
-
-    // Always dispatch the build command, even if Instances array is empty. 
-    // This provides Vulkan with an initialized, zero-instance TLAS memory footprint.
-    BuildTLASAttribs BuildAttribs;
-    BuildAttribs.pTLAS = m_pTLAS;
-    BuildAttribs.pInstances = Instances.data(); // Safely passing the data pointer
-    BuildAttribs.InstanceCount = static_cast<Uint32>(Instances.size());
-    BuildAttribs.pInstanceBuffer = m_pTLASInstanceBuffer;
-    BuildAttribs.pScratchBuffer = m_pTLASScratchBuffer;
-
-    BuildAttribs.TLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-    BuildAttribs.BLASTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-    BuildAttribs.InstanceBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-    BuildAttribs.ScratchBufferTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-
-    pContext->BuildTLAS(BuildAttribs);
+    // After the TLAS: building it can replace the geometry record buffer
+    if (SupportsSceneRayShading()) SyncSceneRayData(pContext);
 }

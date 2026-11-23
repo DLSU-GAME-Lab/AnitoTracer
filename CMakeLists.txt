@@ -10,6 +10,7 @@ if (POLICY CMP0141)
 endif()
 
 project ("AnitoTracer_Rebuild" LANGUAGES C CXX)
+include(CTest)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -56,15 +57,17 @@ add_subdirectory(src/ObjectSystems/Serialization)
 add_subdirectory(src/ObjectSystems/Event)
 
 add_subdirectory(src/Physics)
+add_subdirectory(src/Scripting)
 
 add_subdirectory(src/UI)
 add_subdirectory(src/Rendering)
 
 add_subdirectory(src/Tools)
 
+add_subdirectory(src/Audio)
+
 # Add source to this project's executable.
 add_executable (AnitoTracer_Rebuild WIN32 "src/UserSettings.hpp" "AnitoTracer_Rebuild.cpp" "AnitoTracer_Rebuild.h" "src/AnitoTracer_App.hpp" "src/AnitoTracer_App.cpp"
-  src/UI/Panels/FileExplorerPanel.cpp
   src/AudioImp.cpp)
 set_property(TARGET AnitoTracer_Rebuild PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
@@ -99,6 +102,7 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 assimp::assimp
 				Diligent-GraphicsEngineVk-shared
 				Diligent-Imgui
+                antlr4_static
 
                 gbe::tools
 
@@ -108,6 +112,7 @@ target_link_libraries(AnitoTracer_Rebuild PRIVATE
                 anito::ui
                 anito::physics
                 anito::asset
+                anito::scripting
                 anito::event
 )
 
@@ -151,5 +156,3 @@ copy_required_dlls(AnitoTracer_Rebuild DXC_REQUIRED YES)
 #    "${SHADER_DST_DIR}"
 #    COMMENT "Copying Shaders to build directory..."
 #)
-
-

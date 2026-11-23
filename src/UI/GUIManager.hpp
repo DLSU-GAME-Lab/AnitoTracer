@@ -4,6 +4,9 @@
 #include <vector>
 #include <string>
 #include <compare>
+#include <filesystem>
+
+#include <glm/vec3.hpp>
 
 #include "Panels/BasePanel.hpp" 
 #include "MenuBar.hpp"
@@ -13,6 +16,8 @@
 #include "Panels/UserSettingsPanel.hpp"
 #include "Panels/ProfilerPanel.hpp"
 #include "Panels/FileExplorerPanel.hpp"
+#include "Panels/ScriptEditorPanel.hpp"
+#include "Panels/FileOpeners/ScriptFileOpener.hpp"
 #include "Panels/InspectorPanel/InspectorPanel.hpp"
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"
@@ -20,6 +25,8 @@
 #include "Panels/InspectorPanel/Components/DirectionalLightUI.hpp"
 #include "Panels/InspectorPanel/Components/PointLightUI.hpp"
 #include "Panels/InspectorPanel/Components/ModelUI.hpp"
+#include "Panels/InspectorPanel/Components/AudioSourceUI.hpp"
+#include "Panels/InspectorPanel/Components/ParticleSystemUI.hpp"
 
 #include "Panels/ViewportPanel/EditorPanel.hpp"
 #include "Panels/ViewportPanel/GamePanel.hpp"
@@ -53,7 +60,12 @@ namespace Diligent {
 
         //Bridge function to set the selected object
         void SetSelectedObject(HierarchyObject::Ref obj);
-        //Bridge to get selected object
+        //Bridge for ctrl+click style add/remove from the selection
+        void ToggleSelectedObject(HierarchyObject::Ref obj);
+        //Bridge to get every selected object (top-level only, no selected ancestors)
+        std::vector<HierarchyObject::Ref> GetSelectedRoots() const {
+            return m_pHierarchyPanel ? m_pHierarchyPanel->GetSelectedRoots() : std::vector<HierarchyObject::Ref>{};
+        }        //Bridge to get selected object
         HierarchyObject::Ref GetSelectedObject() const {
             return m_pHierarchyPanel ? m_pHierarchyPanel->GetSelectedObject() : nullptr;
         }
@@ -63,8 +75,19 @@ namespace Diligent {
 
         void RegisterFileOpener(FileExplorerPanel::Opener opener);
 
+        // Window layouts (ImGui .ini files stored in Assets/Default Layouts)
+        static std::filesystem::path GetLayoutsDirectory() { return std::filesystem::path("Assets") / "Default Layouts"; }
+        std::vector<std::string> GetAvailableLayouts() const;
+        // Applied at the start of the next frame, never mid-frame
+        void RequestLoadLayout(const std::string& name) { m_PendingLayout = name; }
+        bool SaveCurrentLayout(const std::string& name);
+
         void RegisterViewportPanels(std::function<ITextureView* ()> gameSrvGetter, std::function<ITextureView* ()> editorSrvGetter);
-        
+
+        // Whether each viewport is on screen this frame (not closed, collapsed or behind another dock tab)
+        bool IsEditorViewportShown() const { return m_pEditorPanel && m_pEditorPanel->IsViewportShown(); }
+        bool IsGameViewportShown() const { return m_pGamePanel && m_pGamePanel->IsViewportShown(); }
+
         void SetEditorViewportInfo(ImVec2 pos, ImVec2 size, bool hovered, bool focused) {
             m_EditorViewportPos = pos;
             m_EditorViewportSize = size;
@@ -89,6 +112,11 @@ namespace Diligent {
         bool IsGameViewportHovered() const { return m_IsGameViewportHovered; }
         bool IsGameViewportFocused() const { return m_IsGameViewportFocused; }
 
+        glm::vec3 ScriptWorldToScreen(const glm::vec3& world) const;
+        void ScriptFillRect(const glm::vec3& min, const glm::vec3& max, const glm::vec3& rgb, float alpha) const;
+        void ScriptDrawRect(const glm::vec3& min, const glm::vec3& max, const glm::vec3& rgb, float alpha,
+                            float thickness) const;
+
         // Brings the Game panel to the front and gives it input focus (e.g. when Play starts).
         void RequestGameViewportFocus() { m_GameViewportFocusRequested = true; }
         bool ConsumeGameViewportFocusRequest() {
@@ -109,6 +137,9 @@ namespace Diligent {
         //Cache ref for laters
         HierarchyPanel* m_pHierarchyPanel = nullptr;
         FileExplorerPanel* m_pFileExplorerPanel = nullptr;
+        ScriptEditorPanel* m_pScriptEditorPanel = nullptr;
+        GamePanel* m_pGamePanel = nullptr;
+        EditorPanel* m_pEditorPanel = nullptr;
         std::vector<FileExplorerPanel::Opener> m_FileOpeners;
 
         // Manage all UI windows dynamically
@@ -119,6 +150,8 @@ namespace Diligent {
 
         // The dedicated menu bar instance
         MenuBar m_MenuBar;
+
+        std::string m_PendingLayout;
 
         //Gizmo Drawer instance
         GizmoDrawer m_GizmoDrawer;
@@ -133,6 +166,8 @@ namespace Diligent {
         bool m_IsGameViewportFocused = false;
         bool m_GameViewportFocusRequested = false;
         bool m_FrameStarted = false;
+
+        void GetScriptViewport(ImVec2& pos, ImVec2& size) const;
     };
 
 }

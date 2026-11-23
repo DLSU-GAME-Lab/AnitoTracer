@@ -9,6 +9,7 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Common/interface/BasicMath.hpp"
+#include "../../Common/CollisionMeshData.hpp"
 #include "TextureLoader/interface/TextureUtilities.h"
 #include "Graphics/GraphicsEngine/interface/TextureView.h"
 #include "Graphics/GraphicsEngine/interface/BottomLevelAS.h"
@@ -55,6 +56,10 @@ struct PBRMaterial {
     float MetallicFactor = 0.0f;
     float RoughnessFactor = 1.0f;
 
+    // Emitted light = EmissiveFactor * EmissiveStrength * emissive map (white when there is no map)
+    float3 EmissiveFactor = float3(0.0f, 0.0f, 0.0f);
+    float EmissiveStrength = 1.0f;
+
     bool IsTransparent = false;
 };
 
@@ -64,6 +69,15 @@ struct Model : public IModel {
     RefCntAutoPtr<IBuffer> pIndexBuffer;
 
     RefCntAutoPtr<IBottomLevelAS> pBLAS;
+
+    // The submesh behind each geometry of pBLAS, in order. A ray hit reports the geometry it landed on,
+    // which leads to the submesh and from there to its material. (Submeshes without triangles have no geometry.)
+    std::vector<Uint32> BLASSubmeshes;
+
+    // Where this model's vertices and indices start in SceneGeometryPool, for shading ray hits.
+    // ~0u (SceneGeometryPool::kNotInPool) when the model isn't in the pool.
+    Uint32 PoolVertexBase = ~0u;
+    Uint32 PoolIndexBase = ~0u;
 
     std::vector<SubMesh> SubMeshes;
     std::vector<RefCntAutoPtr<ITextureView>> Materials; // Diffuse SRVs mapped to SubMeshes
@@ -83,4 +97,7 @@ struct Model : public IModel {
     //For local raytrace obj picking
     glm::vec3 AABBMin = glm::vec3(std::numeric_limits<float>::max());
     glm::vec3 AABBMax = glm::vec3(std::numeric_limits<float>::lowest());
+
+    // For physics mesh colliders
+    std::shared_ptr<CollisionMeshData> CollisionData;
 };

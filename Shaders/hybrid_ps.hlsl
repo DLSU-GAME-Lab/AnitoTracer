@@ -1,50 +1,25 @@
 // hybrid_ps.hlsl
+// Forward Hybrid pass: samples the material, then runs the shared ray-traced shading in hybrid_shading.hlsli
 #include "common_struct.hlsli"
 #include "light_struct.hlsli"
 #include "pbr_defs.hlsli"
-
-// Master, we bind our Scene Acceleration Structure for Ray Queries here!
-RaytracingAccelerationStructure g_TLAS;
-
-// ------------------------------------------------------------------
-// Helper: Traces a shadow ray towards a light source
-// ------------------------------------------------------------------
-float TraceShadowRay(float3 worldPos, float3 normal, float3 lightDir, float maxDist)
-{
-    // Master! We offset the ray origin along the unperturbed geometric normal to prevent self-shadowing~♡
-    RayDesc ray;
-    ray.Origin = worldPos + (normal * g_ShadowBias);
-    ray.Direction = lightDir;
-    ray.TMin = 0.001;
-    ray.TMax = maxDist;
-
-    RayQuery < RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER > q;
-
-    // Force opaque so the RayQuery doesn't wait for any-hit shader confirmation!
-    q.TraceRayInline(g_TLAS, RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
-
-    // Traversal state machine loop~
-    while (q.Proceed())
-    {
-    }
-
-    if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
-    {
-        return 0.0;
-    }
-
-    return 1.0;
-}
+#include "fog.hlsli"
+#include "hybrid_shading.hlsli"
 
 void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 {
+    // Angle between this pixel's view ray and its neighbours', for the mip of textures seen in reflections.
+    // Taken before any discard: a derivative needs all four pixels of the 2x2 block to still be running.
+    float3 viewRay = normalize(In.WorldPos - g_CameraPos.xyz);
+    float pixelSpread = max(length(ddx(viewRay)), length(ddy(viewRay)));
+
     // 1. Material Sampling
     float4 albedo = g_BaseColorFactor;
     if (g_UseBaseColorMap > 0.5)
     {
         albedo *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV);
     }
-    
+
     // Alpha testing for discarded fragments
     if (albedo.a < 0.5)
     {
@@ -56,8 +31,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     if (g_UseMetallicRoughnessMap > 0.5)
     {
         float4 mrSample = g_MetallicRoughnessMap.Sample(g_MetallicRoughnessMap_sampler, In.UV);
-        roughness *= mrSample.g;
-        metallic *= mrSample.b;
+        ApplyMetallicRoughnessMap(mrSample, metallic, roughness);
     }
     roughness = max(roughness, 0.05);
 
@@ -66,7 +40,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     {
         ao = g_AOMap.Sample(g_AOMap_sampler, In.UV).r;
     }
-    
+
     // Unperturbed geometric normal used strictly for ray origin offsets!
     float3 geoN = normalize(In.Normal);
 
@@ -83,49 +57,26 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
         N = normalize(mul(tangentNormal, TBN));
     }
 
-    float3 V = normalize(g_CameraPos.xyz - In.WorldPos);
-    float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo.rgb, metallic);
-    float3 Lo = float3(0.0, 0.0, 0.0);
-
-    // 2. Directional Lights (Using our common PBR BRDF helper!)
-    for (int i = 0; i < g_NumDirLights; ++i)
-    {
-        float3 L = normalize(-g_DirLights[i].Direction.xyz);
-        float shadowFactor = TraceShadowRay(In.WorldPos, geoN, L, 1000.0);
-        float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
-
-        Lo += ComputeLightRadiance(N, V, L, radiance, albedo.rgb, metallic, roughness, F0, shadowFactor);
-    }
-
-    // 3. Point Lights
-    for (int j = 0; j < g_NumPointLights; ++j)
-    {
-        float3 lightVec = g_PointLights[j].Position.xyz - In.WorldPos;
-        float dist = length(lightVec);
-
-        if (dist < g_PointLights[j].Range)
-        {
-            float3 L = lightVec / dist;
-            float shadowFactor = TraceShadowRay(In.WorldPos, geoN, L, dist - 0.01);
-            
-            float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
-            attenuation *= attenuation;
-            float3 radiance = g_PointLights[j].Color.rgb * g_PointLights[j].Color.a * attenuation;
-
-            Lo += ComputeLightRadiance(N, V, L, radiance, albedo.rgb, metallic, roughness, F0, shadowFactor);
-        }
-    }
-
     // Emissive Sampling
-    float3 emissive = float3(0.0, 0.0, 0.0);
-    if (g_UseEmissiveMap > 0.5)
-    {
-        emissive = g_EmissiveMap.Sample(g_EmissiveMap_sampler, In.UV).rgb;
-    }
+    float3 emissive = SampleEmissive(In.UV);
 
-    // 4. Ambient & Emissive Combined
-    float3 ambient = float3(0.03, 0.03, 0.03) * albedo.rgb * ao * g_AmbientMultiplier;
-    float3 color = ambient + Lo + emissive;
+    // 2. Ray-traced shading
+    HybridSurface surface;
+    surface.WorldPos = In.WorldPos;
+    surface.N = N;
+    surface.GeoN = geoN;
+    surface.PositionError = 0.0; // Interpolated position is exact
+    surface.Albedo = albedo.rgb;
+    surface.Metallic = metallic;
+    surface.Roughness = roughness;
+    surface.AO = ao;
+    surface.Emissive = emissive;
+    surface.PixelSpread = pixelSpread;
+    // Per-pixel GI needs a G-buffer, so the forward pass always lights with Sky + AO
+    surface.UseIndirectLight = false;
+    surface.IndirectLight = float4(0.0, 0.0, 0.0, 1.0);
 
-    OutColor = float4(color, albedo.a);
+
+
+    OutColor = float4(ShadeHybridSurface(surface, In.Pos.xy), albedo.a);
 }

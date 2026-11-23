@@ -5,6 +5,7 @@
 
 #include "FileDialogue.hpp"
 #include "RendererManager.hpp"
+#include "Pipelines/Utils/ScenePipelineRegistry.hpp"
 
 #include "CreateInstance.hpp"
 #include "../AppState.hpp"
@@ -16,6 +17,7 @@ namespace Diligent {
 
     void MenuBar::Draw(bool& appRunning, const std::vector<std::unique_ptr<BasePanel>>& panels)
     {
+        bool openSaveLayoutPopup = false;
         if (ImGui::BeginMainMenuBar())
         {
             if (ImGui::BeginMenu("File"))
@@ -87,73 +89,21 @@ namespace Diligent {
                 ImGui::EndMenu();
             }
 
-            if (ImGui::BeginMenu("Assets"))
-            {
-                if (ImGui::MenuItem("Add Empty Object"))
-                {
-                    ObjectFactory::GetInstance().CreateRootObjectWithTransform("Empty Object");
-                }
-
-                if (ImGui::BeginMenu("Primmitives")) {
-                    if (ImGui::MenuItem("Box")) {
-                        ObjectFactory::GetInstance().CreateCubePrimitive("Box");
-                    }
-                    if (ImGui::MenuItem("Sphere")) {
-                        ObjectFactory::GetInstance().CreateSpherePrimitive("Sphere");
-                    }
-                    ImGui::EndMenu();
-                }
-
-                if (ImGui::BeginMenu("Lights")) {
-                    if (ImGui::MenuItem("Direction")) {
-                        ObjectFactory::GetInstance().CreateDirectionalLightObject("Direction Light");
-                    }
-                    if (ImGui::MenuItem("Point")) {
-                        ObjectFactory::GetInstance().CreatePointLightObject("Point Light");
-                    }
-                    ImGui::EndMenu();
-                }
-
-                if (ImGui::MenuItem("Load Model"))
-                {
-                    std::string filepath = FileDialog::OpenModelFile();
-
-                    if (!filepath.empty())
-                    {
-                        std::cout << "Successfully selected model: " << filepath << std::endl;
-                        ObjectFactory::GetInstance().CreateModelObject("Loaded Model", filepath);
-                    }
-                }
-                ImGui::EndMenu();
-            }
-
             if (ImGui::BeginMenu("Rendering"))
             {
                 bool rtSupported = RendererManager::GetInstance().IsRayTracingSupported();
                 auto currentRenderer = UserSettings::GetInstance().GetRendererType();
 
-                if (ImGui::MenuItem("Basic Lit Pipeline", nullptr, currentRenderer == Diligent::PipelineType::BASIC_LIT))
+                for (const Diligent::ScenePipelineInfo& pipeline : Diligent::ScenePipelineRegistry::GetAll())
                 {
-                    gbe::EventSystem::DispatchTo(
-                        EVENT_RENDER_CHANGE,
-                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::BASIC_LIT)
-                    );
-                }
-
-                if (ImGui::MenuItem("Deferred Pipeline", nullptr, currentRenderer == Diligent::PipelineType::DEFERRED))
-                {
-                    gbe::EventSystem::DispatchTo(
-                        EVENT_RENDER_CHANGE,
-                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::DEFERRED)
-                    );
-                }
-
-                if (ImGui::MenuItem("Hybrid Pipeline (RayTraced)", nullptr, currentRenderer == Diligent::PipelineType::HYBRID, rtSupported))
-                {
-                    gbe::EventSystem::DispatchTo(
-                        EVENT_RENDER_CHANGE,
-                        std::make_unique<RendererChangeArgs>(Diligent::PipelineType::HYBRID)
-                    );
+                    const bool available = rtSupported || !pipeline.RequiresRayTracing;
+                    if (ImGui::MenuItem(pipeline.DisplayName, nullptr, currentRenderer == pipeline.Type, available))
+                    {
+                        gbe::EventSystem::DispatchTo(
+                            EVENT_RENDER_CHANGE,
+                            std::make_unique<RendererChangeArgs>(pipeline.Type)
+                        );
+                    }
                 }
 
                 ImGui::EndMenu();
@@ -164,6 +114,23 @@ namespace Diligent {
                 for (const auto& panel : panels)
                 {
                     ImGui::MenuItem(panel->GetName().c_str(), NULL, &panel->GetVisible());
+                }
+                ImGui::Separator();
+                if (ImGui::BeginMenu("Layouts"))
+                {
+                    auto& gui = GUIManager::GetInstance();
+                    const auto layouts = gui.GetAvailableLayouts();
+                    for (const auto& layout : layouts)
+                    {
+                        if (ImGui::MenuItem(layout.c_str()))
+                            gui.RequestLoadLayout(layout);
+                    }
+                    if (layouts.empty())
+                        ImGui::TextDisabled("No layouts found");
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("Save Current Layout As..."))
+                        openSaveLayoutPopup = true;
+                    ImGui::EndMenu();
                 }
                 ImGui::EndMenu();
             }
@@ -186,6 +153,29 @@ namespace Diligent {
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
+        }
+
+        static char layoutName[64] = "";
+        if (openSaveLayoutPopup)
+        {
+            layoutName[0] = '\0';
+            ImGui::OpenPopup("Save Layout");
+        }
+        if (ImGui::BeginPopupModal("Save Layout", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextUnformatted("Layout name:");
+            if (openSaveLayoutPopup || ImGui::IsWindowAppearing())
+                ImGui::SetKeyboardFocusHere();
+            bool submit = ImGui::InputText("##layoutName", layoutName, sizeof(layoutName), ImGuiInputTextFlags_EnterReturnsTrue);
+            if (ImGui::Button("Save") || submit)
+            {
+                if (GUIManager::GetInstance().SaveCurrentLayout(layoutName))
+                    ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
         }
 
         if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S) &&

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "IPhysicsBody.hpp"
+#include "../Common/CollisionMeshData.hpp"
+#include "../Common/DebugLine.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <memory>
@@ -21,7 +23,9 @@ public:
 	enum class ShapeType {
 		Box,
 		Sphere,
-		Capsule
+		Capsule,
+		Mesh,
+		ConvexHull
 	};
 
 	// Generic shape parameters
@@ -33,6 +37,8 @@ public:
 		ShapeType type;
 		ShapeParams params;
 		glm::vec3 offset = glm::vec3(0.0f);
+		glm::vec3 scale = glm::vec3(0.0f);
+		std::shared_ptr<const CollisionMeshData> meshData;
 	};
 
 	// Collision callback
@@ -68,4 +74,9 @@ public:
 
 	// Activate bodies
 	virtual void WakeBodiesAroundBody(IPhysicsBody* body) = 0;
+
+	// Returns the current frame's debug-draw lines
+	// (collider wireframes, contact points, etc.) for the renderer to display.
+	// Returns empty when debug drawing is disabled or no bodies exist.
+	virtual std::vector<DebugLineVertex> GetDebugLines() = 0;
 };

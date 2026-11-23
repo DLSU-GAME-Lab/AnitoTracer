@@ -124,6 +124,11 @@ namespace gbe {
 	* @param Type The serializable class or struct type to register.
 	* @param "Base" The type that you have made a InstanceInitialize<T> for. Usually is the grandfather class that inherits off of ISerializable directly.
 	*/
+#ifdef ANITO_SCRIPT_METADATA_ONLY
+// Metadata-only translation units read component declarations without linking the engine,
+// so they must not instantiate the factory (which odr-uses constructors).
+#define GBE_REGISTER_SERIALIZED_TYPE(Type, CategoryType) static_assert(true)
+#else
 #define GBE_REGISTER_SERIALIZED_TYPE(Type, CategoryType) \
     static bool Type##_registered = []() { \
         gbe::TypeRegistry::Register(typeid(Type).name(), [](gbe::SerializedData& data) { \
@@ -132,6 +137,7 @@ namespace gbe {
         }); \
         return true; \
     }()
+#endif
 
 	/// @brief Creates the required constructors of a default serializable
 	/// @param "Type" Target type of the current class.

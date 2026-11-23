@@ -1,5 +1,6 @@
 #pragma once
 #include "ModelStructs.hpp"
+#include "SceneGeometryPool.hpp"
 #include "AssetLoading/AssetLoader.hpp"
 
 class ModelManager : public gbe::AssetLoader<Model> {
@@ -30,10 +31,16 @@ public:
     // normal maps), causing incorrect lighting/normals.
     ITextureView* LoadTexture(const std::string& filepath, bool isSRGB = false);
 
+    // Ideally for Skyboxes
+    ITextureView* LoadCubemap(const std::string& filepath, bool isSRGB = true);
+
     // Clears the cache and releases Vulkan resources
     void ClearCache();
 
     void SetRayTracingEnabled(bool is_enabled) { m_isRayTracingEnabled = is_enabled; }
+
+    // Every loaded model's geometry and material textures in the form ray hits read them (shaded reflections)
+    SceneGeometryPool& GetSceneGeometryPool() { return m_ScenePool; }
 
 private:
     ModelManager() = default;
@@ -81,4 +88,6 @@ private:
 
     // Default white tex
     RefCntAutoPtr<ITextureView> m_pDefaultTextureView;
+
+    SceneGeometryPool m_ScenePool;
 };

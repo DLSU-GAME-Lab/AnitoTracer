@@ -12,6 +12,7 @@
 #include "Rendering/Models/ModelManager.hpp"
 #include "Objects/HierarchyManager.hpp"
 #include "Objects/ObjectFactory.hpp"
+#include "Objects/Components/Particles/ParticleGather.hpp"
 #include "UserSettings.hpp"
 #include "UI/ObjectPicker.hpp"
 #include "Asset/AssetPipeline.hpp"
@@ -19,7 +20,11 @@
 
 #include "ObjectSystems/Event/Example/Print_OnSceneLoad.hpp"
 #include "ObjectSystems/Event/Example/Print_OnObjectAny.hpp"
+#include "ObjectSystems/Event/Example/PlayerInput.hpp"
 #include "Asset/ProjectLoader.hpp"
+#include "ScriptRegistry.hpp"
+#include "ScriptModule.hpp"
+#include "ScriptBuildDriver.hpp"
 
 #include "AppConfig.hpp"
 #include "AppState.hpp"
@@ -44,8 +49,6 @@
 #include "Physics/PhysicsEngine.hpp"
 
 #include ANITO_EVENT_INCLUDES
-
-#include "miniaudio.h"
 
 using namespace Diligent;
 
@@ -202,6 +205,9 @@ bool AnitoTracer_App::InitEngine()
     IEngineFactoryVk* pFactoryVk = Diligent::LoadAndGetEngineFactoryVk();
     EngineVkCreateInfo engineCI;
     engineCI.Features.RayTracing = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    // Lets a shader pick a texture out of an array per pixel, which reflection rays need to shade whatever they hit
+    // (SceneGeometryPool). Without it reflections show the sky only.
+    engineCI.Features.ShaderResourceRuntimeArrays = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
 
 #if defined(_DEBUG) || defined(DEBUG)
     // Enable the Vulkan validation layer in debug builds so driver-specific
@@ -281,6 +287,8 @@ void AnitoTracer_App::InitManagers()
     
     AssetPipeline::IncludeFolder("Assets");
 
+    ScriptRegistry::GetInstance().Initialize();
+
     if (AppConfig::entry_project.size() > 0)
         ProjectLoader::LoadProject(AppConfig::entry_project);
     if (AppConfig::entry_scene.size() > 0)
@@ -295,25 +303,6 @@ void AnitoTracer_App::InitManagers()
     m_pEditorTarget = RendererManager::GetInstance().CreateRenderTarget("EditorView");
 
     PlayerInput::RegisterDefaultKeybinds();
-
-    ma_result engineResult;
-    ma_result playResult;
-    ma_engine engine;
-
-    engineResult = ma_engine_init(nullptr, &engine);
-    if (engineResult != MA_SUCCESS){
-        std::cerr << "Failed to load audio engine." << std::endl;
-        return;
-    }
-
-    playResult = ma_engine_play_sound(&engine, "Assets/Audio/sample.wav", nullptr);
-    if (playResult != MA_SUCCESS){
-        std::cerr << "Failed to play sound. Result" << playResult << std::endl;
-    }
-
-    std::this_thread::sleep_for(std::chrono::seconds(10));
-
-    ma_engine_uninit(&engine);
 }
 
 void AnitoTracer_App::OnResize(short width, short height)
@@ -356,6 +345,18 @@ void AnitoTracer_App::Update()
 
     if (!m_AppRunning) return;
 
+    const auto projectDirectory = ProjectLoader::GetCurrentProjectDir();
+    // Drive the live-script pipeline from the editor update: discover source, build generated C++,
+    // then poll the module so successful builds become active without restarting the editor.
+    ScriptRegistry::GetInstance().SetProjectDirectory(projectDirectory);
+    ScriptRegistry::GetInstance().Refresh();
+    ScriptBuildDriver::GetInstance().SetProjectDirectory(projectDirectory);
+    ScriptBuildDriver::GetInstance().Poll();
+    ScriptModule::GetInstance().SetModulePath(projectDirectory.empty()
+        ? std::filesystem::path{}
+        : projectDirectory / "Library" / "Scripts" / "Scripts.dll");
+    ScriptModule::GetInstance().Poll();
+
     const auto& SCDesc = m_pSwapChain->GetDesc();
     GUIManager& imguiManager = GUIManager::GetInstance();
 
@@ -377,8 +378,10 @@ void AnitoTracer_App::Update()
 
     if (!AppState::isReleaseBuild)
     {
-        m_pGameTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
-        m_pEditorTarget->Create(m_pDevice, SCDesc.Width, SCDesc.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        // Both views render at the resolution picked in the viewport panels / User Settings, independent of the window size
+        const RenderResolution& resolution = UserSettings::GetInstance().GetResolution();
+        m_pGameTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        m_pEditorTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
     }
 
     //============//TIME//============//
@@ -436,6 +439,16 @@ void AnitoTracer_App::Update()
     if (AppState::isPlaying){
         HierarchyManager::GetInstance().DispatchEvent<UpdateTrigger>(0.016f); //test delta frame
         HierarchyManager::GetInstance().DispatchEvent<OnGUI_Release>(deltaTime);
+        {
+            const auto& physicsSettings = ProjectLoader::GetProjectSettings().physics;
+            const glm::vec3 desiredGravity = physicsSettings.gravity_enabled
+                ? glm::vec3(physicsSettings.gravity[0], physicsSettings.gravity[1], physicsSettings.gravity[2])
+                : glm::vec3(0.0f);
+            IPhysicsEngine& physics = PhysicsEngine::GetInstance().Get();
+            if (physics.GetGravity() != desiredGravity) {
+                physics.SetGravity(desiredGravity);
+            }
+        }
         PhysicsEngine::GetInstance().Get().Step(deltaTime);
         HierarchyManager::GetInstance().DispatchEvent<FixedUpdateTrigger>(deltaTime);
     }
@@ -451,6 +464,7 @@ void AnitoTracer_App::Render()
     HierarchyManager::GetInstance().GetMainCameraMatrices(renderData.ViewMatrix, renderData.ProjectionMatrix);
     HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
     HierarchyManager::GetInstance().GatherLightData(renderData.Lights);
+    GatherParticleBatches(renderData.Particles);
 
     const auto& SCDesc = m_pSwapChain->GetDesc();
 
@@ -462,14 +476,27 @@ void AnitoTracer_App::Render()
     }
     else
     {
-        RendererManager::GetInstance().RenderToTarget(m_pGameTarget, renderData);
+        GUIManager& gui = GUIManager::GetInstance();
+
+        // Views whose panel is closed, collapsed or behind another dock tab aren't rendered
+        if (gui.IsGameViewportShown()) {
+            RendererManager::GetInstance().RenderGameView(m_pGameTarget, renderData);
+        }
 
         RenderData editorRenderData;
-        HierarchyManager::GetInstance().GetEditorCameraMatrices(editorRenderData.ViewMatrix, editorRenderData.ProjectionMatrix);
-        editorRenderData.Models = renderData.Models;
-        editorRenderData.Lights = renderData.Lights;
+        const bool editorShown = gui.IsEditorViewportShown();
+        if (editorShown) {
+            HierarchyManager::GetInstance().GetEditorCameraMatrices(editorRenderData.ViewMatrix, editorRenderData.ProjectionMatrix);
+            editorRenderData.Models = renderData.Models;
+            editorRenderData.Lights = renderData.Lights;
+            editorRenderData.Particles = renderData.Particles;
 
-        RendererManager::GetInstance().RenderToTarget(m_pEditorTarget, editorRenderData);
+            if (ProjectLoader::GetProjectSettings().debug.show_physics_collider_wireframes) {
+                editorRenderData.DebugLines = PhysicsEngine::GetInstance().Get().GetDebugLines();
+            }
+
+            RendererManager::GetInstance().RenderEditorView(m_pEditorTarget, editorRenderData);
+        }
 
         // Clear the main window backbuffer so ImGui has a clean background
         ITextureView* pBackBufferRTV = m_pSwapChain->GetCurrentBackBufferRTV();
@@ -479,7 +506,7 @@ void AnitoTracer_App::Render()
         m_pImmediateContext->ClearRenderTarget(pBackBufferRTV, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_pImmediateContext->ClearDepthStencil(pDefaultDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        HandleObjectPicking(SCDesc, editorRenderData);
+        if (editorShown) HandleObjectPicking(SCDesc, editorRenderData);
     }
 
     GUIManager::GetInstance().Render(m_pImmediateContext);
@@ -509,7 +536,8 @@ void AnitoTracer_App::HandleObjectPicking(const SwapChainDesc& SCDesc, const Ren
             HierarchyObject* selectedObj = HierarchyObject::getById(pickedID);
             if (selectedObj) {
                 std::cout << "Clicked on Model owned by: " << selectedObj->GetName() << std::endl;
-                gui.SetSelectedObject(selectedObj);
+                if (ImGui::GetIO().KeyCtrl) gui.ToggleSelectedObject(selectedObj);
+                else gui.SetSelectedObject(selectedObj);
             }
         }
     }
@@ -535,12 +563,14 @@ void AnitoTracer_App::HandleRenderEndEvent(const gbe::EventArgs *)
 void AnitoTracer_App::HandlePlay(const gbe::EventArgs *args)
 {
     ProjectLoader::QuickSave(); // Do a quicksave first to not lose scene data.
+    std::cout << "[App] HandlePlay: entering play mode" << std::endl;
     AppState::isPlaying = true;
     GUIManager::GetInstance().RequestGameViewportFocus();
 }
 
 void AnitoTracer_App::HandleStopPlay(const gbe::EventArgs *args)
 {
+    std::cout << "[App] HandleStopPlay: leaving play mode" << std::endl;
     AppState::isPlaying = false;
 
     // Reload the scene from disk to discard any changes made during play.
