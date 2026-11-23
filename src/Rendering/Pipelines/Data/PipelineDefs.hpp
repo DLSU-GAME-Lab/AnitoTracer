@@ -15,7 +15,7 @@ namespace Diligent {
     static constexpr uint32_t MAX_POINT_LIGHTS = 8;
 
     // Saved in UserSettings, so new values go at the end
-    enum PipelineType { BASIC_LIT, HYBRID, DEFERRED, DEFERRED_HYBRID, CROSSHATCH, CROSSHATCH_RT };
+    enum PipelineType { BASIC_LIT, HYBRID, DEFERRED, DEFERRED_HYBRID, CROSSHATCH, CROSSHATCH_RT, ANIME };
 
     struct DirectionalLightData {
         glm::vec4 Direction{ 0.0f, -1.0f, 0.0f, 0.0f }; // xyz: dir, w: unused
@@ -247,6 +247,37 @@ namespace Diligent {
         int Padding1 = 0;
     };
     static_assert(sizeof(CrossHatchConstants) % 16 == 0, "CrossHatchConstants must be 16-byte aligned for HLSL");
+
+    // Mirrors cbuffer AnimeConstants in Shaders/Anime/anime_common.hlsli
+    struct AnimeConstants
+    {
+        glm::vec4 BaseColor{ 1.0f };                            // rgb: tint of the lit tone
+        glm::vec4 ShadowColor{ 1.0f };                          // rgb: tint of the shadow tone
+        glm::vec4 InnerEdgeColor{ 0.0f, 0.0f, 0.0f, 1.0f };
+        glm::vec4 OutlineColor{ 0.0f, 0.0f, 0.0f, 1.0f };
+        glm::vec4 CameraPos{ 0.0f };                            // For the outline pass
+
+        float Step = 0.1f;
+        float InnerStep = 0.0f;
+        float CurveStep = 0.5f;
+        float ShadowFactor = 0.25f;
+
+        float LightFalloff = 0.0f;
+        float SpecularStrength = 1.0f;
+        float BaseColorBlur = 0.0f;                             // Mip levels
+        float NormalMapBlur = 0.0f;
+
+        float OutlineWidth = 0.02f;
+        float OutlineScaleWithDistance = 0.0f;
+        float OutlineSmoothNormals = 1.0f;
+        float Padding0 = 0.0f;
+
+        int UseSmoothNormal = 0;
+        int SpecularEnabled = 1;
+        int Padding1 = 0;
+        int Padding2 = 0;
+    };
+    static_assert(sizeof(AnimeConstants) % 16 == 0, "AnimeConstants must be 16-byte aligned for HLSL");
 
     struct alignas(16) PBRMaterialConstants {
         glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };

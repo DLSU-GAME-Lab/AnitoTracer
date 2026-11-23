@@ -636,7 +636,7 @@ namespace Diligent {
                     "Off: clipped at white, as it was before HDR.\n"
                     "AgX: film-like. Bright, saturated light fades toward white; softer contrast overall.\n"
                     "Khronos PBR Neutral: shows colors as authored and only rolls off the highlights.\n"
-                    "The CrossHatch renderers are never tone mapped.");
+                    "The CrossHatch and Anime renderers are never tone mapped.");
 
                 ImGui::DragFloat("Exposure##HDR", &hdrSettings.exposure, 0.01f, -10.0f, 10.0f, "%.2f EV");
                 tooltip("Scene brightness in stops, applied before the tone mapper. +1 doubles the light, -1 halves it.");
@@ -1048,6 +1048,118 @@ namespace Diligent {
                 if (ImGui::Button("Reset Cross Hatching to Defaults"))
                 {
                     chSettings = ProjectCrossHatchSettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Anime Shading Section (Anime renderer only)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Anime Shading"))
+            {
+                auto& animeSettings = projectSettings.anime;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::TextDisabled("Used by the Anime renderer (Rendering menu), in the Game view.");
+
+                ImGui::PushItemWidth(150.0f);
+
+                ImGui::TextDisabled("Tones");
+
+                ImGui::ColorEdit3("Base Color##Anime", animeSettings.base_color.data());
+                tooltip("Tint of the lit tone. It multiplies the material's color and texture.");
+                saveAfterEdit();
+
+                ImGui::ColorEdit3("Shadow Color##Anime", animeSettings.shadow_color.data());
+                tooltip("Tint of the shadow tone.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Shadow Factor##Anime", &animeSettings.shadow_factor, 0.0f, 1.0f, "%.2f");
+                tooltip("Darkens the shadow tone. 0 shows the shadow color as is, 1 turns the shadows black.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Step##Anime", &animeSettings.step, 0.0f, 1.0f, "%.2f");
+                tooltip("How much a surface has to face the light to be in the lit tone. Higher = more of it is in shadow.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Light Falloff##Anime", &animeSettings.light_falloff, 0.0f, 1.0f, "%.2f");
+                tooltip("0: two flat tones, like a cel.\n1: the lit tone fades into the shadow tone with the angle to the light, like diffuse shading.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Use Smooth Normal##Anime", &animeSettings.use_smooth_normal)) saveProjectSettings();
+                tooltip("Cuts the tones with normals averaged over neighboring faces: a cleaner shadow edge on low-poly or hard-edged meshes.");
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Specular");
+
+                if (ImGui::Checkbox("Enable Specular##Anime", &animeSettings.specular_enabled)) saveProjectSettings();
+                tooltip("Highlights in the lit tone (Cook-Torrance). Their size follows the material's roughness and metallic,\nwhich the Model component can override per object.");
+
+                ImGui::BeginDisabled(!animeSettings.specular_enabled);
+                ImGui::SliderFloat("Strength##AnimeSpecular", &animeSettings.specular_strength, 0.0f, 4.0f, "%.2f");
+                saveAfterEdit();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Texture Blur");
+
+                ImGui::SliderFloat("Base Color##AnimeBlur", &animeSettings.base_color_blur, 0.0f, 8.0f, "%.1f");
+                tooltip("Smooths the base color texture by reading it from a lower mip level. 0 = sharp.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Normal Map##AnimeBlur", &animeSettings.normal_map_blur, 0.0f, 8.0f, "%.1f");
+                tooltip("The same for the normal map, which calms the highlights.");
+                saveAfterEdit();
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Inner Edges");
+
+                ImGui::ColorEdit3("Edge Color##Anime", animeSettings.inner_edge_color.data());
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Inner Step##Anime", &animeSettings.inner_step, 0.0f, 1.0f, "%.2f");
+                tooltip("Ink where a surface faces the camera less than this: a rim line inside the silhouette. 0 = off.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Curve Step##Anime", &animeSettings.curve_step, 0.0f, 1.0f, "%.2f");
+                tooltip("Ink where the mesh bends more than this (creases, folds). Lower = more lines. 1 = off.");
+                saveAfterEdit();
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Outline");
+
+                if (ImGui::Checkbox("Enable Outline##Anime", &animeSettings.outline_enabled)) saveProjectSettings();
+                tooltip("Ink outline around each object's silhouette (inverted hull).");
+
+                ImGui::BeginDisabled(!animeSettings.outline_enabled);
+                ImGui::ColorEdit3("Color##AnimeOutline", animeSettings.outline_color.data());
+                saveAfterEdit();
+
+                ImGui::DragFloat("Thickness##AnimeOutline", &animeSettings.outline_thickness, 0.0005f, 0.0f, 1.0f, "%.4f");
+                tooltip(animeSettings.outline_constant_screen_width
+                    ? "Outline thickness as a fraction of the distance to the camera."
+                    : "Outline thickness in world units.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Constant Screen Width##Anime", &animeSettings.outline_constant_screen_width)) saveProjectSettings();
+                tooltip("Keeps the outline the same thickness on screen at any distance.");
+
+                if (ImGui::Checkbox("Smooth Normals##AnimeOutline", &animeSettings.outline_smooth_normals)) saveProjectSettings();
+                tooltip("Grows the outline along normals averaged over neighboring faces, which don't open gaps at hard edges.");
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Anime Shading to Defaults"))
+                {
+                    animeSettings = ProjectAnimeSettings{};
                     saveProjectSettings();
                 }
             }

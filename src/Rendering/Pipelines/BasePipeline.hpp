@@ -67,6 +67,10 @@ namespace Diligent {
         // Draws a model's submeshes binding materials through pSRB instead of m_pSRB (e.g. for an extra pass with its own PSO)
         void RenderModelWithSRB(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque, IShaderResourceBinding* pSRB);
 
+        // Binds the vertex buffers a model is drawn from: the standard vertices in slot 0. A pipeline whose input layout
+        // reads more vertex data (e.g. AnimePipeline's second stream) overrides this to bind it too.
+        virtual void BindModelVertexBuffers(IDeviceContext* pContext, const Model& model);
+
         // PSO for drawing models with the standard vertex layout, constants and material textures, into the scene formats below
         PSOBuilder CreateModelPSOBuilder(const char* name, const char* psFile, const char* vsFile = "main_vs.hlsl");
 

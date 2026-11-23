@@ -8,6 +8,8 @@ set(${CUR_TARGET_NAME}_src
 	Models/ModelManager.cpp
 	Models/SceneGeometryPool.hpp
 	Models/SceneGeometryPool.cpp
+	Models/AnimeMeshData.hpp
+	Models/AnimeMeshData.cpp
 
 	RenderData.hpp
 	RenderData.cpp
@@ -74,6 +76,8 @@ set(${CUR_TARGET_NAME}_src
 	Pipelines/DeferredHybridPipeline.cpp
 	Pipelines/CrossHatchPipeline.hpp
 	Pipelines/CrossHatchPipeline.cpp
+	Pipelines/AnimePipeline.hpp
+	Pipelines/AnimePipeline.cpp
 
 	# Other pipelines
 	Pipelines/BasicPipeline.hpp

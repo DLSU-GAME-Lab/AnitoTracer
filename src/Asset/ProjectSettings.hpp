@@ -80,7 +80,7 @@ struct ProjectFogSettings
 // HDR output. The scene is rendered in floating point, so lights and emissive surfaces can be brighter than white.
 // The display pass at the end of the frame applies the exposure and a tone curve to fit that range onto the screen.
 // Applies to the game view and release builds, and to the editor view when apply_to_editor_view is set.
-// Stylized renderers (CrossHatch) are never tone mapped; their colors are already final.
+// Stylized renderers (CrossHatch, Anime) are never tone mapped; their colors are already final.
 struct ProjectHDRSettings
 {
     int tone_mapper = 2;             // 0: off (clamp at white), 1: AgX, 2: Khronos PBR Neutral
@@ -184,6 +184,38 @@ struct ProjectCrossHatchSettings
     bool outline_from_origin = false;          // Extrude away from the object's origin instead of along normals (hard-surface meshes)
 };
 
+// Style of the Anime renderer (ported from Weeb_Big2). Colors are linear RGB, like the other settings.
+struct ProjectAnimeSettings
+{
+    // Two tones: the lit tone where a surface faces the light by more than `step`, the shadow tone elsewhere
+    std::array<float, 3> base_color{1.0f, 1.0f, 1.0f};          // Tints the lit tone (multiplies the material's color)
+    std::array<float, 3> shadow_color{0.6f, 0.55f, 0.78f};      // Tints the shadow tone
+    float shadow_factor = 0.25f;     // Darkens the shadow tone: 0 = the shadow color as is, 1 = black
+    float step = 0.1f;               // N.L a surface needs to be in the lit tone
+    float light_falloff = 0.0f;      // 0 = two flat tones, 1 = the lit tone fades into the shadow tone with N.L
+    bool use_smooth_normal = false;  // Cut the tones with normals averaged over neighboring faces
+
+    // Highlights (Cook-Torrance, sized by the material's roughness and metallic)
+    bool specular_enabled = true;
+    float specular_strength = 1.0f;
+
+    // Texture blur, in mip levels: smooths texture detail, which reads as noise in a cel look. 0 = sharp.
+    float base_color_blur = 0.0f;
+    float normal_map_blur = 0.0f;
+
+    // Inner edges: ink inside the silhouette
+    std::array<float, 3> inner_edge_color{0.0f, 0.0f, 0.0f};
+    float inner_step = 0.0f;         // Ink where a surface faces the camera less than this (0 = off)
+    float curve_step = 0.5f;         // Ink where the mesh bends more than this (1 = off)
+
+    // Inverted hull outline
+    bool outline_enabled = true;
+    std::array<float, 3> outline_color{0.0f, 0.0f, 0.0f};
+    float outline_thickness = 0.02f;
+    bool outline_constant_screen_width = false;  // Thickness scales with distance, so it is a fraction of the distance instead of world units
+    bool outline_smooth_normals = true;          // Extrude along the smooth normals, which don't open gaps at hard edges
+};
+
 struct ProjectDebugSettings
 {
     bool show_physics_collider_wireframes = false;
@@ -272,6 +304,7 @@ struct ProjectSettings
     ProjectColorCorrectionSettings color_correction;
     ProjectGodRaysSettings god_rays;
     ProjectCrossHatchSettings crosshatch;
+    ProjectAnimeSettings anime;
     ProjectDebugSettings debug;
     ProjectPhysicsSettings physics;
     ProjectAudioSettings audio;

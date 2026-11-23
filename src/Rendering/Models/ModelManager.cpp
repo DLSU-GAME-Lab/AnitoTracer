@@ -1,4 +1,5 @@
 #include "ModelManager.hpp"
+#include "AnimeMeshData.hpp"
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
@@ -490,6 +491,22 @@ void ModelManager::CreateHardwareBuffers(Model* pModel, const std::vector<Vertex
     IBData.pData = indices.data();
     IBData.DataSize = IndBuffDesc.Size;
     m_pDevice->CreateBuffer(IndBuffDesc, &IBData, &pModel->pIndexBuffer);
+
+    // Smooth normals and curvature for the Anime renderer's second vertex stream
+    if (!vertices.empty()) {
+        const std::vector<AnimeVertexData> animeData = BuildAnimeVertexData(vertices, indices);
+
+        BufferDesc AnimeBuffDesc{};
+        AnimeBuffDesc.Name = "Model Anime Vertex Buffer";
+        AnimeBuffDesc.Usage = USAGE_IMMUTABLE;
+        AnimeBuffDesc.BindFlags = BIND_VERTEX_BUFFER;
+        AnimeBuffDesc.Size = animeData.size() * sizeof(AnimeVertexData);
+
+        BufferData AnimeBuffData{};
+        AnimeBuffData.pData = animeData.data();
+        AnimeBuffData.DataSize = AnimeBuffDesc.Size;
+        m_pDevice->CreateBuffer(AnimeBuffDesc, &AnimeBuffData, &pModel->pAnimeVertexBuffer);
+    }
 
     // A copy for ray hits, which can land on any model and so can't use per-model buffers
     m_ScenePool.AddModel(*pModel, vertices, indices);

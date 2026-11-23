@@ -70,8 +70,7 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
         PipelineUtils::WriteCB(pContext, m_pModelCB, modelConstants);
     }
 
-    IBuffer* pBuffs[] = { model->pVertexBuffer };
-    pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
+    BindModelVertexBuffers(pContext, *model);
     pContext->SetIndexBuffer(model->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Determine which list of submesh indices to iterate over
@@ -125,6 +124,12 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
 
         pContext->DrawIndexed(DrawAttrs);
     }
+}
+
+void BasePipeline::BindModelVertexBuffers(IDeviceContext* pContext, const Model& model)
+{
+    IBuffer* pBuffs[] = { model.pVertexBuffer };
+    pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
 }
 
 void BasePipeline::RenderModels(IDeviceContext* pContext, const RenderData& renderData, bool renderOpaque)

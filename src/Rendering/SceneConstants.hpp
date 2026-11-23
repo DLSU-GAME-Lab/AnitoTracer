@@ -22,4 +22,7 @@ namespace Diligent {
     // Layout expected by Shaders/CrossHatch/crosshatch_common.hlsli. CameraPos is left for the pipeline to fill.
     CrossHatchConstants BuildCrossHatchConstants(const ProjectCrossHatchSettings& settings);
 
+    // Layout expected by Shaders/Anime/anime_common.hlsli. CameraPos is left for the pipeline to fill.
+    AnimeConstants BuildAnimeConstants(const ProjectAnimeSettings& settings);
+
 }
