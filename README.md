@@ -17,6 +17,14 @@ new models (`.obj`, `.fbx`) and audio clips (`.wav`) in the folder currently
 open in the File Explorer. The scan does not reload changed assets already in
 memory; check the log for import errors.
 
+## Window layouts
+
+Docked panels keep their horizontal and vertical split proportions when the
+application window is resized. Drag a splitter to change those proportions;
+they are also respected when a saved layout is loaded at a different window
+size. ImGui's minimum panel sizes may limit the proportions in very small
+windows. Floating windows retain their normal independent sizes.
+
 ## Script editor
 
 Double-click an `.ascript` file in the File Explorer to open or focus it in the
