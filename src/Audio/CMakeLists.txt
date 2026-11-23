@@ -4,7 +4,10 @@ set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
 set(${CUR_TARGET_NAME}_src
 	AudioClip.hpp
 	AudioManager.cpp
-	AudioManager.hpp)
+	AudioManager.hpp
+	ma_reverb_node.c
+	ma_reverb_node.h
+	verblib.h)
 
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})

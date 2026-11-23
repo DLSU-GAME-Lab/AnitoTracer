@@ -418,6 +418,37 @@ void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outM
     }
 }
 
+static void GatherAudioZoneRecursive(HierarchyObject::Ref obj, std::vector<DebugLineVertex>& outAudioZone) {
+    if (!obj) return;
+
+    if(AudioZoneComponent* audioZone = obj.GetPtr()->GetComponent<AudioZoneComponent>()) 
+        audioZone->AppendDebugLines(outAudioZone);
+    
+    for (const auto& child : obj.GetPtr()->GetChildren())
+        GatherAudioZoneRecursive(child.get(), outAudioZone);
+}
+
+void HierarchyManager::GatherAudioZoneDebugLines(std::vector<DebugLineVertex>& outAudioZone) const {
+    for (const auto& rootNode: m_rootNodes) 
+        GatherAudioZoneRecursive(rootNode.get(), outAudioZone);
+}
+
+// add gatheraudiozonerecursive and gatheraudiozonedebuglines here
+static void GatherAudioReverbRecursive(HierarchyObject::Ref obj, std::vector<DebugLineVertex>& outAudioReverb) {
+    if (!obj) return;
+
+    if(AudioReverbComponent* audioReverb = obj.GetPtr()->GetComponent<AudioReverbComponent>()) 
+        audioReverb->AppendDebugLines(outAudioReverb);
+    
+    for (const auto& child : obj.GetPtr()->GetChildren())
+        GatherAudioReverbRecursive(child.get(), outAudioReverb);
+}
+
+void HierarchyManager::GatherAudioReverbDebugLines(std::vector<DebugLineVertex>& outAudioReverb) const {
+    for (const auto& rootNode: m_rootNodes) 
+        GatherAudioReverbRecursive(rootNode.get(), outAudioReverb);
+}
+
 static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, Diligent::LightConstants& outLights) {
     if (!obj) return;
 

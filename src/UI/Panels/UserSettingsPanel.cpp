@@ -1084,6 +1084,25 @@ namespace Diligent {
                         projectSettings.audio.sfx_volume);
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+
+                if (ImGui::Checkbox("Show Music Zone Wireframes", &projectSettings.audio.show_audio_zone_wireframes)) 
+                {
+                    saveProjectSettings();
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Draws sphere wireframes for the music zone in the editor viewport. Inner sphere = music start; Outer sphere = music stop");
+                }
+
+                if (ImGui::Checkbox("Show Sound FX Reverb Zone Wireframes", &projectSettings.audio.show_audio_reverb_wireframes)) 
+                {
+                    saveProjectSettings();
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Draws sphere wireframes for the SFX reverb zones in the editor viewport. Inner sphere = full reverb; Outer sphere = reverb fades out to zero");
+                }
+
             }
 
             if (ImGui::CollapsingHeader("Debug Settings", ImGuiTreeNodeFlags_DefaultOpen))
