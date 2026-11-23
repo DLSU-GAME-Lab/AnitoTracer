@@ -41,6 +41,13 @@ namespace Diligent {
             glm::vec3 CameraPosition{ 0.0f };
             bool IsValid = false;
 
+            // The sub-pixel shift TAA added to ProjectionMatrix this frame, in clip space units (0 without TAA).
+            // Motion vectors are measured without it.
+            glm::vec2 ProjectionJitter{ 0.0f };
+            glm::mat4 GetUnjitteredProjection() const {
+                return glm::translate(glm::mat4(1.0f), glm::vec3(-ProjectionJitter, 0.0f)) * ProjectionMatrix;
+            }
+
             // Seeds the per-frame noise of ray-traced shadows, AO and fog. Set by RendererManager to a counter
             // that changes every frame only while TAA is accumulating; 0 keeps the noise still, since without
             // TAA a changing pattern would only flicker.

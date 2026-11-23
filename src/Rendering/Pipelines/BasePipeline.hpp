@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
@@ -53,7 +54,12 @@ namespace Diligent {
         void CreateModelConstantBuffer();
         void CreateMaterialConstantBuffer();
 
+        // Uploads the camera, and keeps this frame's unjittered view-projection as "last frame's" for the next call
         void UpdateCameraConstants(IDeviceContext* pContext, const RenderData& renderData);
+
+        // Remembers where every model is, so the next frame knows where each one was (ModelConstants::PrevModel).
+        // Call once per frame, before any model is drawn.
+        void TrackModelMotion(const RenderData& renderData);
 
         // Binds the constant buffers this pipeline owns to the variables pSRB declares
         virtual void BindCommonBuffers(IShaderResourceBinding* pSRB);
@@ -77,6 +83,15 @@ namespace Diligent {
         RefCntAutoPtr<IBuffer> m_pCameraCB;
         RefCntAutoPtr<IBuffer> m_pModelCB;
         RefCntAutoPtr<IBuffer> m_pMaterialCB;
+
+        // For motion vectors. World -> clip space without TAA jitter, as uploaded by the last UpdateCameraConstants:
+        // the frame being drawn and the one before it (the same matrix on the first frame).
+        glm::mat4 m_ViewProjNoJitter{ 1.0f };
+        glm::mat4 m_PrevViewProjNoJitter{ 1.0f };
+        bool m_HasPrevCamera = false;
+        // World transforms by ModelRenderInstance::OwnerID, from the last two TrackModelMotion calls
+        std::unordered_map<uint64_t, glm::mat4> m_ModelTransforms;
+        std::unordered_map<uint64_t, glm::mat4> m_PrevModelTransforms;
 
         RefCntAutoPtr<ISwapChain> m_pSwapChain;
         RefCntAutoPtr<IRenderDevice> m_pDevice;

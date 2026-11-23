@@ -8,6 +8,7 @@ namespace Diligent {
     {
         PrepareFrame(target);
 
+        TrackModelMotion(renderData);
         StartFrameRender(pContext, renderData);
         UpdateLights(pContext, renderData.Lights);
         UpdateShadowSettings(pContext, settings, renderData.NoiseFrame);

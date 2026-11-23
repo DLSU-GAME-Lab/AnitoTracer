@@ -26,11 +26,12 @@ namespace Diligent {
         static std::vector<ImmutableSamplerDesc> GetRayTracingSamplers();
         static ShaderMacroList GetRayTracingMacros();
 
-        // Binds the TLAS, sky lighting cubes and scene textures into the SRB of the ray-traced shading pass
+        // Binds the TLAS, sky lighting cubes and scene textures into the SRBs of the passes that trace rays
         void BindRayTracingResources();
 
-        // SRB of the pass that traces rays (the forward pass here, the lighting pass in DeferredHybridPipeline)
-        virtual IShaderResourceBinding* GetRayTracingSRB() { return m_pSRB; }
+        // SRBs of the passes that trace rays, each built with GetRayTracingVariables: the forward pass here,
+        // the lighting and GI passes in DeferredHybridPipeline. Null entries are skipped.
+        virtual std::vector<IShaderResourceBinding*> GetRayTracingSRBs() { return { m_pSRB }; }
 
         SceneTLAS m_SceneTLAS;
         RefCntAutoPtr<ITextureView> m_pEnvIrradianceSRV;
@@ -42,7 +43,8 @@ namespace Diligent {
         void SyncSceneRayData(IDeviceContext* pContext);
         void BindSceneTextures();
 
-        // SceneGeometryPool::GetTextureVersion of the array bound into GetRayTracingSRB()
+        // SceneGeometryPool::GetTextureVersion of the array bound into GetRayTracingSRBs()
+
         Uint64 m_BoundTextureVersion = 0;
     };
 }

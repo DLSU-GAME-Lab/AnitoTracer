@@ -1,30 +1,21 @@
 // lighting_ps.hlsl
-// Deferred Hybrid lighting pass: one fullscreen triangle, rebuilds each visible surface from the G-buffer
-// and runs the shared ray-traced shading on it, so rays are traced exactly once per pixel.
+// Deferred Hybrid lighting pass: one fullscreen triangle that composes the final color of each visible surface from
+// the G-buffer (its material) and the ray-traced signals (what its rays found, see deferred_common.hlsli).
+// It traces no rays itself: the trace passes did, once per pixel, and the denoisers cleaned the results up.
 #include "../light_struct.hlsli"
 #include "../pbr_defs.hlsli"
 #include "../fog.hlsli"
 #include "../hybrid_shading.hlsli"
-#include "gbuffer_common.hlsli"
+#include "deferred_common.hlsli"
 
-Texture2D g_GBufferAlbedoMetallic;
-Texture2D g_GBufferNormals;
-Texture2D g_GBufferEmissiveAO;
-Texture2D g_GBufferRoughness;
-Texture2D g_GBufferDepth;
+// Light visibility, four light slots per texture (r, g, b, a): slots 0-3, 4-7 and 8-11.
+// A white texture is bound for the ones the scene has no lights for.
+Texture2D g_ShadowSignal0;
+Texture2D g_ShadowSignal1;
+Texture2D g_ShadowSignal2;
 
-cbuffer DeferredHybridConstants
-{
-    float4x4 g_InvViewProj;
-    float4 g_ViewportSize; // xy: size in pixels, zw: 1 / size
-    float4 g_ViewParams;   // x: angle one pixel covers, in radians
-};
-
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
+// rgb: light arriving along the reflection, a: distance to its source. Only read where UsesReflectionRay.
+Texture2D g_ReflectionSignal;
 
 struct LightingOutput
 {
@@ -34,46 +25,39 @@ struct LightingOutput
 
 void main_ps(in FullScreenPSInput In, out LightingOutput Out)
 {
-    // The G-buffer can be larger than the viewport (it only grows), so fetch by pixel instead of by UV
-    int3 texel = int3(In.Pos.xy, 0);
+    int2 pixel = int2(In.Pos.xy);
+    int3 texel = int3(pixel, 0);
 
     // Nothing was drawn here; keep the skybox
-    float depth = g_GBufferDepth.Load(texel).r;
-    if (depth >= 1.0)
+    HybridSurface surface;
+    float depth;
+    if (!LoadGBufferSurface(pixel, surface, depth))
     {
         discard;
     }
 
-    // Reconstruct world position from depth
-    float2 uv = In.Pos.xy * g_ViewportSize.zw;
-    float4 clipPos = float4(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y, depth, 1.0);
-    float4 worldPos = mul(clipPos, g_InvViewProj);
-    worldPos.xyz /= worldPos.w;
+    HybridRays rays;
+    ApplyIndirectSignal(surface, pixel, rays.AmbientVisibility, rays.OpenDirection);
 
-    // D32 depth loses precision with distance, so the rebuilt position can sit below the real surface by more
-    // than the shadow bias (tenths of a unit a few hundred units out). Two depth steps, mapped back to world
-    // units, is how far it can be off here; the ray origins are pushed out by that much on top of the bias.
-    float depthStep = asfloat(asuint(depth) + 2) - depth;
-    float4 worldPosNext = mul(float4(clipPos.xy, depth + depthStep, 1.0), g_InvViewProj);
-    float positionError = length(worldPosNext.xyz / worldPosNext.w - worldPos.xyz);
+    int slotCount = LightSlotCount();
+    float4 shadows0 = g_ShadowSignal0.Load(texel);
+    float4 shadows1 = float4(1.0, 1.0, 1.0, 1.0);
+    float4 shadows2 = float4(1.0, 1.0, 1.0, 1.0);
+    if (slotCount > 4) shadows1 = g_ShadowSignal1.Load(texel);
+    if (slotCount > 8) shadows2 = g_ShadowSignal2.Load(texel);
+    for (int channel = 0; channel < 4; ++channel)
+    {
+        rays.LightVisibility[channel] = saturate(shadows0[channel]);
+        rays.LightVisibility[4 + channel] = saturate(shadows1[channel]);
+        rays.LightVisibility[8 + channel] = saturate(shadows2[channel]);
+    }
 
-    float4 albedoMetallic = g_GBufferAlbedoMetallic.Load(texel);
-    float4 normals = g_GBufferNormals.Load(texel);
-    float4 emissiveAO = g_GBufferEmissiveAO.Load(texel);
+    rays.Reflection = float3(0.0, 0.0, 0.0);
+    if (UsesReflectionRay(surface.Roughness))
+    {
+        rays.Reflection = SanitizeLight(g_ReflectionSignal.Load(texel).rgb);
+    }
 
-    HybridSurface surface;
-    surface.WorldPos = worldPos.xyz;
-    surface.N = OctDecode(normals.xy);
-    surface.GeoN = OctDecode(normals.zw);
-    surface.PositionError = positionError;
-    surface.Albedo = albedoMetallic.rgb;
-    surface.Metallic = albedoMetallic.a;
-    surface.Roughness = g_GBufferRoughness.Load(texel).r;
-    surface.AO = emissiveAO.a;
-    surface.Emissive = emissiveAO.rgb;
-    surface.PixelSpread = g_ViewParams.x;
-
-
-    Out.Color = float4(ShadeHybridSurface(surface, In.Pos.xy), 1.0);
+    Out.Color = float4(ComposeHybridSurface(surface, rays, In.Pos.xy), 1.0);
     Out.Depth = depth;
 }

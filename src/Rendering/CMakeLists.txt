@@ -44,6 +44,11 @@ set(${CUR_TARGET_NAME}_src
 	Pipelines/Utils/SceneTLAS.cpp
 	Pipelines/Utils/StructuredBufferArray.hpp
 	Pipelines/Utils/StructuredBufferArray.cpp
+	Pipelines/Utils/DiffuseGIPass.hpp
+	Pipelines/Utils/DiffuseGIPass.cpp
+	Pipelines/Utils/SignalDenoiser.hpp
+	Pipelines/Utils/SignalDenoiser.cpp
+
 
 	Pipelines/Utils/SkyEnvironment.hpp
 	Pipelines/Utils/SkyEnvironment.cpp

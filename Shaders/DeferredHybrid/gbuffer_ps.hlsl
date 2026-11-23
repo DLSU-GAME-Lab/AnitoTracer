@@ -11,6 +11,7 @@ struct GBufferOutput
     float4 Normals : SV_TARGET1;
     float4 EmissiveAO : SV_TARGET2;
     float Roughness : SV_TARGET3;
+    float2 Velocity : SV_TARGET4;
 };
 
 void main_ps(in PSInput In, out GBufferOutput Out)
@@ -63,4 +64,12 @@ void main_ps(in PSInput In, out GBufferOutput Out)
     Out.Normals = float4(OctEncode(N), OctEncode(geoN));
     Out.EmissiveAO = float4(emissive, ao);
     Out.Roughness = roughness;
+
+    // Motion vector, from where the vertex shader put this point this frame and last frame
+    float2 velocity = float2(4.0, 4.0); // Was behind the camera: points far off screen, so nothing is reused
+    if (In.PrevClip.w > 0.0001 && In.CurrClip.w > 0.0001)
+    {
+        velocity = (In.CurrClip.xy / In.CurrClip.w - In.PrevClip.xy / In.PrevClip.w) * float2(0.5, -0.5);
+    }
+    Out.Velocity = velocity;
 }

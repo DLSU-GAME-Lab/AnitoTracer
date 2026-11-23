@@ -42,6 +42,7 @@ namespace Diligent {
             .Variable(SHADER_TYPE_PIXEL, "g_CurrentColor")
             .Variable(SHADER_TYPE_PIXEL, "g_HistoryColor")
             .Variable(SHADER_TYPE_PIXEL, "g_SceneDepth")
+            .Variable(SHADER_TYPE_PIXEL, "g_SceneVelocity")
             .Variable(SHADER_TYPE_PIXEL, "TemporalAAConstants")
             .Sampler(SHADER_TYPE_PIXEL, "g_HistoryColor_sampler", PipelineUtils::LinearClampSampler())
             .Build(pDevice);
@@ -50,7 +51,7 @@ namespace Diligent {
         if (!m_pConstantsCB) m_pConstantsCB = PipelineUtils::CreateDynamicCB<TemporalAAConstants>(pDevice, "Temporal AA Constant Buffer");
         PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "TemporalAAConstants", m_pConstantsCB);
 
-        // Bound when there is no scene depth; the shader doesn't read it then
+        // Bound when there is no scene depth or no motion vectors; the shader doesn't read it then
         if (!m_pFallbackDepth) m_pFallbackDepth = PipelineUtils::CreateSolidColorTexture(pDevice, "Temporal AA Fallback Depth", 0xFFFFFFFF);
     }
 
@@ -97,6 +98,7 @@ namespace Diligent {
 
         // Translating after the projection shifts the whole image by the same amount in NDC, for perspective and orthographic cameras alike
         m_JitteredProj = glm::translate(glm::mat4(1.0f), glm::vec3(jitterNDC, 0.0f)) * proj;
+        m_Jitter = jitterNDC;
 
         m_ViewProj = proj * view;
         if (!m_HistoryValid) m_PrevViewProj = m_ViewProj;
@@ -111,7 +113,7 @@ namespace Diligent {
         return m_pInput->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     }
 
-    void TemporalAAPass::Resolve(IDeviceContext* pContext, ITextureView* pDepthSRV, ITextureView* pDstRTV)
+    void TemporalAAPass::Resolve(IDeviceContext* pContext, ITextureView* pDepthSRV, ITextureView* pVelocitySRV, ITextureView* pDstRTV)
     {
         if (!m_pPSO || !m_pSRB || !m_pInput || !pDstRTV) return;
 
@@ -120,12 +122,16 @@ namespace Diligent {
 
         m_Constants.HistoryValid = m_HistoryValid ? 1.0f : 0.0f;
         m_Constants.HasDepth = pDepthSRV ? 1.0f : 0.0f;
+        // Motion vectors are only looked up at the closest depth, so they need the depth as well
+        m_Constants.HasVelocity = (pDepthSRV && pVelocitySRV) ? 1.0f : 0.0f;
         PipelineUtils::WriteCB(pContext, m_pConstantsCB, m_Constants);
 
         PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "g_CurrentColor", m_pInput->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
         PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "g_HistoryColor", m_pHistory[readIndex]->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
         PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "g_SceneDepth",
             pDepthSRV ? pDepthSRV : m_pFallbackDepth->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+        PipelineUtils::BindVariable(m_pSRB, SHADER_TYPE_PIXEL, "g_SceneVelocity",
+            pVelocitySRV ? pVelocitySRV : m_pFallbackDepth->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
 
         ITextureView* pRTVs[] = { pDstRTV, m_pHistory[writeIndex]->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET) };
         pContext->SetRenderTargets(2, pRTVs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

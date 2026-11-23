@@ -6,6 +6,8 @@
 //   RT1 RGBA16_FLOAT     : octahedral shading normal (xy), octahedral geometric normal (zw)
 //   RT2 RGBA16_FLOAT     : emissive.rgb (HDR, strength can push it past 1), material AO
 //   RT3 R8_UNORM         : roughness
+//   RT4 RG16_FLOAT       : motion vector: how far the surface moved across the screen since last frame, in UV units
+//                          (uv - velocity is where it was). Camera and object motion together, without TAA jitter.
 //   Depth D32_FLOAT      : world position is reconstructed from this, no position target needed
 
 // Octahedral normal encoding (Cigolle et al. 2014): a unit vector in two values

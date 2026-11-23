@@ -20,7 +20,26 @@ void BasePipeline::UpdateCameraConstants(IDeviceContext* pContext, const RenderD
     CameraConstants camera;
     camera.View = glm::transpose(renderData.ViewMatrix);
     camera.Proj = glm::transpose(renderData.ProjectionMatrix);
+
+    // Motion vectors compare where a point is on screen now with where it was last frame. TAA shifts the projection
+    // by a different sub-pixel amount every frame, which would read as motion, so both sides leave the jitter out.
+    const glm::mat4 viewProjNoJitter = renderData.GetUnjitteredProjection() * renderData.ViewMatrix;
+    m_PrevViewProjNoJitter = m_HasPrevCamera ? m_ViewProjNoJitter : viewProjNoJitter;
+    m_ViewProjNoJitter = viewProjNoJitter;
+    m_HasPrevCamera = true;
+    camera.ViewProjNoJitter = glm::transpose(m_ViewProjNoJitter);
+    camera.PrevViewProjNoJitter = glm::transpose(m_PrevViewProjNoJitter);
+
     PipelineUtils::WriteCB(pContext, m_pCameraCB, camera);
+}
+
+void BasePipeline::TrackModelMotion(const RenderData& renderData)
+{
+    m_PrevModelTransforms.swap(m_ModelTransforms);
+    m_ModelTransforms.clear();
+    for (const ModelRenderInstance& model : renderData.Models) {
+        if (model.OwnerID != 0) m_ModelTransforms[model.OwnerID] = model.WorldTransform;
+    }
 }
 
 void BasePipeline::RenderModel(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque)
@@ -43,6 +62,11 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
         // Note: glm::transpose(glm::transpose(inverse)) simplifies to just inverse,
         // but writing it this way keeps the intent explicit and matches the Model matrix mapping.
         modelConstants.NormalMatrix = glm::transpose(normalMatrix);
+
+        // Where the object was last frame. One that wasn't drawn then counts as not having moved.
+        const auto previous = m_PrevModelTransforms.find(modelData.OwnerID);
+        modelConstants.PrevModel = glm::transpose(previous != m_PrevModelTransforms.end() ? previous->second : modelData.WorldTransform);
+
         PipelineUtils::WriteCB(pContext, m_pModelCB, modelConstants);
     }
 

@@ -41,6 +41,8 @@ namespace Diligent {
         ITextureView* GetDSV() const;
         // Depth is always sampleable, so passes after the pipeline (e.g. TAA) can read it
         ITextureView* GetDepthSRV() const;
+        // Sampleable view of a color attachment, by its position in Configure; nullptr until the textures exist
+        ITextureView* GetColorSRV(size_t index) const;
         Uint32 GetWidth() const { return m_Width; }
         Uint32 GetHeight() const { return m_Height; }
 
