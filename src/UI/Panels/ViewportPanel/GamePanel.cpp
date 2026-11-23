@@ -26,26 +26,7 @@ namespace Diligent {
         ImGui::PushStyleColor(ImGuiCol_MenuBarBg, m_barColor);
 
         if (ImGui::BeginMenuBar()) {
-            // Map the selected integer to a string label
-            const char* resolutionNames[] = { "720p", "1080p", "1200p" };
-            std::string menuLabel = "Resolution: " + std::string(resolutionNames[m_SelectedResolution]);
-
-            // Use the dynamic label for the dropdown title
-            if (ImGui::BeginMenu(menuLabel.c_str())) {
-                if (ImGui::MenuItem("720p", nullptr, m_SelectedResolution == 0)) {
-                    m_SelectedResolution = 0;
-                    std::cout << "[Debug] Game Resolution changed to 720p\n";
-                }
-                if (ImGui::MenuItem("1080p", nullptr, m_SelectedResolution == 1)) {
-                    m_SelectedResolution = 1;
-                    std::cout << "[Debug] Game Resolution changed to 1080p\n";
-                }
-                if (ImGui::MenuItem("1200p", nullptr, m_SelectedResolution == 2)) {
-                    m_SelectedResolution = 2;
-                    std::cout << "[Debug] Game Resolution changed to 1200p\n";
-                }
-                ImGui::EndMenu();
-            }
+            DrawResolutionMenu();
             ImGui::EndMenuBar();
         }
 

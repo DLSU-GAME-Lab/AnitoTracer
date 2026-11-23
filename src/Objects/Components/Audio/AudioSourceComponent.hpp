@@ -102,11 +102,11 @@ private:
 
 GBE_REGISTER_SERIALIZED_TYPE(AudioSourceComponent, ComponentBase);
 
-ANITO_SCRIPT_TYPE(AudioSourceComponent, "audiosource", "anito::AudioSource", true);
+ANITO_SCRIPT_TYPE(AudioSourceComponent, "audiosource", "anito::AudioSource", true, "audio");
 ANITO_SCRIPT_PROPERTY_RO(AudioSourceComponent, "audiosource", "hasClip", HasAudioClip);
 ANITO_SCRIPT_PROPERTY(AudioSourceComponent, "audiosource", "volume", GetVolume, SetVolume);
 ANITO_SCRIPT_PROPERTY(AudioSourceComponent, "audiosource", "loop", GetLoop, SetLoop);
-ANITO_SCRIPT_PROPERTY(AudioSourceComponent, "audiosource", "pitch", GetPitch, SetPitch);
+ANITO_SCRIPT_PROPERTY_DEFAULT(AudioSourceComponent, "audiosource", "pitch", GetPitch, SetPitch, 1.0f);
 ANITO_SCRIPT_PROPERTY(AudioSourceComponent, "audiosource", "spatialized", GetSpatialized, SetSpatialized);
 ANITO_SCRIPT_METHOD(AudioSourceComponent, "audiosource", "play", Play);
 ANITO_SCRIPT_METHOD(AudioSourceComponent, "audiosource", "stop", Stop);

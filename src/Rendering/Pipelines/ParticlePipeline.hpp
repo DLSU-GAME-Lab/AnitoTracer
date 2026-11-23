@@ -28,7 +28,6 @@ namespace Diligent {
         };
 
         void CreateBlendState(IRenderDevice* pDevice, BlendState& state, ParticleBlendMode mode);
-        void CreateWhiteTexture(IRenderDevice* pDevice);
         void EnsureInstanceBufferCapacity(Uint32 requiredInstances);
 
         BlendState m_Alpha;

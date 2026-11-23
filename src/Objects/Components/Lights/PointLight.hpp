@@ -7,8 +7,7 @@ class PointLight : public LightBase {
 public:
     // Initializes the point light with a default range matching the pipeline definition
     PointLight(gbe::IInstanceManager<HierarchyObject>::Ref owner = nullptr)
-        : LightBase("PointLight", owner),
-        m_range(10.0f) {} // Default range of 10.0f matches PointLightData
+        : LightBase("PointLight", owner) {}
 
     ~PointLight() override = default;
 
@@ -26,7 +25,9 @@ public:
     void SetRange(float range) { m_range = range; }
 
 private:
-    float m_range;
+    // Default range of 10.0f matches PointLightData. Set here, not in a constructor,
+    // so the generated serializer constructor gets it too.
+    float m_range = 10.0f;
     GBE_SERIALIZE_FIELD_W_NAME(m_range, "Range");
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(PointLight, LightBase);

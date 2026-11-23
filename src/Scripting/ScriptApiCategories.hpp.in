@@ -1,0 +1,28 @@
+#pragma once
+
+#include <array>
+#include <string_view>
+
+namespace anito::script::detail {
+
+inline constexpr std::array<std::string_view, @SCRIPT_API_CATEGORY_COUNT@> kHostCategories = {
+@SCRIPT_API_CATEGORY_INITIALIZERS@};
+
+inline constexpr bool IsValidHostCategoryName(std::string_view category) noexcept {
+    if (category.empty() || category.front() < 'a' || category.front() > 'z') return false;
+    for (const char character : category) {
+        if ((character < 'a' || character > 'z') && (character < '0' || character > '9') &&
+            character != '_')
+            return false;
+    }
+    return true;
+}
+
+inline constexpr bool IsKnownHostCategory(std::string_view category) noexcept {
+    for (const std::string_view knownCategory : kHostCategories) {
+        if (knownCategory == category) return true;
+    }
+    return false;
+}
+
+} // namespace anito::script::detail

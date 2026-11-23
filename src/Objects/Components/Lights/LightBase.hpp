@@ -14,9 +14,7 @@ class LightBase : public ComponentBase, public gbe::IInstanceManager<LightBase> 
 public:
     // Initializes the light component with a name, an optional owner, and default light properties.
     LightBase(const std::string& name, gbe::IInstanceManager<HierarchyObject>::Ref owner = {})
-        : ComponentBase(name, owner),
-        m_color(1.0f, 1.0f, 1.0f),
-        m_intensity(1.0f) {}
+        : ComponentBase(name, owner) {}
 
     // Virtual destructor to ensure derived light types are cleaned up correctly.
     ~LightBase() override = default;
@@ -37,9 +35,11 @@ public:
     void SetIntensity(float intensity) { m_intensity = intensity; }
 
 protected:
-    Color3 m_color;
+    // Defaults live here, not in a constructor, so the generated serializer
+    // constructor (scene load, paste, Add Component) gets them too.
+    Color3 m_color{ 1.0f, 1.0f, 1.0f };
     GBE_SERIALIZE_FIELD_W_NAME(m_color, "Light Color");
-    float m_intensity;
+    float m_intensity = 1.0f;
     GBE_SERIALIZE_FIELD_W_NAME(m_intensity, "Intensity");
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(LightBase, ComponentBase);

@@ -2,7 +2,7 @@
 
 #include "AnitoScriptSDK.hpp"
 
-// Engine-side implementation of the script host API, grouped per category in ScriptHostAPI.cpp.
+// Engine-side implementation of the script host API. Category bindings live in ScriptHostAPI/.
 namespace ScriptHost {
 
 const anito::HostAPI* GetAPI();

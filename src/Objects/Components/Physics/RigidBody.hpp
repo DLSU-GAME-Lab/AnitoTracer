@@ -47,10 +47,13 @@ public:
 	glm::vec3 GetAngularVelocity() const;
 	glm::vec3 GetWorldGravity() const;
 	void SetWorldGravity(const glm::vec3& gravity);
+	bool IsSimulated() const;
+	glm::quat GetBodyRotation() const;
 	PhysicsRaycastHit Raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const;
 
 	virtual void SetMass(float mass);
 	float GetMass() const;
+	void SetLockRotation(bool lockX, bool lockY, bool lockZ);
 	void SetLockRotationX(bool lock) { mLockRotationX = lock; ApplyRotationLocks(); }
 	void SetLockRotationY(bool lock) { mLockRotationY = lock; ApplyRotationLocks(); }
 	void SetLockRotationZ(bool lock) { mLockRotationZ = lock; ApplyRotationLocks(); }
@@ -93,13 +96,16 @@ protected:
 
 GBE_REGISTER_SERIALIZED_TYPE(RigidBody, PhysicsBase);
 
-ANITO_SCRIPT_TYPE(RigidBody, "rigidbody", "anito::Rigidbody", true);
+ANITO_SCRIPT_TYPE(RigidBody, "rigidbody", "anito::Rigidbody", true, "physics");
 ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "velocity", GetVelocity, SetVelocity);
 ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "angularVelocity", GetAngularVelocity, SetAngularVelocity);
 ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "mass", GetMass, SetMass);
+ANITO_SCRIPT_PROPERTY_RO(RigidBody, "rigidbody", "simulated", IsSimulated);
+ANITO_SCRIPT_PROPERTY_RO(RigidBody, "rigidbody", "rotation", GetBodyRotation);
 ANITO_SCRIPT_PROPERTY(RigidBody, "rigidbody", "worldGravity", GetWorldGravity, SetWorldGravity);
 ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addForce", ApplyForce);
 ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addTorque", ApplyTorque);
 ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "addImpulse", ApplyImpulse);
 ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "teleport", Teleport);
+ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "lockRotation", SetLockRotation);
 ANITO_SCRIPT_METHOD(RigidBody, "rigidbody", "raycast", Raycast);

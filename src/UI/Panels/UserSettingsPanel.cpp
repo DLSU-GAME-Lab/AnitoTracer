@@ -1,7 +1,9 @@
 #include "UserSettingsPanel.hpp"
 #include "../../UserSettings.hpp"
 #include "../../Asset/ProjectLoader.hpp"
+#include "RendererManager.hpp"
 #include "imgui.h"
+#include <filesystem>
 #include <iostream>
 
 namespace Diligent {
@@ -43,7 +45,8 @@ namespace Diligent {
                 ImGui::ColorEdit3("Ambient Color", lightingSettings.ambient_color.data());
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip("Color of the constant ambient contribution.");
+                    ImGui::SetTooltip("Color of the constant ambient contribution.\nNot added where per-pixel GI is in use: that gathers the real indirect light instead.");
+
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
@@ -57,14 +60,7 @@ namespace Diligent {
                 ImGui::DragFloat("Sky Light Intensity", &lightingSettings.sky_light_intensity, 0.01f, 0.0f, 10.0f, "%.2f");
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip("Hybrid renderer: how strongly the skybox lights the scene.");
-                }
-                if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
-
-                ImGui::DragFloat("Reflection Intensity", &lightingSettings.reflection_intensity, 0.01f, 0.0f, 2.0f, "%.2f");
-                if (ImGui::IsItemHovered())
-                {
-                    ImGui::SetTooltip("Hybrid renderer: strength of skybox reflections on surfaces.");
+                    ImGui::SetTooltip("Hybrid renderer: how strongly the sky lights the scene, on top of the Skybox intensity.");
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
 
@@ -75,7 +71,348 @@ namespace Diligent {
                 // Convenient Reset Button
                 if (ImGui::Button("Reset to Defaults"))
                 {
+                    // The reflection intensity is edited (and reset) in the Reflections section below
+                    const float reflectionIntensity = lightingSettings.reflection_intensity;
                     lightingSettings = ProjectLightingSettings{};
+                    lightingSettings.reflection_intensity = reflectionIntensity;
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Reflections Section (Hybrid and Deferred Hybrid renderers)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Reflections", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& reflectionSettings = projectSettings.reflections;
+                // Disabled controls still explain themselves
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                const bool objectsSupported = ::RendererManager::GetInstance().IsReflectionShadingSupported();
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+
+                // Everything that traces rays; greyed out as a group where rays can't be traced at all
+                ImGui::BeginDisabled(!rayTracingSupported);
+
+                if (ImGui::Checkbox("Ray-Traced Reflections", &reflectionSettings.enabled)) saveProjectSettings();
+                tooltip("Hybrid renderers: trace a ray along each reflection to find what is really there.\n"
+                    "Off: surfaces reflect the sky only, even where an object is in the way. Fastest.");
+
+                ImGui::BeginDisabled(!reflectionSettings.enabled);
+                ImGui::Indent();
+
+                ImGui::BeginDisabled(!objectsSupported);
+                if (ImGui::Checkbox("Show Reflected Objects", &reflectionSettings.shade_hits)) saveProjectSettings();
+                tooltip(objectsSupported
+                    ? "Objects appear in reflections, lit and textured.\nOff: an object only blocks the sky and leaves a dim patch. Faster."
+                    : "Not available on this device: it can't pick textures per pixel, which shading reflected objects needs.");
+
+                ImGui::BeginDisabled(!reflectionSettings.shade_hits);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Shadows in Reflections", &reflectionSettings.hit_shadows)) saveProjectSettings();
+                tooltip("Reflected objects keep their shadows.\nCosts one more ray per light for every reflecting pixel. Off: they are lit as if nothing shadowed them.");
+
+                if (ImGui::Checkbox("Blur on Rough Surfaces", &reflectionSettings.glossy)) saveProjectSettings();
+                tooltip("Rough surfaces blur what they reflect instead of showing it mirror sharp.\n"
+                    "Deferred Hybrid cleans the blur up with its denoiser (see Denoising).\n"
+                    "Without the denoiser it is built up over several frames, so it only applies while TAA is on, and stays a little grainy.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::PushItemWidth(150.0f);
+
+                ImGui::SliderFloat("Max Roughness##Reflections", &reflectionSettings.max_roughness, 0.05f, 1.0f, "%.2f");
+                tooltip("Surfaces rougher than this reflect the sky only, without tracing a ray.\nRays fade out from half this value. Lower is faster.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Ray Distance##Reflections", &reflectionSettings.max_distance, 1.0f, 1.0f, 10000.0f, "%.0f");
+                tooltip("How far a reflection looks for objects, in world units. Anything farther away shows as sky.");
+                saveAfterEdit();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::PushItemWidth(150.0f);
+                ImGui::DragFloat("Intensity##Reflections", &lightingSettings.reflection_intensity, 0.01f, 0.0f, 2.0f, "%.2f");
+                tooltip("Hybrid renderers: strength of all reflections, the sky's included. 0 removes them.");
+                saveAfterEdit();
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Reflections to Defaults"))
+                {
+                    reflectionSettings = ProjectReflectionSettings{};
+                    lightingSettings.reflection_intensity = ProjectLightingSettings{}.reflection_intensity;
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Global Illumination Section (Hybrid and Deferred Hybrid renderers)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Global Illumination", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& giSettings = projectSettings.gi;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                // Per-pixel GI shades what its rays hit, which needs the same device support as reflections of objects,
+                // and it reads the G-buffer, which only Deferred Hybrid has
+                const bool perPixelSupported = ::RendererManager::GetInstance().IsReflectionShadingSupported();
+                const bool deferredHybrid = UserSettings::GetInstance().GetRendererType() == DEFERRED_HYBRID;
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+
+                ImGui::BeginDisabled(!rayTracingSupported);
+                ImGui::PushItemWidth(170.0f);
+
+                // Order matches ProjectGIMethod. Where per-pixel can't run, the box shows what is used instead.
+                const char* giMethodNames[] = { "Sky + AO", "Per-pixel, one bounce" };
+                int shownMethod = perPixelSupported ? (giSettings.method == GI_METHOD_PER_PIXEL ? GI_METHOD_PER_PIXEL : GI_METHOD_SKY_AO) : GI_METHOD_SKY_AO;
+                ImGui::BeginDisabled(!perPixelSupported);
+                if (ImGui::Combo("GI Method", &shownMethod, giMethodNames, IM_ARRAYSIZE(giMethodNames)))
+                {
+                    giSettings.method = shownMethod;
+                    saveProjectSettings();
+                }
+                ImGui::EndDisabled();
+                tooltip(perPixelSupported
+                    ? "How surfaces are lit by the sky and by each other.\n"
+                      "Sky + AO: flat ambient color plus sky light, dimmed in corners. No noise, but no color bleeding, and rooms are lit by sky they can't see.\n"
+                      "Per-pixel, one bounce: a ray per pixel gathers the light that really arrives. Deferred Hybrid renderer only."
+                    : "Per-pixel GI is not available on this device: it can't pick textures per pixel, which shading what the rays hit needs.");
+
+                const bool perPixelChosen = perPixelSupported && giSettings.method == GI_METHOD_PER_PIXEL;
+                if (rayTracingSupported && perPixelChosen && !deferredHybrid)
+                {
+                    ImGui::TextDisabled("In use now: Sky + AO. Per-pixel needs the Deferred Hybrid renderer.");
+                }
+
+                // Sky + AO's own setting; the ones after it belong to Per-pixel
+                ImGui::BeginDisabled(perPixelChosen);
+                if (ImGui::Checkbox("Half-Resolution Occlusion##GI", &giSettings.ao_half_resolution)) saveProjectSettings();
+                tooltip("Sky + AO in the Deferred Hybrid renderer: trace and filter the ambient occlusion for every 2x2 pixels and scale the result up.\n"
+                    "A quarter of the rays and of the filtering, for slightly softer shading in corners and under objects.\n"
+                    "Off: trace for every pixel. For comparing the two.");
+                ImGui::EndDisabled();
+
+                ImGui::BeginDisabled(!perPixelChosen);
+
+                ImGui::DragFloat("Intensity##GI", &giSettings.intensity, 0.01f, 0.0f, 10.0f, "%.2f");
+                tooltip("Strength of the gathered light. 1 is physically right.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Ray Distance##GI", &giSettings.max_distance, 1.0f, 1.0f, 10000.0f, "%.0f");
+                tooltip("How far a ray looks for surfaces, in world units. Anything farther away counts as sky.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Half Resolution##GI", &giSettings.half_resolution)) saveProjectSettings();
+                tooltip("Trace for every 2x2 pixels and scale the result up.\nA quarter of the rays for a slightly softer result. Off: trace for every pixel.");
+
+                ImGui::SliderInt("Rays per Pixel##GI", &giSettings.rays_per_pixel, 1, 8);
+                tooltip("Rays traced per frame for each traced pixel.\nMore rays give a cleaner, steadier result, most visibly where a room is lit by a small bright area. The cost grows with the count.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Shadows on Bounce Light", &giSettings.hit_shadows)) saveProjectSettings();
+                tooltip("Surfaces only bounce the light that reaches them.\nCosts one more ray per light. Off: light bounces off surfaces that are in shadow too.");
+
+                if (ImGui::Checkbox("Further Bounces", &giSettings.more_bounces)) saveProjectSettings();
+                tooltip("Light keeps bouncing from surface to surface, one more bounce every frame, by reusing the last frame's result.\n"
+                    "Fills in rooms lit through a small opening. Only surfaces on screen pass light on. Off: light bounces exactly once.");
+
+                if (ImGui::Checkbox("Sky Light on Bounces", &giSettings.sky_bounce)) saveProjectSettings();
+                tooltip("Surfaces that bounce light are also lit by the sky, where one more ray reaches it.\nSoftens shaded outdoor areas. Used where Further Bounces has nothing to reuse, or is off.");
+
+                // These two steer the denoiser, so they do nothing while it is off for indirect light
+                ImGui::BeginDisabled(!(projectSettings.denoise.enabled && projectSettings.denoise.indirect));
+
+                ImGui::SliderFloat("Smoothing over Time##GI", &giSettings.history_blend, 0.0f, 0.98f, "%.2f");
+                tooltip("How much of the earlier frames the denoiser keeps every frame.\nHigher is smoother, but lighting changes and moving objects take longer to catch up.\n"
+                    "Needs Denoising on for indirect light.");
+                saveAfterEdit();
+
+                ImGui::SliderInt("Blur Passes##GI", &giSettings.filter_passes, 0, 5);
+                tooltip("The denoiser's blur passes, which hide the remaining noise. Each doubles the blur's reach.\n0 shows the light as gathered over time.\n"
+                    "Needs Denoising on for indirect light.");
+                saveAfterEdit();
+
+                ImGui::EndDisabled();
+
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Global Illumination to Defaults"))
+                {
+                    giSettings = ProjectGISettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Denoising Section (Deferred Hybrid renderer)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Denoising", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& denoiseSettings = projectSettings.denoise;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                const bool deferredHybrid = UserSettings::GetInstance().GetRendererType() == DEFERRED_HYBRID;
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+                else if (!deferredHybrid)
+                {
+                    ImGui::TextDisabled("Only the Deferred Hybrid renderer denoises its rays.");
+                }
+
+                ImGui::BeginDisabled(!rayTracingSupported);
+
+                // The one switch for comparison tests: off skips every filter below
+                if (ImGui::Checkbox("Denoise Ray-Traced Light", &denoiseSettings.enabled)) saveProjectSettings();
+                tooltip("Deferred Hybrid renderer: every pixel traces one ray per light, one for its reflection and a few for indirect light.\n"
+                    "The filters average those rays over frames and blur them along surfaces.\n"
+                    "Off: every filter is skipped and the same rays are shown as traced, noise included. For comparing.");
+
+                ImGui::BeginDisabled(!denoiseSettings.enabled);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Shadows##Denoise", &denoiseSettings.shadows)) saveProjectSettings();
+                tooltip("Filter the shadows. Off: soft shadow edges show the grain of one ray per light.");
+
+                if (ImGui::Checkbox("Reflections##Denoise", &denoiseSettings.reflections)) saveProjectSettings();
+                tooltip("Filter the reflections. Off: rough surfaces show the grain of one ray per pixel.");
+
+                if (ImGui::Checkbox("Indirect Light##Denoise", &denoiseSettings.indirect)) saveProjectSettings();
+                tooltip("Filter the indirect light: per-pixel GI, or the ambient occlusion of Sky + AO.\n"
+                    "Off: it shows the grain of the few rays each pixel traces.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Denoising to Defaults"))
+                {
+                    denoiseSettings = ProjectDenoiseSettings{};
+                    saveProjectSettings();
+                }
+            }
+
+
+            // ------------------------------------------------------------------
+            // Skybox Section
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& skySettings = projectSettings.sky;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::PushItemWidth(150.0f);
+
+                // Order matches ProjectSkyMode
+                const char* skyModeNames[] = { "Skybox Texture", "Solid Color" };
+                if (ImGui::Combo("Sky Type", &skySettings.mode, skyModeNames, IM_ARRAYSIZE(skyModeNames))) saveProjectSettings();
+                tooltip("What is drawn behind the scene.\nIn the ray-traced renderers the sky also lights the scene and shows up in reflections.");
+
+                if (skySettings.mode == SKY_MODE_TEXTURE)
+                {
+                    const bool usesDefault = skySettings.texture_path.empty();
+                    const std::string skyFileName = usesDefault
+                        ? std::string("Default skybox")
+                        : std::filesystem::path(skySettings.texture_path).filename().string();
+                    ImGui::Text("File: %s", skyFileName.c_str());
+                    if (!usesDefault && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", skySettings.texture_path.c_str());
+
+                    if (ImGui::Button("Browse...##Sky"))
+                    {
+                        const std::string picked = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, kSkyTextureExtensions);
+                        if (!picked.empty())
+                        {
+                            // Files inside the project are stored relative to it, so the project can be moved or shared
+                            std::filesystem::path skyPath(picked);
+                            const std::filesystem::path projectDir = ProjectLoader::GetCurrentProjectDir();
+                            if (!projectDir.empty())
+                            {
+                                const std::filesystem::path relative = skyPath.lexically_relative(projectDir);
+                                if (!relative.empty() && *relative.begin() != "..") skyPath = relative;
+                            }
+                            skySettings.texture_path = skyPath.generic_string();
+                            saveProjectSettings();
+                        }
+                    }
+                    tooltip("Pick a cubemap (.dds, .ktx) or a 360 degree panorama (.hdr, .png, .jpg, .tga).\n.hdr files keep the sky's real brightness, which gives the most convincing lighting.");
+
+                    ImGui::SameLine();
+                    ImGui::BeginDisabled(usesDefault);
+                    if (ImGui::Button("Use Default##Sky"))
+                    {
+                        skySettings.texture_path.clear();
+                        saveProjectSettings();
+                    }
+                    ImGui::EndDisabled();
+
+                    ImGui::SliderFloat("Rotation##Sky", &skySettings.rotation, -180.0f, 180.0f, "%.0f deg");
+                    tooltip("Turns the sky around the up axis, for example to move its sun.");
+                    saveAfterEdit();
+                }
+                else
+                {
+                    ImGui::ColorEdit3("Sky Color", skySettings.color.data());
+                    tooltip("The whole sky is this one color.");
+                    saveAfterEdit();
+                }
+
+                ImGui::DragFloat("Intensity##Sky", &skySettings.intensity, 0.01f, 0.0f, 1000.0f, "%.2f");
+                tooltip("Brightness of the sky, and of the light it casts in the ray-traced renderers.");
+                saveAfterEdit();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Skybox to Defaults"))
+                {
+                    skySettings = ProjectSkySettings{};
                     saveProjectSettings();
                 }
             }
@@ -198,6 +535,105 @@ namespace Diligent {
             }
 
             // ------------------------------------------------------------------
+            // HDR Section: exposure and tone mapping of the display pass
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("HDR & Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& hdrSettings = projectSettings.hdr;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::TextDisabled("The scene is rendered in HDR. These settings fit it onto the screen.");
+
+                ImGui::PushItemWidth(150.0f);
+
+                // Order matches ProjectHDRSettings::tone_mapper
+                const char* toneMapperNames[] = { "Off (Clamp)", "AgX", "Khronos PBR Neutral" };
+                if (ImGui::Combo("Tone Mapper", &hdrSettings.tone_mapper, toneMapperNames, IM_ARRAYSIZE(toneMapperNames))) saveProjectSettings();
+                tooltip("How light brighter than white is fitted onto the screen.\n"
+                    "Off: clipped at white, as it was before HDR.\n"
+                    "AgX: film-like. Bright, saturated light fades toward white; softer contrast overall.\n"
+                    "Khronos PBR Neutral: shows colors as authored and only rolls off the highlights.\n"
+                    "The CrossHatch renderers are never tone mapped.");
+
+                ImGui::DragFloat("Exposure##HDR", &hdrSettings.exposure, 0.01f, -10.0f, 10.0f, "%.2f EV");
+                tooltip("Scene brightness in stops, applied before the tone mapper. +1 doubles the light, -1 halves it.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Apply to Editor View##HDR", &hdrSettings.apply_to_editor_view)) saveProjectSettings();
+                tooltip("Use the exposure and tone mapper in the Editor view too, so it matches the Game view.\nOff shows the Editor view clipped at white.");
+
+                if (ImGui::Checkbox("Dither", &hdrSettings.dither)) saveProjectSettings();
+                tooltip("Adds very fine noise to the final image, which hides banding in smooth gradients such as sky and fog.");
+
+                if (hdrSettings.tone_mapper == 1)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("AgX Look");
+
+                    // The three looks published with AgX
+                    auto setLook = [&](float slopeR, float slopeG, float slopeB, float power, float saturation) {
+                        hdrSettings.agx_slope = { slopeR, slopeG, slopeB };
+                        hdrSettings.agx_offset = 0.0f;
+                        hdrSettings.agx_power = power;
+                        hdrSettings.agx_saturation = saturation;
+                        saveProjectSettings();
+                    };
+                    if (ImGui::Button("Base")) setLook(1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+                    tooltip("The plain AgX curve.");
+                    ImGui::SameLine();
+                    if (ImGui::Button("Golden")) setLook(1.0f, 0.9f, 0.5f, 0.8f, 0.8f);
+                    tooltip("Warm and soft.");
+                    ImGui::SameLine();
+                    if (ImGui::Button("Punchy")) setLook(1.0f, 1.0f, 1.0f, 1.35f, 1.4f);
+                    tooltip("More contrast and saturation.");
+
+                    ImGui::DragFloat3("Slope##AgX", hdrSettings.agx_slope.data(), 0.005f, 0.0f, 2.0f, "%.2f");
+                    tooltip("Brightness per channel (red, green, blue). Unequal values tint the image.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Offset##AgX", &hdrSettings.agx_offset, 0.001f, -0.2f, 0.2f, "%.3f");
+                    tooltip("Lifts (positive) or crushes (negative) the darkest tones.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Power##AgX", &hdrSettings.agx_power, 0.005f, 0.1f, 3.0f, "%.2f");
+                    tooltip("Contrast. Above 1 darkens the midtones for a punchier image, below 1 lifts them.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Saturation##AgX", &hdrSettings.agx_saturation, 0.0f, 2.0f, "%.2f");
+                    tooltip("AgX lowers saturation by design; raise this to put some back. 1 = the plain curve.");
+                    saveAfterEdit();
+                }
+                else if (hdrSettings.tone_mapper == 2)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Khronos PBR Neutral");
+
+                    ImGui::SliderFloat("Highlight Start", &hdrSettings.neutral_compression_start, 0.1f, 0.99f, "%.2f");
+                    tooltip("Brightness where highlights start to roll off. Darker colors are shown as authored.\nLower gives a longer, softer roll-off. 0.80 is the Khronos default.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Highlight Desaturation", &hdrSettings.neutral_desaturation, 0.0f, 1.0f, "%.2f");
+                    tooltip("How quickly very bright colors fade toward white. 0.15 is the Khronos default.");
+                    saveAfterEdit();
+                }
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset HDR to Defaults"))
+                {
+                    hdrSettings = ProjectHDRSettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
             // Project God Rays Section (game view only)
             // ------------------------------------------------------------------
             if (ImGui::CollapsingHeader("God Rays", ImGuiTreeNodeFlags_DefaultOpen))
@@ -230,8 +666,16 @@ namespace Diligent {
                 tooltip("How quickly the shafts fade along their length. Closer to 1 = longer, softer shafts.");
                 saveAfterEdit();
 
-                ImGui::SliderFloat("Threshold", &grSettings.threshold, 0.0f, 0.99f, "%.2f");
-                tooltip("Only pixels brighter than this emit shafts. Raise it if bright objects near the sun cause unwanted rays.");
+                ImGui::DragFloat("Threshold", &grSettings.threshold, 0.01f, 0.0f, 100.0f, "%.2f");
+                tooltip("Only pixels brighter than this emit shafts. Raise it if bright objects near the sun cause unwanted rays.\nThe scene is HDR, so this can go above 1 (white).");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Threshold Softness", &grSettings.threshold_knee, 0.005f, 0.01f, 10.0f, "%.2f");
+                tooltip("Brightness range above the threshold over which pixels fade in to full strength. Lower gives a harder cut-off.");
+                saveAfterEdit();
+
+                ImGui::DragFloat("Max Brightness", &grSettings.max_brightness, 0.05f, 0.1f, 1000.0f, "%.2f");
+                tooltip("Caps how bright an emitting pixel counts. Keeps a few very bright pixels (the sun's disk, strong emissives)\nfrom dominating the shafts or flickering.");
                 saveAfterEdit();
 
                 ImGui::SliderFloat("Sun Radius", &grSettings.sun_radius, 0.01f, 2.0f, "%.2f");
@@ -279,13 +723,13 @@ namespace Diligent {
                 ImGui::PushItemWidth(150.0f);
 
                 if (ImGui::Checkbox("Enable Color Correction", &ccSettings.enabled)) saveProjectSettings();
-                tooltip("Grades the final game image. Only affects the Game view and release builds, not the Editor view.");
+                tooltip("Grades the final game image. Only affects the Game view and release builds, not the Editor view.\nExposure, white balance and the color filter act before the tone mapper; the rest acts on the tone mapped image.");
 
                 ImGui::BeginDisabled(!ccSettings.enabled);
                 ImGui::Indent();
 
                 ImGui::DragFloat("Exposure", &ccSettings.exposure, 0.01f, -10.0f, 10.0f, "%.2f EV");
-                tooltip("Brightness in stops. +1 doubles the brightness, -1 halves it.");
+                tooltip("Brightness in stops, on top of the HDR exposure. +1 doubles the brightness, -1 halves it.\nApplied to the scene light, before the tone mapper.");
                 saveAfterEdit();
 
                 ImGui::SliderFloat("Contrast", &ccSettings.contrast, 0.0f, 2.0f, "%.2f");
@@ -348,9 +792,257 @@ namespace Diligent {
                 }
             }
 
+            // ------------------------------------------------------------------
+            // Cross Hatching Section (CrossHatch renderers only)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Cross Hatching"))
+            {
+                auto& chSettings = projectSettings.crosshatch;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::TextDisabled("Used by the CrossHatch renderers (Rendering menu), in the Game view.");
+
+                ImGui::PushItemWidth(150.0f);
+
+                // Order matches ProjectCrossHatchSettings::mode
+                const char* modeNames[] = { "Noise Hatching", "Toon Texture Hatching", "Toon + Noise Hatching" };
+                if (ImGui::Combo("Style", &chSettings.mode, modeNames, IM_ARRAYSIZE(modeNames))) saveProjectSettings();
+                tooltip("Noise: world-space pencil strokes, denser where darker.\nToon Texture: cel-shaded paper with hand-drawn strokes along the mesh UVs.\nToon + Noise: solid ink shadows, hatched midtones, clean highlights.");
+
+                ImGui::ColorEdit3("Ink Color", chSettings.ink_color.data());
+                tooltip("Color of the strokes, outlines and inner edges.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Hatch Opacity", &chSettings.hatch_opacity, 0.0f, 1.0f, "%.2f");
+                tooltip("Blends between plain lighting (0) and full hatching (1).");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Inner Edges", &chSettings.inner_edges)) saveProjectSettings();
+                tooltip("Ink along creases where the surface bends sharply.");
+
+                // Noise strokes, used by Noise and Toon + Noise
+                if (chSettings.mode != 1)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Noise Strokes");
+
+                    ImGui::SliderInt("Noise Texture", &chSettings.noise_texture, 1, 11);
+                    tooltip("Noise the strokes are drawn from (Assets/CrossHatch/Noise). Each gives a different stroke character.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Scale##HatchLit", &chSettings.lit_scale, 0.005f, 0.01f, 10.0f, "%.3f");
+                    tooltip("Stroke frequency in world space. Higher = finer strokes.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Density##HatchLit", &chSettings.lit_density, 0.01f, 0.0f, 10.0f, "%.2f");
+                    tooltip("How quickly strokes stack up as the surface darkens.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Weight##HatchLit", &chSettings.lit_thickness, 0.01f, 0.0f, 10.0f, "%.2f");
+                    tooltip("Stroke weight. Multiplies with Density.");
+                    saveAfterEdit();
+
+                    ImGui::SliderAngle("Angle##HatchLit", &chSettings.lit_angle, -180.0f, 180.0f);
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Smoothness##HatchLit", &chSettings.line_smoothness, 0.001f, 0.5f, "%.3f");
+                    tooltip("Softness of the stroke edges.");
+                    saveAfterEdit();
+
+                    ImGui::TextDisabled("Detail Layer");
+
+                    ImGui::DragFloat("Scale##HatchDetail", &chSettings.detail_scale, 0.005f, 0.01f, 10.0f, "%.3f");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Density##HatchDetail", &chSettings.detail_density, 0.01f, 0.0f, 10.0f, "%.2f");
+                    tooltip("Strength of the constant stroke layer drawn everywhere. 0 = none.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Weight##HatchDetail", &chSettings.detail_thickness, 0.1f, 0.0f, 40.0f, "%.1f");
+                    saveAfterEdit();
+
+                    ImGui::SliderAngle("Angle##HatchDetail", &chSettings.detail_angle, -180.0f, 180.0f);
+                    saveAfterEdit();
+                }
+
+                // Shadow strokes, Noise only
+                if (chSettings.mode == 0)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Shadow Strokes");
+
+                    ImGui::DragFloat("Intensity##HatchShadow", &chSettings.shadow_intensity, 0.01f, 0.0f, 1.0f, "%.2f");
+                    tooltip("Strength of the extra strokes inside the key light's shadow. Cast shadows need the ray-traced CrossHatch renderer.");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Scale##HatchShadow", &chSettings.shadow_scale, 0.005f, 0.01f, 10.0f, "%.3f");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Density##HatchShadow", &chSettings.shadow_density, 0.01f, 0.0f, 10.0f, "%.2f");
+                    saveAfterEdit();
+
+                    ImGui::DragFloat("Weight##HatchShadow", &chSettings.shadow_thickness, 0.01f, 0.0f, 10.0f, "%.2f");
+                    saveAfterEdit();
+
+                    ImGui::SliderAngle("Angle##HatchShadow", &chSettings.shadow_angle, -180.0f, 180.0f);
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Smoothness##HatchShadow", &chSettings.shadow_smoothness, 0.001f, 0.5f, "%.3f");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Core Bias", &chSettings.shadow_core_bias, 0.01f, 2.0f, "%.2f");
+                    tooltip("Below 1 keeps the strokes dense right up to the edge of the shadow.");
+                    saveAfterEdit();
+                }
+
+                // Stroke texture, Toon Texture only
+                if (chSettings.mode == 1)
+                {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Stroke Texture");
+
+                    ImGui::DragFloat("Scale##HatchTex", &chSettings.texture_scale, 0.05f, 0.1f, 64.0f, "%.2f");
+                    tooltip("Stroke texture repeats per UV unit.");
+                    saveAfterEdit();
+
+                    ImGui::SliderAngle("Rotation##HatchTex", &chSettings.texture_rotation, -180.0f, 180.0f);
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Thickness##HatchTex", &chSettings.texture_thickness, -0.5f, 0.5f, "%.2f");
+                    tooltip("Fattens (positive) or thins (negative) the strokes.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Cross Strokes", &chSettings.texture_priority, 0.0f, 1.0f, "%.2f");
+                    tooltip("Weight of the second stroke direction. Lower = cross strokes only appear in darker areas.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Light Bias", &chSettings.texture_light_bias, -1.0f, 1.0f, "%.2f");
+                    tooltip("Brightens (positive) or darkens (negative) the light the strokes respond to.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Black Threshold", &chSettings.texture_black_threshold, 0.0f, 1.0f, "%.2f");
+                    tooltip("Light level below which the surface turns solid ink.");
+                    saveAfterEdit();
+
+                    ImGui::SliderFloat("Smoothness##HatchTex", &chSettings.texture_smoothness, 0.001f, 0.5f, "%.3f");
+                    tooltip("Softness of the stroke edges.");
+                    saveAfterEdit();
+
+                    if (ImGui::Checkbox("Specular Highlight", &chSettings.specular_enabled)) saveProjectSettings();
+                    tooltip("Paints the brightest areas white, like a comic highlight.");
+
+                    ImGui::BeginDisabled(!chSettings.specular_enabled);
+                    ImGui::SliderFloat("Specular Threshold", &chSettings.specular_threshold, 0.0f, 2.0f, "%.2f");
+                    tooltip("Light level above which the highlight appears. Lower = wider highlight.");
+                    saveAfterEdit();
+                    ImGui::EndDisabled();
+                }
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Outline");
+
+                if (ImGui::Checkbox("Enable Outline", &chSettings.outline_enabled)) saveProjectSettings();
+                tooltip("Ink outline around each object's silhouette (inverted hull).");
+
+                ImGui::BeginDisabled(!chSettings.outline_enabled);
+                ImGui::DragFloat("Width##Outline", &chSettings.outline_width, 0.0001f, 0.0f, 1.0f, "%.4f");
+                tooltip(chSettings.outline_constant_screen_width
+                    ? "Outline width as a fraction of the distance to the camera."
+                    : "Outline width in world units.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Constant Screen Width", &chSettings.outline_constant_screen_width)) saveProjectSettings();
+                tooltip("Keeps the outline the same thickness on screen at any distance.");
+
+                if (ImGui::Checkbox("Extrude From Origin", &chSettings.outline_from_origin)) saveProjectSettings();
+                tooltip("Grows the outline away from the object's origin instead of along its normals.\nCloses gaps on hard-edged meshes, but needs the origin near the mesh's center.");
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Cross Hatching to Defaults"))
+                {
+                    chSettings = ProjectCrossHatchSettings{};
+                    saveProjectSettings();
+                }
+            }
+
             if (ImGui::CollapsingHeader("Graphics Settings", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Checkbox("Enable MSAA (4x)", &UserSettings::GetInstance().GetEnableMSAA());
+
+                ImGui::PushItemWidth(150.0f);
+                int& resolutionIndex = UserSettings::GetInstance().GetResolutionIndex();
+                const bool resolutionComboOpen = ImGui::BeginCombo("Resolution", UserSettings::GetInstance().GetResolution().Name);
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Resolution the Game and Editor views are rendered at.");
+                }
+                if (resolutionComboOpen)
+                {
+                    for (int i = 0; i < kRenderResolutionCount; ++i)
+                    {
+                        const RenderResolution& resolution = kRenderResolutions[i];
+                        const std::string label = std::string(resolution.Name) + " (" + std::to_string(resolution.Width) + "x" + std::to_string(resolution.Height) + ")";
+                        if (ImGui::Selectable(label.c_str(), resolutionIndex == i)) resolutionIndex = i;
+                    }
+                    ImGui::EndCombo();
+                }
+
+                // Order matches ViewportScaleMode
+                const char* scaleModeNames[] = { "Letterbox", "Stretch" };
+                int scaleMode = static_cast<int>(UserSettings::GetInstance().GetViewportScaleMode());
+                if (ImGui::Combo("Viewport Scaling", &scaleMode, scaleModeNames, IM_ARRAYSIZE(scaleModeNames)))
+                {
+                    UserSettings::GetInstance().GetViewportScaleMode() = static_cast<ViewportScaleMode>(scaleMode);
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Letterbox keeps the resolution's aspect ratio with bars around the image.\nStretch fills the whole Game and Editor panels, distorting the image.");
+                }
+
+                ImGui::Spacing();
+
+                // Temporal anti-aliasing
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                TAASettings& taaSettings = UserSettings::GetInstance().GetTAASettings();
+
+                ImGui::Checkbox("Enable TAA", &taaSettings.Enabled);
+                tooltip("Temporal anti-aliasing: smooths jagged edges by jittering the camera slightly every frame and blending the frames together.\nWorks with every renderer, including the deferred ones that can't use MSAA.");
+
+                ImGui::BeginDisabled(!taaSettings.Enabled);
+                ImGui::Indent();
+
+                ImGui::Checkbox("Apply to Editor View", &taaSettings.ApplyToEditorView);
+                tooltip("Also anti-alias the Editor view. The Game view and release builds always use TAA while it is enabled.");
+
+                ImGui::SliderFloat("History Blend", &taaSettings.HistoryBlend, 0.5f, 0.98f, "%.2f");
+                tooltip("How much of the previous frames is kept each frame. Higher is smoother and more stable, but smears more during fast motion.");
+
+                ImGui::SliderFloat("Jitter Spread", &taaSettings.JitterSpread, 0.0f, 2.0f, "%.2f px");
+                tooltip("Size of the per-frame camera offset. 1 covers a whole pixel; lower is sharper but smooths edges less. 0 turns off the jitter.");
+
+                ImGui::SliderFloat("Sharpness##TAA", &taaSettings.Sharpness, 0.0f, 1.0f, "%.2f");
+                tooltip("Sharpens the final image to offset the slight softness TAA adds. 0 = off.");
+
+                if (ImGui::Button("Reset TAA to Defaults"))
+                {
+                    taaSettings = TAASettings{};
+                }
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
             }
 
             if (ImGui::CollapsingHeader("Physics Settings", ImGuiTreeNodeFlags_DefaultOpen))

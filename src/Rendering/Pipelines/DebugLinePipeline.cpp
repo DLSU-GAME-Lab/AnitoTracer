@@ -1,65 +1,28 @@
 #include "DebugLinePipeline.hpp"
-#include "../../UserSettings.hpp"
 #include "../RenderData.hpp"
 
-void Diligent::DebugLinePipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* _pSwapChain)
+void Diligent::DebugLinePipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain)
 {
-    m_pSRB.Release();
-    m_pPSO.Release();
-    m_pCameraCB.Release();
     m_pVertexBuffer.Release();
     m_VertexBufferCapacity = 0;
 
-    pSwapChain = _pSwapChain;
-    m_pDevice = pDevice;
+    SetDevice(pDevice, pSwapChain);
+    CreateCameraConstantBuffer();
 
-    GraphicsPipelineStateCreateInfo PSOCreateInfo;
-    PipelineStateDesc& PSODesc = PSOCreateInfo.PSODesc;
-    GraphicsPipelineDesc& GraphicsPipeline = PSOCreateInfo.GraphicsPipeline;
-
-    PSODesc.Name = "Debug Line PSO";
-    PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
-
-    SetupDefaultGraphicsPipeline(GraphicsPipeline);
-    GraphicsPipeline.SmplDesc.Count = UserSettings::GetInstance().GetEnableMSAA() ? 4 : 1;
-    GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_LINE_LIST;
-    GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
     // Depth-test against existing geometry so lines occlude correctly
     // but don't write depth so overlapping debug lines don't look weird
-    GraphicsPipeline.DepthStencilDesc.DepthEnable = True;
-    GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = False;
-
-    std::vector<LayoutElement> layout = VertexLayouts::GetDebugLineLayout();
-    GraphicsPipeline.InputLayout.LayoutElements = layout.data();
-    GraphicsPipeline.InputLayout.NumElements = static_cast<Uint32>(layout.size());
-
-    auto pVS = ShaderManager::GetInstance().GetShader("debug_line.hlsl", Diligent::SHADER_TYPE_VERTEX, "main_vs");
-    auto pPS = ShaderManager::GetInstance().GetShader("debug_line.hlsl", Diligent::SHADER_TYPE_PIXEL, "main_ps");
-    if (!pVS || !pPS)
-    {
-        LOG_ERROR_AND_THROW("debug_line.hlsl failed to load (VS: ", pVS ? "ok" : "null",
-            ", PS: ", pPS ? "ok" : "null", ")");
-    }
-
-    PSOCreateInfo.pVS = pVS;
-    PSOCreateInfo.pPS = pPS;
-
-    ShaderResourceVariableDesc Variables[] =
-    {
-        {SHADER_TYPE_VERTEX, "CameraConstants", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
-    };
-    PSODesc.ResourceLayout.Variables = Variables;
-    PSODesc.ResourceLayout.NumVariables = _countof(Variables);
-
-    pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_pPSO);
-
-    CreateCameraConstantBuffer(pDevice);
-
-    m_pPSO->CreateShaderResourceBinding(&m_pSRB, true);
-
-    if (auto* pCameraConstantsVar = m_pSRB->GetVariableByName(SHADER_TYPE_VERTEX, "CameraConstants")) {
-        pCameraConstantsVar->Set(m_pCameraCB);
-    }
+    m_pPSO = PSOBuilder("Debug Line PSO")
+        .Shaders("debug_line.hlsl", "debug_line.hlsl")
+        .RenderTargets({ GetColorFormat() }, GetDepthFormat())
+        .SampleCount(PipelineUtils::GetMSAASampleCount())
+        .Topology(PRIMITIVE_TOPOLOGY_LINE_LIST)
+        .Cull(CULL_MODE_NONE)
+        .Depth(true, false)
+        .InputLayout(VertexLayouts::GetDebugLineLayout())
+        .Variable(SHADER_TYPE_VERTEX, "CameraConstants")
+        .Build(pDevice);
+    m_pSRB = PipelineUtils::CreateSRB(m_pPSO);
+    BindCommonBuffers(m_pSRB);
 }
 
 void Diligent::DebugLinePipeline::EnsureVertexBufferCapacity(IRenderDevice* pDevice, Uint32 requiredVertexCount)
@@ -86,7 +49,7 @@ void Diligent::DebugLinePipeline::EnsureVertexBufferCapacity(IRenderDevice* pDev
 
 void Diligent::DebugLinePipeline::RenderLines(IDeviceContext* pContext, const std::vector<DebugLineVertex>& lines)
 {
-    if (lines.empty() || !m_pDevice) {
+    if (lines.empty() || !m_pDevice || !m_pSRB) {
         return;
     }
 

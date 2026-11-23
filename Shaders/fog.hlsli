@@ -23,7 +23,8 @@ cbuffer FogConstants
     int g_FogSampleCount;
     float g_FogLightIntensity;
     float g_FogAmbientIntensity;
-    float2 g_FogPadding;
+    uint g_FogNoiseFrame;        // Changes every frame while TAA is on, so the march jitter varies over time; 0 keeps it still
+    float g_FogPadding;
 };
 
 static const int FOG_MAX_SAMPLES = 128;
@@ -144,7 +145,8 @@ float3 ApplyVolumetricFog(float3 color, float3 rayOrigin, float3 rayDir, float r
 
     int sampleCount = clamp(g_FogSampleCount, 1, FOG_MAX_SAMPLES);
     float stepSize = marchLength / sampleCount;
-    float jitter = InterleavedGradientNoise(pixelPos);
+    // Under TAA the jitter moves every frame, so the accumulated image averages many more march positions
+    float jitter = InterleavedGradientNoise(pixelPos + 5.588238 * float(g_FogNoiseFrame % 64));
 
     float3 tint = g_VolumetricFogColor.rgb;
     float3 ambient = g_FogAmbientIntensity.xxx;

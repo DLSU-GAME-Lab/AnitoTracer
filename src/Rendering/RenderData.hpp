@@ -6,7 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Models/ModelStructs.hpp"
-#include "Pipelines/PipelineDefs.hpp"
+#include "Pipelines/Data/PipelineDefs.hpp"
 #include "ParticleRenderData.hpp"
 
 #include "Graphics/GraphicsEngine/interface/TopLevelAS.h" 
@@ -24,6 +24,9 @@ namespace Diligent {
         float Roughness = 0.5f;
         bool OverrideMetallic = false;
         float Metallic = 0.0f;
+        // Replaces the material's emissive color * strength; the emissive map still applies
+        bool OverrideEmissive = false;
+        glm::vec3 Emissive{ 1.0f };
 
 		//Opaque and transparent meshes are separated for proper rendering order
         std::vector<uint32_t> OpaqueSubmeshIndices;
@@ -37,6 +40,18 @@ namespace Diligent {
             glm::mat4 ViewProjectionMatrix{ 1.0f };
             glm::vec3 CameraPosition{ 0.0f };
             bool IsValid = false;
+
+            // The sub-pixel shift TAA added to ProjectionMatrix this frame, in clip space units (0 without TAA).
+            // Motion vectors are measured without it.
+            glm::vec2 ProjectionJitter{ 0.0f };
+            glm::mat4 GetUnjitteredProjection() const {
+                return glm::translate(glm::mat4(1.0f), glm::vec3(-ProjectionJitter, 0.0f)) * ProjectionMatrix;
+            }
+
+            // Seeds the per-frame noise of ray-traced shadows, AO and fog. Set by RendererManager to a counter
+            // that changes every frame only while TAA is accumulating; 0 keeps the noise still, since without
+            // TAA a changing pattern would only flicker.
+            uint32_t NoiseFrame = 0;
 
             std::vector<ModelRenderInstance> Models;
             LightConstants Lights;

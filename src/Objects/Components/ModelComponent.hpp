@@ -58,6 +58,14 @@ public:
     void SetMetallic(float metallic) { m_metallic = metallic; }
     float GetMetallic() const { return m_metallic; }
 
+    // Replaces the material's emissive color and strength; the emissive map (if any) still masks it
+    void SetOverrideEmissive(bool enabled) { m_overrideEmissive = enabled; }
+    bool GetOverrideEmissive() const { return m_overrideEmissive; }
+    void SetEmissiveColor(const glm::vec3& color) { m_emissiveColor = color; }
+    const glm::vec3& GetEmissiveColor() const { return m_emissiveColor; }
+    void SetEmissiveStrength(float strength) { m_emissiveStrength = strength; }
+    float GetEmissiveStrength() const { return m_emissiveStrength; }
+
 private:
     gbe::AssetRef<Model> m_model;
     GBE_SERIALIZE_FIELD(m_model);
@@ -73,6 +81,15 @@ private:
 
     float m_metallic = 0.0f;
     GBE_SERIALIZE_FIELD_W_NAME(m_metallic, "Metallic");
+
+    bool m_overrideEmissive = false;
+    GBE_SERIALIZE_FIELD_W_NAME(m_overrideEmissive, "Override Emissive");
+
+    glm::vec3 m_emissiveColor = glm::vec3(1.0f);
+    GBE_SERIALIZE_FIELD_W_NAME(m_emissiveColor, "Emissive Color");
+
+    float m_emissiveStrength = 1.0f;
+    GBE_SERIALIZE_FIELD_W_NAME(m_emissiveStrength, "Emissive Strength");
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ModelComponent, ComponentBase);
 

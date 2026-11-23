@@ -74,7 +74,7 @@ private:
 
 GBE_REGISTER_SERIALIZED_TYPE(CameraComponent, ComponentBase);
 
-ANITO_SCRIPT_TYPE(CameraComponent, "camera", "anito::Camera", true);
+ANITO_SCRIPT_TYPE(CameraComponent, "camera", "anito::Camera", true, "camera");
 ANITO_SCRIPT_PROPERTY(CameraComponent, "camera", "fov", GetFOV, SetFOV);
 ANITO_SCRIPT_PROPERTY(CameraComponent, "camera", "aspect", GetAspect, SetAspect);
 ANITO_SCRIPT_PROPERTY(CameraComponent, "camera", "nearPlane", GetNearPlane, SetNearPlane);
