@@ -128,5 +128,4 @@ namespace Diligent {
         c.SpecularEnabled = settings.specular_enabled ? 1 : 0;
         return c;
     }
-
 }
