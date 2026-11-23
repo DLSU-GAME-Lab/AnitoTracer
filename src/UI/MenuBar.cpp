@@ -10,12 +10,14 @@
 #include "CreateInstance.hpp"
 #include "../AppState.hpp"
 #include "GUIManager.hpp"
+#include "Panels/FileExplorerPanel.hpp"
 
 #include "Event/EventSystem.hpp"
 
 namespace Diligent {
 
-    void MenuBar::Draw(bool& appRunning, const std::vector<std::unique_ptr<BasePanel>>& panels)
+    void MenuBar::Draw(bool& appRunning, const std::vector<std::unique_ptr<BasePanel>>& panels,
+        FileExplorerPanel* fileExplorer)
     {
         bool openSaveLayoutPopup = false;
         if (ImGui::BeginMainMenuBar())
@@ -53,6 +55,10 @@ namespace Diligent {
                 {
                     std::string outPath = gbe::FileDialogue::GetFilePath(gbe::FileDialogue::OPEN, "ascene");
                     ProjectLoader::RequestSceneLoad(outPath);
+                }
+                if (ImGui::MenuItem("Rescan Current Folder for Assets", "Ctrl+R", false, fileExplorer != nullptr))
+                {
+                    fileExplorer->RescanAssets();
                 }
                 ImGui::EndMenu();
             }
@@ -182,6 +188,13 @@ namespace Diligent {
             !ImGui::GetIO().WantTextInput)
         {
             ProjectLoader::QuickSave();
+        }
+
+        if (fileExplorer && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift &&
+            !ImGui::GetIO().KeyAlt && !ImGui::GetIO().KeySuper &&
+            ImGui::IsKeyPressed(ImGuiKey_R, false) && !ImGui::GetIO().WantTextInput)
+        {
+            fileExplorer->RescanAssets();
         }
 
         if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N) &&

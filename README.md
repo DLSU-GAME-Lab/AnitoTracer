@@ -12,6 +12,11 @@ old GUID cannot resolve. Restore the original sidecar from a backup or version
 control to recover those references. Conflicting or invalid sidecars are
 reported and left unchanged rather than being assigned new GUIDs.
 
+Use **File > Rescan Current Folder for Assets** or Ctrl+R to recursively import
+new models (`.obj`, `.fbx`) and audio clips (`.wav`) in the folder currently
+open in the File Explorer. The scan does not reload changed assets already in
+memory; check the log for import errors.
+
 ## Script editor
 
 Double-click an `.ascript` file in the File Explorer to open or focus it in the

@@ -94,12 +94,27 @@ int main() {
         Check(reference.Get() == assetA, "missing metadata changed a loaded GUID");
         Check(Read(metaA) == metadata, "missing metadata did not preserve the loaded GUID");
 
+        fs::create_directories(projectA / "models" / "new");
+        const auto newSource = projectA / "models" / "new" / "import.foo";
+        Write(newSource, "new asset");
+        gbe::BatchLoader::RescanProjectDirectory(projectA / "models");
+        auto* newAsset = gbe::AssetDatabase::GetAssetByPath(newSource);
+        Check(newAsset != nullptr, "rescan did not import nested asset");
+        const auto newGuid = newAsset->GetGUID();
+        const auto newMetadata = Read(newSource.string() + ".ani");
+        Check(!newMetadata.empty(), "rescan did not create metadata");
+        Check(reference.Get() == assetA && Read(metaA) == metadata, "rescan changed existing asset");
+        gbe::BatchLoader::RescanProjectDirectory(projectA / "models");
+        Check(gbe::AssetDatabase::GetAssetByGUID(newGuid) == newAsset, "repeated rescan changed GUID");
+        Check(Read(newSource.string() + ".ani") == newMetadata, "repeated rescan changed metadata");
+
         Write(projectB / "models" / "asset.foo", "copy");
         Write(projectB / "models" / "asset.foo.ani", metadata);
         loadProject(projectB);
         auto* assetB = gbe::AssetDatabase::GetAssetByPath("models/asset.foo");
         Check(assetB && assetB != assetA && reference.Get() == assetB, "copied project did not retain GUID");
         Check(gbe::AssetDatabase::GetAssetByPath(sourceA) == nullptr, "old project remained registered");
+        Check(gbe::AssetDatabase::GetAssetByGUID(newGuid) == nullptr, "rescanned asset survived project switch");
         Check(gbe::AssetDatabase::GetAssetByPath(shared / "shared.foo") == sharedAsset, "shared asset was removed");
         Check(Read(projectB / "models" / "asset.foo.ani") == metadata, "copied metadata changed");
 

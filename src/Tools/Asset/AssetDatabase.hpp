@@ -76,6 +76,8 @@ namespace gbe {
             LoadingProject() = true;
         }
 
+        static void BeginProjectRescan() { LoadingProject() = true; }
+
         static void EndProjectLoad() { LoadingProject() = false; }
 
         static std::filesystem::path LocalizePath(const std::filesystem::path& path) {

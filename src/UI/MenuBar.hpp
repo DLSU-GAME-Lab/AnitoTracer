@@ -9,11 +9,14 @@
 
 namespace Diligent {
 
+    class FileExplorerPanel;
+
     class MenuBar
     {
     public:
         // Draws the main menu bar. Requires application state and registered panels.
-        void Draw(bool& appRunning, const std::vector<std::unique_ptr<BasePanel>>& panels);
+        void Draw(bool& appRunning, const std::vector<std::unique_ptr<BasePanel>>& panels,
+            FileExplorerPanel* fileExplorer);
     };
 
 }

@@ -97,7 +97,7 @@ void Diligent::GUIManager::DrawUI(bool& appRunning)
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode, nullptr);
 
     // Delegate menu bar rendering to the dedicated class
-    m_MenuBar.Draw(appRunning, m_Panels);
+    m_MenuBar.Draw(appRunning, m_Panels, m_pFileExplorerPanel);
 
     // Render all active dockable windows
     for (auto& panel : m_Panels)

@@ -156,6 +156,15 @@ namespace gbe {
             LoadAssetsFromDirectory(directory);
         }
 
+        static void RescanProjectDirectory(const fs::path& directory)
+        {
+            AssetDatabase::BeginProjectRescan();
+            struct ProjectLoadScope {
+                ~ProjectLoadScope() { AssetDatabase::EndProjectLoad(); }
+            } scope;
+            ReloadDirectory(directory);
+        }
+
     private:
         std::vector<CategoryConfig> m_categories;
 
