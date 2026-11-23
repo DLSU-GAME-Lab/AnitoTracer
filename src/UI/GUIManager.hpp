@@ -10,6 +10,7 @@
 
 #include "Panels/BasePanel.hpp" 
 #include "MenuBar.hpp"
+#include "DockLayoutScaler.hpp"
 #include "Gizmos/GizmoDrawer.hpp"
 
 #include "Panels/HierarchyPanel.hpp"
@@ -152,6 +153,7 @@ namespace Diligent {
         MenuBar m_MenuBar;
 
         std::string m_PendingLayout;
+        DockLayoutScaler m_DockLayoutScaler;
 
         //Gizmo Drawer instance
         GizmoDrawer m_GizmoDrawer;

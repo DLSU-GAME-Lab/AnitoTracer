@@ -70,12 +70,7 @@ namespace gbe {
 
 		// Directory move listener
 		static void OnAssetMoved(const std::filesystem::path& oldPath, const std::filesystem::path& newPath) {
-			IAsset* asset = AssetDatabase::GetAssetByPath(oldPath);
-			if (asset) {
-				AssetDatabase::GetPathMap().erase(oldPath.string());
-				asset->SetPath(newPath);
-				AssetDatabase::GetPathMap()[newPath.string()] = asset->GetGUID();
-			}
+			AssetDatabase::OnAssetMoved(oldPath, newPath);
 		}
 
 		int CheckAsynchronousTasks() override { return 0; }
@@ -89,8 +84,7 @@ namespace gbe {
 			if (!typedAsset) return false;
 
 			// Register through AssetDatabase with collision handling
-			AssetDatabase::RegisterAsset(typedAsset, typedAsset->GetGUID());
-			return true;
+			return AssetDatabase::RegisterAsset(typedAsset, typedAsset->GetGUID()) != GUID::Empty();
 		}
 	};
 
