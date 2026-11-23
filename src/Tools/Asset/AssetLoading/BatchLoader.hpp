@@ -54,10 +54,25 @@ namespace gbe {
             config.isDeferred = isDeferred;
             config.namingStrategy = namingStrategy;
 
-            config.loader = [loader, categoryName](const fs::path& sourcePath, const fs::path& metaPath) {
+            config.loader = [loader](const fs::path& sourcePath, const fs::path& metaPath) {
                 if (!loader) {
                     return;
                 }
+                const bool hasMeta = fs::exists(metaPath);
+                auto* existing = AssetDatabase::GetAssetByPath(sourcePath);
+                TMeta metadata = {};
+                GUID assignedGuid;
+                if (hasMeta) {
+                    if (!Parser::PopulateClass(metadata, metaPath) || metadata.GetGUID() == GUID::Empty()) {
+                        std::cerr << "[BATCHLOADER] Invalid metadata; leaving it untouched: " << metaPath << std::endl;
+                        return;
+                    }
+                    assignedGuid = metadata.GetGUID();
+                }
+                else {
+                    assignedGuid = existing ? existing->GetGUID() : GUID::Generate();
+                }
+
                 TMeta* newdata = loader(sourcePath);
 
                 if(!newdata)
@@ -70,45 +85,24 @@ namespace gbe {
                 newdata->SetPath(sourcePath);
                 newdata->SetMetaPath(metaPath);
 
-                TMeta dummydata = {};
-                Parser::PopulateClass(dummydata, metaPath);
-
-                GUID assignedGuid = {};
-
-                // Check if metafile exists to parse existing GUID, or generate a fresh one
-                if (fs::exists(metaPath))
-                    assignedGuid = dummydata.GetGUID();
-                else
-                    assignedGuid = GUID::Generate();
-
-                // Register with AssetDatabase (will automatically re-key if collision occurs)
                 assignedGuid = AssetDatabase::RegisterAsset(newdata, assignedGuid);
+                if (assignedGuid == GUID::Empty()) return;
 
-                // Save or overwrite meta file with resolved GUID
-                Parser::ExportClass(*newdata, metaPath);
+                if (!hasMeta) {
+                    metadata.SetGUID(assignedGuid);
+                    auto relativeSource = AssetDatabase::LocalizePath(sourcePath);
+                    auto relativeMeta = AssetDatabase::LocalizePath(metaPath);
+                    metadata.SetPath(relativeSource.empty() ? sourcePath : relativeSource);
+                    metadata.SetMetaPath(relativeMeta.empty() ? metaPath : relativeMeta);
+                    std::ofstream file(metaPath);
+                    if (!file || !(file << Parser::ExportClassStr(metadata) << '\n') || !file.flush()) {
+                        std::cerr << "[BATCHLOADER] Failed to write metadata: " << metaPath << std::endl;
+                        if (!existing) AssetDatabase::UnregisterAsset(assignedGuid);
+                    }
+                }
             };
 
             GetInstance().m_categories.push_back(config);
-        }
-
-        // Clean orphaned metafiles and generate missing ones
-        static void GenerateMetafiles(const fs::path& directory) {
-            if (!fs::exists(directory) || !fs::is_directory(directory)) return;
-
-            auto filepaths = GetAllFilepaths(directory);
-
-            // Phase 1: Cleanup orphaned meta files
-            for (const auto& filepath : filepaths) {
-                for (const auto& cat : GetInstance().m_categories) {
-                    if (EndsWithPath(filepath, cat.metaSuffix)) {
-                        fs::path expectedSource = GetSourcePathFromMeta(filepath, cat);
-                        if (!fs::exists(expectedSource)) {
-                            std::cout << "[BATCHLOADER] Removing orphaned metafile: " << filepath << std::endl;
-                            fs::remove(filepath);
-                        }
-                    }
-                }
-            }
         }
 
         // Phase 3: Load registered assets
@@ -159,7 +153,6 @@ namespace gbe {
 
         static void ReloadDirectory(const fs::path& directory)
         {
-            GenerateMetafiles(directory);
             LoadAssetsFromDirectory(directory);
         }
 
@@ -193,32 +186,6 @@ namespace gbe {
             else {
                 return sourcePath.parent_path() / (sourcePath.stem().string() + cat.metaSuffix);
             }
-        }
-
-        static fs::path GetSourcePathFromMeta(const fs::path& metaPath, const CategoryConfig& cat) {
-            if (cat.namingStrategy == MetaNamingStrategy::AppendToFilename) {
-                std::string metaStr = metaPath.filename().string();
-                std::string sourceStr = metaStr.substr(0, metaStr.length() - cat.metaSuffix.length());
-                return metaPath.parent_path() / sourceStr;
-            }
-            else {
-                for (const auto& ext : cat.sourceExtensions) {
-                    fs::path testPath = metaPath.parent_path() / (metaPath.stem().string() + ext);
-                    if (fs::exists(testPath)) return testPath;
-                }
-                return {};
-            }
-        }
-
-        static bool EndsWith(const std::string& str, const std::string& suffix) {
-            return str.size() >= suffix.size() &&
-                str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
-        }
-
-        static bool EndsWithPath(const fs::path& path, const std::string& suffix) {
-            std::string pathStr = path.filename().string();
-            return pathStr.size() >= suffix.size() &&
-                pathStr.compare(pathStr.size() - suffix.size(), suffix.size(), suffix) == 0;
         }
 
         static bool EqualIgnoreCase(std::string_view a, std::string_view b) {

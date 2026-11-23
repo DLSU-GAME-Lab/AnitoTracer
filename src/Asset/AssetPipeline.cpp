@@ -37,6 +37,18 @@ AssetPipeline::AssetPipeline() {
 void AssetPipeline::IncludeFolder(std::filesystem::path folderpath)
 {
     GetInstance();
+    folderpath = std::filesystem::absolute(folderpath).lexically_normal();
     gbe::AssetDatabase::RegisterDirectory(folderpath);
+    gbe::BatchLoader::ReloadDirectory(folderpath);
+}
+
+void AssetPipeline::IncludeProjectFolder(std::filesystem::path folderpath)
+{
+    GetInstance();
+    folderpath = std::filesystem::absolute(folderpath).lexically_normal();
+    gbe::AssetDatabase::BeginProjectLoad(folderpath);
+    struct ProjectLoadScope {
+        ~ProjectLoadScope() { gbe::AssetDatabase::EndProjectLoad(); }
+    } scope;
     gbe::BatchLoader::ReloadDirectory(folderpath);
 }

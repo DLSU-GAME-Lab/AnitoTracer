@@ -1,6 +1,17 @@
 # AnitoTracer
 Repository for the Anito Tracer
 
+## Project assets
+
+Models and audio clips are identified by the GUID in their adjacent `.ani`
+sidecar, not by the path saved in a scene or prefab. Keep each sidecar with its
+asset when moving, copying, or sharing a project. New sidecars record paths
+relative to their asset root; older sidecars with absolute paths remain valid.
+If a sidecar is missing, a new GUID is created and existing references to the
+old GUID cannot resolve. Restore the original sidecar from a backup or version
+control to recover those references. Conflicting or invalid sidecars are
+reported and left unchanged rather than being assigned new GUIDs.
+
 ## Script editor
 
 Double-click an `.ascript` file in the File Explorer to open or focus it in the
