@@ -3,6 +3,7 @@
 #include "EditorCommands.hpp"
 #include "EditorDocument.hpp"
 #include "EditorKeyBindings.hpp"
+#include "ScriptLanguage.hpp"
 
 #include "imgui.h"
 
@@ -20,6 +21,9 @@ namespace Diligent::ScriptEditor
         unsigned lastRevision = ~0u;
         double lastInteractionTime = 0.0;///< Restarts caret blinking.
         bool dragging = false;           ///< A mouse drag selection is in progress.
+        unsigned syntaxRevision = ~0u;
+        std::vector<ScriptLanguage::SyntaxToken> syntaxTokens;
+        ScriptLanguage::Completion completion;
     };
 
     /// Draws one EditorDocument as an editable code view: line numbers, selection, caret,

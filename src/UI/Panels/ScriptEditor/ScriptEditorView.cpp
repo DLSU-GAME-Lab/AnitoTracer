@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <vector>
 
 namespace Diligent::ScriptEditor
 {
@@ -17,6 +18,7 @@ namespace Diligent::ScriptEditor
         constexpr float kCaretBlinkPeriod = 1.06f;
         constexpr float kGutterPadding = 8.0f;
         constexpr float kScrollMargin = 24.0f;
+        constexpr int kMaxCompletionRows = 6;
 
         /// Frame-constant measurements shared by the drawing and input helpers.
         struct Metrics
@@ -82,8 +84,93 @@ namespace Diligent::ScriptEditor
                 ImGui::SetScrollX(x - viewWidth + kScrollMargin);
         }
 
+        ImU32 TokenColor(ScriptLanguage::TokenKind kind)
+        {
+            switch (kind)
+            {
+            case ScriptLanguage::TokenKind::Keyword:    return IM_COL32(197, 134, 192, 255);
+            case ScriptLanguage::TokenKind::Type:       return IM_COL32(78, 201, 176, 255);
+            case ScriptLanguage::TokenKind::Number:     return IM_COL32(181, 206, 168, 255);
+            case ScriptLanguage::TokenKind::String:     return IM_COL32(206, 145, 120, 255);
+            case ScriptLanguage::TokenKind::Comment:    return IM_COL32(106, 153, 85, 255);
+            case ScriptLanguage::TokenKind::Annotation: return IM_COL32(220, 220, 170, 255);
+            case ScriptLanguage::TokenKind::Operator:   return IM_COL32(212, 212, 212, 255);
+            default:                                    return ImGui::GetColorU32(ImGuiCol_Text);
+            }
+        }
+
+        std::vector<std::size_t> LineStarts(const std::string& source)
+        {
+            std::vector<std::size_t> starts(1, 0);
+            for (std::size_t i = 0; i < source.size(); ++i)
+                if (source[i] == '\n') starts.push_back(i + 1);
+            return starts;
+        }
+
+        void DrawCodeRange(ImDrawList& drawList, const std::string& line, const LineLayout& layout,
+                           int begin, int end, ImU32 color, float left, float y)
+        {
+            const std::vector<int>& offsets = layout.GetOffsets();
+            const std::vector<float>& xs = layout.GetXs();
+            int runStart = begin;
+            for (std::size_t i = 0; i + 1 < offsets.size(); ++i)
+            {
+                const int offset = offsets[i];
+                const int next = offsets[i + 1];
+                if (offset < begin || next > end) continue;
+                if (line[offset] == '\t')
+                {
+                    if (runStart < offset)
+                        drawList.AddText({ left + layout.ColumnToX(runStart), y }, color,
+                                         line.c_str() + runStart, line.c_str() + offset);
+                    runStart = next;
+                }
+            }
+            if (runStart < end)
+                drawList.AddText({ left + layout.ColumnToX(runStart), y }, color,
+                                 line.c_str() + runStart, line.c_str() + end);
+        }
+
+        void DrawHighlightedLine(ImDrawList& drawList, const std::string& line, const LineLayout& layout,
+                                 const std::vector<ScriptLanguage::SyntaxToken>& tokens,
+                                 std::size_t lineStart, float left, float y)
+        {
+            std::vector<int> boundaries{ 0, static_cast<int>(line.size()) };
+            for (const auto& token : tokens)
+            {
+                if (token.end <= lineStart || token.begin >= lineStart + line.size()) continue;
+                boundaries.push_back(std::clamp(
+                    static_cast<int>(token.begin > lineStart ? token.begin - lineStart : 0),
+                    0, static_cast<int>(line.size())));
+                boundaries.push_back(std::clamp(
+                    static_cast<int>(std::min(token.end, lineStart + line.size()) - lineStart),
+                    0, static_cast<int>(line.size())));
+            }
+            std::sort(boundaries.begin(), boundaries.end());
+            boundaries.erase(std::unique(boundaries.begin(), boundaries.end()), boundaries.end());
+
+            for (std::size_t i = 0; i + 1 < boundaries.size(); ++i)
+            {
+                const int begin = boundaries[i];
+                const int end = boundaries[i + 1];
+                if (begin == end) continue;
+                ScriptLanguage::TokenKind kind = ScriptLanguage::TokenKind::Plain;
+                for (const auto& token : tokens)
+                {
+                    if (lineStart + static_cast<std::size_t>(begin) >= token.begin &&
+                        lineStart + static_cast<std::size_t>(end) <= token.end)
+                    {
+                        kind = token.kind;
+                        break;
+                    }
+                }
+                DrawCodeRange(drawList, line, layout, begin, end, TokenColor(kind), left, y);
+            }
+        }
+
         void DrawLines(ImDrawList& drawList, const EditorDocument& document, const EditorViewState& state,
-                      const Metrics& metrics, bool focused, float contentWidth)
+                      const Metrics& metrics, bool focused, float contentWidth,
+                      const std::vector<std::size_t>& lineStarts)
         {
             const TextBuffer& buffer = document.GetBuffer();
             const TextSelection& selection = document.GetSelection();
@@ -92,7 +179,6 @@ namespace Diligent::ScriptEditor
             const int firstLine = std::max(0, static_cast<int>(ImGui::GetScrollY() / metrics.lineHeight));
             const int lastLine = std::min(buffer.LineCount() - 1, firstLine + static_cast<int>(metrics.viewSize.y / metrics.lineHeight) + 2);
 
-            const ImU32 textColor = ImGui::GetColorU32(ImGuiCol_Text);
             const ImU32 selectionColor = ImGui::GetColorU32(ImGuiCol_TextSelectedBg);
             const ImU32 currentLineColor = IM_COL32(255, 255, 255, 14);
             const float textLeft = metrics.origin.x + metrics.gutterWidth;
@@ -118,24 +204,55 @@ namespace Diligent::ScriptEditor
                     drawList.AddRectFilled({ textLeft + x0, y }, { textLeft + x1, y + metrics.lineHeight }, selectionColor);
                 }
 
-                // Draw runs between tabs; tabs themselves are only whitespace.
-                const std::vector<int>& offsets = layout.GetOffsets();
-                const std::vector<float>& xs = layout.GetXs();
-                size_t runStart = 0;
-                for (size_t k = 0; k < offsets.size(); ++k)
-                {
-                    const bool atEnd = k + 1 == offsets.size();
-                    if (!atEnd && text[offsets[k]] != '\t') continue;
-                    if (k > runStart)
-                        drawList.AddText({ textLeft + xs[runStart], y }, textColor, text.c_str() + offsets[runStart], text.c_str() + offsets[k]);
-                    runStart = k + 1;
-                }
+                DrawHighlightedLine(drawList, text, layout, state.syntaxTokens,
+                                    lineStarts[static_cast<std::size_t>(line)], textLeft, y);
 
                 if (caretVisible && line == selection.caret.line)
                 {
                     const float x = textLeft + layout.ColumnToX(selection.caret.column);
-                    drawList.AddLine({ x, y }, { x, y + metrics.lineHeight }, textColor, 1.5f);
+                    drawList.AddLine({ x, y }, { x, y + metrics.lineHeight }, TokenColor(ScriptLanguage::TokenKind::Plain), 1.5f);
                 }
+            }
+        }
+
+        void DrawCompletion(ImDrawList& drawList, const EditorDocument& document,
+                            const EditorViewState& state, const Metrics& metrics, bool focused)
+        {
+            if (!focused || document.GetSelection().HasSelection() || !state.completion.Selected()) return;
+
+            const std::string& selected = *state.completion.Selected();
+            if (selected.size() <= state.completion.prefix.size()) return;
+            const std::string suffix = selected.substr(state.completion.prefix.size());
+            const TextPosition caret = document.GetSelection().caret;
+            const float x = metrics.origin.x + metrics.gutterWidth +
+                Layout(document, caret.line, metrics).ColumnToX(caret.column);
+            const float y = metrics.origin.y + caret.line * metrics.lineHeight;
+            drawList.AddText({ x, y }, IM_COL32(140, 140, 140, 190), suffix.c_str());
+
+            const std::size_t rows = std::min(kMaxCompletionRows, static_cast<int>(state.completion.words.size()));
+            float width = 0.0f;
+            for (std::size_t i = 0; i < rows; ++i)
+                width = std::max(width, ImGui::CalcTextSize(state.completion.words[i].c_str()).x);
+            width += 52.0f;
+            const float popupX = std::min(x, metrics.origin.x + metrics.viewSize.x - width - 4.0f);
+            float popupY = y + metrics.lineHeight;
+            const float popupHeight = rows * metrics.lineHeight + 4.0f;
+            if (popupY + popupHeight > metrics.origin.y + metrics.viewSize.y)
+                popupY = y - popupHeight;
+            drawList.AddRectFilled({ popupX, popupY }, { popupX + width, popupY + popupHeight },
+                                   IM_COL32(40, 40, 40, 245), 3.0f);
+            drawList.AddRect({ popupX, popupY }, { popupX + width, popupY + popupHeight },
+                             IM_COL32(90, 90, 90, 255), 3.0f);
+            for (std::size_t i = 0; i < rows; ++i)
+            {
+                const float rowY = popupY + 2.0f + i * metrics.lineHeight;
+                if (i == 0)
+                    drawList.AddRectFilled({ popupX + 2.0f, rowY }, { popupX + width - 2.0f, rowY + metrics.lineHeight },
+                                           IM_COL32(62, 62, 66, 255));
+                drawList.AddText({ popupX + 7.0f, rowY }, TokenColor(ScriptLanguage::TokenKind::Plain),
+                                 state.completion.words[i].c_str());
+                if (i == 0)
+                    drawList.AddText({ popupX + width - 35.0f, rowY }, ImGui::GetColorU32(ImGuiCol_TextDisabled), "Tab");
             }
         }
 
@@ -247,17 +364,53 @@ namespace Diligent::ScriptEditor
         metrics.origin = ImGui::GetCursorScreenPos();
         environment.pageLines = std::max(1, static_cast<int>(metrics.viewSize.y / metrics.lineHeight) - 1);
 
+        const std::string sourceBeforeInput = document.GetBuffer().GetText();
+        if (state.syntaxRevision != document.GetRevision())
+        {
+            state.syntaxTokens = ScriptLanguage::Highlight(sourceBeforeInput);
+            state.syntaxRevision = document.GetRevision();
+        }
+
         // Input first so this frame already renders its result.
+        bool acceptedCompletion = false;
         if (focused)
         {
             ClaimTextInput();
+            if (!document.GetSelection().HasSelection() && state.completion.Selected() &&
+                ImGui::IsKeyPressed(ImGuiKey_Tab, false))
+            {
+                document.InsertText(state.completion.Selected()->substr(state.completion.prefix.size()), false);
+                acceptedCompletion = true;
+            }
             for (const EditorCommand& command : m_KeyBindings.Poll())
+            {
+                if (acceptedCompletion && command.id == CommandId::Tab) continue;
                 m_Executor.Execute(command, document, environment);
+            }
             HandleTextInput(document);
         }
         HandleMouse(document, state, metrics);
 
         RefreshWidthCache(document, state, metrics);
+        const std::string source = document.GetBuffer().GetText();
+        if (state.syntaxRevision != document.GetRevision())
+        {
+            state.syntaxTokens = ScriptLanguage::Highlight(source);
+            state.syntaxRevision = document.GetRevision();
+        }
+        const auto lineStarts = LineStarts(source);
+        if (!document.GetSelection().HasSelection())
+        {
+            const TextPosition caret = document.GetSelection().caret;
+            const std::size_t cursor = lineStarts[static_cast<std::size_t>(caret.line)] + caret.column;
+            const std::vector<std::string> projectWords = environment.completionWords ?
+                environment.completionWords() : std::vector<std::string>{};
+            state.completion = ScriptLanguage::Complete(source, cursor, projectWords);
+        }
+        else
+        {
+            state.completion = {};
+        }
         const float contentWidth = metrics.gutterWidth + state.maxLineWidth + metrics.spaceWidth * 4.0f;
         ImGui::Dummy({ contentWidth, static_cast<float>(document.GetBuffer().LineCount()) * metrics.lineHeight });
 
@@ -271,8 +424,10 @@ namespace Diligent::ScriptEditor
         }
 
         ImDrawList& drawList = *ImGui::GetWindowDrawList();
-        DrawLines(drawList, document, state, metrics, focused, std::max(contentWidth, metrics.viewSize.x));
+        DrawLines(drawList, document, state, metrics, focused, std::max(contentWidth, metrics.viewSize.x),
+                  lineStarts);
         DrawGutter(drawList, document, metrics);
+        DrawCompletion(drawList, document, state, metrics, focused);
 
         ImGui::EndChild();
         ImGui::PopStyleColor();

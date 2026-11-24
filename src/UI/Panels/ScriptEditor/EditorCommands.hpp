@@ -43,6 +43,7 @@ namespace Diligent::ScriptEditor
         std::function<std::string()> getClipboard;
         std::function<void(const std::string&)> setClipboard;
         std::function<void(const std::string&)> reportStatus;
+        std::function<std::vector<std::string>()> completionWords;
         int pageLines = 20; ///< How many lines PageUp/PageDown travel.
     };
 

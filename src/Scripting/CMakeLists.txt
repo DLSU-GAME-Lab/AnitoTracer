@@ -42,6 +42,8 @@ add_library(${LANG_TARGET} STATIC
 	ScriptParser.hpp
 	ScriptAnalyzer.cpp
 	ScriptAnalyzer.hpp
+	ScriptLanguage.cpp
+	ScriptLanguage.hpp
 	ScriptTranspiler.cpp
 	ScriptTranspiler.hpp
 	${ANTLR_GRAMMARS}

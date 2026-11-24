@@ -71,9 +71,9 @@ STRING_LIT : '"' ( ~["\\\r\n] | '\\' . )* '"' ;
 
 ID : [a-zA-Z_] [a-zA-Z_0-9]* ;
 
-WS            : [ \t\r\n]+ -> skip ;
-LINE_COMMENT  : '//' ~[\r\n]* -> skip ;
-BLOCK_COMMENT : '/*' .*? '*/' -> skip ;
+WS            : [ \t\r\n]+ -> channel(HIDDEN) ;
+LINE_COMMENT  : '//' ~[\r\n]* -> channel(HIDDEN) ;
+BLOCK_COMMENT : '/*' .*? '*/' -> channel(HIDDEN) ;
 
 fragment DIGIT    : [0-9] ;
 fragment EXPONENT : [eE] [+-]? DIGIT+ ;

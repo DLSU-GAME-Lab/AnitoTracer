@@ -2,6 +2,7 @@
 #include "../EditorKeyBindings.hpp"
 #include "../LineLayout.hpp"
 #include "../../FileOpeners/ScriptFileOpener.hpp"
+#include "ScriptLanguage.hpp"
 
 #include "imgui.h"
 
@@ -143,6 +144,43 @@ namespace
         ImGui::EndFrame();
         ImGui::DestroyContext();
     }
+
+    void TestLanguageServices()
+    {
+        const std::string source =
+            "component Player {\\n"
+            "  @field float speed = 2.5; // movement\\n"
+            "  on Update(dt) { owner.transform.rotate(Vector3.up, spe); }\\n"
+            "}\\n";
+        const auto tokens = Diligent::ScriptLanguage::Highlight(source);
+        Check(!tokens.empty(), "lexer produced no syntax tokens");
+
+        bool foundKeyword = false;
+        bool foundType = false;
+        bool foundNumber = false;
+        bool foundComment = false;
+        bool foundAnnotation = false;
+        for (const auto& token : tokens)
+        {
+            foundKeyword |= token.kind == Diligent::ScriptLanguage::TokenKind::Keyword;
+            foundType |= token.kind == Diligent::ScriptLanguage::TokenKind::Type;
+            foundNumber |= token.kind == Diligent::ScriptLanguage::TokenKind::Number;
+            foundComment |= token.kind == Diligent::ScriptLanguage::TokenKind::Comment;
+            foundAnnotation |= token.kind == Diligent::ScriptLanguage::TokenKind::Annotation;
+        }
+        Check(foundKeyword && foundType && foundNumber && foundComment && foundAnnotation,
+              "syntax token categories are incomplete");
+
+        const std::size_t cursor = source.find("spe)") + 3;
+        const auto completion = Diligent::ScriptLanguage::Complete(source, cursor, {});
+        Check(completion.prefix == "spe", "completion prefix is incorrect");
+        Check(!completion.words.empty() && completion.words.front() == "speed",
+              "completion did not prefer an identifier recognized in this script");
+
+        const auto annotation = Diligent::ScriptLanguage::Complete("@fi", 3, std::vector<std::string>{});
+        Check(!annotation.words.empty() && annotation.words.front() == "field",
+              "annotation completion is incorrect");
+    }
 }
 
 int main()
@@ -154,6 +192,7 @@ int main()
         TestDocument(path);
         TestOpener(path);
         TestLayout();
+        TestLanguageServices();
         std::filesystem::remove(path);
         return 0;
     }

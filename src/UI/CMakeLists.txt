@@ -109,6 +109,7 @@ target_link_libraries(${CUR_TARGET_NAME}
 	Diligent-Imgui
 
 	anito::common
+	anito::scriptlang
 
 	gbe::tools
 )
@@ -137,6 +138,6 @@ if(BUILD_TESTING)
 		Panels/ScriptEditor/UndoHistory.cpp
 		Panels/FileOpeners/ScriptFileOpener.cpp
 	)
-	target_link_libraries(script_editor_tests PRIVATE Diligent-Imgui)
+	target_link_libraries(script_editor_tests PRIVATE Diligent-Imgui anito::scriptlang)
 	add_test(NAME script_editor_tests COMMAND script_editor_tests)
 endif()

@@ -2,6 +2,7 @@
 
 #include "FileOpeners/FileOpener.hpp"
 #include "ScriptEditor/Utf8.hpp"
+#include "ScriptRegistry.hpp"
 #include "imgui.h"
 
 #include <algorithm>
@@ -19,6 +20,16 @@ namespace Diligent
         };
         m_Environment.setClipboard = [](const std::string& text) { ImGui::SetClipboardText(text.c_str()); };
         m_Environment.reportStatus = [this](const std::string& status) { m_Status = status; };
+        m_Environment.completionWords = [] {
+            std::vector<std::string> words;
+            for (const auto& [name, descriptor] : ScriptRegistry::GetInstance().GetScripts())
+            {
+                words.push_back(name);
+                words.insert(words.end(), descriptor.methods.begin(), descriptor.methods.end());
+                for (const ScriptField& field : descriptor.fields) words.push_back(field.name);
+            }
+            return words;
+        };
     }
 
     ScriptEditorPanel::Tab* ScriptEditorPanel::FindTab(const std::filesystem::path& path)
