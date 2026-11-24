@@ -379,7 +379,12 @@ namespace Diligent::ScriptEditor
             if (!document.GetSelection().HasSelection() && state.completion.Selected() &&
                 ImGui::IsKeyPressed(ImGuiKey_Tab, false))
             {
-                document.InsertText(state.completion.Selected()->substr(state.completion.prefix.size()), false);
+                const TextPosition caret = document.GetSelection().caret;
+                document.SelectRange({
+                    { caret.line, std::max(0, caret.column - static_cast<int>(state.completion.prefix.size())) },
+                    caret
+                });
+                document.InsertText(*state.completion.Selected(), false);
                 acceptedCompletion = true;
             }
             for (const EditorCommand& command : m_KeyBindings.Poll())

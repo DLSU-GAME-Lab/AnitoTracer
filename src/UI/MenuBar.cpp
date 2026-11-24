@@ -119,7 +119,14 @@ namespace Diligent {
             {
                 for (const auto& panel : panels)
                 {
-                    ImGui::MenuItem(panel->GetName().c_str(), NULL, &panel->GetVisible());
+                    bool visible = panel->GetVisible();
+                    if (ImGui::MenuItem(panel->GetName().c_str(), nullptr, visible))
+                    {
+                        if (visible)
+                            panel->SetVisible(false);
+                        else
+                            panel->Open();
+                    }
                 }
                 ImGui::Separator();
                 if (ImGui::BeginMenu("Layouts"))

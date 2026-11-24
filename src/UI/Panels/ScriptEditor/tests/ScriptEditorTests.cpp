@@ -177,6 +177,15 @@ namespace
         Check(!completion.words.empty() && completion.words.front() == "speed",
               "completion did not prefer an identifier recognized in this script");
 
+        const auto uppercasePrefix = Diligent::ScriptLanguage::Complete("SPE", 3, { "speed" });
+        Check(!uppercasePrefix.words.empty() && uppercasePrefix.words.front() == "speed",
+              "completion filtering is not case-insensitive");
+
+        const auto mixedCaseProjectWord =
+            Diligent::ScriptLanguage::Complete("cam", 3, { "CameraController" });
+        Check(!mixedCaseProjectWord.words.empty() && mixedCaseProjectWord.words.front() == "CameraController",
+              "completion did not match differently cased project words");
+
         const auto annotation = Diligent::ScriptLanguage::Complete("@fi", 3, std::vector<std::string>{});
         Check(!annotation.words.empty() && annotation.words.front() == "field",
               "annotation completion is incorrect");

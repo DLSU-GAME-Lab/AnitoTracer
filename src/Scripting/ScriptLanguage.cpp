@@ -24,6 +24,15 @@ namespace Diligent::ScriptLanguage
             return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
         }
 
+        bool StartsWithIgnoreCase(std::string_view word, std::string_view prefix)
+        {
+            return word.size() >= prefix.size() &&
+                std::equal(prefix.begin(), prefix.end(), word.begin(), [](char left, char right) {
+                    return std::tolower(static_cast<unsigned char>(left)) ==
+                        std::tolower(static_cast<unsigned char>(right));
+                });
+        }
+
         bool IsKeyword(int type)
         {
             using Lexer = anito_script::AnitoScriptLexer;
@@ -192,7 +201,7 @@ namespace Diligent::ScriptLanguage
         for (const std::string& word : words)
         {
             if (word.size() <= prefix.size() ||
-                word.compare(0, prefix.size(), prefix) != 0)
+                !StartsWithIgnoreCase(word, prefix))
                 continue;
             ranked.emplace_back(ContextScore(word, previous), word);
         }

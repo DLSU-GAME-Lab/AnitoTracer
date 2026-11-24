@@ -23,9 +23,18 @@ namespace Diligent {
         bool& GetVisible() { return m_IsVisible; }
         void SetVisible(bool visible) { m_IsVisible = visible; }
 
+        // Shows the panel and requests input focus for its next draw.
+        void Open();
+
+        // Called by GUIManager immediately before Draw.
+        void PrepareDraw();
+
     protected:
         std::string m_Name;
         bool m_IsVisible;
+
+    private:
+        bool m_FocusRequested = false;
     };
 
 }

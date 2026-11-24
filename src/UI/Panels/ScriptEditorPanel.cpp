@@ -11,9 +11,6 @@ namespace Diligent
 {
     ScriptEditorPanel::ScriptEditorPanel(const std::string& name) : BasePanel(name)
     {
-        // Hidden until a script is opened (or the user enables it from the Windows menu).
-        m_IsVisible = false;
-
         m_Environment.getClipboard = [] {
             const char* text = ImGui::GetClipboardText();
             return text ? std::string(text) : std::string();
@@ -51,8 +48,7 @@ namespace Diligent
             if (!document->Load(normalized))
             {
                 m_Status = "Failed to open " + normalized.filename().string();
-                m_IsVisible = true;
-                m_FocusPanelRequested = true;
+                Open();
                 return false;
             }
             auto created = std::make_unique<Tab>();
@@ -63,8 +59,7 @@ namespace Diligent
 
         m_Status.clear();
         m_TabToSelect = tab;
-        m_IsVisible = true;
-        m_FocusPanelRequested = true;
+        Open();
         m_FocusEditorRequested = true;
         return true;
     }
@@ -75,18 +70,11 @@ namespace Diligent
 
         const bool open = ImGui::Begin(m_Name.c_str(), &m_IsVisible, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
-        // Must happen even when the window is a background dock tab so it comes to the front.
-        if (m_FocusPanelRequested)
-        {
-            ImGui::SetWindowFocus();
-            m_FocusPanelRequested = false;
-        }
-
         if (open)
         {
             if (m_Tabs.empty())
             {
-                ImGui::TextDisabled("Double-click an .ascript file in the File Explorer to edit it here.");
+                ImGui::TextDisabled("No scripts open.");
                 if (!m_Status.empty()) ImGui::TextUnformatted(m_Status.c_str());
             }
             else

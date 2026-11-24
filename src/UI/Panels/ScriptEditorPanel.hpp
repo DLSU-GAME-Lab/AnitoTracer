@@ -46,7 +46,6 @@ namespace Diligent
         const Tab* m_TabToSelect = nullptr;   ///< Tab to activate next frame (a newly opened/re-opened file).
         const Tab* m_TabPendingClose = nullptr; ///< Dirty tab awaiting the user's save/discard decision.
         bool m_OpenCloseConfirmation = false;
-        bool m_FocusPanelRequested = false;
         bool m_FocusEditorRequested = false;
         std::string m_Status;
     };

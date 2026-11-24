@@ -57,6 +57,9 @@ namespace Diligent {
             m_Panels.push_back(std::move(panel));
         }
 
+        BasePanel* GetPanel(const std::string& name);
+        bool OpenPanel(const std::string& name);
+
         bool IsInitialized() const { return m_pImGuiRenderer != nullptr; }
 
         //Bridge function to set the selected object
@@ -119,12 +122,7 @@ namespace Diligent {
                             float thickness) const;
 
         // Brings the Game panel to the front and gives it input focus (e.g. when Play starts).
-        void RequestGameViewportFocus() { m_GameViewportFocusRequested = true; }
-        bool ConsumeGameViewportFocusRequest() {
-            bool requested = m_GameViewportFocusRequested;
-            m_GameViewportFocusRequested = false;
-            return requested;
-        }
+        void RequestGameViewportFocus();
 
     private:
         GUIManager() = default;
@@ -166,7 +164,6 @@ namespace Diligent {
         ImVec2 m_GameViewportSize = { 0, 0 };
         bool m_IsGameViewportHovered = false;
         bool m_IsGameViewportFocused = false;
-        bool m_GameViewportFocusRequested = false;
         bool m_FrameStarted = false;
 
         void GetScriptViewport(ImVec2& pos, ImVec2& size) const;

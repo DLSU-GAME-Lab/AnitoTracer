@@ -114,9 +114,33 @@ void Diligent::GUIManager::DrawUI(bool& appRunning)
     {
         if (panel->GetVisible())
         {
+            panel->PrepareDraw();
             panel->Draw();
         }
     }
+}
+
+BasePanel* Diligent::GUIManager::GetPanel(const std::string& name)
+{
+    const auto panel = std::find_if(m_Panels.begin(), m_Panels.end(),
+        [&name](const auto& candidate) { return candidate->GetName() == name; });
+    return panel == m_Panels.end() ? nullptr : panel->get();
+}
+
+bool Diligent::GUIManager::OpenPanel(const std::string& name)
+{
+    BasePanel* panel = GetPanel(name);
+    if (!panel)
+        return false;
+
+    panel->Open();
+    return true;
+}
+
+void Diligent::GUIManager::RequestGameViewportFocus()
+{
+    if (m_pGamePanel)
+        m_pGamePanel->Open();
 }
 
 // Render ImGui draw data to the Diligent context
