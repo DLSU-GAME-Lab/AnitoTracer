@@ -17,17 +17,33 @@ namespace Diligent {
     // Saved in UserSettings, so new values go at the end
     enum PipelineType { BASIC_LIT, HYBRID, DEFERRED, DEFERRED_HYBRID, CROSSHATCH, CROSSHATCH_RT };
 
+    // Intensities are in scene units: what the light adds to a surface facing it at 1 m (a directional light: anywhere).
+    // With real units on, HierarchyManager has already turned lumens and lux into that, at the project's exposure.
     struct DirectionalLightData {
-        glm::vec4 Direction{ 0.0f, -1.0f, 0.0f, 0.0f }; // xyz: dir, w: unused
-        glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };      // rgb: color, a: intensity
+        glm::vec4 Direction{ 0.0f, -1.0f, 0.0f, 0.01f }; // xyz: dir, w: angular radius of the light's disk in radians
+        glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };       // rgb: color, a: intensity
     };
 
+    // Point, spot and rectangular lights share the slots and this layout. A point light has SpotScale 0 and SpotOffset 1,
+    // which makes its cone factor 1 everywhere; a rectangular light has a RectArea above 0.
+    // Every row is 16 bytes, so the HLSL layout (Shaders/light_struct.hlsli) is the same.
     struct PointLightData {
-        glm::vec4 Position{ 0.0f, 0.0f, 0.0f, 1.0f };   // xyz: pos, w: unused
-        glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };      // rgb: color, a: intensity
+        glm::vec4 Position{ 0.0f, 0.0f, 0.0f, 0.1f };       // xyz: pos, w: radius of the light's body in world units
+        glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };          // rgb: color, a: intensity. A rectangular light: radiance of its surface.
+        glm::vec4 SpotDirection{ 0.0f, -1.0f, 0.0f, 0.0f }; // xyz: where a spot light points, or the side a rectangular light shines on
         float Range = 10.0f;
-        glm::vec3 Padding{ 0.0f };
-        glm::vec4 ExtraPadding{ 0.0f };  // Additional padding for HLSL std140 alignment (8 lights × 16 bytes = 128 byte difference)
+        float SpotScale = 0.0f;                             // 1 / (cos inner - cos outer); the cone factor is saturate(cos * scale + offset)^2
+        float SpotOffset = 1.0f;                            // -cos outer * scale
+        float RectArea = 0.0f;                              // m2. 0 for point and spot lights.
+        glm::vec4 AxisX{ 0.0f };                            // Rectangular light: half of its width, as a world vector from the center to an edge
+        glm::vec4 AxisY{ 0.0f };                            // And half of its height
+    };
+    static_assert(sizeof(PointLightData) == 96, "PointLightData must match Shaders/light_struct.hlsli");
+
+    // Bits of LightConstants::Flags. Mirror the LIGHT_FLAG_* constants in Shaders/light_struct.hlsli
+    enum LightFlags : uint32_t {
+        LIGHT_FLAG_INVERSE_SQUARE = 1u << 0,    // Point lights fall off as 1 / distance^2 (with a smooth cut at their range)
+        LIGHT_FLAG_HIGHLIGHT_SHAPE = 1u << 1,   // A light's size widens the highlight it makes on glossy surfaces
     };
 
     struct LightConstants {
@@ -35,7 +51,8 @@ namespace Diligent {
         PointLightData PointLights[MAX_POINT_LIGHTS];
         int NumDirLights = 0;
         int NumPointLights = 0;
-        glm::vec2 Padding{ 0.0f };
+        uint32_t Flags = 0;                  // LIGHT_FLAG_* bits
+        float Padding = 0.0f;
         glm::vec4 CameraPos{ 0.0f };
     };
 

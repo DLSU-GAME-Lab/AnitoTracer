@@ -10,6 +10,9 @@
 // where its entry in the guide and in the motion vectors is.
 
 #include "gbuffer_common.hlsli"
+#include "temporal_common.hlsli"
+#include "../Common/math_common.hlsli"
+#include "../Common/screen_common.hlsli"
 
 // Mirrors DenoiseConstants in SignalDenoiser.cpp
 cbuffer DenoiseConstants
@@ -48,16 +51,10 @@ static const uint SIGNAL_REFLECTION = 2u;   // rgb light, a: distance to what is
 // xy: octahedral geometric normal, z: distance from the camera, w: roughness (0: sky). View sized.
 Texture2D g_DnGuide;
 
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
-
 // The view pixel a signal pixel stands for
 int2 DnViewPixel(int2 signalPixel)
 {
-    return min(signalPixel * int(g_DnScale), int2(g_DnViewportSize.xy) - 1);
+    return SignalToViewPixel(signalPixel, int(g_DnScale), int2(g_DnViewportSize.xy));
 }
 
 float4 DnLoadGuide(Texture2D guide, int2 signalPixel)
@@ -71,24 +68,13 @@ float4 DnLoadGuide(Texture2D guide, int2 signalPixel)
 float3 DnViewDirection(float2 viewPosition)
 {
     float2 uv = viewPosition * g_DnViewportSize.zw;
-    float4 farPoint = mul(float4(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y, 1.0, 1.0), g_DnInvViewProj);
-    return farPoint.xyz / farPoint.w - g_DnCameraPos.xyz;
-}
-
-float DnBrightness(float4 value)
-{
-    return dot(value.rgb, float3(0.2126, 0.7152, 0.0722));
+    return ClipToWorld(UVToClip(uv, 1.0), g_DnInvViewProj) - g_DnCameraPos.xyz;
 }
 
 // True where the signal has nothing to clean up: the sky, and for reflections surfaces too rough to get a ray
 bool DnIsEmpty(float4 guide)
 {
     return guide.w <= 0.0 || (g_DnKind == SIGNAL_REFLECTION && guide.w >= g_DnMaxRoughness);
-}
-
-float4 DnSanitize(float4 value)
-{
-    return (any(isnan(value)) || any(isinf(value))) ? float4(0.0, 0.0, 0.0, 0.0) : value;
 }
 
 #endif // DEFERRED_HYBRID_DENOISE_COMMON_HLSLI

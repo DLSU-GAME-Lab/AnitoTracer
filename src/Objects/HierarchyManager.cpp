@@ -3,6 +3,8 @@
 
 #include "../AppConfig.hpp"
 #include "../AppState.hpp"
+#include "../Common/LightUnits.hpp"
+#include "../Asset/ProjectSettings.hpp"
 #include "ObjectFactory.hpp"
 #include "HierarchyFeatures/PrefabFeature.hpp"
 
@@ -420,7 +422,35 @@ void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outM
     }
 }
 
-static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, Diligent::LightConstants& outLights) {
+namespace {
+    // What GatherLightsRecursive needs from ProjectPhysicalLightSettings
+    struct LightGatherSettings {
+        bool realUnits = false;
+        float exposure = 1.0f;      // Scene value of one lux (or cd/m2) at the project's exposure
+        bool lightSize = false;
+    };
+
+    // The sizes every light had before lights had one of their own
+    constexpr float kFixedPointLightRadius = 0.1f;      // World units
+    constexpr float kFixedSunAngularRadius = 0.01f;     // Radians
+
+    glm::vec3 SafeNormalize(const glm::vec3& v, const glm::vec3& fallback) {
+        const float lengthSquared = glm::dot(v, v);
+        return lengthSquared > 1e-12f ? v * glm::inversesqrt(lengthSquared) : fallback;
+    }
+
+    // The slot a point, spot or rectangular light fills in: everything they share, at the light's position
+    Diligent::PointLightData& NextLocalLight(Diligent::LightConstants& lights, const glm::mat4& world, float radius, const glm::vec3& color, float intensity, float range) {
+        Diligent::PointLightData& slot = lights.PointLights[lights.NumPointLights++];
+        slot = Diligent::PointLightData{};
+        slot.Position = glm::vec4(glm::vec3(world[3]), radius);
+        slot.Color = glm::vec4(color, intensity);
+        slot.Range = range;
+        return slot;
+    }
+}
+
+static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, Diligent::LightConstants& outLights, const LightGatherSettings& settings) {
     if (!obj) return;
 
     glm::mat4 currentWorldMatrix = parentMatrix;
@@ -437,42 +467,83 @@ static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
             glm::vec3 worldDir = dirLight->GetDirection();
 
             Diligent::DirectionalLightData& lightData = outLights.DirLights[outLights.NumDirLights];
-            lightData.Direction = glm::vec4(worldDir, 0.0f);
+            const float angularRadius = settings.lightSize ? glm::radians(glm::max(dirLight->GetAngularRadius(), 0.0f)) : kFixedSunAngularRadius;
+            lightData.Direction = glm::vec4(worldDir, angularRadius);
 
-            // Pack color and intensity using Getters from LightBase
-            lightData.Color = glm::vec4(dirLight->GetColor(), dirLight->GetIntensity());
+            // Pack color and intensity using Getters from LightBase. Real units: lux, seen at the project's exposure.
+            const float intensity = settings.realUnits ? dirLight->GetLux() * settings.exposure : dirLight->GetIntensity();
+            lightData.Color = glm::vec4(dirLight->GetColor(), intensity);
 
             outLights.NumDirLights++;
         }
     }
 
-    // Process Point Lights (Assuming you make a PointLight class inheriting LightBase next!)
+    // Point, spot and rectangular lights share the point light slots.
+    // Real units: a point or spot light's lumens become candela (all around), seen at the project's exposure.
     if (PointLight* pointLight = obj.GetPtr()->GetComponent<PointLight>()) {
         if (outLights.NumPointLights < Diligent::MAX_POINT_LIGHTS) {
-            // Extract the absolute world position from the 4th column of the world matrix
-            glm::vec3 worldPos = glm::vec3(currentWorldMatrix[3]);
+            const float radius = settings.lightSize ? glm::max(pointLight->GetRadius(), 0.0f) : kFixedPointLightRadius;
+            const float intensity = settings.realUnits ? LightUnits::LumensToCandela(pointLight->GetLumens()) * settings.exposure : pointLight->GetIntensity();
+            NextLocalLight(outLights, currentWorldMatrix, radius, pointLight->GetColor(), intensity, pointLight->GetRange());
+        }
+    }
 
-            Diligent::PointLightData& lightData = outLights.PointLights[outLights.NumPointLights];
-            lightData.Position = glm::vec4(worldPos, 1.0f);
+    if (SpotLight* spotLight = obj.GetPtr()->GetComponent<SpotLight>()) {
+        if (outLights.NumPointLights < Diligent::MAX_POINT_LIGHTS) {
+            const float radius = settings.lightSize ? glm::max(spotLight->GetRadius(), 0.0f) : kFixedPointLightRadius;
+            const float intensity = settings.realUnits ? LightUnits::LumensToCandela(spotLight->GetLumens()) * settings.exposure : spotLight->GetIntensity();
+            Diligent::PointLightData& lightData = NextLocalLight(outLights, currentWorldMatrix, radius, spotLight->GetColor(), intensity, spotLight->GetRange());
 
-            // Reusing LightBase getters
-            lightData.Color = glm::vec4(pointLight->GetColor(), pointLight->GetIntensity());
-            lightData.Range = pointLight->GetRange();
+            // The cone points along the object's -Y axis, like a directional light
+            lightData.SpotDirection = glm::vec4(SafeNormalize(glm::vec3(currentWorldMatrix * glm::vec4(0.0f, -1.0f, 0.0f, 0.0f)), glm::vec3(0.0f, -1.0f, 0.0f)), 0.0f);
 
-            outLights.NumPointLights++;
+            const float outerAngle = glm::clamp(spotLight->GetOuterAngle(), 1.0f, 89.0f);
+            const float innerAngle = glm::clamp(spotLight->GetInnerAngle(), 0.0f, outerAngle);
+            const float cosOuter = glm::cos(glm::radians(outerAngle));
+            const float cosInner = glm::cos(glm::radians(innerAngle));
+            lightData.SpotScale = 1.0f / glm::max(cosInner - cosOuter, 0.0001f);
+            lightData.SpotOffset = -cosOuter * lightData.SpotScale;
+        }
+    }
+
+    // A rectangular light turns lumens into the radiance of its panel: all of them leave through its front
+    if (AreaLight* areaLight = obj.GetPtr()->GetComponent<AreaLight>()) {
+        if (outLights.NumPointLights < Diligent::MAX_POINT_LIGHTS) {
+            const float width = glm::max(areaLight->GetWidth(), 0.001f);
+            const float height = glm::max(areaLight->GetHeight(), 0.001f);
+            const float radiance = settings.realUnits ? LightUnits::LumensToRadiance(areaLight->GetLumens(), width * height) * settings.exposure : areaLight->GetIntensity();
+            Diligent::PointLightData& lightData = NextLocalLight(outLights, currentWorldMatrix, 0.0f, areaLight->GetColor(), radiance, areaLight->GetRange());
+
+            // The panel lies in the object's X and Z plane, so its width follows X and its height follows Z, whatever the object's scale
+            const glm::vec3 axisX = SafeNormalize(glm::vec3(currentWorldMatrix[0]), glm::vec3(1.0f, 0.0f, 0.0f));
+            const glm::vec3 axisZ = SafeNormalize(glm::vec3(currentWorldMatrix[2]), glm::vec3(0.0f, 0.0f, 1.0f));
+            lightData.AxisX = glm::vec4(axisX * (width * 0.5f), 0.0f);
+            lightData.AxisY = glm::vec4(axisZ * (height * 0.5f), 0.0f);
+            lightData.SpotDirection = glm::vec4(SafeNormalize(glm::cross(axisX, axisZ), glm::vec3(0.0f, -1.0f, 0.0f)), 0.0f);
+            lightData.RectArea = width * height;
         }
     }
     
     // Recursively process children
     for (const auto& child : obj.GetPtr()->GetChildren()) {
-        GatherLightsRecursive(child.get(), currentWorldMatrix, outLights);
+        GatherLightsRecursive(child.get(), currentWorldMatrix, outLights, settings);
     }
 }
 
-void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) const {
+void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights, const ProjectPhysicalLightSettings& physical) const {
     // Reset light counts for the current frame
     outLights.NumDirLights = 0;
     outLights.NumPointLights = 0;
+
+    // With the master switch off every light is read as it was before lights had falloff, sizes and units of their own
+    LightGatherSettings settings;
+    settings.realUnits = physical.enabled && physical.real_units;
+    settings.exposure = LightUnits::ExposureScale(physical.ev100);
+    settings.lightSize = physical.enabled && physical.light_size;
+
+    outLights.Flags = 0;
+    if (physical.enabled && physical.inverse_square) outLights.Flags |= Diligent::LIGHT_FLAG_INVERSE_SQUARE;
+    if (physical.enabled && physical.highlight_shape) outLights.Flags |= Diligent::LIGHT_FLAG_HIGHLIGHT_SHAPE;
 
     // Pass the camera position to the light constants for specular calculations
     glm::vec3 cameraPos;
@@ -484,7 +555,7 @@ void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) cons
 
     // Iterate through all root nodes managed by HierarchyManager
     for (const auto& rootNode : m_rootNodes) {
-        GatherLightsRecursive(rootNode.get(), rootMatrix, outLights);
+        GatherLightsRecursive(rootNode.get(), rootMatrix, outLights, settings);
     }
 }
 

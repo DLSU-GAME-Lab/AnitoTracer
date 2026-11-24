@@ -1,10 +1,5 @@
 #include "../common_struct.hlsli"
-
-struct SkyboxPSInput
-{
-	float4 Pos : SV_POSITION;
-	float3 SampleDir : TEXCOORD0; // The local 3D position acts as our cubemap sampling direction
-};
+#include "skybox_io.hlsli"
 
 // Procedural cube vertices (36 vertices for 12 triangles)
 // Generated dynamically to spare you from needing a Vertex Buffer! ✨

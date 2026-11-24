@@ -1,9 +1,12 @@
 #ifndef HDR_COMMON_HLSLI
 #define HDR_COMMON_HLSLI
 
-// Helpers shared by the passes that read the HDR scene color (TAA, god rays, the display pass).
+// Helpers shared by everything that writes or reads HDR scene color (TAA, god rays, the display pass, the sky bake).
 
-// Largest value kept in the scene color. Just under what a 16-bit float channel can store (65504).
+#include "math_common.hlsli"
+
+// Largest value kept in the scene color. Just under what a 16-bit float channel can store (65504), so that a very
+// bright sun doesn't become infinite.
 static const float HDR_MAX_VALUE = 64000.0;
 
 // A floating point target keeps bad values that the old 8-bit targets used to hide. One NaN or infinite pixel shows up
@@ -11,7 +14,7 @@ static const float HDR_MAX_VALUE = 64000.0;
 // clamps the rest to the range the scene format can store.
 float3 SanitizeHDR(float3 color)
 {
-    if (any(isnan(color)) || any(isinf(color)))
+    if (IsNonFinite(color))
     {
         return float3(0.0, 0.0, 0.0);
     }

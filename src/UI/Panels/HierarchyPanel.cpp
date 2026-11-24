@@ -80,10 +80,10 @@ namespace Diligent {
 
             if (m_PendingLightType != 0) {
                 const auto parent = m_PendingLightParent;
-                const bool directional = m_PendingLightType == 2;
+                const int lightType = m_PendingLightType;
                 m_PendingLightParent = nullptr;
                 m_PendingLightType = 0;
-                CreateLightObject(directional, parent);
+                CreateLightObject(lightType, parent);
             }
 
             if (!m_PendingPrimitiveName.empty()) {
@@ -286,17 +286,29 @@ namespace Diligent {
             m_PendingLightType = 2;
             m_PendingLightParent = parent;
         }
+        if (ImGui::MenuItem("Add Spot Light")) {
+            m_PendingLightType = 3;
+            m_PendingLightParent = parent;
+        }
+        if (ImGui::MenuItem("Add Area Light")) {
+            m_PendingLightType = 4;
+            m_PendingLightParent = parent;
+        }
         ImGui::EndMenu();
     }
 
-    void HierarchyPanel::CreateLightObject(bool directional, HierarchyObject::Ref parent)
+    void HierarchyPanel::CreateLightObject(int lightType, HierarchyObject::Ref parent)
     {
         auto& hierarchy = HierarchyManager::GetInstance();
         hierarchy.BeginUndoableAction();
         auto& factory = ObjectFactory::GetInstance();
-        const auto created = directional
-            ? factory.CreateDirectionalLightObject("Directional Light")
-            : factory.CreatePointLightObject("Point Light");
+        HierarchyObject::Ref created;
+        switch (lightType) {
+        case 2:  created = factory.CreateDirectionalLightObject("Directional Light"); break;
+        case 3:  created = factory.CreateSpotLightObject("Spot Light"); break;
+        case 4:  created = factory.CreateAreaLightObject("Area Light"); break;
+        default: created = factory.CreatePointLightObject("Point Light"); break;
+        }
         const bool parented = !parent || hierarchy.ReparentObject(created, parent);
 
         if (parented) {
