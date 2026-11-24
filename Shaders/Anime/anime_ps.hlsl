@@ -57,11 +57,18 @@ struct AnimeLighting
 };
 
 // A light's share of the surface. radiance is color * intensity, attenuation 1 for directional lights.
-void AddLight(inout AnimeLighting acc, float3 L, float3 radiance, float attenuation,
+// physicalFalloff: the attenuation is a physical one (inverse square, a panel's solid angle) that expects the light's
+// own brightness, so the intensity stays with it. The old (1 - d / range)^2 is a plain fade and doesn't.
+void AddLight(inout AnimeLighting acc, float3 L, float3 radiance, float attenuation, bool physicalFalloff,
     float3 Nband, float3 Nshade, float3 V, float roughness, float3 F0)
 {
     // Display colors: the light is a tint for the lit tone, so intensities above 1 don't blow it out
-    radiance /= max(1.0, max(radiance.r, max(radiance.g, radiance.b)));
+    float peak = max(1.0, max(radiance.r, max(radiance.g, radiance.b)));
+    radiance /= peak;
+    if (physicalFalloff)
+    {
+        attenuation *= peak;
+    }
 
     // The band: lit tone where the surface faces the light by more than Step
     float toon = SoftEdge(dot(Nband, L) - g_AnimeStep);
@@ -138,21 +145,23 @@ void main_ps(in AnimePSInput In, out float4 OutColor : SV_TARGET)
     {
         float3 L = normalize(-g_DirLights[i].Direction.xyz);
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
-        AddLight(lighting, L, radiance, 1.0, Nband, Nshade, V, roughness, F0);
+        AddLight(lighting, L, radiance, 1.0, false, Nband, Nshade, V, roughness, F0);
     }
 
-    // Out of range lights get an attenuation of 0 instead of being skipped, which keeps the derivatives in uniform flow
+    // Point, spot and panel lights go through the shared falloff in light_struct.hlsli, which follows the Physical Lights
+    // switch: with it off, or with Inverse-Square Falloff off, it is the old (1 - d / range)^2. Spot cones and panels
+    // count as points here, as in CrossHatch: this style has no use for their finer shading.
+    // A light out of reach gets an attenuation of 0 instead of being skipped, which keeps the derivatives in uniform flow.
+    const bool inverseSquare = (g_LightFlags & LIGHT_FLAG_INVERSE_SQUARE) != 0u;
     for (int j = 0; j < g_NumPointLights; ++j)
     {
-        float3 lightVec = g_PointLights[j].Position.xyz - In.WorldPos;
-        float dist = length(lightVec);
-        float3 L = lightVec / max(dist, 1e-4);
-
-        float attenuation = saturate(1.0 - dist / max(g_PointLights[j].Range, 1e-4));
-        attenuation *= attenuation;
+        float3 L;
+        float dist;
+        float attenuation = LocalLightAttenuation(j, In.WorldPos, L, dist);
 
         float3 radiance = g_PointLights[j].Color.rgb * g_PointLights[j].Color.a;
-        AddLight(lighting, L, radiance, attenuation, Nband, Nshade, V, roughness, F0);
+        bool physicalFalloff = inverseSquare || g_PointLights[j].RectArea > 0.0;
+        AddLight(lighting, L, radiance, attenuation, physicalFalloff, Nband, Nshade, V, roughness, F0);
     }
 
     // 4. Tones: the shadow tone where no light reaches, the lit tone tinted by the lights where it does
