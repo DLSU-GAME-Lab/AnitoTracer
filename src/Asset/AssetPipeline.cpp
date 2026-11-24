@@ -5,6 +5,7 @@
 #include "Models/ModelManager.hpp"
 
 #include "AudioManager.hpp"
+#include "Types/AnimationClip.hpp"
 
 namespace {
     struct ProjectLoadScope {
@@ -16,6 +17,7 @@ AssetPipeline::AssetPipeline() {
 	gbe::AssetType::register_value(ASSETTYPE_MODEL);
 	gbe::AssetType::register_value(ASSETTYPE_TEXTURE);
     gbe::AssetType::register_value(ASSETTYPE_AUDIO);
+    gbe::AssetType::register_value(ASSETTYPE_ANIMATION);
 
     gbe::BatchLoader::RegisterCategory<IModel>(
         ASSETTYPE_MODEL,
@@ -34,6 +36,17 @@ AssetPipeline::AssetPipeline() {
         ".ani",
         [](const fs::path& src) { 
             return AudioManager::GetInstance().LoadClip(src.string());
+        },
+        false,
+        gbe::BatchLoader::MetaNamingStrategy::AppendToFilename
+    );
+
+    gbe::BatchLoader::RegisterCategory<AnimationClip>(
+        ASSETTYPE_ANIMATION,
+        { ".anim" },
+        ".ani",
+        [](const fs::path& src) {
+            return AnimationAssetRegistry::Load(src);
         },
         false,
         gbe::BatchLoader::MetaNamingStrategy::AppendToFilename

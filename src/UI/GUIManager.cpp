@@ -15,8 +15,8 @@
 
 #include "Imgui/interface/ImGuiDiligentRenderer.hpp"
 #include "Imgui/interface/ImGuiImplDiligent.hpp"
-#include "../Objects/Components/EditorCamera.hpp"
-#include "../Objects/Components/GameCamera.hpp"
+#include "../Objects/Components/Camera/EditorCamera.hpp"
+#include "../Objects/Components/Camera/GameCamera.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <glm/glm.hpp>
@@ -187,6 +187,12 @@ void Diligent::GUIManager::InitializeDefaultPanels()
     m_pFileExplorerPanel->RegisterOpener(FileOpeners::CreateScriptFileOpener(
         [panel = m_pScriptEditorPanel](const std::filesystem::path& path) { panel->OpenFile(path); }));
     Diligent::GUIManager::GetInstance().AddPanel(std::move(scriptEditorPanel));
+
+    auto animationEditorPanel = std::make_unique<Diligent::AnimationEditorPanel>("Animation Editor");
+    m_pAnimationEditorPanel = animationEditorPanel.get();
+    m_pFileExplorerPanel->RegisterOpener(FileOpeners::CreateAnimationFileOpener(
+        [panel = m_pAnimationEditorPanel](const std::filesystem::path& path) { panel->OpenFile(path); }));
+    Diligent::GUIManager::GetInstance().AddPanel(std::move(animationEditorPanel));
 }
 
 void Diligent::GUIManager::InitializeComponentDrawers()
@@ -202,6 +208,7 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<AudioSourceComponent, AudioSourceUI>();
     InspectorRegistry::GetInstance().RegisterUI<ScriptComponent, ScriptComponentUI>();
     InspectorRegistry::GetInstance().RegisterUI<ParticleSystemComponent, ParticleSystemUI>();
+    InspectorRegistry::GetInstance().RegisterUI<AnimationComponent, AnimationComponentUI>();
 }
 
 void Diligent::GUIManager::SetSelectedObject(HierarchyObject::Ref obj)

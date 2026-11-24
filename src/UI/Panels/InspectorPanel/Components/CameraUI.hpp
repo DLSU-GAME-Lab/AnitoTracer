@@ -1,7 +1,7 @@
 #pragma once
 
 #include "IComponentUI.hpp"
-#include "../../../../Objects/Components/Camera.hpp" 
+#include "../../../../Objects/Components/Camera/Camera.hpp" 
 #include <imgui.h>
 
 class CameraUI : public IComponentUI {

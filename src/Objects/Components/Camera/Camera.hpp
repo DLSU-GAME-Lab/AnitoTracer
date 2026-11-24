@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ComponentBase.hpp"
-#include "Transform.hpp" // Required for fetching position and rotation!
+#include "../ComponentBase.hpp"
+#include "../Transform.hpp" // Required for fetching position and rotation!
 #include "ScriptApiRegistry.hpp"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE 

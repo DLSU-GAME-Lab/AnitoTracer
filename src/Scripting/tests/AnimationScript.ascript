@@ -1,0 +1,13 @@
+component AnimationScript : Update {
+    on Update(dt) {
+        owner.animation.clip = "Animations/Move.anim";
+        owner.animation.loop = true;
+        owner.animation.speed = 1.0;
+        owner.animation.play();
+        if (owner.animation.isPlaying) {
+            owner.animation.pause();
+        }
+        owner.animation.resume();
+        owner.animation.stop();
+    }
+}

@@ -1,5 +1,5 @@
-#include "Global/TeleportMainCamera.hpp"
 #include "Particles/ParticleSystemComponent.hpp"
 #include "Components/Physics/RigidBody.hpp"
 #include "Components/Physics/StaticBody.hpp"
 #include "Components/Physics/Collider.hpp"
+#include "Components/Animation/AnimationComponent.hpp"

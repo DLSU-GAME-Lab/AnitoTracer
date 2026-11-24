@@ -24,7 +24,7 @@ namespace Diligent
 
     private:
         struct Action { std::function<bool()> undo; std::function<bool()> redo; };
-        enum class Dialog { None, NewFolder, Rename, Delete };
+        enum class Dialog { None, NewFolder, NewAnimation, Rename, Delete };
 
         void DrawToolbar();
         void DrawDirectoryContents();
@@ -41,6 +41,7 @@ namespace Diligent
         void CopySelection(bool cut);
         void PasteClipboard();
         void CreateFolder(const std::string& name);
+        void CreateAnimation(const std::string& name);
         void RenameSelected(const std::string& name);
         void DeleteSelection();
         void Undo();

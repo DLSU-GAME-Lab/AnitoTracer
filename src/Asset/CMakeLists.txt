@@ -4,6 +4,8 @@ set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
 
 set(${CUR_TARGET_NAME}_src
 	AssetPipeline.cpp
+	Types/AnimationClip.cpp
+	Types/AnimationClip.hpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})
 add_library(anito::${CUR_TARGET_SUBLIBNAME} ALIAS ${CUR_TARGET_NAME})

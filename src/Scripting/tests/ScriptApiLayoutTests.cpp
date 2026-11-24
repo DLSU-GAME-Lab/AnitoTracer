@@ -1,4 +1,5 @@
 #include "anito/host/Audio.hpp"
+#include "anito/host/Animation.hpp"
 #include "anito/host/Camera.hpp"
 #include "anito/host/Physics.hpp"
 #include "anito/host/Transform.hpp"
@@ -22,6 +23,7 @@ struct PreviousHostAPI {
     anito::TimeAPI time;
     anito::GuiAPI gui;
     anito::FieldAPI field;
+    anito::AnimationAPI animation;
 };
 
 static_assert(std::is_standard_layout_v<anito::HostAPI>);
@@ -42,6 +44,7 @@ CHECK_FIELD(input);
 CHECK_FIELD(time);
 CHECK_FIELD(gui);
 CHECK_FIELD(field);
+CHECK_FIELD(animation);
 #undef CHECK_FIELD
 
 float GetVolume(anito::ObjectId id) { return id == 42 ? 0.75f : 0.0f; }

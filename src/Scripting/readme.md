@@ -134,7 +134,8 @@ For example, adding `clamp(x, low, high)` does not need a grammar change: calls 
 | Physics | `rigidbody.velocity/angularVelocity/mass/simulated/rotation/worldGravity`, `addForce/addTorque/addImpulse/teleport/lockRotation/raycast` (`raycasthit`); `worldGravity` is global gravity accessed through a valid Rigidbody handle |
 | Camera | `gameobject.camera` returns a Camera handle; `camera.fov/aspect/nearPlane/farPlane`; `Scene.mainCamera()` returns the active camera's GameObject |
 | Audio | `audiosource.play/stop/playDetached/volume/loop/pitch/spatialized/setDistance` |
-| Component / GameObject getters | `owner`, `name`, `parent`, `root`, `child(i)`, `findChild`, `transform`, `rigidbody`, `collider`, `audioSource`, `camera`, `getScript/hasScript/addScript`, `hasComponent`, `addRigidbody/addBoxCollider/addSphereCollider/addCapsuleCollider`, `destroy`, `valid()` |
+| Animation | `animation.clip` (project-relative `.anim` path), `hasClip/isPlaying/duration/time/speed/loop`, `play/pause/resume/stop` |
+| Component / GameObject getters | `owner`, `name`, `parent`, `root`, `child(i)`, `findChild`, `transform`, `rigidbody`, `collider`, `audioSource`, `animation`, `camera`, `getScript/hasScript/addScript`, `hasComponent`, `addRigidbody/addBoxCollider/addSphereCollider/addCapsuleCollider`, `destroy`, `valid()` |
 | Scene | `Scene.find/findWithScript/instantiate/createEmpty/createPrimitive/none/mainCamera` |
 | Scripts | `script.call/callFloat/callInt/callBool/callVec3/callObject`, `gameobject.sendMessage`; every `fn` with simple parameter types is callable |
 | Input / Time | `Input.getAction/mouseDelta/mousePosition`, `Time.time/deltaTime/fixedDeltaTime` |
@@ -175,7 +176,7 @@ Component ABI tables, component bridge functions, and their `GetAPI()` declarati
 * `tools/script_api_codegen.cpp`: emits generated component SDK and host-binding code.
 * `../Common/ScriptApiRegistry.hpp`: component registration macros, type mappings, and conformance helpers.
 * `sdk/AnitoScriptSDK.hpp`: umbrella include for the script SDK.
-* `sdk/anito/host/`: stable host/module ABI; current `ANITO_SCRIPT_ABI_VERSION` is 6.
+* `sdk/anito/host/`: stable host/module ABI; current `ANITO_SCRIPT_ABI_VERSION` is 7.
 * `sdk/anito/api/`: handle classes and static wrappers called by generated scripts.
 * `sdk/anito/Math.hpp`: `Vec3`, `Quat`, `Mathf`, `Vector3`, `Quaternion`, and `Random`.
 * `ScriptHostAPI.cpp`: assembles the host function tables; implementations are grouped under `ScriptHostAPI/`.

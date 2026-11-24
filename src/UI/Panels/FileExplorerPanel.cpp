@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "HierarchyFeatures/PrefabFeature.hpp"
+#include "Types/AnimationClip.hpp"
 
 namespace Diligent
 {
@@ -121,6 +122,8 @@ namespace Diligent
         ImGui::SameLine();
         if (ImGui::Button("New Folder")) BeginDialog(Dialog::NewFolder, "New Folder");
         ImGui::SameLine();
+        if (ImGui::Button("New Animation")) BeginDialog(Dialog::NewAnimation, "New Animation");
+        ImGui::SameLine();
         if (ImGui::Button("Undo")) Undo();
         ImGui::SameLine();
         if (ImGui::Button("Redo")) Redo();
@@ -207,6 +210,7 @@ namespace Diligent
             if (ImGui::MenuItem("Delete", "Del", false, !m_Selection.empty())) m_Dialog = Dialog::Delete;
             ImGui::Separator();
             if (ImGui::MenuItem("New Folder")) BeginDialog(Dialog::NewFolder, "New Folder");
+            if (ImGui::MenuItem("New Animation")) BeginDialog(Dialog::NewAnimation, "New Animation");
             ImGui::EndPopup();
         }
     }
@@ -228,7 +232,14 @@ namespace Diligent
             {
                 ImGui::InputText("Name", m_DialogBuffer, sizeof(m_DialogBuffer));
                 if (ImGui::Button("OK") && m_DialogBuffer[0] != '\0')
-                { m_DialogText = m_DialogBuffer; if (m_Dialog == Dialog::NewFolder) CreateFolder(m_DialogText); else RenameSelected(m_DialogText); m_Dialog = Dialog::None; ImGui::CloseCurrentPopup(); }
+                {
+                    m_DialogText = m_DialogBuffer;
+                    if (m_Dialog == Dialog::NewFolder) CreateFolder(m_DialogText);
+                    else if (m_Dialog == Dialog::NewAnimation) CreateAnimation(m_DialogText);
+                    else RenameSelected(m_DialogText);
+                    m_Dialog = Dialog::None;
+                    ImGui::CloseCurrentPopup();
+                }
                 ImGui::SameLine();
                 if (ImGui::Button("Cancel")) { m_Dialog = Dialog::None; ImGui::CloseCurrentPopup(); }
             }
@@ -331,6 +342,46 @@ namespace Diligent
         const auto target = UniqueDestination(m_CurrentDirectory / targetName); std::error_code error;
         if (std::filesystem::create_directory(target, error))
             PushAction({ [target]() { return RemoveRecursively(target); }, [target]() { std::error_code ec; return std::filesystem::create_directory(target, ec) && !ec; } });
+    }
+
+    void FileExplorerPanel::CreateAnimation(const std::string& name)
+    {
+        std::filesystem::path filename(name);
+        if (filename.has_parent_path()) return;
+        if (filename.extension() != ".anim") filename += ".anim";
+        const auto target = UniqueDestination(m_CurrentDirectory / filename);
+
+        AnimationClip clip;
+        clip.GetData().name = target.stem().string();
+        clip.GetData().duration = 1.0f;
+        clip.GetData().framesPerSecond = 30.0f;
+        if (!clip.SaveToFile(target)) {
+            m_Status = "Failed to create animation clip.";
+            return;
+        }
+
+        if (ProjectLoader::GetCurrentProjectDir().empty())
+            AssetPipeline::IncludeFolder(m_CurrentDirectory);
+        else
+            AssetPipeline::RescanProjectFolder(m_CurrentDirectory);
+        const auto metaPath = std::filesystem::path(target.string() + ".ani");
+        m_Selection = { target };
+        OpenFile(target);
+        PushAction({
+            [target, metaPath]() {
+                std::error_code error;
+                std::filesystem::remove(target, error);
+                std::filesystem::remove(metaPath, error);
+                return !error;
+            },
+            [target, name = clip.GetData().name]() {
+                AnimationClip restored;
+                restored.GetData().name = name;
+                restored.GetData().duration = 1.0f;
+                restored.GetData().framesPerSecond = 30.0f;
+                return restored.SaveToFile(target);
+            }
+        });
     }
 
     void FileExplorerPanel::RenameSelected(const std::string& name)

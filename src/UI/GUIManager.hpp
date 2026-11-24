@@ -18,7 +18,9 @@
 #include "Panels/ProfilerPanel.hpp"
 #include "Panels/FileExplorerPanel.hpp"
 #include "Panels/ScriptEditorPanel.hpp"
+#include "Panels/AnimationEditorPanel.hpp"
 #include "Panels/FileOpeners/ScriptFileOpener.hpp"
+#include "Panels/FileOpeners/AnimationFileOpener.hpp"
 #include "Panels/InspectorPanel/InspectorPanel.hpp"
 
 #include "Panels/InspectorPanel/Components/TransformUI.hpp"
@@ -28,6 +30,7 @@
 #include "Panels/InspectorPanel/Components/ModelUI.hpp"
 #include "Panels/InspectorPanel/Components/AudioSourceUI.hpp"
 #include "Panels/InspectorPanel/Components/ParticleSystemUI.hpp"
+#include "Panels/InspectorPanel/Components/AnimationComponentUI.hpp"
 
 #include "Panels/ViewportPanel/EditorPanel.hpp"
 #include "Panels/ViewportPanel/GamePanel.hpp"
@@ -137,6 +140,7 @@ namespace Diligent {
         HierarchyPanel* m_pHierarchyPanel = nullptr;
         FileExplorerPanel* m_pFileExplorerPanel = nullptr;
         ScriptEditorPanel* m_pScriptEditorPanel = nullptr;
+        AnimationEditorPanel* m_pAnimationEditorPanel = nullptr;
         GamePanel* m_pGamePanel = nullptr;
         EditorPanel* m_pEditorPanel = nullptr;
         std::vector<FileExplorerPanel::Opener> m_FileOpeners;

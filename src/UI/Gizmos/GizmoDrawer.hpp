@@ -5,7 +5,7 @@
 #include "ImGuizmo.h"
 
 #include "../../Objects/HierarchyManager.hpp"
-#include "../../Objects/Components/Camera.hpp"
+#include "../../Objects/Components/Camera/Camera.hpp"
 
 namespace Diligent {
 

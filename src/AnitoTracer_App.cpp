@@ -31,7 +31,7 @@
 #include "Input/ImguiBridge.hpp"
 
 #include "UI/CursorManager.hpp"
-#include "Objects/Components/EditorCamera.hpp"
+#include "Objects/Components/Camera/EditorCamera.hpp"
 
 #include ANITO_EVENT_INCLUDES
 #include ANITO_COMPONENT_INCLUDES

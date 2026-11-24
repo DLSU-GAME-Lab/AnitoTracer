@@ -20,6 +20,7 @@ public:
     Rigidbody rigidbody() const { return Rigidbody{id}; }
     Collider collider() const { return Collider{id}; }
     AudioSource audioSource() const { return AudioSource{id}; }
+    Animation animation() const { return Animation{id}; }
     Script getScript(const std::string& scriptName) const { return Script{id, scriptName}; }
     bool hasScript(const std::string& scriptName) const { return detail::H().script.Has(id, scriptName.c_str()); }
     Script addScript(const std::string& scriptName) const { detail::H().script.Add(id, scriptName.c_str()); return Script{id, scriptName}; }
@@ -64,6 +65,7 @@ inline GameObject generated::CameraHandle::gameObject() const { return GameObjec
 inline GameObject generated::RigidbodyHandle::gameObject() const { return GameObject{id}; }
 inline GameObject generated::ColliderHandle::gameObject() const { return GameObject{id}; }
 inline GameObject generated::AudioSourceHandle::gameObject() const { return GameObject{id}; }
+inline GameObject generated::AnimationHandle::gameObject() const { return GameObject{id}; }
 inline GameObject Script::gameObject() const { return GameObject{id}; }
 inline GameObject RaycastHit::gameObject() const { return GameObject{result.object}; }
 

@@ -1,7 +1,7 @@
 #include "PrefabFeature.hpp"
 
 #include "../HierarchyManager.hpp"
-#include "../Components/Camera.hpp"
+#include "../Components/Camera/Camera.hpp"
 #include "File/Parser.hpp"
 #include "SerializedData.hpp"
 #include "SceneRegistry.hpp"

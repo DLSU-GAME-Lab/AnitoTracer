@@ -4,7 +4,7 @@
 #include "GUIManager.hpp"
 #include "../../UserSettings.hpp"
 #include "../../Objects/HierarchyManager.hpp"
-#include "../../Objects/Components/EditorCamera.hpp"
+#include "../../Objects/Components/Camera/EditorCamera.hpp"
 #include "../../ObjectSystems/Event/Types/OnGUI_Editor.hpp"
 
 namespace Diligent {

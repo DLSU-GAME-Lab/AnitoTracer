@@ -1,7 +1,7 @@
 #include "InspectorPanel.hpp"
 #include "TypeRegistry.hpp"
 #include "SerializedData.hpp"
-#include "../../../Objects/Components/EditorCamera.hpp"
+#include "../../../Objects/Components/Camera/EditorCamera.hpp"
 #include "../../../Objects/Components/Physics/Collider.hpp"
 
 #include "HierarchyFeatures/PrefabFeature.hpp"

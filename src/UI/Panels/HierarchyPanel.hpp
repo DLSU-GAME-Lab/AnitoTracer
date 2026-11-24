@@ -2,7 +2,7 @@
 
 #include "Panels/BasePanel.hpp"
 #include "../../Objects/HierarchyManager.hpp"
-#include "../../Objects/Components/EditorCamera.hpp"
+#include "../../Objects/Components/Camera/EditorCamera.hpp"
 #include <string>
 #include <vector>
 #include "imgui.h"

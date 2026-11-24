@@ -70,6 +70,7 @@ set(SCRIPT_HOST_API_LAYOUT
 	static:time:TimeAPI:time:Runtime
 	static:gui:GuiAPI:gui:Runtime
 	static:field:FieldAPI:field:Runtime
+	component:animation
 )
 
 # Component annotations are compiled separately so the language core consumes metadata without
@@ -262,6 +263,20 @@ if(BUILD_TESTING)
 			"-DOUTPUT_ROOT=${CMAKE_CURRENT_BINARY_DIR}/script_api_codegen_tests"
 			"-DCOMPONENT_ROOT=${SCRIPT_API_COMPONENT_ROOT}"
 			-P "${CMAKE_CURRENT_SOURCE_DIR}/tests/ScriptApiCodegenTests.cmake"
+	)
+	set(animation_test_source "${CMAKE_CURRENT_BINARY_DIR}/script_api_tests/AnimationScript.gen.cpp")
+	add_custom_command(
+		OUTPUT "${animation_test_source}"
+		COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/script_api_tests"
+		COMMAND $<TARGET_FILE:anito_scriptc> "${animation_test_source}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tests/AnimationScript.ascript"
+		DEPENDS anito_scriptc "${CMAKE_CURRENT_SOURCE_DIR}/tests/AnimationScript.ascript"
+		VERBATIM
+	)
+	add_library(script_animation_api_compile OBJECT "${animation_test_source}")
+	add_dependencies(script_animation_api_compile anito_scriptapi_codegen)
+	target_include_directories(script_animation_api_compile PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/sdk" "${SCRIPT_API_GENERATED_SDK}"
 	)
 	if(WIN32)
 		set(sample_script "${CMAKE_SOURCE_DIR}/SampleProjects/Scripting/Scripts/SpinAndBob.ascript")

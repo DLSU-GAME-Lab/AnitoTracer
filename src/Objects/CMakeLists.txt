@@ -7,12 +7,14 @@ set(${CUR_TARGET_NAME}_src
 	Components/ComponentBase.hpp
 	Components/Transform.cpp
 	Components/Transform.hpp
-	Components/Camera.cpp
-	Components/Camera.hpp
-	Components/EditorCamera.cpp
-	Components/EditorCamera.hpp
-	Components/GameCamera.cpp
-	Components/GameCamera.hpp
+
+	Components/Camera/Camera.cpp
+	Components/Camera/Camera.hpp
+	Components/Camera/EditorCamera.cpp
+	Components/Camera/EditorCamera.hpp
+	Components/Camera/GameCamera.cpp
+	Components/Camera/GameCamera.hpp
+
 	Components/ModelComponent.cpp
 	Components/ModelComponent.hpp
 	Components/ITeleportable.hpp
@@ -31,11 +33,6 @@ set(${CUR_TARGET_NAME}_src
 	Components/Physics/StaticBody.hpp
 	Components/Physics/Collider.hpp
 	Components/Physics/Collider.cpp
-	
-	Components/Global/SceneChanger.cpp
-	Components/Global/SceneChanger.hpp
-	Components/Global/TeleportMainCamera.cpp
-	Components/Global/TeleportMainCamera.hpp
 
 	Components/Audio/AudioSourceComponent.hpp
 	Components/Audio/AudioSourceComponent.cpp
@@ -46,6 +43,9 @@ set(${CUR_TARGET_NAME}_src
 	Components/Particles/ParticleSystemComponent.cpp
 	Components/Particles/ParticleGather.hpp
 	Components/Particles/ParticleGather.cpp
+
+	Components/Animation/AnimationComponent.hpp
+	Components/Animation/AnimationComponent.cpp
 
 	HierarchyObject.hpp
 	HierarchyObject.cpp
@@ -84,3 +84,20 @@ target_link_libraries(${CUR_TARGET_NAME}
 )
 
 target_compile_definitions(${CUR_TARGET_NAME} PUBLIC ANITO_COMPONENT_INCLUDES="Components/ComponentIncludes.hpp")
+
+if(BUILD_TESTING)
+	add_executable(animation_component_tests
+		Components/Animation/tests/AnimationComponentTests.cpp
+		${CMAKE_SOURCE_DIR}/src/AudioImp.cpp
+	)
+	target_link_libraries(animation_component_tests
+		PRIVATE
+		anito::objects
+		anito::rendering
+		anito::physics
+		anito::ui
+		anito::scripting
+		assimp::assimp
+	)
+	add_test(NAME animation_component_tests COMMAND animation_component_tests)
+endif()

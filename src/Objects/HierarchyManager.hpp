@@ -12,9 +12,9 @@
 
 
 #include "Components/Transform.hpp"
-#include "Components/Camera.hpp"
-#include "Components/EditorCamera.hpp"
-#include "Components/GameCamera.hpp"
+#include "Components/Camera/Camera.hpp"
+#include "Components/Camera/EditorCamera.hpp"
+#include "Components/Camera/GameCamera.hpp"
 #include "Components/ModelComponent.hpp"
 #include "Models/ModelStructs.hpp"
 

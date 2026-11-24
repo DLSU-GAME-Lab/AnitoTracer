@@ -7,5 +7,6 @@
 #include "Collider.hpp"
 #include "RaycastHit.hpp"
 #include "AudioSource.hpp"
+#include "Animation.hpp"
 #include "PrefabAsset.hpp"
 #include "Script.hpp"

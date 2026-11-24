@@ -8,6 +8,7 @@ set(layout
 	static:time:TimeAPI:time:Runtime
 	static:gui:GuiAPI:gui:Runtime
 	static:field:FieldAPI:field:Runtime
+	component:animation
 )
 
 function(run_generator expected_error)
@@ -34,12 +35,12 @@ function(expect_file path expected)
 endfunction()
 
 expect_file("anito/generated/host/HostFields.inc"
-	"    void (*Log)(const char* message);\n    TransformAPI transform;\n    PhysicsAPI physics;\n    CameraAPI camera;\n    AudioAPI audio;\n    ObjectAPI object;\n    SceneAPI scene;\n    ScriptAPI script;\n    InputAPI input;\n    TimeAPI time;\n    GuiAPI gui;\n    FieldAPI field;\n")
+	"    void (*Log)(const char* message);\n    TransformAPI transform;\n    PhysicsAPI physics;\n    CameraAPI camera;\n    AudioAPI audio;\n    ObjectAPI object;\n    SceneAPI scene;\n    ScriptAPI script;\n    InputAPI input;\n    TimeAPI time;\n    GuiAPI gui;\n    FieldAPI field;\n    AnimationAPI animation;\n")
 expect_file("generated/ScriptHostAPI/HostInitializers.inc"
-	"    ScriptHost::Bindings::Log,\n    ScriptHost::Bindings::transform::GetAPI(),\n    ScriptHost::Bindings::physics::GetAPI(),\n    ScriptHost::Bindings::camera::GetAPI(),\n    ScriptHost::Bindings::audio::GetAPI(),\n    ScriptHost::Bindings::object::GetAPI(),\n    ScriptHost::Bindings::scene::GetAPI(),\n    ScriptHost::Bindings::scripts::GetAPI(),\n    ScriptHost::Bindings::input::GetAPI(),\n    ScriptHost::Bindings::time::GetAPI(),\n    ScriptHost::Bindings::gui::GetAPI(),\n    ScriptHost::Bindings::field::GetAPI(),\n")
+	"    ScriptHost::Bindings::Log,\n    ScriptHost::Bindings::transform::GetAPI(),\n    ScriptHost::Bindings::physics::GetAPI(),\n    ScriptHost::Bindings::camera::GetAPI(),\n    ScriptHost::Bindings::audio::GetAPI(),\n    ScriptHost::Bindings::object::GetAPI(),\n    ScriptHost::Bindings::scene::GetAPI(),\n    ScriptHost::Bindings::scripts::GetAPI(),\n    ScriptHost::Bindings::input::GetAPI(),\n    ScriptHost::Bindings::time::GetAPI(),\n    ScriptHost::Bindings::gui::GetAPI(),\n    ScriptHost::Bindings::field::GetAPI(),\n    ScriptHost::Bindings::animation::GetAPI(),\n")
 expect_file("anito/generated/host/HostIncludes.hpp"
-	"#pragma once\n\n#include \"anito/host/Transform.hpp\"\n#include \"anito/host/Physics.hpp\"\n#include \"anito/host/Camera.hpp\"\n#include \"anito/host/Audio.hpp\"\n#include \"anito/host/Object.hpp\"\n#include \"anito/host/Scene.hpp\"\n#include \"anito/host/Script.hpp\"\n#include \"anito/host/Runtime.hpp\"\n")
-foreach(category Transform Physics Camera Audio)
+	"#pragma once\n\n#include \"anito/host/Transform.hpp\"\n#include \"anito/host/Physics.hpp\"\n#include \"anito/host/Camera.hpp\"\n#include \"anito/host/Audio.hpp\"\n#include \"anito/host/Object.hpp\"\n#include \"anito/host/Scene.hpp\"\n#include \"anito/host/Script.hpp\"\n#include \"anito/host/Runtime.hpp\"\n#include \"anito/host/Animation.hpp\"\n")
+foreach(category Transform Physics Camera Audio Animation)
 	expect_file("anito/host/${category}.hpp"
 		"#pragma once\n\n#include \"anito/generated/host/${category}.hpp\"\n")
 endforeach()

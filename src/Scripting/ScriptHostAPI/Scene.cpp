@@ -2,7 +2,7 @@
 #include "Common.hpp"
 
 #include "ScriptComponent.hpp"
-#include "Components/Camera.hpp"
+#include "Components/Camera/Camera.hpp"
 #include "HierarchyFeatures/PrefabFeature.hpp"
 #include "HierarchyManager.hpp"
 #include "ObjectFactory.hpp"
