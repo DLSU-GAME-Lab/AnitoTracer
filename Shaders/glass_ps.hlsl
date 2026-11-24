@@ -5,38 +5,23 @@
 #include "common_struct.hlsli"
 #include "light_struct.hlsli"
 #include "pbr_defs.hlsli"
+#include "material_sampling.hlsli"
 #include "fog.hlsli"
 #include "hybrid_shading.hlsli"
 
 void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 {
     // Angle between this pixel's view ray and its neighbours', for the mip of textures seen in reflections
-    float3 viewRay = normalize(In.WorldPos - g_CameraPos.xyz);
-    float pixelSpread = max(length(ddx(viewRay)), length(ddy(viewRay)));
+    float pixelSpread = ViewRaySpread(In.WorldPos, g_CameraPos.xyz);
 
-    float4 albedo = g_BaseColorFactor;
-    if (g_UseBaseColorMap > 0.5)
-    {
-        albedo *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV);
-    }
+    float4 albedo = SampleBaseColor(In.UV);
 
-    float metallic = g_MetallicFactor;
-    float roughness = g_RoughnessFactor;
-    if (g_UseMetallicRoughnessMap > 0.5)
-    {
-        float4 mrSample = g_MetallicRoughnessMap.Sample(g_MetallicRoughnessMap_sampler, In.UV);
-        ApplyMetallicRoughnessMap(mrSample, metallic, roughness);
-    }
-    roughness = max(roughness, 0.05);
+    float metallic;
+    float roughness;
+    SampleMetallicRoughness(In.UV, metallic, roughness);
 
     float3 geoN = normalize(In.Normal);
-    float3 N = geoN;
-    if (g_UseNormalMap > 0.5)
-    {
-        float3x3 TBN = float3x3(normalize(In.Tangent), normalize(In.Bitangent), N);
-        float3 tangentNormal = g_NormalMap.Sample(g_NormalMap_sampler, In.UV).xyz * 2.0 - 1.0;
-        N = normalize(mul(tangentNormal, TBN));
-    }
+    float3 N = ApplyNormalMap(In, geoN);
 
     HybridSurface surface;
     surface.WorldPos = In.WorldPos;

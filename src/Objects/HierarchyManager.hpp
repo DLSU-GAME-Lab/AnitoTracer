@@ -21,6 +21,10 @@
 #include "../Rendering/RenderData.hpp"
 #include "Components/Lights/DirectionLight.hpp"
 #include "Components/Lights/PointLight.hpp"
+#include "Components/Lights/SpotLight.hpp"
+#include "Components/Lights/AreaLight.hpp"
+
+struct ProjectPhysicalLightSettings;
 
 #include ANITO_SERIALIZATION_INCLUDES
 #include ANITO_EVENT_INCLUDES
@@ -105,8 +109,9 @@ public:
     // Gathers all Models and their evaluated world transforms
     void GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const;
 
-    // Gathers all active lights in the hierarchy and processes their world transforms
-    void GatherLightData(Diligent::LightConstants& outLights) const;
+    // Gathers all active lights in the hierarchy and processes their world transforms. The settings decide how their
+    // brightness and size are read: with real units on, lumens and lux are turned into scene values at the project's exposure.
+    void GatherLightData(Diligent::LightConstants& outLights, const ProjectPhysicalLightSettings& settings) const;
 
     bool GetMainCameraPosition(glm::vec3& outPosition) const;
 

@@ -10,6 +10,7 @@
 
 #include "Panels/BasePanel.hpp" 
 #include "MenuBar.hpp"
+#include "DockLayoutScaler.hpp"
 #include "Gizmos/GizmoDrawer.hpp"
 
 #include "Panels/HierarchyPanel.hpp"
@@ -24,6 +25,8 @@
 #include "Panels/InspectorPanel/Components/CameraUI.hpp"
 #include "Panels/InspectorPanel/Components/DirectionalLightUI.hpp"
 #include "Panels/InspectorPanel/Components/PointLightUI.hpp"
+#include "Panels/InspectorPanel/Components/SpotLightUI.hpp"
+#include "Panels/InspectorPanel/Components/AreaLightUI.hpp"
 #include "Panels/InspectorPanel/Components/ModelUI.hpp"
 #include "Panels/InspectorPanel/Components/AudioSourceUI.hpp"
 #include "Panels/InspectorPanel/Components/ParticleSystemUI.hpp"
@@ -152,6 +155,7 @@ namespace Diligent {
         MenuBar m_MenuBar;
 
         std::string m_PendingLayout;
+        DockLayoutScaler m_DockLayoutScaler;
 
         //Gizmo Drawer instance
         GizmoDrawer m_GizmoDrawer;

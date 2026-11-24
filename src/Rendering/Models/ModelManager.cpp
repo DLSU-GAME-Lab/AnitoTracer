@@ -101,11 +101,14 @@ ITextureView* ModelManager::FinishTexture(ITextureLoader* pLoader, std::string c
     RefCntAutoPtr<ITextureView> pSRV(pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
 
     // Does the picture have gaps? A few stray see-through texels (an antialiased edge) don't count; a fence's or
-    // a leaf card's surroundings do. Only the top mip is looked at; the loader forced RGBA8 above.
+    // a leaf card's surroundings do. Only the top mip is looked at. Only plain 8-bit RGBA can be read this way: the
+    // loader forced RGBA8 on PNG, JPEG and the like, but a DDS keeps its own format (compressed, one channel, ...),
+    // and reading that as RGBA8 runs off the end of its data. The CrossHatch noise textures are such DDS files.
     {
         const TextureDesc& desc = pLoader->GetTextureDesc();
         const TextureSubResData& top = pLoader->GetSubresourceData(0, 0);
-        if (top.pData && desc.Format != TEX_FORMAT_UNKNOWN) {
+        const bool isRGBA8 = desc.Format == TEX_FORMAT_RGBA8_UNORM || desc.Format == TEX_FORMAT_RGBA8_UNORM_SRGB;
+        if (top.pData && isRGBA8 && desc.Type == RESOURCE_DIM_TEX_2D && top.Stride >= static_cast<Uint64>(desc.Width) * 4) {
             const Uint8* rows = static_cast<const Uint8*>(top.pData);
             Uint64 clear = 0;
             for (Uint32 y = 0; y < desc.Height; ++y) {

@@ -6,6 +6,7 @@ set(${CUR_TARGET_NAME}_src
 		MathDefs.hpp
 		CollisionMeshData.hpp
 		DebugLine.hpp
+		LightUnits.hpp
 		Common.cpp
 )
 add_library(${CUR_TARGET_NAME} STATIC ${${CUR_TARGET_NAME}_src})

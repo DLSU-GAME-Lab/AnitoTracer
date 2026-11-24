@@ -18,6 +18,7 @@
 #include "../Objects/Components/EditorCamera.hpp"
 #include "../Objects/Components/GameCamera.hpp"
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <glm/glm.hpp>
 #include <utility>
 #include <algorithm>
@@ -81,7 +82,10 @@ void Diligent::GUIManager::NewFrame(Uint32 width, Uint32 height, SURFACE_TRANSFO
         const auto path = GetLayoutsDirectory() / (m_PendingLayout + ".ini");
         m_PendingLayout.clear();
         if (std::filesystem::exists(path))
+        {
             ImGui::LoadIniSettingsFromDisk(path.string().c_str());
+            m_DockLayoutScaler.Reset();
+        }
     }
 
     m_pImGuiRenderer->NewFrame(width, height, transform);
@@ -94,10 +98,16 @@ void Diligent::GUIManager::DrawUI(bool& appRunning)
 {
     if (!m_pImGuiRenderer) return;
 
-    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode, nullptr);
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    char hostName[32];
+    ImFormatString(hostName, sizeof(hostName), "WindowOverViewport_%08X", viewport->ID);
+    const ImGuiID dockspaceId = ImHashStr("DockSpace", 0, ImHashStr(hostName));
+    m_DockLayoutScaler.Prepare(dockspaceId, viewport->WorkSize);
+    ImGui::DockSpaceOverViewport(dockspaceId, viewport, ImGuiDockNodeFlags_PassthruCentralNode, nullptr);
+    m_DockLayoutScaler.Finish(dockspaceId);
 
     // Delegate menu bar rendering to the dedicated class
-    m_MenuBar.Draw(appRunning, m_Panels);
+    m_MenuBar.Draw(appRunning, m_Panels, m_pFileExplorerPanel);
 
     // Render all active dockable windows
     for (auto& panel : m_Panels)
@@ -128,6 +138,7 @@ void Diligent::GUIManager::Shutdown()
     // - Renderer device objects cleanup
     // - ImGui context destruction
     m_pImGuiRenderer.reset();
+    m_DockLayoutScaler.Reset();
 }
 
 void Diligent::GUIManager::InitializeDefaultPanels()
@@ -162,6 +173,8 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<GameCamera, CameraUI>();
     InspectorRegistry::GetInstance().RegisterUI<DirectionalLight, DirectionalLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
+    InspectorRegistry::GetInstance().RegisterUI<SpotLight, SpotLightUI>();
+    InspectorRegistry::GetInstance().RegisterUI<AreaLight, AreaLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
     InspectorRegistry::GetInstance().RegisterUI<Collider, ColliderUI>();
     InspectorRegistry::GetInstance().RegisterUI<AudioSourceComponent, AudioSourceUI>();

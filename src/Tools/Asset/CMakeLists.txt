@@ -16,3 +16,9 @@ target_link_libraries(${CUR_TARGET_NAME}
 	PUBLIC
 	gbe::serialization
 )
+
+if(BUILD_TESTING)
+	add_executable(asset_pipeline_tests tests/AssetPipelineTests.cpp)
+	target_link_libraries(asset_pipeline_tests PRIVATE gbe::asset)
+	add_test(NAME asset_pipeline_tests COMMAND asset_pipeline_tests)
+endif()

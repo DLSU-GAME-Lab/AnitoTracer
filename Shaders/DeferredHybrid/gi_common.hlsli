@@ -12,6 +12,9 @@
 // The rays are averaged over time and blurred afterwards by SignalDenoiser, like the other ray-traced signals.
 
 #include "gbuffer_common.hlsli"
+#include "temporal_common.hlsli"
+#include "../Common/math_common.hlsli"
+#include "../Common/screen_common.hlsli"
 
 // Mirrors GIConstants in DiffuseGIPass.cpp
 cbuffer GIConstants
@@ -44,40 +47,18 @@ static const uint GI_FLAG_DENOISED = 8u;        // A denoiser averages the rays 
 Texture2D g_GIPrevResult;
 Texture2D g_GIPrevGuide;
 
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
-
 // The view pixel a GI pixel stands for
 int2 GIViewPixel(int2 giPixel)
 {
-    return min(giPixel * int(g_GIScale), int2(g_GIViewportSize.xy) - 1);
-}
-
-// A value that broke somewhere (a NaN, an infinity, a negative) would spread through every frame after it
-float3 GISanitize(float3 light)
-{
-    return (any(isnan(light)) || any(isinf(light))) ? float3(0.0, 0.0, 0.0) : max(light, 0.0);
+    return SignalToViewPixel(giPixel, int(g_GIScale), int2(g_GIViewportSize.xy));
 }
 
 // Where a world position was in last frame's GI: the four GI pixels around it and how much each counts.
 // A pixel only counts if last frame it showed the same surface (its guide has a matching distance and normal), so
 // WeightSum is 0 when the position was hidden or off screen then.
-struct GILastFrame
+BilinearTaps GIFindLastFrame(float3 worldPos, float3 N)
 {
-    int2 Base;          // Top-left of the four pixels; the others are Base + (1,0), (0,1), (1,1)
-    float4 Weights;     // In that order
-    float WeightSum;
-};
-
-GILastFrame GIFindLastFrame(float3 worldPos, float3 N)
-{
-    GILastFrame last;
-    last.Base = int2(0, 0);
-    last.Weights = float4(0.0, 0.0, 0.0, 0.0);
-    last.WeightSum = 0.0;
+    BilinearTaps last = NoTaps();
 
     float4 prevClip = mul(float4(worldPos, 1.0), g_GIPrevViewProj);
     if (g_GIHistoryValid < 0.5 || prevClip.w <= 0.0)
@@ -85,7 +66,7 @@ GILastFrame GIFindLastFrame(float3 worldPos, float3 N)
         return last;
     }
 
-    float2 prevUV = float2(prevClip.x / prevClip.w * 0.5 + 0.5, 0.5 - prevClip.y / prevClip.w * 0.5);
+    float2 prevUV = ClipToUV(prevClip);
 
     // Position among last frame's GI pixels, whose data sits at the centre of view pixel p * g_GIScale
     float2 samplePos = (prevUV * g_GIViewportSize.xy - 0.5) / float(g_GIScale);
@@ -97,7 +78,7 @@ GILastFrame GIFindLastFrame(float3 worldPos, float3 N)
 
     for (int k = 0; k < 4; ++k)
     {
-        int2 offset = int2(k & 1, k >> 1);
+        int2 offset = BilinearTapOffset(k);
         int2 tap = last.Base + offset;
         if (any(tap < int2(0, 0)) || any(tap > maxPixel))
             continue;
@@ -110,7 +91,7 @@ GILastFrame GIFindLastFrame(float3 worldPos, float3 N)
         if (dot(OctDecode(prevGuide.xy), N) < 0.9)
             continue;
 
-        float w = (offset.x == 0 ? 1.0 - f.x : f.x) * (offset.y == 0 ? 1.0 - f.y : f.y);
+        float w = BilinearTapWeight(offset, f);
         last.Weights[k] = w;
         last.WeightSum += w;
     }
@@ -118,17 +99,9 @@ GILastFrame GIFindLastFrame(float3 worldPos, float3 N)
 }
 
 // Last frame's GI at a position found with GIFindLastFrame (only meaningful when WeightSum > 0)
-float4 GILoadLastFrame(GILastFrame last)
+float4 GILoadLastFrame(BilinearTaps last)
 {
-    float4 light = float4(0.0, 0.0, 0.0, 0.0);
-    for (int k = 0; k < 4; ++k)
-    {
-        if (last.Weights[k] > 0.0)
-        {
-            light += g_GIPrevResult.Load(int3(last.Base + int2(k & 1, k >> 1), 0)) * last.Weights[k];
-        }
-    }
-    return light / max(last.WeightSum, 0.0001);
+    return LoadBilinearTaps(g_GIPrevResult, last);
 }
 
 

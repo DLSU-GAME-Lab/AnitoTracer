@@ -1,6 +1,7 @@
 #include "UserSettingsPanel.hpp"
 #include "../../UserSettings.hpp"
 #include "../../Asset/ProjectLoader.hpp"
+#include "../../Common/LightUnits.hpp"
 #include "RendererManager.hpp"
 #include "imgui.h"
 #include <filesystem>
@@ -411,6 +412,67 @@ namespace Diligent {
                 }
             }
 
+
+            // ------------------------------------------------------------------
+            // Physical Lights Section
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Physical Lights", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& lightSettings = projectSettings.physical_lights;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+
+                // The one switch for comparison tests: off is how lights behaved before
+                if (ImGui::Checkbox("Physical Lights", &lightSettings.enabled)) saveProjectSettings();
+                tooltip("Off: every light behaves as it did before: falloff of (1 - distance / range)^2, fixed sizes, a point-like highlight\n"
+                    "and the plain Intensity number. For comparing.");
+
+                ImGui::BeginDisabled(!lightSettings.enabled);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Inverse-Square Falloff", &lightSettings.inverse_square)) saveProjectSettings();
+                tooltip("Point and spot lights get twice as far, a quarter as bright, and fade smoothly to nothing at their range.\n"
+                    "Off: the old falloff of (1 - distance / range)^2. This changes the brightness of every scene.");
+
+                if (ImGui::Checkbox("Real Units", &lightSettings.real_units)) saveProjectSettings();
+                tooltip("Light brightness is set in lumens (point, spot and area lights) and lux (directional lights), the way real lamps are rated.\n"
+                    "The lights are seen at the exposure below. Off: the plain Intensity of each light. Lights keep both numbers, so switching loses nothing.\n"
+                    "The sky and emissive materials are not in real units: they are not affected by the exposure.");
+
+                ImGui::BeginDisabled(!lightSettings.real_units);
+                ImGui::Indent();
+                ImGui::PushItemWidth(150.0f);
+                if (ImGui::SliderFloat("Exposure (EV100)", &lightSettings.ev100, 0.0f, 20.0f, "%.1f")) saveProjectSettings();
+                ImGui::PopItemWidth();
+                tooltip("The camera's exposure value at ISO 100. Higher is darker: each step halves the light.\n"
+                    "About 15 for a sunny day, 12 for overcast, 8 for a bright room, 6 for a lit room, 3 at night.\n"
+                    "The exposure of the display (HDR & Tone Mapping) is applied on top.");
+                const float sunScene = 100000.0f * LightUnits::ExposureScale(lightSettings.ev100);
+                const float bulbScene = LightUnits::CandelaToLux(LightUnits::LumensToCandela(800.0f), 2.0f) * LightUnits::ExposureScale(lightSettings.ev100);
+                ImGui::TextDisabled("At this exposure: 100,000 lx sun = %.2f, 800 lm bulb at 2 m = %.4f", sunScene, bulbScene);
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                if (ImGui::Checkbox("Light Size##PhysicalLights", &lightSettings.light_size)) saveProjectSettings();
+                tooltip("Each light has a size of its own (Radius, Angular Radius): a larger light casts softer shadows.\n"
+                    "Off: every light has the old fixed size.");
+
+                if (ImGui::Checkbox("Highlight Shape", &lightSettings.highlight_shape)) saveProjectSettings();
+                tooltip("A light's size also widens the highlight it makes on glossy surfaces: a large lamp gives a large highlight.\n"
+                    "Off: every light makes a point-like highlight.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Physical Lights to Defaults"))
+                {
+                    lightSettings = ProjectPhysicalLightSettings{};
+                    saveProjectSettings();
+                }
+            }
 
             // ------------------------------------------------------------------
             // Skybox Section

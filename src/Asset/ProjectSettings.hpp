@@ -277,6 +277,19 @@ struct ProjectTransparencySettings
     bool refraction = true;         // Glass bends what is behind it. Off: plain alpha blending.
 };
 
+// How lights fall off, how big they are and what their brightness is measured in.
+// The two switches that change every scene's brightness (inverse_square, real_units) are off by default, so a saved
+// scene looks the same until a project asks for them. The rest only matters where a light has a size to show.
+struct ProjectPhysicalLightSettings
+{
+    bool enabled = true;            // Off: lights behave as before this feature, whatever the switches below say
+    bool inverse_square = false;    // Point and spot lights fall off as 1 / distance^2, smoothly cut to 0 at their range. Off: (1 - distance / range)^2.
+    bool real_units = false;        // Brightness is set in lumens (point, spot and rectangular lights) and lux (directional lights), seen at ev100
+    float ev100 = 15.0f;            // Exposure value (ISO 100) that real-unit lights are seen at: 15 is a sunny day, 6 to 8 a lit room
+    bool light_size = true;         // Every light has a size of its own, and its shadows soften with it. Off: the old fixed sizes.
+    bool highlight_shape = true;    // The size also widens the highlight a glossy surface shows
+};
+
 // Denoising of the Deferred Hybrid renderer's ray-traced light. Every pixel traces one ray per light, one for its
 // reflection and a few for indirect light. That is far too few on its own, so each result is averaged over frames
 // and blurred along surfaces (our own filters, in the style of SVGF).
@@ -296,6 +309,7 @@ struct ProjectSettings
     ProjectGISettings gi;
     ProjectDenoiseSettings denoise;
     ProjectTransparencySettings transparency;
+    ProjectPhysicalLightSettings physical_lights;
 
     ProjectSkySettings sky;
 

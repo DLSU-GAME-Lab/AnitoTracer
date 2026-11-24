@@ -1,8 +1,4 @@
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
+#include "../Common/screen_common.hlsli"
 
 void main_vs(in uint VertId : SV_VertexID, out FullScreenPSInput Out)
 {

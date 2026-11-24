@@ -18,6 +18,8 @@
 // Requires light_struct.hlsli, pbr_defs.hlsli, fog.hlsli and hybrid_shading.hlsli to be included first.
 
 #include "gbuffer_common.hlsli"
+#include "../Common/math_common.hlsli"
+#include "../Common/screen_common.hlsli"
 
 Texture2D g_GBufferAlbedoMetallic;
 Texture2D g_GBufferNormals;
@@ -56,18 +58,6 @@ Texture2D g_Guide;
 // surroundings are. Sky + AO: average direction of the occlusion rays that got away, and the share that did.
 Texture2D g_IndirectSignal;
 
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
-
-// A value that broke somewhere (a NaN, an infinity, a negative) would spread through every frame after it
-float3 SanitizeLight(float3 light)
-{
-    return (any(isnan(light)) || any(isinf(light))) ? float3(0.0, 0.0, 0.0) : max(light, 0.0);
-}
-
 // The surface a pixel shows, rebuilt from the G-buffer. Returns false for the sky (nothing was drawn there).
 // The indirect light fields are left for ApplyIndirectSignal.
 bool LoadGBufferSurface(int2 pixel, out HybridSurface surface, out float depth)
@@ -82,26 +72,20 @@ bool LoadGBufferSurface(int2 pixel, out HybridSurface surface, out float depth)
         return false;
     }
 
-    // World position from depth
+    // World position from depth, and how far off it can be (see DepthPositionError): the ray origins are pushed
+    // out by that much on top of the shadow bias
     float2 uv = (float2(pixel) + 0.5) * g_ViewportSize.zw;
-    float4 clipPos = float4(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y, depth, 1.0);
-    float4 worldPos = mul(clipPos, g_InvViewProj);
-    worldPos.xyz /= worldPos.w;
-
-    // D32 depth loses precision with distance, so the rebuilt position can sit below the real surface by more
-    // than the shadow bias (tenths of a unit a few hundred units out). Two depth steps, mapped back to world
-    // units, is how far it can be off here; the ray origins are pushed out by that much on top of the bias.
-    float depthStep = asfloat(asuint(depth) + 2) - depth;
-    float4 worldPosNext = mul(float4(clipPos.xy, depth + depthStep, 1.0), g_InvViewProj);
+    float4 clipPos = UVToClip(uv, depth);
+    float3 worldPos = ClipToWorld(clipPos, g_InvViewProj);
 
     float4 albedoMetallic = g_GBufferAlbedoMetallic.Load(texel);
     float4 normals = g_GBufferNormals.Load(texel);
     float4 emissiveAO = g_GBufferEmissiveAO.Load(texel);
 
-    surface.WorldPos = worldPos.xyz;
+    surface.WorldPos = worldPos;
     surface.N = OctDecode(normals.xy);
     surface.GeoN = OctDecode(normals.zw);
-    surface.PositionError = length(worldPosNext.xyz / worldPosNext.w - worldPos.xyz);
+    surface.PositionError = DepthPositionError(clipPos, worldPos, g_InvViewProj);
     surface.Albedo = albedoMetallic.rgb;
     surface.Metallic = albedoMetallic.a;
     surface.Roughness = g_GBufferRoughness.Load(texel).r;

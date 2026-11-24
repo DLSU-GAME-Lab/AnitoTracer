@@ -296,35 +296,27 @@ float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 
         if (dot(N, L) <= 0.0 || dot(hit.GeoN, L) <= 0.0)
             continue;
 
-        float shadowFactor = traceShadows ? TraceHitShadow(hit, L, 1000.0, tan(SUN_ANGULAR_RADIUS), ShiftNoise(noise, i)) : 1.0;
+        float spread = tan(g_DirLights[i].Direction.w);
+        float shadowFactor = traceShadows ? TraceHitShadow(hit, L, 1000.0, spread, ShiftNoise(noise, i)) : 1.0;
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
         Lo += specular
-            ? ComputeLightRadiance(N, V, L, radiance, albedo, metallic, roughness, F0, shadowFactor)
+            ? ShadeRoundLight(N, V, L, spread, radiance, albedo, metallic, roughness, F0, shadowFactor, float3(1.0, 1.0, 1.0))
             : albedo / PI * radiance * dot(N, L) * shadowFactor;
     }
 
-    // 2. Point lights
+    // 2. Point, spot and rectangular lights
     for (int j = 0; j < g_NumPointLights; ++j)
     {
-        float3 lightVec = g_PointLights[j].Position.xyz - hit.Position;
-        float dist = length(lightVec);
-        if (dist >= g_PointLights[j].Range || dist <= 0.0001)
+        LocalLightSample light;
+        if (!EvaluateLocalLight(j, hit.Position, N, V, light) || dot(hit.GeoN, light.L) <= 0.0)
             continue;
 
-        float3 L = lightVec / dist;
-        if (dot(N, L) <= 0.0 || dot(hit.GeoN, L) <= 0.0)
-            continue;
-
-        float shadowFactor = traceShadows ? TraceHitShadow(hit, L, dist - 0.01, POINT_LIGHT_RADIUS / dist, ShiftNoise(noise, 4 + j)) : 1.0;
-
-        float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
-        attenuation *= attenuation;
-        float3 radiance = g_PointLights[j].Color.rgb * g_PointLights[j].Color.a * attenuation;
+        float shadowFactor = traceShadows ? TraceHitShadow(hit, light.L, light.Distance - 0.01, light.SourceRadius / light.Distance, ShiftNoise(noise, 4 + j)) : 1.0;
 
         Lo += specular
-            ? ComputeLightRadiance(N, V, L, radiance, albedo, metallic, roughness, F0, shadowFactor)
-            : albedo / PI * radiance * dot(N, L) * shadowFactor;
+            ? ShadeLocalLight(N, V, light, albedo, metallic, roughness, F0, shadowFactor, float3(1.0, 1.0, 1.0))
+            : albedo / PI * light.DiffuseIrradiance * shadowFactor;
     }
 
     // 3. Indirect light arriving at the hit, as the average radiance over the hemisphere above it
@@ -347,8 +339,7 @@ float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 
         BuildBasis(N, t, b);
         float2 skyNoise = ShiftNoise(noise, 15); // Apart from the lights' shadow rays, which use shifts 0 to 11
         float2 d = VogelDisk(0, 1, skyNoise.x * 2.0 * PI, skyNoise.y);
-        float3 skyDir
- = normalize(t * d.x + b * d.y + N * sqrt(saturate(1.0 - dot(d, d))));
+        float3 skyDir = normalize(CosineHemisphereDirection(N, t, b, d));
         if (dot(skyDir, hit.GeoN) > 0.0 && TraceShadowRay(hit.Position, hit.GeoN, hit.Distance * 0.0005, skyDir, 1000.0) > 0.5)
         {
             // A blurred mip, so one ray doesn't have to find a small bright sun on its own

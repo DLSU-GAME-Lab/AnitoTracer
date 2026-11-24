@@ -23,6 +23,8 @@ set(${CUR_TARGET_NAME}_src
 	Components/Lights/DirectionLight.hpp
 	Components/Lights/PointLight.cpp
 	Components/Lights/PointLight.hpp
+	Components/Lights/SpotLight.hpp
+	Components/Lights/AreaLight.hpp
 
 	Components/Physics/PhysicsBase.hpp
 	Components/Physics/PhysicsBase.cpp

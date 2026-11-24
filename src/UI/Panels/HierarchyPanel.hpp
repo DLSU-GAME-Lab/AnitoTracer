@@ -52,10 +52,10 @@ namespace Diligent {
         void CreateEmptyObject(HierarchyObject::Ref parent);
         HierarchyObject::Ref m_PendingCreateParent = nullptr;
         bool m_PendingCreateEmpty = false;
-        void CreateLightObject(bool directional, HierarchyObject::Ref parent);
+        void CreateLightObject(int lightType, HierarchyObject::Ref parent);
         void DrawAddLightMenu(HierarchyObject::Ref parent);
         HierarchyObject::Ref m_PendingLightParent = nullptr;
-        int m_PendingLightType = 0; // 0 = none, 1 = point, 2 = directional
+        int m_PendingLightType = 0; // 0 = none, 1 = point, 2 = directional, 3 = spot, 4 = area
         void CreatePrimitiveObject(const std::string& name, HierarchyObject::Ref parent);
         void DrawAddPrimitiveMenu(HierarchyObject::Ref parent);
         HierarchyObject::Ref m_PendingPrimitiveParent = nullptr;
