@@ -172,6 +172,22 @@ PSOBuilder BasePipeline::CreateModelPSOBuilder(const char* name, const char* psF
     return builder;
 }
 
+PipelinePass BasePipeline::BuildPass(PSOBuilder& builder)
+{
+    PipelinePass pass;
+    pass.pPSO = builder.Build(m_pDevice);
+    pass.pSRB = PipelineUtils::CreateSRB(pass.pPSO);
+    BindCommonBuffers(pass.pSRB);
+    return pass;
+}
+
+void BasePipeline::BuildMainPass(PSOBuilder& builder)
+{
+    PipelinePass pass = BuildPass(builder);
+    m_pPSO = pass.pPSO;
+    m_pSRB = pass.pSRB;
+}
+
 std::vector<ShaderResourceVariableDesc> BasePipeline::GetStandardShaderVariables()
 {
     return {

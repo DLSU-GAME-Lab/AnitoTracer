@@ -31,6 +31,31 @@ namespace Diligent::PipelineUtils {
         return pSRB;
     }
 
+    RefCntAutoPtr<ITexture> CreateRenderTarget(IRenderDevice* pDevice, const char* name, TEXTURE_FORMAT format, Uint32 width, Uint32 height)
+    {
+        TextureDesc Desc;
+        Desc.Name = name;
+        Desc.Type = RESOURCE_DIM_TEX_2D;
+        Desc.Width = width;
+        Desc.Height = height;
+        Desc.Format = format;
+        Desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
+
+        RefCntAutoPtr<ITexture> pTexture;
+        pDevice->CreateTexture(Desc, nullptr, &pTexture);
+        return pTexture;
+    }
+
+    ITextureView* SRV(ITexture* pTexture)
+    {
+        return pTexture ? pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
+    }
+
+    ITextureView* RTV(ITexture* pTexture)
+    {
+        return pTexture ? pTexture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET) : nullptr;
+    }
+
     void BindVariable(IShaderResourceBinding* pSRB, SHADER_TYPE shaderType, const char* name, IDeviceObject* pObject, SET_SHADER_RESOURCE_FLAGS flags)
     {
         if (!pSRB) return;
@@ -125,6 +150,27 @@ namespace Diligent::PipelineUtils {
         DrawAttrs.NumVertices = 3;
         DrawAttrs.Flags = DRAW_FLAG_VERIFY_ALL;
         pContext->Draw(DrawAttrs);
+    }
+
+    void DrawFullscreenPass(IDeviceContext* pContext, IPipelineState* pPSO, IShaderResourceBinding* pSRB)
+    {
+        pContext->SetPipelineState(pPSO);
+        pContext->CommitShaderResources(pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        DrawFullscreenTriangle(pContext);
+    }
+
+    RenderTargetBlendDesc ColorBlend(BLEND_FACTOR srcFactor, BLEND_FACTOR destFactor)
+    {
+        RenderTargetBlendDesc blend;
+        blend.BlendEnable = True;
+        blend.SrcBlend = srcFactor;
+        blend.DestBlend = destFactor;
+        blend.BlendOp = BLEND_OPERATION_ADD;
+        blend.SrcBlendAlpha = BLEND_FACTOR_ZERO;
+        blend.DestBlendAlpha = BLEND_FACTOR_ONE;
+        blend.BlendOpAlpha = BLEND_OPERATION_ADD;
+        blend.RenderTargetWriteMask = COLOR_MASK_ALL;
+        return blend;
     }
 
 }

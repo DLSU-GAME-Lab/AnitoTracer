@@ -10,11 +10,11 @@ namespace Diligent {
     // The lighting pass can still write into a multisampled target, which the editor view needs since it is always deferred.
     class DeferredPipeline : public ScenePipeline {
     public:
-        void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
         void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
         ITextureView* GetDepthSRV() const override { return m_GBuffer.GetDepthSRV(); }
 
     protected:
+        void CreatePasses() override;
         void PrepareFrame(const FrameTarget& target) override;
         void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) override;
 
@@ -22,7 +22,6 @@ namespace Diligent {
         void InitializeLightingPSO();
 
         GBuffer m_GBuffer;
-        RefCntAutoPtr<IPipelineState>         m_pLightingPSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pLightingSRB;
+        PipelinePass m_Lighting;
     };
 }

@@ -23,6 +23,7 @@
 #include "Data/PipelineDefs.hpp"
 #include "Utils/PipelineUtils.hpp"
 #include "Utils/PSOBuilder.hpp"
+#include "Utils/PipelinePass.hpp"
 #include "../RenderData.hpp"
 #include "../../Asset/ProjectSettings.hpp"
 
@@ -73,6 +74,13 @@ namespace Diligent {
 
         // PSO for drawing models with the standard vertex layout, constants and material textures, into the scene formats below
         PSOBuilder CreateModelPSOBuilder(const char* name, const char* psFile, const char* vsFile = "main_vs.hlsl");
+
+        // Builds the PSO, makes its SRB and binds the buffers this pipeline owns (BindCommonBuffers)
+        PipelinePass BuildPass(PSOBuilder& builder);
+        PipelinePass BuildPass(PSOBuilder&& builder) { return BuildPass(builder); }
+        // The same, into m_pPSO / m_pSRB: the pass StartFrameRender sets and RenderModel draws models with
+        void BuildMainPass(PSOBuilder& builder);
+        void BuildMainPass(PSOBuilder&& builder) { BuildMainPass(builder); }
 
         virtual std::vector<ShaderResourceVariableDesc> GetStandardShaderVariables();
         virtual std::vector<ImmutableSamplerDesc> GetStandardImmutableSamplers();

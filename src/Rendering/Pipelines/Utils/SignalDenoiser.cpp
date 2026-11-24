@@ -40,21 +40,11 @@ namespace Diligent {
 
         RefCntAutoPtr<ITexture> CreateTarget(IRenderDevice* pDevice, const char* name, Uint32 width, Uint32 height)
         {
-            TextureDesc Desc;
-            Desc.Name = name;
-            Desc.Type = RESOURCE_DIM_TEX_2D;
-            Desc.Width = width;
-            Desc.Height = height;
-            Desc.Format = SignalDenoiser::kSignalFormat;
-            Desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
-
-            RefCntAutoPtr<ITexture> pTexture;
-            pDevice->CreateTexture(Desc, nullptr, &pTexture);
-            return pTexture;
+            return PipelineUtils::CreateRenderTarget(pDevice, name, SignalDenoiser::kSignalFormat, width, height);
         }
 
-        ITextureView* SRV(ITexture* pTexture) { return pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE); }
-        ITextureView* RTV(ITexture* pTexture) { return pTexture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET); }
+        using PipelineUtils::SRV;
+        using PipelineUtils::RTV;
     }
 
     ITextureView* SignalDenoiser::History::GetResultSRV() const
@@ -201,9 +191,7 @@ namespace Diligent {
 
             ITextureView* pRTVs[] = { RTV(pTemporalTarget), RTV(history.m_pMoments[current]), RTV(pScratch->pVariance) };
             pContext->SetRenderTargets(3, pRTVs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-            pContext->SetPipelineState(m_pTemporalPSO);
-            pContext->CommitShaderResources(m_pTemporalSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-            PipelineUtils::DrawFullscreenTriangle(pContext);
+            PipelineUtils::DrawFullscreenPass(pContext, m_pTemporalPSO, m_pTemporalSRB);
         }
 
         // 2. Filter. The first pass produces next frame's history; the wider ones after it only shape what is shown,
@@ -225,9 +213,7 @@ namespace Diligent {
 
             ITextureView* pRTV = RTV(pDestination);
             pContext->SetRenderTargets(1, &pRTV, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-            pContext->SetPipelineState(m_pFilterPSO);
-            pContext->CommitShaderResources(m_pFilterSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-            PipelineUtils::DrawFullscreenTriangle(pContext);
+            PipelineUtils::DrawFullscreenPass(pContext, m_pFilterPSO, m_pFilterSRB);
 
             pResult = pDestination;
         }

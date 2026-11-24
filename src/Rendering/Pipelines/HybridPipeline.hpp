@@ -6,7 +6,6 @@ namespace Diligent {
     // Forward PBR with ray-traced shadows, sky lighting and reflections against the scene TLAS (Shaders/hybrid_ps.hlsl)
     class HybridPipeline : public ScenePipeline {
     public:
-        void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
         void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
         void UpdateProjectSettings(IDeviceContext* pContext, const ProjectSettings& settings) override;
 
@@ -18,11 +17,14 @@ namespace Diligent {
         static bool SupportsSceneRayShading();
 
     protected:
+        // Creates the TLAS and fallback environment map, then the passes that trace rays (RebuildRayPipelines)
+        void CreatePasses() override;
+
         // Draws the blended materials over the lit scene, farthest first (Shaders/glass_ps.hlsl). Call once the scene
         // is in the target; does nothing without glass in the frame or with glass switched off in the project.
         void RenderGlass(IDeviceContext* pContext, const FrameTarget& target);
 
-        // The glass pass's PSO and SRB, built with the ray tracing variables like the pass that lights the scene
+        // Builds m_Glass with the ray tracing variables, like the pass that lights the scene
         void InitializeGlassPSO();
 
         // Builds the PSOs of every pass that traces rays again, with the macros as they stand now, and binds
@@ -47,11 +49,10 @@ namespace Diligent {
 
         // SRBs of the passes that trace rays, each built with GetRayTracingVariables: the forward pass here,
         // the lighting and GI passes in DeferredHybridPipeline. Null entries are skipped.
-        virtual std::vector<IShaderResourceBinding*> GetRayTracingSRBs() { return { m_pSRB, m_pGlassSRB }; }
+        virtual std::vector<IShaderResourceBinding*> GetRayTracingSRBs() { return { m_pSRB, m_Glass.pSRB }; }
 
         SceneTLAS m_SceneTLAS;
-        RefCntAutoPtr<IPipelineState> m_pGlassPSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pGlassSRB;
+        PipelinePass m_Glass;
         ProjectTransparencySettings m_TransparencySettings;     // From UpdateProjectSettings
         const RenderData* m_pFrameData = nullptr;               // This frame's, from StartFrameRender until the frame is done
         RefCntAutoPtr<ITextureView> m_pEnvIrradianceSRV;

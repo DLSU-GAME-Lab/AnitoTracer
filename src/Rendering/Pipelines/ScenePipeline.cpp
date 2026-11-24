@@ -3,6 +3,13 @@
 
 namespace Diligent {
 
+    void ScenePipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain)
+    {
+        SetDevice(pDevice, pSwapChain);
+        CreateCommonConstantBuffers();
+        CreatePasses();
+    }
+
     void ScenePipeline::Render(IDeviceContext* pContext, const RenderData& renderData, const FrameTarget& target,
         const ProjectSettings& settings, const FogConstants& fog)
     {
