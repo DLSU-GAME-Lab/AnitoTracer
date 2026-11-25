@@ -25,6 +25,16 @@ namespace Diligent {
             };
         }
 
+        /// <summary>
+        /// The standard layout plus a second stream for the Anime renderer (AnimeVertexInput): the smooth normal and
+        /// curvature of each vertex as a float4 (Model::pAnimeVertexBuffer)
+        /// </summary>
+        static std::vector<LayoutElement> GetAnimeLayout() {
+            std::vector<LayoutElement> layout = GetStandardLayout();
+            layout.push_back(LayoutElement{5, 1, 4, VT_FLOAT32, False});
+            return layout;
+        }
+
         static std::vector<LayoutElement> GetDebugLineLayout() {
             return {
                 // Position

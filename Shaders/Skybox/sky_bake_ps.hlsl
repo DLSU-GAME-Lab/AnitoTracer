@@ -6,6 +6,8 @@
 // this file, for sources that are a 360 degree panorama.
 
 #include "sky_common.hlsli"
+#include "../Common/hdr_common.hlsli"
+#include "../Common/screen_common.hlsli"
 
 #ifdef SKY_SOURCE_PANORAMA
 Texture2D g_Source;
@@ -22,15 +24,6 @@ cbuffer SkyBakeConstants
     float2 g_Padding;
 };
 
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
-
-// Largest value kept. Just under what a 16-bit float channel can store, so a very bright sun doesn't become infinite.
-static const float SKY_MAX_VALUE = 64000.0;
-
 float4 main_ps(in FullScreenPSInput In) : SV_TARGET
 {
     float3 dir = CubeFaceDirection(g_Face, In.UV);
@@ -41,9 +34,5 @@ float4 main_ps(in FullScreenPSInput In) : SV_TARGET
     float3 color = g_Source.SampleLevel(g_Source_sampler, dir, g_SourceLod).rgb;
 #endif
 
-    if (any(isnan(color)) || any(isinf(color)))
-    {
-        color = float3(0.0, 0.0, 0.0);
-    }
-    return float4(clamp(color, 0.0, SKY_MAX_VALUE), 1.0);
+    return float4(SanitizeHDR(color), 1.0);
 }

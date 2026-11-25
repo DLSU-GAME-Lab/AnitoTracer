@@ -36,16 +36,8 @@ namespace Diligent {
         {
             const std::string name = std::string(m_Desc.Name) + " Intermediate";
 
-            TextureDesc TexDesc;
-            TexDesc.Name = name.c_str();
-            TexDesc.Type = RESOURCE_DIM_TEX_2D;
-            TexDesc.Width = width;
-            TexDesc.Height = height;
-            TexDesc.Format = m_InputFormat;
-            TexDesc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
-
             m_pIntermediate.Release();
-            m_pDevice->CreateTexture(TexDesc, nullptr, &m_pIntermediate);
+            m_pIntermediate = PipelineUtils::CreateRenderTarget(m_pDevice, name.c_str(), m_InputFormat, width, height);
         }
 
         return m_pIntermediate ? m_pIntermediate->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET) : nullptr;
@@ -62,9 +54,7 @@ namespace Diligent {
         const auto& DstDesc = pDstRTV->GetTexture()->GetDesc();
         PipelineUtils::SetViewport(pContext, DstDesc.Width, DstDesc.Height, DstDesc.Width, DstDesc.Height);
 
-        pContext->SetPipelineState(m_pPSO);
-        pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        PipelineUtils::DrawFullscreenTriangle(pContext);
+        PipelineUtils::DrawFullscreenPass(pContext, m_pPSO, m_pSRB);
     }
 
 }

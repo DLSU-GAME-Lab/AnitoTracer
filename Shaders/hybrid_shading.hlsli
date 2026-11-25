@@ -14,6 +14,7 @@
 // Requires light_struct.hlsli, pbr_defs.hlsli and fog.hlsli to be included first.
 
 #include "rt_shadows.hlsli"
+#include "light_shading.hlsli"
 #include "Skybox/sky_common.hlsli"
 
 // Sky lighting, filtered from the sky by SkyEnvironment when it loads (black 1x1 fallbacks until then).
@@ -51,16 +52,10 @@ float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, f
     openDirection = float3(0.0, 0.0, 0.0);
     for (int s = 0; s < samples; ++s)
     {
-        // Disk -> hemisphere projection gives a cosine-weighted distribution (Malley's method)
+        // Disk -> hemisphere projection gives a cosine-weighted distribution (Malley's method). Normal maps can tilt
+        // samples below the real surface; those are mirrored back above it
         float2 d = VogelDisk(s, samples, noise.x * 2.0 * PI, noise.y);
-        float3 dir = t * d.x + b * d.y + N * sqrt(saturate(1.0 - dot(d, d)));
-
-        // Normal maps can tilt samples below the real surface; mirror them back above it
-        float below = dot(dir, geoN);
-        if (below < 0.0)
-        {
-            dir -= 2.0 * below * geoN;
-        }
+        float3 dir = KeepAboveSurface(CosineHemisphereDirection(N, t, b, d), geoN);
 
         float v = TraceOcclusionRay(worldPos, geoN, positionError, dir, AO_RADIUS);
         visibility += v;
@@ -193,7 +188,7 @@ float TraceLightSlot(HybridSurface s, int slot, float2 noise, int samples, out f
         if (dot(s.N, L) <= 0.0)
             return 1.0;
 
-        light = TraceDirectionalShadowRGB(s.WorldPos, s.GeoN, s.PositionError, L, ShiftNoise(noise, slot), samples);
+        light = TraceDirectionalShadowRGB(s.WorldPos, s.GeoN, s.PositionError, L, tan(g_DirLights[slot].Direction.w), ShiftNoise(noise, slot), samples);
     }
     else
     {
@@ -201,16 +196,26 @@ float TraceLightSlot(HybridSurface s, int slot, float2 noise, int samples, out f
         if (j >= g_NumPointLights)
             return 1.0;
 
-        float3 lightVec = g_PointLights[j].Position.xyz - s.WorldPos;
-        float dist = length(lightVec);
-        if (dist >= g_PointLights[j].Range)
+        float3 L;
+        float dist;
+        if (!LocalLightReaches(j, s.WorldPos, L, dist))
             return 1.0;
 
-        float3 L = lightVec / dist;
-        if (dot(s.N, L) <= 0.0)
-            return 1.0;
+        float2 lightNoise = ShiftNoise(noise, 4 + j);
+        if (g_PointLights[j].RectArea > 0.0)
+        {
+            // A panel lights a surface whose normal turns away from its center too, as long as part of it is in view:
+            // the rays decide, and the points that are below the horizon count as lit
+            light = TraceRectShadowRGB(s.WorldPos, s.GeoN, s.PositionError, g_PointLights[j].Position.xyz,
+                g_PointLights[j].AxisX.xyz, g_PointLights[j].AxisY.xyz, lightNoise, samples);
+        }
+        else
+        {
+            if (dot(s.N, L) <= 0.0)
+                return 1.0;
 
-        light = TracePointShadowRGB(s.WorldPos, s.GeoN, s.PositionError, g_PointLights[j].Position.xyz, L, ShiftNoise(noise, 4 + j), samples);
+            light = TracePointShadowRGB(s.WorldPos, s.GeoN, s.PositionError, g_PointLights[j].Position.xyz, g_PointLights[j].Position.w, L, lightNoise, samples);
+        }
     }
 
     float visibility = dot(light, LUMINANCE_WEIGHTS);
@@ -241,14 +246,10 @@ float LightTintWeight(HybridSurface s, int slot)
     if (j >= g_NumPointLights)
         return 0.0;
 
-    float3 lightVec = g_PointLights[j].Position.xyz - s.WorldPos;
-    float dist = length(lightVec);
-    if (dist >= g_PointLights[j].Range)
-        return 0.0;
-
-    float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
-    attenuation *= attenuation;
-    return saturate(dot(s.N, lightVec / dist)) * dot(g_PointLights[j].Color.rgb * g_PointLights[j].Color.a, LUMINANCE_WEIGHTS) * attenuation;
+    float3 L;
+    float dist;
+    float attenuation = LocalLightAttenuation(j, s.WorldPos, L, dist);
+    return saturate(dot(s.N, L)) * dot(g_PointLights[j].Color.rgb * g_PointLights[j].Color.a, LUMINANCE_WEIGHTS) * attenuation;
 }
 
 // The indirect light at a surface, from per-pixel GI or from the sky dimmed by ambient occlusion
@@ -374,29 +375,17 @@ float3 ComposeHybridSurfaceNoFog(HybridSurface s, HybridRays rays)
         float shadowFactor = rays.LightVisibility[i];
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
-        Lo += ComputeLightRadiance(N, V, L, radiance, s.Albedo, metallic, roughness, F0, shadowFactor, energyCompensation);
+        Lo += ShadeRoundLight(N, V, L, tan(g_DirLights[i].Direction.w), radiance, s.Albedo, metallic, roughness, F0, shadowFactor, energyCompensation);
     }
 
-    // 2. Point Lights
+    // 2. Point, spot and rectangular lights
     for (int j = 0; j < g_NumPointLights; ++j)
     {
-        float3 lightVec = g_PointLights[j].Position.xyz - s.WorldPos;
-        float dist = length(lightVec);
+        LocalLightSample light;
+        if (!EvaluateLocalLight(j, s.WorldPos, N, V, light))
+            continue;
 
-        if (dist < g_PointLights[j].Range)
-        {
-            float3 L = lightVec / dist;
-            if (dot(N, L) <= 0.0)
-                continue;
-
-            float shadowFactor = rays.LightVisibility[g_NumDirLights + j];
-
-            float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
-            attenuation *= attenuation;
-            float3 radiance = g_PointLights[j].Color.rgb * g_PointLights[j].Color.a * attenuation;
-
-            Lo += ComputeLightRadiance(N, V, L, radiance, s.Albedo, metallic, roughness, F0, shadowFactor, energyCompensation);
-        }
+        Lo += ShadeLocalLight(N, V, light, s.Albedo, metallic, roughness, F0, rays.LightVisibility[g_NumDirLights + j], energyCompensation);
     }
 
     // Light that came through glass has the glass's color

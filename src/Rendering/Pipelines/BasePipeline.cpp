@@ -70,8 +70,7 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
         PipelineUtils::WriteCB(pContext, m_pModelCB, modelConstants);
     }
 
-    IBuffer* pBuffs[] = { model->pVertexBuffer };
-    pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
+    BindModelVertexBuffers(pContext, *model);
     pContext->SetIndexBuffer(model->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Determine which list of submesh indices to iterate over
@@ -127,6 +126,12 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
     }
 }
 
+void BasePipeline::BindModelVertexBuffers(IDeviceContext* pContext, const Model& model)
+{
+    IBuffer* pBuffs[] = { model.pVertexBuffer };
+    pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
+}
+
 void BasePipeline::RenderModels(IDeviceContext* pContext, const RenderData& renderData, bool renderOpaque)
 {
     for (const ModelRenderInstance& model : renderData.Models) {
@@ -165,6 +170,22 @@ PSOBuilder BasePipeline::CreateModelPSOBuilder(const char* name, const char* psF
         .Variables(GetStandardShaderVariables())
         .Samplers(GetStandardImmutableSamplers());
     return builder;
+}
+
+PipelinePass BasePipeline::BuildPass(PSOBuilder& builder)
+{
+    PipelinePass pass;
+    pass.pPSO = builder.Build(m_pDevice);
+    pass.pSRB = PipelineUtils::CreateSRB(pass.pPSO);
+    BindCommonBuffers(pass.pSRB);
+    return pass;
+}
+
+void BasePipeline::BuildMainPass(PSOBuilder& builder)
+{
+    PipelinePass pass = BuildPass(builder);
+    m_pPSO = pass.pPSO;
+    m_pSRB = pass.pSRB;
 }
 
 std::vector<ShaderResourceVariableDesc> BasePipeline::GetStandardShaderVariables()

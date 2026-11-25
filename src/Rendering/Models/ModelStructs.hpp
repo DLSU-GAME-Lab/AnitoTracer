@@ -82,6 +82,10 @@ struct Model : public IModel {
     RefCntAutoPtr<IBuffer> pVertexBuffer;
     RefCntAutoPtr<IBuffer> pIndexBuffer;
 
+    // Second vertex stream of the Anime renderer: each vertex's smooth normal and curvature (AnimeVertexData), same order
+    // as pVertexBuffer
+    RefCntAutoPtr<IBuffer> pAnimeVertexBuffer;
+
     RefCntAutoPtr<IBottomLevelAS> pBLAS;
 
     // The submesh behind each geometry of pBLAS, in order. A ray hit reports the geometry it landed on,

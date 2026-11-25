@@ -38,32 +38,17 @@ static const float MAX_MOMENT_BRIGHTNESS = 200.0;
 
 float MomentBrightness(float4 value)
 {
-    return clamp(DnBrightness(value), -MAX_MOMENT_BRIGHTNESS, MAX_MOMENT_BRIGHTNESS);
+    return clamp(Luminance(value.rgb), -MAX_MOMENT_BRIGHTNESS, MAX_MOMENT_BRIGHTNESS);
 }
 
-float2 ClipToUV(float4 clip)
-{
-    return float2(clip.x / clip.w * 0.5 + 0.5, 0.5 - clip.y / clip.w * 0.5);
-}
-
-// The four signal pixels around a position in last frame's image, and how much each counts.
-// A pixel only counts if last frame it showed the same surface, so WeightSum is 0 when there is nothing to reuse.
-struct HistoryTaps
-{
-    int2 Base;          // Top-left of the four pixels; the others are Base + (1,0), (0,1), (1,1)
-    float4 Weights;     // In that order
-    float WeightSum;
-};
-
+// Finds the four signal pixels around a position in last frame's image, and how much each counts: a pixel only counts
+// if last frame it showed the same surface, so WeightSum is 0 when there is nothing to reuse.
 // prevUV: where to look in last frame's image.
 // N, roughness: the surface now. distanceA, distanceB: how far from the camera it may have been then; a pixel is
 // accepted when last frame's distance there is within `tolerance` (a fraction) of either.
-HistoryTaps FindHistory(float2 prevUV, float3 N, float roughness, float distanceA, float distanceB, float tolerance)
+BilinearTaps FindHistory(float2 prevUV, float3 N, float roughness, float distanceA, float distanceB, float tolerance)
 {
-    HistoryTaps taps;
-    taps.Base = int2(0, 0);
-    taps.Weights = float4(0.0, 0.0, 0.0, 0.0);
-    taps.WeightSum = 0.0;
+    BilinearTaps taps = NoTaps();
 
     if (any(prevUV < 0.0) || any(prevUV > 1.0))
     {
@@ -78,7 +63,7 @@ HistoryTaps FindHistory(float2 prevUV, float3 N, float roughness, float distance
 
     for (int k = 0; k < 4; ++k)
     {
-        int2 offset = int2(k & 1, k >> 1);
+        int2 offset = BilinearTapOffset(k);
         int2 tap = taps.Base + offset;
         if (any(tap < int2(0, 0)) || any(tap > maxPixel))
             continue;
@@ -95,24 +80,11 @@ HistoryTaps FindHistory(float2 prevUV, float3 N, float roughness, float distance
         if (g_DnKind == SIGNAL_REFLECTION && abs(prevGuide.w - roughness) > 0.1)
             continue;
 
-        float w = (offset.x == 0 ? 1.0 - f.x : f.x) * (offset.y == 0 ? 1.0 - f.y : f.y);
+        float w = BilinearTapWeight(offset, f);
         taps.Weights[k] = w;
         taps.WeightSum += w;
     }
     return taps;
-}
-
-float4 LoadHistory(Texture2D history, HistoryTaps taps)
-{
-    float4 value = float4(0.0, 0.0, 0.0, 0.0);
-    for (int k = 0; k < 4; ++k)
-    {
-        if (taps.Weights[k] > 0.0)
-        {
-            value += history.Load(int3(taps.Base + int2(k & 1, k >> 1), 0)) * taps.Weights[k];
-        }
-    }
-    return value / max(taps.WeightSum, 0.0001);
 }
 
 void main_ps(in FullScreenPSInput In, out TemporalOutput Out)
@@ -120,7 +92,7 @@ void main_ps(in FullScreenPSInput In, out TemporalOutput Out)
     int2 pixel = int2(In.Pos.xy);
     int2 maxPixel = int2(g_DnSize.xy) - 1;
 
-    float4 current = DnSanitize(g_DnSignal.Load(int3(pixel, 0)));
+    float4 current = ZeroNonFinite(g_DnSignal.Load(int3(pixel, 0)));
     Out.Signal = current;
     Out.Moments = float4(0.0, 0.0, 0.0, 0.0);
     Out.Variance = float4(0.0, 0.0, 0.0, 0.0);
@@ -143,7 +115,7 @@ void main_ps(in FullScreenPSInput In, out TemporalOutput Out)
     {
         for (int i = -2; i <= 2; ++i)
         {
-            float4 value = DnSanitize(g_DnSignal.Load(int3(clamp(pixel + int2(i, j), int2(0, 0), maxPixel), 0)));
+            float4 value = ZeroNonFinite(g_DnSignal.Load(int3(clamp(pixel + int2(i, j), int2(0, 0), maxPixel), 0)));
             sum += value;
             sumSquares += value * value;
 
@@ -170,7 +142,7 @@ void main_ps(in FullScreenPSInput In, out TemporalOutput Out)
     float3 N = OctDecode(guide.xy);
     float2 velocity = g_DnVelocity.Load(int3(viewPixel, 0)).xy;
 
-    HistoryTaps taps;
+    BilinearTaps taps;
     taps.Base = int2(0, 0);
     taps.Weights = float4(0.0, 0.0, 0.0, 0.0);
     taps.WeightSum = 0.0;
@@ -214,8 +186,8 @@ void main_ps(in FullScreenPSInput In, out TemporalOutput Out)
     float2 historyMoments = float2(0.0, 0.0);
     if (taps.WeightSum > 0.01)
     {
-        history = DnSanitize(LoadHistory(g_DnPrevSignal, taps));
-        float4 moments = LoadHistory(g_DnPrevMoments, taps);
+        history = ZeroNonFinite(LoadBilinearTaps(g_DnPrevSignal, taps));
+        float4 moments = LoadBilinearTaps(g_DnPrevMoments, taps);
         historyLength = moments.x;
         historyMoments = moments.yz;
 
@@ -227,7 +199,7 @@ void main_ps(in FullScreenPSInput In, out TemporalOutput Out)
             float4 change = abs(clamped - history);
             float pulled = g_DnKind == SIGNAL_VISIBILITY
                 ? max(max(change.x, change.y), max(change.z, change.w))
-                : DnBrightness(change) / (brightnessMean + 0.05);
+                : Luminance(change.rgb) / (brightnessMean + 0.05);
             historyLength *= 1.0 - saturate(2.0 * pulled);
             history = clamped;
         }

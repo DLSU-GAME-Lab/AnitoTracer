@@ -1,6 +1,7 @@
 #include "../light_struct.hlsli"
 #include "../fog.hlsli"
 #include "sky_common.hlsli"
+#include "skybox_io.hlsli"
 
 // The sky cubemap built by SkyEnvironment: floating point, so an HDR sky keeps its real brightness
 TextureCube g_Cubemap;
@@ -12,12 +13,6 @@ cbuffer SkyboxConstants
     float2 g_SkyboxRotation;    // (sin, cos) of the sky's rotation around the up axis
     float g_SkyboxIntensity;    // Brightness multiplier
     float g_SkyboxPadding;
-};
-
-struct SkyboxPSInput
-{
-    float4 Pos : SV_POSITION;
-    float3 SampleDir : TEXCOORD0;
 };
 
 float4 main_ps(in SkyboxPSInput In) : SV_TARGET

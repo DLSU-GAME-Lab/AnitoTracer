@@ -8,24 +8,19 @@ bool Diligent::HybridPipeline::SupportsSceneRayShading()
     return ModelManager::GetInstance().GetSceneGeometryPool().IsEnabled();
 }
 
-void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain)
+void Diligent::HybridPipeline::CreatePasses()
 {
-    SetDevice(pDevice, pSwapChain);
-    CreateCommonConstantBuffers();
     InitializeRayTracingResources();
     RebuildRayPipelines();
 }
 
 void Diligent::HybridPipeline::RebuildRayPipelines()
 {
-    m_pPSO = CreateModelPSOBuilder("PBR Rendering PSO", "hybrid_ps.hlsl")
+    BuildMainPass(CreateModelPSOBuilder("PBR Rendering PSO", "hybrid_ps.hlsl")
         .SampleCount(PipelineUtils::GetMSAASampleCount())
         .PixelMacros(GetRayTracingMacros())
         .Variables(GetRayTracingVariables())
-        .Samplers(GetRayTracingSamplers())
-        .Build(m_pDevice);
-    m_pSRB = PipelineUtils::CreateSRB(m_pPSO);
-    BindCommonBuffers(m_pSRB);
+        .Samplers(GetRayTracingSamplers()));
     InitializeGlassPSO();
     BindRayTracingResources();
 }
@@ -49,27 +44,16 @@ void Diligent::HybridPipeline::InitializeGlassPSO()
 {
     // Premultiplied: the shader scales the color it adds by the glass's coverage itself, so that what a window
     // reflects isn't dimmed along with what is behind it
-    RenderTargetBlendDesc blend;
-    blend.BlendEnable = True;
-    blend.SrcBlend = BLEND_FACTOR_ONE;
-    blend.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
-    blend.BlendOp = BLEND_OPERATION_ADD;
-    blend.SrcBlendAlpha = BLEND_FACTOR_ZERO;
-    blend.DestBlendAlpha = BLEND_FACTOR_ONE;
-    blend.BlendOpAlpha = BLEND_OPERATION_ADD;
-    blend.RenderTargetWriteMask = COLOR_MASK_ALL;
+    const RenderTargetBlendDesc blend = PipelineUtils::ColorBlend(BLEND_FACTOR_ONE, BLEND_FACTOR_INV_SRC_ALPHA);
 
     // Depth is tested against the scene already in the target, but not written: glass doesn't hide glass behind it
-    m_pGlassPSO = CreateModelPSOBuilder("Glass PSO", "glass_ps.hlsl")
+    m_Glass = BuildPass(CreateModelPSOBuilder("Glass PSO", "glass_ps.hlsl")
         .SampleCount(PipelineUtils::GetMSAASampleCount())
         .PixelMacros(GetRayTracingMacros())
         .Variables(GetRayTracingVariables())
         .Samplers(GetRayTracingSamplers())
         .Depth(true, false, COMPARISON_FUNC_LESS_EQUAL)
-        .Blend(0, blend)
-        .Build(m_pDevice);
-    m_pGlassSRB = PipelineUtils::CreateSRB(m_pGlassPSO);
-    BindCommonBuffers(m_pGlassSRB);
+        .Blend(0, blend));
 }
 
 void Diligent::HybridPipeline::InitializeRayTracingResources()
@@ -199,7 +183,7 @@ void Diligent::HybridPipeline::FinishFrame(IDeviceContext* pContext, const Frame
 void Diligent::HybridPipeline::RenderGlass(IDeviceContext* pContext, const FrameTarget& target)
 {
     // Every ray tracing SRB binds the TLAS, which can only be used once something has built it
-    if (!m_pGlassPSO || !m_pGlassSRB || !m_pFrameData || !m_SceneTLAS.IsBuilt()) return;
+    if (!m_Glass || !m_pFrameData || !m_SceneTLAS.IsBuilt()) return;
     if (!m_TransparencySettings.enabled || !m_TransparencySettings.glass) return;
 
     // Back to front by the distance of each model's middle. Surfaces inside one model keep their order, and models
@@ -218,9 +202,9 @@ void Diligent::HybridPipeline::RenderGlass(IDeviceContext* pContext, const Frame
     std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
 
     target.Bind(pContext);
-    pContext->SetPipelineState(m_pGlassPSO);
+    pContext->SetPipelineState(m_Glass.pPSO);
     for (const auto& entry : sorted) {
-        RenderModelWithSRB(pContext, *entry.second, /*renderOpaque*/ false, m_pGlassSRB);
+        RenderModelWithSRB(pContext, *entry.second, /*renderOpaque*/ false, m_Glass.pSRB);
     }
 }
 

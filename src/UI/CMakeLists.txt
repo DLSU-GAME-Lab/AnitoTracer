@@ -15,6 +15,9 @@ set(${CUR_TARGET_NAME}_src
 	Panels/InspectorPanel/Components/CameraUI.hpp
 	Panels/InspectorPanel/Components/DirectionalLightUI.hpp
 	Panels/InspectorPanel/Components/PointLightUI.hpp
+	Panels/InspectorPanel/Components/SpotLightUI.hpp
+	Panels/InspectorPanel/Components/AreaLightUI.hpp
+	Panels/InspectorPanel/Components/LightUIUtils.hpp
 
 	Panels/HierarchyPanel.cpp
 	Panels/HierarchyPanel.hpp

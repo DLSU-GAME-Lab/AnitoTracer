@@ -8,6 +8,8 @@ set(${CUR_TARGET_NAME}_src
 	Models/ModelManager.cpp
 	Models/SceneGeometryPool.hpp
 	Models/SceneGeometryPool.cpp
+	Models/AnimeMeshData.hpp
+	Models/AnimeMeshData.cpp
 
 	RenderData.hpp
 	RenderData.cpp
@@ -38,6 +40,9 @@ set(${CUR_TARGET_NAME}_src
 	Pipelines/Utils/PipelineUtils.cpp
 	Pipelines/Utils/PSOBuilder.hpp
 	Pipelines/Utils/PSOBuilder.cpp
+	Pipelines/Utils/PipelinePass.hpp
+	Pipelines/Utils/DynamicVertexBuffer.hpp
+	Pipelines/Utils/DynamicVertexBuffer.cpp
 	Pipelines/Utils/GBuffer.hpp
 	Pipelines/Utils/GBuffer.cpp
 	Pipelines/Utils/SceneTLAS.hpp
@@ -72,8 +77,12 @@ set(${CUR_TARGET_NAME}_src
 	Pipelines/DeferredPipeline.cpp
 	Pipelines/DeferredHybridPipeline.hpp
 	Pipelines/DeferredHybridPipeline.cpp
+	Pipelines/StylizedPipeline.hpp
+	Pipelines/StylizedPipeline.cpp
 	Pipelines/CrossHatchPipeline.hpp
 	Pipelines/CrossHatchPipeline.cpp
+	Pipelines/AnimePipeline.hpp
+	Pipelines/AnimePipeline.cpp
 
 	# Other pipelines
 	Pipelines/BasicPipeline.hpp

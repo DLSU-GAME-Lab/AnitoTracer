@@ -463,7 +463,7 @@ void AnitoTracer_App::Render()
     RenderData renderData;
     HierarchyManager::GetInstance().GetMainCameraMatrices(renderData.ViewMatrix, renderData.ProjectionMatrix);
     HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
-    HierarchyManager::GetInstance().GatherLightData(renderData.Lights);
+    HierarchyManager::GetInstance().GatherLightData(renderData.Lights, ProjectLoader::GetProjectSettings().physical_lights);
     GatherParticleBatches(renderData.Particles);
 
     const auto& SCDesc = m_pSwapChain->GetDesc();

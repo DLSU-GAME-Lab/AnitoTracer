@@ -26,8 +26,8 @@ float4 main_ps(in FullScreenPSInput In) : SV_TARGET
     }
 
     float2 uv = In.Pos.xy * g_ViewportSize.zw;
-    float4 worldPos = mul(float4(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y, depth, 1.0), g_InvViewProj);
-    float viewDistance = length(worldPos.xyz / worldPos.w - g_ViewOrigin.xyz);
+    float3 worldPos = ClipToWorld(UVToClip(uv, depth), g_InvViewProj);
+    float viewDistance = length(worldPos - g_ViewOrigin.xyz);
 
     // Roughness is never 0 on a surface (the G-buffer pass keeps it above 0.05), but the sky marker must not depend on that
     float roughness = max(g_GBufferRoughness.Load(texel).r, 1.0 / 255.0);

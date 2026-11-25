@@ -1,3 +1,5 @@
+#include "Common/math_common.hlsli"
+
 cbuffer MaterialConstants
 {
     float4 g_BaseColor; // From source 1
@@ -64,8 +66,6 @@ float3 SampleEmissive(float2 uv)
     return emissive;
 }
 
-static const float PI = 3.14159265359;
-
 // --- Cook-Torrance BRDF Helper Functions ---
 
 float DistributionGGX(float3 N, float3 H, float roughness)
@@ -119,23 +119,60 @@ float2 EnvBRDFApprox(float NdotV, float roughness)
     return float2(-1.04, 1.04) * a004 + r.zw;
 }
 
-// specularScale lets callers apply multi-scattering energy compensation to the specular lobe
-float3 ComputeLightRadiance(float3 N, float3 V, float3 L, float3 radiance, float3 albedo, float metallic, float roughness, float3 F0, float shadowFactor, float3 specularScale)
+// GGX distribution from alpha (the roughness squared), so that a light's size can widen it
+float DistributionGGXAlpha(float NdotH, float a)
 {
-    float NdotL = max(dot(N, L), 0.0);
-    if (NdotL <= 0.0) return float3(0.0, 0.0, 0.0);
+    float a2 = a * a;
+    float denom = NdotH * NdotH * (a2 - 1.0) + 1.0;
+    return a2 / max(PI * denom * denom, 0.000001);
+}
 
-    float3 H = normalize(V + L);
-    float NDF = DistributionGGX(N, H, roughness);
-    float G = GeometrySmith(N, V, L, roughness);
+// What one light does to a surface: the diffuse part from the irradiance the light delivers (cosine included), the
+// highlight from its radiance as seen along Ls, where the highlight comes from (L for a point of light; for a light
+// with a body, the part of it the highlight shows, see RoundLightHighlightDirection in light_shading.hlsli).
+// specularRadiance is what the light delivers to a surface facing it; lightRadiance is the radiance of the light's own
+// surface (a point of light has none to speak of).
+// highlightWidth is the tangent of the angle the body spans seen from the surface; 0 is a point of light. A body
+// widens the highlight, and the highlight can show no more than the light's own surface reflects. Karis's widening
+// ("Real Shading in Unreal Engine 4", lobe widened by half the angle, energy kept by (a / a')^2) is too dim on a smooth
+// surface under a big light: against a numerical integral of the BRDF over a panel and a sphere it was 3 times too
+// dark on average, and 70 times for a mirror-like floor under a panel. Here the lobe widens by a quarter of the angle,
+// keeps its energy linearly, and the result is capped by F * lightRadiance along the narrow lobe's profile, which is
+// the reflection of the light's surface itself; that fits the integral to within 1.35 times on average.
+// specularScale lets callers apply multi-scattering energy compensation to the specular lobe.
+float3 ShadeLightSource(float3 N, float3 V, float3 Ls, float highlightWidth, float3 diffuseIrradiance, float3 specularRadiance,
+    float3 lightRadiance, float3 albedo, float metallic, float roughness, float3 F0, float shadowFactor, float3 specularScale)
+{
+    float NdotLs = max(dot(N, Ls), 0.0);
+    float3 H = normalize(V + Ls);
+    float NdotH = max(dot(N, H), 0.0);
+
+    float a = roughness * roughness;
+    float widened = saturate(a + 0.25 * highlightWidth);
+    float energyKept = a / max(widened, 0.0001);
+    float NDF = DistributionGGXAlpha(NdotH, widened) * energyKept;
+    float G = GeometrySmith(N, V, Ls, roughness);
     float3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
 
     float3 numerator = NDF * G * F;
-    float denominator = 4.0 * max(dot(N, V), 0.0) * NdotL + 0.0001;
-    float3 specular = numerator / denominator * specularScale;
+    float denominator = 4.0 * max(dot(N, V), 0.0) * NdotLs + 0.0001;
+    float3 specular = numerator / denominator * specularScale * specularRadiance * NdotLs;
+
+    if (highlightWidth > 0.0)
+    {
+        // The narrow lobe's profile: 1 where the reflected ray lands on the light, falling off past its edge
+        float profile = DistributionGGXAlpha(NdotH, a) * PI * a * a;
+        specular = min(specular, F * lightRadiance * (profile * specularScale));
+    }
 
     float3 kD = (float3(1.0, 1.0, 1.0) - F) * (1.0 - metallic);
-    return (kD * albedo / PI + specular) * radiance * NdotL * shadowFactor;
+    return (kD * albedo / PI * diffuseIrradiance + specular) * shadowFactor;
+}
+
+// A light that is a point: radiance is what it delivers to a surface facing it
+float3 ComputeLightRadiance(float3 N, float3 V, float3 L, float3 radiance, float3 albedo, float metallic, float roughness, float3 F0, float shadowFactor, float3 specularScale)
+{
+    return ShadeLightSource(N, V, L, 0.0, radiance * max(dot(N, L), 0.0), radiance, radiance, albedo, metallic, roughness, F0, shadowFactor, specularScale);
 }
 
 float3 ComputeLightRadiance(float3 N, float3 V, float3 L, float3 radiance, float3 albedo, float metallic, float roughness, float3 F0, float shadowFactor)

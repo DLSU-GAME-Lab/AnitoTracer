@@ -128,4 +128,32 @@ namespace Diligent {
         c.SpecularEnabled = settings.specular_enabled ? 1 : 0;
         return c;
     }
+
+    AnimeConstants BuildAnimeConstants(const ProjectAnimeSettings& settings)
+    {
+        AnimeConstants c;
+        c.BaseColor = glm::vec4(settings.base_color[0], settings.base_color[1], settings.base_color[2], 1.0f);
+        c.ShadowColor = glm::vec4(settings.shadow_color[0], settings.shadow_color[1], settings.shadow_color[2], 1.0f);
+        c.InnerEdgeColor = glm::vec4(settings.inner_edge_color[0], settings.inner_edge_color[1], settings.inner_edge_color[2], 1.0f);
+        c.OutlineColor = glm::vec4(settings.outline_color[0], settings.outline_color[1], settings.outline_color[2], 1.0f);
+
+        c.Step = glm::clamp(settings.step, 0.0f, 1.0f);
+        c.InnerStep = glm::clamp(settings.inner_step, 0.0f, 1.0f);
+        c.CurveStep = glm::clamp(settings.curve_step, 0.0f, 1.0f);
+        c.ShadowFactor = glm::clamp(settings.shadow_factor, 0.0f, 1.0f);
+
+        c.LightFalloff = glm::clamp(settings.light_falloff, 0.0f, 1.0f);
+        c.SpecularStrength = glm::max(settings.specular_strength, 0.0f);
+        c.BaseColorBlur = glm::clamp(settings.base_color_blur, 0.0f, 12.0f);
+        c.NormalMapBlur = glm::clamp(settings.normal_map_blur, 0.0f, 12.0f);
+
+        c.OutlineWidth = glm::max(settings.outline_thickness, 0.0f);
+        c.OutlineScaleWithDistance = settings.outline_constant_screen_width ? 1.0f : 0.0f;
+        c.OutlineSmoothNormals = settings.outline_smooth_normals ? 1.0f : 0.0f;
+
+        c.UseSmoothNormal = settings.use_smooth_normal ? 1 : 0;
+        c.SpecularEnabled = settings.specular_enabled ? 1 : 0;
+        return c;
+    }
+
 }

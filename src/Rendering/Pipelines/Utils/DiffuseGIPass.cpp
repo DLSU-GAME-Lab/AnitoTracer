@@ -40,8 +40,8 @@ namespace Diligent {
         };
         static_assert(sizeof(GIConstants) % 16 == 0, "GIConstants must be 16-byte aligned for HLSL");
 
-        ITextureView* SRV(ITexture* pTexture) { return pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE); }
-        ITextureView* RTV(ITexture* pTexture) { return pTexture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET); }
+        using PipelineUtils::SRV;
+        using PipelineUtils::RTV;
     }
 
     void DiffuseGIPass::Initialize(IRenderDevice* pDevice, const TraceSetup& rayTracing)
@@ -79,16 +79,8 @@ namespace Diligent {
 
         const char* names[] = { "Diffuse GI Rays 0", "Diffuse GI Rays 1" };
         for (Uint32 i = 0; i < 2; ++i) {
-            TextureDesc Desc;
-            Desc.Name = names[i];
-            Desc.Type = RESOURCE_DIM_TEX_2D;
-            Desc.Width = width;
-            Desc.Height = height;
-            Desc.Format = kLightFormat;
-            Desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
-
             m_pRays[i].Release();
-            m_pDevice->CreateTexture(Desc, nullptr, &m_pRays[i]);
+            m_pRays[i] = PipelineUtils::CreateRenderTarget(m_pDevice, names[i], kLightFormat, width, height);
         }
     }
 
@@ -137,9 +129,7 @@ namespace Diligent {
 
         ITextureView* pRTV = RTV(m_pRays[current]);
         pContext->SetRenderTargets(1, &pRTV, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        pContext->SetPipelineState(m_pTracePSO);
-        pContext->CommitShaderResources(m_pTraceSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        PipelineUtils::DrawFullscreenTriangle(pContext);
+        PipelineUtils::DrawFullscreenPass(pContext, m_pTracePSO, m_pTraceSRB);
 
         m_Current = current;
         m_HistoryValid = true;

@@ -13,6 +13,8 @@
 #include "Components/ModelComponent.hpp"
 #include "Components/Lights/DirectionLight.hpp"
 #include "Components/Lights/PointLight.hpp"
+#include "Components/Lights/SpotLight.hpp"
+#include "Components/Lights/AreaLight.hpp"
 
 class ObjectFactory {
 public:
@@ -32,6 +34,8 @@ public:
 
     HierarchyObject::Ref CreateDirectionalLightObject(const std::string& name);
     HierarchyObject::Ref CreatePointLightObject(const std::string& name);
+    HierarchyObject::Ref CreateSpotLightObject(const std::string& name);
+    HierarchyObject::Ref CreateAreaLightObject(const std::string& name);
 
     HierarchyObject::Ref CreateSpherePrimitive(const std::string& name);
     HierarchyObject::Ref CreateCubePrimitive(const std::string& name);
