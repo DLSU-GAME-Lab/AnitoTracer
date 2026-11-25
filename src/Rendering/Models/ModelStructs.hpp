@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
@@ -17,6 +18,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/GltfMaterial.h> // The alpha mode and cutoff glTF materials carry
 #include <iostream>
 #include <filesystem> // Add this at the top of your cpp file
 
@@ -43,6 +45,13 @@ struct SubMesh {
     Uint32 MaterialIndex = 0;
 };
 
+// How a material's alpha channel is used. Mirrors glTF's alphaMode.
+enum class MaterialAlphaMode : uint8_t {
+    Opaque, // Alpha is ignored
+    Mask,   // Pixels with less alpha than the cutoff are cut out, the rest are solid (fences, leaves)
+    Blend,  // Alpha is how much of the surface is there; the rest shows what is behind it (glass)
+};
+
 //Holds PBR properties
 struct PBRMaterial {
     RefCntAutoPtr<ITextureView> BaseColor;
@@ -60,6 +69,11 @@ struct PBRMaterial {
     float3 EmissiveFactor = float3(0.0f, 0.0f, 0.0f);
     float EmissiveStrength = 1.0f;
 
+    MaterialAlphaMode AlphaMode = MaterialAlphaMode::Opaque;
+    float AlphaCutoff = 0.5f;       // Mask: pixels with less alpha than this are cut out
+    float IOR = 1.5f;               // Index of refraction, for blended materials drawn as glass
+
+    // Blend materials are drawn after the opaque geometry (Opaque and Mask ones go with it)
     bool IsTransparent = false;
 };
 
@@ -93,6 +107,9 @@ struct Model : public IModel {
 
     //If any submesh has transparency
     bool HasTransparency = false;
+
+    // If any material is a cutout or glass: rays have to judge its triangles (rt_scene.hlsli) instead of treating them as solid
+    bool HasAlphaGeometry = false;
 
     //For local raytrace obj picking
     glm::vec3 AABBMin = glm::vec3(std::numeric_limits<float>::max());

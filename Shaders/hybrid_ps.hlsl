@@ -20,8 +20,8 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
         albedo *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV);
     }
 
-    // Alpha testing for discarded fragments
-    if (albedo.a < 0.5)
+    // Cutout materials discard the pixels below their alpha cutoff
+    if (!PassesAlphaTest(albedo.a))
     {
         discard;
     }
@@ -78,5 +78,5 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 
 
 
-    OutColor = float4(ShadeHybridSurface(surface, In.Pos.xy), albedo.a);
+    OutColor = float4(ShadeHybridSurface(surface, In.Pos.xy), 1.0);
 }

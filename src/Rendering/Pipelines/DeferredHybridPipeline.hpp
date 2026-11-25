@@ -39,6 +39,7 @@ namespace Diligent {
         void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) override;
 
         std::vector<IShaderResourceBinding*> GetRayTracingSRBs() override;
+        void RebuildRayPipelines() override;
 
     private:
         // Position of the motion vector target among the G-buffer's color attachments (see InitializePipeline)
@@ -64,6 +65,7 @@ namespace Diligent {
         void PrepareSignalTargets(Uint32 width, Uint32 height);
         void ResetSignalHistory();
         void DrawSignalPass(IDeviceContext* pContext, IPipelineState* pPSO, IShaderResourceBinding* pSRB, ITexture* pTarget);
+        void DrawSignalPass(IDeviceContext* pContext, IPipelineState* pPSO, IShaderResourceBinding* pSRB, ITexture* pTarget0, ITexture* pTarget1);
 
         void SetGBufferViewport(IDeviceContext* pContext);
 
@@ -74,6 +76,9 @@ namespace Diligent {
         RefCntAutoPtr<IShaderResourceBinding> m_pGuideSRB;
         RefCntAutoPtr<IPipelineState> m_pShadowTracePSO;
         RefCntAutoPtr<IShaderResourceBinding> m_pShadowTraceSRB;
+        // The first shadow layer's pass when glass is in the scene: also writes the color glass tints the light with
+        RefCntAutoPtr<IPipelineState> m_pShadowTraceTintPSO;
+        RefCntAutoPtr<IShaderResourceBinding> m_pShadowTraceTintSRB;
         RefCntAutoPtr<IPipelineState> m_pAOTracePSO;
         RefCntAutoPtr<IShaderResourceBinding> m_pAOTraceSRB;
         RefCntAutoPtr<IPipelineState> m_pReflectionTracePSO;
@@ -95,6 +100,7 @@ namespace Diligent {
         RefCntAutoPtr<ITexture> m_pShadowRays[kMaxShadowLayers]; // Created when the scene has lights for them
         RefCntAutoPtr<ITexture> m_pAORays;      // Created when Sky + AO is in use, at the view's size or half of it
         RefCntAutoPtr<ITexture> m_pReflectionRays;
+        RefCntAutoPtr<ITexture> m_pGlassTintRays;
         Uint32 m_SignalWidth = 0;
         Uint32 m_SignalHeight = 0;
 
@@ -106,6 +112,7 @@ namespace Diligent {
         SignalDenoiser::History m_ShadowHistory[kMaxShadowLayers];
         SignalDenoiser::History m_IndirectHistory;
         SignalDenoiser::History m_ReflectionHistory;
+        SignalDenoiser::History m_TintHistory;
 
         // Bound in place of signals that aren't traced: no shadow (white), no reflection (black)
         RefCntAutoPtr<ITexture> m_pWhiteTexture;

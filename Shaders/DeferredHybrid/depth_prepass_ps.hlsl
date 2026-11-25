@@ -6,14 +6,14 @@
 
 void main_ps(in PSInput In)
 {
-    // Must match the alpha test in hybrid_ps.hlsl, or cutout holes would be filled with depth
+    // Must match the alpha test in gbuffer_ps.hlsl, or cutout holes would be filled with depth
     float alpha = g_BaseColorFactor.a;
     if (g_UseBaseColorMap > 0.5)
     {
         alpha *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV).a;
     }
 
-    if (alpha < 0.5)
+    if (!PassesAlphaTest(alpha))
     {
         discard;
     }

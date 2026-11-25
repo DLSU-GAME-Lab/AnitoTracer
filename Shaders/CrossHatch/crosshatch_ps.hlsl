@@ -111,7 +111,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     }
 
     // Alpha testing for foliage and cutouts
-    if (albedo.a < 0.5)
+    if (!PassesAlphaTest(albedo.a))
     {
         discard;
     }

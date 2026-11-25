@@ -40,6 +40,21 @@ namespace Diligent {
                     record.BaseColorTexture = pool.GetTextureSlot(mat.BaseColor);
                     record.MetallicRoughnessTexture = pool.GetTextureSlot(mat.MetallicRoughness);
                     record.EmissiveTexture = pool.GetTextureSlot(mat.Emissive);
+
+                    if (mat.AlphaMode == MaterialAlphaMode::Mask) {
+                        record.Flags |= SCENE_GEOMETRY_ALPHA_MASK;
+                        record.AlphaCutoff = mat.AlphaCutoff;
+                    }
+                    else if (mat.AlphaMode == MaterialAlphaMode::Blend) {
+                        record.Flags |= SCENE_GEOMETRY_BLEND;
+                    }
+                }
+
+                // Glass whatever the material says: rays see it with the override's alpha
+                if (instance.OverrideAlpha) {
+                    record.BaseColor.a = instance.Alpha;
+                    record.Flags = (record.Flags & ~static_cast<uint32_t>(SCENE_GEOMETRY_ALPHA_MASK)) | SCENE_GEOMETRY_BLEND;
+                    record.AlphaCutoff = 0.0f;
                 }
 
                 records.push_back(record);
@@ -105,6 +120,9 @@ namespace Diligent {
         std::vector<SceneGeometryRecord> GeometryRecords;
         if (m_WriteGeometryRecords) GeometryRecords.reserve(renderData.Models.size());
 
+        bool hasGlass = false;
+        bool hasAlphaGeometry = false;
+
         for (size_t i = 0; i < renderData.Models.size(); ++i) {
             const auto& modelInstance = renderData.Models[i];
 
@@ -113,7 +131,7 @@ namespace Diligent {
                 ModelManager::GetInstance().BuildBLAS(modelInstance.ModelData);
             }
 
-            if (!modelInstance.ModelData->pBLAS || modelInstance.OpaqueSubmeshIndices.empty())
+            if (!modelInstance.ModelData->pBLAS || (modelInstance.OpaqueSubmeshIndices.empty() && modelInstance.TransparentSubmeshIndices.empty()))
                 continue;
 
             TLASBuildInstanceData tlasInst{};
@@ -129,7 +147,9 @@ namespace Diligent {
                 tlasInst.CustomId = static_cast<Uint32>(GeometryRecords.size());
                 AppendGeometryRecords(modelInstance, GeometryRecords);
             }
-            tlasInst.Flags = RAYTRACING_INSTANCE_NONE;
+            // A model whose geometry is flagged opaque is solid to rays; an object turned into glass by the alpha
+            // override isn't, so its triangles are handed to the shader to judge
+            tlasInst.Flags = modelInstance.OverrideAlpha ? RAYTRACING_INSTANCE_FORCE_NO_OPAQUE : RAYTRACING_INSTANCE_NONE;
             tlasInst.Mask = 0xFF;
 
             // 3x4 row-major transform from the column-major world matrix
@@ -142,10 +162,14 @@ namespace Diligent {
             }
 
             Instances.push_back(tlasInst);
+            if (!modelInstance.TransparentSubmeshIndices.empty()) hasGlass = true;
+            if (modelInstance.ModelData->HasAlphaGeometry || modelInstance.OverrideAlpha) hasAlphaGeometry = true;
         }
 
         // An empty build would pass a null pInstances; the previous frame's TLAS stays valid instead
         if (Instances.empty()) return;
+        m_HasGlass = hasGlass;
+        m_HasAlphaGeometry = hasAlphaGeometry;
 
         // Rebuilt together with the TLAS, since the instances' custom IDs point into it
         if (m_WriteGeometryRecords) {

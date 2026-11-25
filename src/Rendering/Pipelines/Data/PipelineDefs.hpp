@@ -52,9 +52,19 @@ namespace Diligent {
 
         float ReflectionMaxDistance = 100.0f; // Hybrid only: how far a reflection ray looks for geometry
         uint32_t ReflectionFlags = 0;         // Hybrid only: REFLECTION_* bits below
-        glm::vec2 Padding{ 0.0f };
+        uint32_t TransparencyFlags = 0;       // TRANSPARENCY_* bits below. 0 treats every triangle as solid.
+        float Padding = 0.0f;
     };
     static_assert(sizeof(ShadowSettings) % 16 == 0, "ShadowSettings must be 16-byte aligned for HLSL");
+
+    // Bits of ShadowSettings::TransparencyFlags. Mirror the TRANSPARENCY_* constants in Shaders/rt_shadows.hlsli
+    enum TransparencyFlags : uint32_t {
+        TRANSPARENCY_TEST_RAYS = 1u << 0,       // Rays test cutout and blended geometry; without it every triangle is solid
+        TRANSPARENCY_CUTOUT = 1u << 1,          // Cutouts only block rays where their alpha reaches the cutoff
+        TRANSPARENCY_GLASS = 1u << 2,           // Blended materials count: they are drawn, and rays see them. Without it rays ignore them.
+        TRANSPARENCY_TINTED_SHADOWS = 1u << 3,  // Shadow rays cross glass and pick up its color; without it glass blocks them
+        TRANSPARENCY_REFRACTION = 1u << 4,      // Glass bends what is behind it
+    };
 
     // Bits of ShadowSettings::ReflectionFlags. Mirror the REFLECTION_* constants in Shaders/hybrid_shading.hlsli
     enum ReflectionFlags : uint32_t {
@@ -82,7 +92,7 @@ namespace Diligent {
         float Roughness = 1.0f;
         float Metallic = 0.0f;
         uint32_t Flags = 0;                     // SCENE_GEOMETRY_* bits below
-        float Padding = 0.0f;
+        float AlphaCutoff = 0.0f;               // Mask materials: pixels with less alpha than this are not there
     };
     static_assert(sizeof(SceneGeometryRecord) == 64, "SceneGeometryRecord must match Shaders/rt_scene.hlsli");
 
@@ -91,6 +101,8 @@ namespace Diligent {
         SCENE_GEOMETRY_IN_POOL = 1u << 0,           // FirstIndex / BaseVertex are valid; otherwise the hit can't be shaded
         SCENE_GEOMETRY_ROUGHNESS_FIXED = 1u << 1,   // Roughness is a per-object override: ignore the texture's channel
         SCENE_GEOMETRY_METALLIC_FIXED = 1u << 2,    // Same for metallic
+        SCENE_GEOMETRY_ALPHA_MASK = 1u << 3,        // A cutout: rays test the base color's alpha against AlphaCutoff
+        SCENE_GEOMETRY_BLEND = 1u << 4,             // Glass: the base color's rgb tints what passes through, its alpha says how much
     };
 
     // Mirrors cbuffer SkyboxConstants in Shaders/Skybox/Skybox_ps.hlsl
@@ -249,6 +261,9 @@ namespace Diligent {
         float OverrideFlags{ 0.0f }; // Bit 1: roughness overridden, bit 2: metallic overridden (skip the texture channel)
 
         glm::vec4 EmissiveFactor{ 0.0f }; // rgb: emissive color * strength (HDR), multiplied with the emissive map
+
+        // x: alpha cutoff (0: the material is not a cutout, nothing is discarded), y: index of refraction, zw: unused
+        glm::vec4 MaterialParams{ 0.0f, 1.5f, 0.0f, 0.0f };
     };
 
     // Mirrors cbuffer CameraConstants in Shaders/common_struct.hlsli. Shaders that only declare View and Proj read the start of it.

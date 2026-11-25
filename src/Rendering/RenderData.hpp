@@ -27,6 +27,9 @@ namespace Diligent {
         // Replaces the material's emissive color * strength; the emissive map still applies
         bool OverrideEmissive = false;
         glm::vec3 Emissive{ 1.0f };
+        // Draws the object as glass: every submesh is blended with this alpha, whatever its materials say
+        bool OverrideAlpha = false;
+        float Alpha = 1.0f;
 
 		//Opaque and transparent meshes are separated for proper rendering order
         std::vector<uint32_t> OpaqueSubmeshIndices;

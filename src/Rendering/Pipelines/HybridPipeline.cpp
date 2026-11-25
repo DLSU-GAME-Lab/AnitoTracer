@@ -1,5 +1,7 @@
 #include "HybridPipeline.hpp"
 #include "../RenderData.hpp"
+#include <algorithm>
+#include <utility>
 
 bool Diligent::HybridPipeline::SupportsSceneRayShading()
 {
@@ -11,16 +13,63 @@ void Diligent::HybridPipeline::InitializePipeline(IRenderDevice* pDevice, ISwapC
     SetDevice(pDevice, pSwapChain);
     CreateCommonConstantBuffers();
     InitializeRayTracingResources();
+    RebuildRayPipelines();
+}
 
+void Diligent::HybridPipeline::RebuildRayPipelines()
+{
     m_pPSO = CreateModelPSOBuilder("PBR Rendering PSO", "hybrid_ps.hlsl")
         .SampleCount(PipelineUtils::GetMSAASampleCount())
         .PixelMacros(GetRayTracingMacros())
         .Variables(GetRayTracingVariables())
         .Samplers(GetRayTracingSamplers())
-        .Build(pDevice);
+        .Build(m_pDevice);
     m_pSRB = PipelineUtils::CreateSRB(m_pPSO);
     BindCommonBuffers(m_pSRB);
+    InitializeGlassPSO();
     BindRayTracingResources();
+}
+
+void Diligent::HybridPipeline::UpdateAlphaRays()
+{
+    // Rays only read the tables that tell cutouts from solid walls where hits can be shaded at all
+    const bool needed = SupportsSceneRayShading() && m_SceneTLAS.HasAlphaGeometry();
+    m_FramesWithoutAlphaGeometry = needed ? 0 : m_FramesWithoutAlphaGeometry + 1;
+
+    // Switching off waits a few seconds, so glass that comes and goes doesn't rebuild the passes every time
+    constexpr int kFramesBeforeSwitchingOff = 300;
+    const bool wanted = needed || (m_AlphaRays && m_FramesWithoutAlphaGeometry < kFramesBeforeSwitchingOff);
+    if (wanted == m_AlphaRays) return;
+
+    m_AlphaRays = wanted;
+    RebuildRayPipelines();
+}
+
+void Diligent::HybridPipeline::InitializeGlassPSO()
+{
+    // Premultiplied: the shader scales the color it adds by the glass's coverage itself, so that what a window
+    // reflects isn't dimmed along with what is behind it
+    RenderTargetBlendDesc blend;
+    blend.BlendEnable = True;
+    blend.SrcBlend = BLEND_FACTOR_ONE;
+    blend.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
+    blend.BlendOp = BLEND_OPERATION_ADD;
+    blend.SrcBlendAlpha = BLEND_FACTOR_ZERO;
+    blend.DestBlendAlpha = BLEND_FACTOR_ONE;
+    blend.BlendOpAlpha = BLEND_OPERATION_ADD;
+    blend.RenderTargetWriteMask = COLOR_MASK_ALL;
+
+    // Depth is tested against the scene already in the target, but not written: glass doesn't hide glass behind it
+    m_pGlassPSO = CreateModelPSOBuilder("Glass PSO", "glass_ps.hlsl")
+        .SampleCount(PipelineUtils::GetMSAASampleCount())
+        .PixelMacros(GetRayTracingMacros())
+        .Variables(GetRayTracingVariables())
+        .Samplers(GetRayTracingSamplers())
+        .Depth(true, false, COMPARISON_FUNC_LESS_EQUAL)
+        .Blend(0, blend)
+        .Build(m_pDevice);
+    m_pGlassSRB = PipelineUtils::CreateSRB(m_pGlassPSO);
+    BindCommonBuffers(m_pGlassSRB);
 }
 
 void Diligent::HybridPipeline::InitializeRayTracingResources()
@@ -65,14 +114,16 @@ std::vector<Diligent::ImmutableSamplerDesc> Diligent::HybridPipeline::GetRayTrac
     return samplers;
 }
 
-Diligent::ShaderMacroList Diligent::HybridPipeline::GetRayTracingMacros()
+Diligent::ShaderMacroList Diligent::HybridPipeline::GetRayTracingMacros() const
 {
     if (!SupportsSceneRayShading()) return {};
 
-    return {
+    ShaderMacroList macros = {
         { "RT_SCENE_SHADING", "1" },
         { "SCENE_TEXTURE_COUNT", std::to_string(SceneGeometryPool::kMaxTextures) }
     };
+    if (m_AlphaRays) macros.push_back({ "RT_ALPHA_TEST", "1" });
+    return macros;
 }
 
 void Diligent::HybridPipeline::BindRayTracingResources()
@@ -135,10 +186,51 @@ void Diligent::HybridPipeline::SyncSceneRayData(IDeviceContext* pContext)
     }
 }
 
+void Diligent::HybridPipeline::UpdateProjectSettings(IDeviceContext* /*pContext*/, const ProjectSettings& settings)
+{
+    m_TransparencySettings = settings.transparency;
+}
+
+void Diligent::HybridPipeline::FinishFrame(IDeviceContext* pContext, const FrameTarget& target)
+{
+    RenderGlass(pContext, target);
+}
+
+void Diligent::HybridPipeline::RenderGlass(IDeviceContext* pContext, const FrameTarget& target)
+{
+    // Every ray tracing SRB binds the TLAS, which can only be used once something has built it
+    if (!m_pGlassPSO || !m_pGlassSRB || !m_pFrameData || !m_SceneTLAS.IsBuilt()) return;
+    if (!m_TransparencySettings.enabled || !m_TransparencySettings.glass) return;
+
+    // Back to front by the distance of each model's middle. Surfaces inside one model keep their order, and models
+    // that interleave sort wrongly.
+    const glm::vec3 cameraPos = glm::vec3(glm::inverse(m_pFrameData->ViewMatrix)[3]);
+    std::vector<std::pair<float, const ModelRenderInstance*>> sorted;
+    for (const ModelRenderInstance& instance : m_pFrameData->Models) {
+        if (instance.TransparentSubmeshIndices.empty() || !instance.ModelData) continue;
+
+        const glm::vec3 localMiddle = (instance.ModelData->AABBMin + instance.ModelData->AABBMax) * 0.5f;
+        const glm::vec3 middle = glm::vec3(instance.WorldTransform * glm::vec4(localMiddle, 1.0f));
+        const glm::vec3 offset = middle - cameraPos;
+        sorted.emplace_back(glm::dot(offset, offset), &instance);
+    }
+    if (sorted.empty()) return;
+    std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+
+    target.Bind(pContext);
+    pContext->SetPipelineState(m_pGlassPSO);
+    for (const auto& entry : sorted) {
+        RenderModelWithSRB(pContext, *entry.second, /*renderOpaque*/ false, m_pGlassSRB);
+    }
+}
+
 void Diligent::HybridPipeline::StartFrameRender(IDeviceContext* pContext, const RenderData& renderData)
 {
+    m_pFrameData = &renderData;
     BasePipeline::StartFrameRender(pContext, renderData);
     m_SceneTLAS.Build(pContext, renderData);
+    // Before the scene buffers are bound: the passes it rebuilds bind them too
+    UpdateAlphaRays();
 
     // After the TLAS: building it can replace the geometry record buffer
     if (SupportsSceneRayShading()) SyncSceneRayData(pContext);

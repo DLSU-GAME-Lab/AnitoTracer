@@ -66,6 +66,12 @@ public:
     void SetEmissiveStrength(float strength) { m_emissiveStrength = strength; }
     float GetEmissiveStrength() const { return m_emissiveStrength; }
 
+    // Draws the object as glass: every submesh is blended with this alpha (0 clear, 1 solid), whatever its materials say
+    void SetOverrideAlpha(bool enabled) { m_overrideAlpha = enabled; }
+    bool GetOverrideAlpha() const { return m_overrideAlpha; }
+    void SetAlpha(float alpha) { m_alpha = alpha; }
+    float GetAlpha() const { return m_alpha; }
+
 private:
     gbe::AssetRef<Model> m_model;
     GBE_SERIALIZE_FIELD(m_model);
@@ -90,6 +96,12 @@ private:
 
     float m_emissiveStrength = 1.0f;
     GBE_SERIALIZE_FIELD_W_NAME(m_emissiveStrength, "Emissive Strength");
+
+    bool m_overrideAlpha = false;
+    GBE_SERIALIZE_FIELD_W_NAME(m_overrideAlpha, "Override Alpha");
+
+    float m_alpha = 0.5f;
+    GBE_SERIALIZE_FIELD_W_NAME(m_alpha, "Alpha");
 
     GBE_GENERATE_SERIALIZER_CONSTRUCTOR(ModelComponent, ComponentBase);
 

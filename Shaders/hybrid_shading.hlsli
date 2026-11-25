@@ -62,7 +62,7 @@ float TraceAmbientOcclusion(float3 worldPos, float3 geoN, float positionError, f
             dir -= 2.0 * below * geoN;
         }
 
-        float v = TraceShadowRay(worldPos, geoN, positionError, dir, AO_RADIUS);
+        float v = TraceOcclusionRay(worldPos, geoN, positionError, dir, AO_RADIUS);
         visibility += v;
         openDirection += dir * v;
     }
@@ -166,6 +166,9 @@ struct HybridRays
     float3 OpenDirection;       // Average direction of the occlusion rays that got away, see TraceAmbientOcclusion
     // The light arriving along the reflection, see TraceHybridReflection (not read where UsesReflectionRay is false)
     float3 Reflection;
+    // The color glass in the way gives the surface's direct light, as one color for all its lights (white without any
+    // glass). Each light's tint counts as much as the light does at the surface.
+    float3 DirectTint;
 };
 
 int LightSlotCount()
@@ -177,31 +180,75 @@ int LightSlotCount()
 // Returns 1 without tracing where the light can't reach anyway (facing away, out of range, an empty slot):
 // the light's own shading is 0 there, and 1 keeps a blur over the result from darkening the lit side next to it.
 // noise: this pixel's RayNoise / HashNoise; each light shifts it differently.
-float TraceLightSlot(HybridSurface s, int slot, float2 noise, int samples)
+// Glass in the way lets part of the light through: how much of it counts in the result (as its brightness), and its
+// color goes in `chroma`: white where nothing tints the light.
+float TraceLightSlot(HybridSurface s, int slot, float2 noise, int samples, out float3 chroma)
 {
+    chroma = float3(1.0, 1.0, 1.0);
+    float3 light;
+
     if (slot < g_NumDirLights)
     {
         float3 L = normalize(-g_DirLights[slot].Direction.xyz);
         if (dot(s.N, L) <= 0.0)
             return 1.0;
 
-        return TraceDirectionalShadow(s.WorldPos, s.GeoN, s.PositionError, L, ShiftNoise(noise, slot), samples);
+        light = TraceDirectionalShadowRGB(s.WorldPos, s.GeoN, s.PositionError, L, ShiftNoise(noise, slot), samples);
+    }
+    else
+    {
+        int j = slot - g_NumDirLights;
+        if (j >= g_NumPointLights)
+            return 1.0;
+
+        float3 lightVec = g_PointLights[j].Position.xyz - s.WorldPos;
+        float dist = length(lightVec);
+        if (dist >= g_PointLights[j].Range)
+            return 1.0;
+
+        float3 L = lightVec / dist;
+        if (dot(s.N, L) <= 0.0)
+            return 1.0;
+
+        light = TracePointShadowRGB(s.WorldPos, s.GeoN, s.PositionError, g_PointLights[j].Position.xyz, L, ShiftNoise(noise, 4 + j), samples);
+    }
+
+    float visibility = dot(light, LUMINANCE_WEIGHTS);
+    if (visibility > 0.0001)
+    {
+        chroma = light / visibility;
+    }
+    return visibility;
+}
+
+float TraceLightSlot(HybridSurface s, int slot, float2 noise, int samples)
+{
+    float3 chroma;
+    return TraceLightSlot(s, slot, noise, samples, chroma);
+}
+
+// How much a light adds to the surface, roughly: its brightness there, before shadows. Decides how much its glass
+// tint counts in the surface's single DirectTint.
+float LightTintWeight(HybridSurface s, int slot)
+{
+    if (slot < g_NumDirLights)
+    {
+        float3 L = normalize(-g_DirLights[slot].Direction.xyz);
+        return saturate(dot(s.N, L)) * dot(g_DirLights[slot].Color.rgb * g_DirLights[slot].Color.a, LUMINANCE_WEIGHTS);
     }
 
     int j = slot - g_NumDirLights;
     if (j >= g_NumPointLights)
-        return 1.0;
+        return 0.0;
 
     float3 lightVec = g_PointLights[j].Position.xyz - s.WorldPos;
     float dist = length(lightVec);
     if (dist >= g_PointLights[j].Range)
-        return 1.0;
+        return 0.0;
 
-    float3 L = lightVec / dist;
-    if (dot(s.N, L) <= 0.0)
-        return 1.0;
-
-    return TracePointShadow(s.WorldPos, s.GeoN, s.PositionError, g_PointLights[j].Position.xyz, L, ShiftNoise(noise, 4 + j), samples);
+    float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
+    attenuation *= attenuation;
+    return saturate(dot(s.N, lightVec / dist)) * dot(g_PointLights[j].Color.rgb * g_PointLights[j].Color.a, LUMINANCE_WEIGHTS) * attenuation;
 }
 
 // The indirect light at a surface, from per-pixel GI or from the sky dimmed by ambient occlusion
@@ -300,7 +347,7 @@ float4 TraceHybridReflection(HybridSurface s, HybridAmbient ambient, float2 nois
 
 // The surface's color from its material and what its rays found: direct light with ray-traced shadows, indirect
 // light (per-pixel GI, or sky light with ray-traced AO), reflections, then fog
-float3 ComposeHybridSurface(HybridSurface s, HybridRays rays, float2 pixelPos)
+float3 ComposeHybridSurfaceNoFog(HybridSurface s, HybridRays rays)
 {
     float3 N = s.N;
     float3 geoN = s.GeoN;
@@ -352,6 +399,9 @@ float3 ComposeHybridSurface(HybridSurface s, HybridRays rays, float2 pixelPos)
         }
     }
 
+    // Light that came through glass has the glass's color
+    Lo *= rays.DirectTint;
+
     // 3. Indirect light
     HybridAmbient indirect = GetHybridAmbient(s, rays.AmbientVisibility, rays.OpenDirection);
     float3 kD = (1.0 - specularColor) * (1.0 - metallic);
@@ -382,13 +432,17 @@ float3 ComposeHybridSurface(HybridSurface s, HybridRays rays, float2 pixelPos)
 
 
     float3 ambient = (ambientDiffuse + ambientSpecular) * g_AmbientMultiplier;
-    float3 color = ambient + Lo + s.Emissive;
-    return ApplyFog(color, s.WorldPos, pixelPos);
+    return ambient + Lo + s.Emissive;
 }
 
-// Traces and composes in one go, for a pass with nothing to clean up single rays: several rays per light and for
-// the ambient occlusion, their pattern rotated per pixel (and per frame under TAA)
-float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
+float3 ComposeHybridSurface(HybridSurface s, HybridRays rays, float2 pixelPos)
+{
+    return ApplyFog(ComposeHybridSurfaceNoFog(s, rays), s.WorldPos, pixelPos);
+}
+
+// Traces what the rays from a surface find, for a pass with nothing to clean up single rays: several rays per light and
+// for the ambient occlusion, their pattern rotated per pixel (and per frame under TAA)
+HybridRays TraceHybridRays(HybridSurface s, float2 pixelPos)
 {
     // Each light and effect gets its own shift of the pixel's noise (index k: dir lights 0-3, point lights 4-11,
     // AO 12, reflection ray 13, lights at the reflection's hit 14 onward)
@@ -396,10 +450,23 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
 
     HybridRays rays;
     int slotCount = LightSlotCount();
+    float3 tintSum = float3(0.0, 0.0, 0.0);
+    float tintWeight = 0.0;
     for (int slot = 0; slot < MAX_LIGHT_SLOTS; ++slot)
     {
-        rays.LightVisibility[slot] = slot < slotCount ? TraceLightSlot(s, slot, noise, SHADOW_SAMPLES) : 1.0;
+        float visibility = 1.0;
+        if (slot < slotCount)
+        {
+            float3 chroma;
+            visibility = TraceLightSlot(s, slot, noise, SHADOW_SAMPLES, chroma);
+
+            float weight = LightTintWeight(s, slot) * visibility;
+            tintSum += chroma * weight;
+            tintWeight += weight;
+        }
+        rays.LightVisibility[slot] = visibility;
     }
+    rays.DirectTint = tintWeight > 0.00001 ? tintSum / tintWeight : float3(1.0, 1.0, 1.0);
 
     rays.AmbientVisibility = 1.0;
     rays.OpenDirection = s.N;
@@ -415,7 +482,120 @@ float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
         rays.Reflection = TraceHybridReflection(s, ambient, noise).rgb;
     }
 
-    return ComposeHybridSurface(s, rays, pixelPos);
+    return rays;
+}
+
+// Traces and composes in one go
+float3 ShadeHybridSurface(HybridSurface s, float2 pixelPos)
+{
+    return ComposeHybridSurface(s, TraceHybridRays(s, pixelPos), pixelPos);
+}
+
+// ------------------------------------------------------------------
+// Glass
+// ------------------------------------------------------------------
+
+#ifdef RT_SCENE_SHADING
+// What is seen through a pane of glass at a surface point: the view ray bends into the glass (index of refraction
+// `ior`) and out of its far side, then goes on to whatever is behind: the scene, lit like a reflection's hit, or the sky.
+// Rays go through other glass on the way, which tints what they find.
+float3 TraceRefraction(HybridSurface s, float ior, float2 noise)
+{
+    float3 D = normalize(s.WorldPos - g_CameraPos.xyz);
+    float3 N = dot(s.N, D) < 0.0 ? s.N : -s.N;
+
+    // A closed shape (a ball, a slab) has a far side for the ray to leave through. A lone sheet has none, and is thin
+    // enough that bending the view through it would only shift things for no reason: it goes straight through.
+    float3 outOrigin = s.WorldPos + D * 0.002;
+    float3 outDir = D;
+
+    float3 inDir = refract(D, N, 1.0 / ior);
+    if (dot(inDir, inDir) > 0.0)
+    {
+        float3 ignoredTint;
+        SceneHit exitHit;
+        if (TraceSceneRay(s.WorldPos + inDir * 0.002, inDir, 100.0, GLASS_SOLID, ignoredTint, exitHit)
+            && exitHit.BackFacing && (exitHit.Material.Flags & SCENE_GEOMETRY_BLEND) != 0u)
+        {
+            float3 dir = inDir;
+            for (int bounce = 0; bounce < 3; ++bounce)
+            {
+                // Leaving the glass bends the ray away from the normal. Past the critical angle there is nothing to
+                // leave into: the ray turns back inside and heads for the next face.
+                float3 leaving = refract(dir, exitHit.N, ior);
+                if (dot(leaving, leaving) > 0.0)
+                {
+                    outDir = leaving;
+                    outOrigin = exitHit.Position + outDir * 0.002;
+                    break;
+                }
+
+                dir = reflect(dir, exitHit.N);
+                if (!TraceSceneRay(exitHit.Position + dir * 0.002, dir, 100.0, GLASS_SOLID, ignoredTint, exitHit)
+                    || !exitHit.BackFacing || (exitHit.Material.Flags & SCENE_GEOMETRY_BLEND) == 0u)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    float3 tint;
+    SceneHit hit;
+    float3 radiance;
+    if (TraceSceneRay(outOrigin, outDir, g_ReflectionMaxDistance, GLASS_TINT, tint, hit))
+    {
+        // Not shadable (no data for its triangle): a dim stand-in
+        radiance = g_AmbientColor.rgb * 0.5;
+        if (hit.Shadeable)
+        {
+            float viewDistance = length(g_CameraPos.xyz - s.WorldPos);
+            float coneWidth = s.PixelSpread * (viewDistance + hit.Distance);
+            radiance = ShadeSceneHit(hit, outDir, coneWidth, ShiftNoise(noise, 14), HIT_SPECULAR | HIT_SHADOWS | HIT_AMBIENT_SKY, float3(0.0, 0.0, 0.0));
+        }
+    }
+    else
+    {
+        radiance = SampleEnvSpecular(outDir, 0.0) * g_SkyLightIntensity;
+    }
+    return radiance * tint;
+}
+#endif
+
+// A pane of glass: a blended material, drawn after the lit scene. s.Albedo is the glass's color, alpha how opaque it is,
+// ior its index of refraction.
+// Returns the color premultiplied by coverage, for blending over what is behind (ONE, INV_SRC_ALPHA):
+//   its own reflections, highlights and emission, which no amount of transparency dims (a window still mirrors the sky),
+//   its colour lit like any surface, as much of it as alpha says, and
+//   what is behind it, through the glass: refracted and tinted when the scene can be traced from here, else left to the
+//   blend, which shows the same view unbent.
+float4 ShadeGlassSurface(HybridSurface s, float alpha, float ior, float2 pixelPos)
+{
+    HybridRays rays = TraceHybridRays(s, pixelPos);
+
+    // Without a diffuse color, what the shading gives is what the surface reflects
+    HybridSurface clear = s;
+    clear.Albedo = float3(0.0, 0.0, 0.0);
+    float3 reflected = ComposeHybridSurfaceNoFog(clear, rays);
+    float3 body = max(ComposeHybridSurfaceNoFog(s, rays) - reflected, 0.0);
+
+    float3 color = reflected + alpha * body;
+    float coverage = alpha;
+
+#ifdef RT_SCENE_SHADING
+    if ((g_TransparencyFlags & TRANSPARENCY_REFRACTION) != 0u && ior > 1.001)
+    {
+        float3 V = normalize(g_CameraPos.xyz - s.WorldPos);
+        float fresnel = 0.04 + 0.96 * pow(1.0 - saturate(dot(s.N, V)), 5.0);
+        float3 tint = lerp(float3(1.0, 1.0, 1.0), s.Albedo, alpha);
+
+        // The view through the glass replaces what is behind it, so the glass covers the pixel completely
+        color += (1.0 - alpha) * (1.0 - fresnel) * tint * TraceRefraction(s, ior, RayNoise(pixelPos));
+        coverage = 1.0;
+    }
+#endif
+
+    return float4(ApplyFog(color, s.WorldPos, pixelPos), coverage);
 }
 
 #endif // HYBRID_SHADING_HLSLI
