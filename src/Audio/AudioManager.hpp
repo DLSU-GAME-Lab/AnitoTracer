@@ -35,7 +35,7 @@ public:
     void StartClip(uint64_t soundID);
     void StopClip(uint64_t soundID);
 
-    void PushMusic(uint64_t ownerID, AudioClip* ownerClip, uint64_t fadeLength);
+    void PushMusic(uint64_t ownerID, AudioClip* ownerClip, uint64_t fadeLength, float volume = 100.0f);
     void PopMusic(uint64_t ownerID, uint64_t fadeLength);
 
     // True if the sound still exists in the manager (silent check)
@@ -86,6 +86,8 @@ public:
 
     // Clears the cache
     void ClearCache();
+
+    void ClearAudio();
 
 private:
     AudioManager() {
@@ -191,6 +193,7 @@ private:
         uint64_t ownerID;
         AudioClip* ownerClip;
         uint64_t fadeLength;
+        float volume;
     };
 
     ma_engine m_AudioEngine;
@@ -235,7 +238,7 @@ private:
     // Convert the engine's left-handed space to miniaudio's right-handed space
     static glm::vec3 ConvertHandedness (const glm::vec3& v) { return glm::vec3(v.x, v.y, -v.z); }
 
-    void SwitchMusic(AudioClip* newClip, uint64_t fadeLength);
+    void SwitchMusic(AudioClip* newClip, uint64_t fadeLength, float volume);
 
     void RemoveFadingSounds();
     void ClearClips();

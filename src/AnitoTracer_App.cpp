@@ -587,6 +587,8 @@ void AnitoTracer_App::HandleStopPlay(const gbe::EventArgs *args)
         HierarchyManager::GetInstance().LoadScene(scenePath);
     else
         std::cerr << "You're supposed to have a scene before being able to play." << std::endl;
+
+    AudioManager::GetInstance().ClearAudio();
 }
 
 void AnitoTracer_App::HandleWindowResizeEvent(const WindowResizeArgs* args)

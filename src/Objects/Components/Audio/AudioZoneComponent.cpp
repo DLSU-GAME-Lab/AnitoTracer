@@ -34,7 +34,7 @@ void AudioZoneComponent::OnUpdate(float deltaTime) {
     if (!m_isInsideZone && distance < enterRadius) {
         m_activeKey = MakeOwnerKey();
         std::cout << "[AudioZone] push key=" << m_activeKey << std::endl;
-        AudioManager::GetInstance().PushMusic(m_activeKey, m_audioClip.Get(), fadeLength);
+        AudioManager::GetInstance().PushMusic(m_activeKey, m_audioClip.Get(), fadeLength, m_audioVolume);
         m_isInsideZone = true;
     } else if (m_isInsideZone && distance > (enterRadius + exitMargin)) {
         AudioManager::GetInstance().PopMusic(m_activeKey, fadeLength);

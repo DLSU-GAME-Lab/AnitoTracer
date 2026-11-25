@@ -180,7 +180,7 @@ void AudioManager::DetachClip(uint64_t soundID) {
 }
 
 // fix this its a bit messy
-void AudioManager::SwitchMusic(AudioClip* newClip, uint64_t fadeLength) {
+void AudioManager::SwitchMusic(AudioClip* newClip, uint64_t fadeLength, float volume) {
     if (!GroupsReady("Switch music")) return;
 
     if (!newClip) {
@@ -195,7 +195,7 @@ void AudioManager::SwitchMusic(AudioClip* newClip, uint64_t fadeLength) {
 
     SetSoundLoop(id, true);
     SetSoundSpatialized(id, GetDefaultSpatialization(AudioManager::AudioGroupType::BGM));
-    SetSoundVolume(id, MaxVolume);
+    SetSoundVolume(id, volume);
 
     ma_sound* newSound = FindSound(id, "Switch music");
     if (!newSound) return;
@@ -213,7 +213,7 @@ void AudioManager::SwitchMusic(AudioClip* newClip, uint64_t fadeLength) {
     m_CurrentSoundID = id;
 }
 
-void AudioManager::PushMusic(uint64_t ownerID, AudioClip* ownerClip, uint64_t fadeLength) {
+void AudioManager::PushMusic(uint64_t ownerID, AudioClip* ownerClip, uint64_t fadeLength, float volume) {
     auto it = std::find_if(m_MusicStack.begin(), m_MusicStack.end(), [ownerID](const MusicEntry& m) {
         return m.ownerID == ownerID;
     });
@@ -225,8 +225,8 @@ void AudioManager::PushMusic(uint64_t ownerID, AudioClip* ownerClip, uint64_t fa
         std::cerr << "Audio clip not found." << std::endl;
         return;
     } else {
-        m_MusicStack.push_back({ownerID, ownerClip, fadeLength});
-        SwitchMusic(ownerClip, fadeLength); 
+        m_MusicStack.push_back({ownerID, ownerClip, fadeLength, volume});
+        SwitchMusic(ownerClip, fadeLength, volume); 
     }
 }
 
@@ -239,7 +239,7 @@ void AudioManager::PopMusic(uint64_t ownerID, uint64_t fadeLength) {
         m_MusicStack.erase(it);
 
         if (!m_MusicStack.empty()) {
-            SwitchMusic(m_MusicStack.back().ownerClip, m_MusicStack.back().fadeLength);
+            SwitchMusic(m_MusicStack.back().ownerClip, m_MusicStack.back().fadeLength, m_MusicStack.back().volume);
         } else {
             if (IsValidClip(m_CurrentSoundID)) {
                 ma_sound* sound = FindSound(m_CurrentSoundID, "Pop music");
@@ -416,6 +416,11 @@ void AudioManager::RemoveFadingSounds() {
 void AudioManager::ClearCache() {
     m_AudioCache.clear();
     ClearClips();
+}
+
+void AudioManager::ClearAudio() {
+    ClearClips();
+    ResetSfxReverb();
 }
 
 void AudioManager::ClearClips() {

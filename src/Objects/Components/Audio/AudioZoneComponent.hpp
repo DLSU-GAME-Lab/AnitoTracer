@@ -38,6 +38,10 @@ private:
     
     uint64_t m_activeKey = 0;
 
+    // Audio volume
+    float m_audioVolume = 100.0f;
+    GBE_SERIALIZE_FIELD_W_NAME_CB(m_audioVolume, "Volume", [this](float) { m_audioVolume = std::clamp(m_audioVolume, 0.0f, 100.0f); });
+
     // Distance from zone center to activate the audio
     float m_enterRadius = 1.0f;
     GBE_SERIALIZE_FIELD_W_NAME_CB(m_enterRadius, "Enter Radius", [this](float) { m_enterRadius = std::clamp(m_enterRadius, 0.0f, 1000.0f); });
