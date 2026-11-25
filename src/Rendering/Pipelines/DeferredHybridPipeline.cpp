@@ -589,6 +589,7 @@ void Diligent::DeferredHybridPipeline::TraceIndirect(IDeviceContext* pContext, S
         indirectSettings.MinBlend = 1.0f - glm::clamp(m_GISettings.history_blend, 0.0f, 0.99f);
         indirectSettings.FilterPasses = m_GISettings.filter_passes;
         indirectSettings.BrightnessSigma = kGIBrightnessSigma;
+        indirectSettings.PreserveLight = m_GISettings.preserve_light;
     }
     else {
         // Whatever the GI pass had is stale by the time it is switched back on

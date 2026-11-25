@@ -262,6 +262,9 @@ struct ProjectGISettings
     // How the denoiser treats the result (while ProjectDenoiseSettings has it on)
     float history_blend = 0.98f;    // Share of earlier frames kept every frame. Higher is smoother but slower to react.
     int filter_passes = 5;          // Blur passes over the result, 0 to 5. Each doubles the blur's reach.
+    // The blur passes keep all the light they blur (SignalDenoiser::Settings::PreserveLight). Off is the blur as it was before,
+    // which lost light where rays find a small bright area: a small glowing object lit its surroundings with half of its light.
+    bool preserve_light = true;
 
 
 };

@@ -262,6 +262,11 @@ namespace Diligent {
                     "Needs Denoising on for indirect light.");
                 saveAfterEdit();
 
+                if (ImGui::Checkbox("Keep Light in Blur##GI", &giSettings.preserve_light)) saveProjectSettings();
+                tooltip("The blur passes move light between pixels without losing any, so a small bright area (a bulb, a glowing texture) lights its surroundings with all its light.\n"
+                    "Off: the blur as it was before, which lost about half the light of a small bright area. For comparing the two.\n"
+                    "Needs Denoising on for indirect light, and at least one blur pass.");
+
                 ImGui::EndDisabled();
 
                 ImGui::EndDisabled();
