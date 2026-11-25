@@ -110,8 +110,13 @@ namespace Diligent {
         float Metallic = 0.0f;
         uint32_t Flags = 0;                     // SCENE_GEOMETRY_* bits below
         float AlphaCutoff = 0.0f;               // Mask materials: pixels with less alpha than this are not there
+
+        // Glass (SCENE_GEOMETRY_BLEND): the share of the light that goes through. 1 for a blended material, which only
+        // takes away what its alpha says; the material's transmission where it lets light through.
+        float Transmission = 1.0f;
+        float Padding[3] = { 0.0f, 0.0f, 0.0f };
     };
-    static_assert(sizeof(SceneGeometryRecord) == 64, "SceneGeometryRecord must match Shaders/rt_scene.hlsli");
+    static_assert(sizeof(SceneGeometryRecord) == 80, "SceneGeometryRecord must match Shaders/rt_scene_data.hlsli");
 
     // Bits of SceneGeometryRecord::Flags. Mirror the SCENE_GEOMETRY_* constants in Shaders/rt_scene.hlsli
     enum SceneGeometryFlags : uint32_t {
@@ -120,6 +125,7 @@ namespace Diligent {
         SCENE_GEOMETRY_METALLIC_FIXED = 1u << 2,    // Same for metallic
         SCENE_GEOMETRY_ALPHA_MASK = 1u << 3,        // A cutout: rays test the base color's alpha against AlphaCutoff
         SCENE_GEOMETRY_BLEND = 1u << 4,             // Glass: the base color's rgb tints what passes through, its alpha says how much
+        SCENE_GEOMETRY_TRANSMISSIVE = 1u << 5,      // With BLEND: an opaque material that lets light through. Its alpha means nothing: the color tints all of it.
     };
 
     // Mirrors cbuffer SkyboxConstants in Shaders/Skybox/Skybox_ps.hlsl
@@ -310,8 +316,14 @@ namespace Diligent {
 
         glm::vec4 EmissiveFactor{ 0.0f }; // rgb: emissive color * strength (HDR), multiplied with the emissive map
 
-        // x: alpha cutoff (0: the material is not a cutout, nothing is discarded), y: index of refraction, zw: unused
-        glm::vec4 MaterialParams{ 0.0f, 1.5f, 0.0f, 0.0f };
+        // x: alpha cutoff (0: the material is not a cutout, nothing is discarded), y: index of refraction,
+        // z: transmission (0: the surface lets nothing through),
+        // w: 1 when the base color's alpha is the surface's opacity (glass), 0 when it means nothing (an opaque material drawn as glass)
+        glm::vec4 MaterialParams{ 0.0f, 1.5f, 0.0f, 1.0f };
+
+        // x: clear coat strength (0: no coat), y: its roughness, z: sheen roughness, w: specular anti-aliasing strength (0: off)
+        glm::vec4 LayerParams{ 0.0f };
+        glm::vec4 SheenColor{ 0.0f };       // rgb: sheen color (black: no sheen)
     };
 
     // Mirrors cbuffer CameraConstants in Shaders/common_struct.hlsli. Shaders that only declare View and Proj read the start of it.

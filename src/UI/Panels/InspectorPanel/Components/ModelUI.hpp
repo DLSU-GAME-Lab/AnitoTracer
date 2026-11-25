@@ -41,6 +41,22 @@ public:
             ImGui::PopStyleColor();
         }
 
+        // Layers over the base material
+        DrawMaterialOverride("Clearcoat", modelComponent,
+            &ModelComponent::GetOverrideClearcoat, &ModelComponent::SetOverrideClearcoat,
+            &ModelComponent::GetClearcoat, &ModelComponent::SetClearcoat);
+        DrawIndentedSlider("Coat Roughness", modelComponent->GetOverrideClearcoat(),
+            modelComponent->GetClearcoatRoughness(), [&](float value) { modelComponent->SetClearcoatRoughness(value); });
+        DrawSheenOverride(modelComponent);
+        DrawMaterialOverride("Transmission", modelComponent,
+            &ModelComponent::GetOverrideTransmission, &ModelComponent::SetOverrideTransmission,
+            &ModelComponent::GetTransmission, &ModelComponent::SetTransmission);
+        if (modelComponent->GetOverrideTransmission()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::TextWrapped("Lets the view through, tinted by the base color. Only the Hybrid and Deferred Hybrid renderers show it.");
+            ImGui::PopStyleColor();
+        }
+
         ImGui::Separator();
         ImGui::Text("Path: %s", model->GetPath().generic_string().c_str());
         ImGui::Text("Submeshes: %zu", model->SubMeshes.size());
@@ -78,6 +94,41 @@ private:
         if (ImGui::SliderFloat(label, &value, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
             (component->*setValue)(value);
         ImGui::EndDisabled();
+
+        ImGui::PopID();
+    }
+
+    // A 0-1 slider lined up under the slider of DrawMaterialOverride, greyed out while that override is off
+    template <typename Setter>
+    static void DrawIndentedSlider(const char* label, bool enabled, float value, Setter setValue)
+    {
+        ImGui::BeginDisabled(!enabled);
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x);
+        if (ImGui::SliderFloat(label, &value, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
+            setValue(value);
+        ImGui::EndDisabled();
+    }
+
+    // Checkbox, then the sheen color and how wide its rim is, greyed out while it's off
+    static void DrawSheenOverride(ModelComponent* component)
+    {
+        ImGui::PushID("Sheen");
+
+        bool enabled = component->GetOverrideSheen();
+        if (ImGui::Checkbox("##Override", &enabled))
+            component->SetOverrideSheen(enabled);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Override the material's sheen (the soft rim of light on cloth) on every submesh.");
+
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!enabled);
+        glm::vec3 color = component->GetSheenColor();
+        if (ImGui::ColorEdit3("Sheen", glm::value_ptr(color)))
+            component->SetSheenColor(color);
+        ImGui::EndDisabled();
+
+        DrawIndentedSlider("Sheen Roughness", enabled, component->GetSheenRoughness(),
+            [&](float value) { component->SetSheenRoughness(value); });
 
         ImGui::PopID();
     }

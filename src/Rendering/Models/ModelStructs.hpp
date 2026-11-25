@@ -73,6 +73,13 @@ struct PBRMaterial {
     float AlphaCutoff = 0.5f;       // Mask: pixels with less alpha than this are cut out
     float IOR = 1.5f;               // Index of refraction, for blended materials drawn as glass
 
+    // Layers over the base material (glTF KHR_materials_clearcoat, _sheen and _transmission). 0 / black: the layer isn't there.
+    float Clearcoat = 0.0f;                         // Strength of the clear lacquer on top
+    float ClearcoatRoughness = 0.0f;                // How blurred its highlight is
+    float3 SheenColor = float3(0.0f, 0.0f, 0.0f);   // Color of the cloth fibres' rim light
+    float SheenRoughness = 0.5f;                    // How wide that rim is
+    float Transmission = 0.0f;                      // Share of the light that goes through the surface, tinted by the base color
+
     // Blend materials are drawn after the opaque geometry (Opaque and Mask ones go with it)
     bool IsTransparent = false;
 };
@@ -114,6 +121,10 @@ struct Model : public IModel {
 
     // If any material is a cutout or glass: rays have to judge its triangles (rt_scene.hlsli) instead of treating them as solid
     bool HasAlphaGeometry = false;
+
+    // If any material lets light through (PBRMaterial::Transmission). Such a material counts as glass for rays and is drawn
+    // with the glass, but only while the project's Materials settings have transmission on: see ModelRenderInstance::ResolveLayers.
+    bool HasTransmission = false;
 
     //For local raytrace obj picking
     glm::vec3 AABBMin = glm::vec3(std::numeric_limits<float>::max());

@@ -25,6 +25,7 @@
 #include "Components/Lights/AreaLight.hpp"
 
 struct ProjectPhysicalLightSettings;
+struct ProjectMaterialSettings;
 
 #include ANITO_SERIALIZATION_INCLUDES
 #include ANITO_EVENT_INCLUDES
@@ -106,8 +107,9 @@ public:
     bool GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
     bool GetEditorCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
 
-    // Gathers all Models and their evaluated world transforms
-    void GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const;
+    // Gathers all Models and their evaluated world transforms. The settings decide which layers over the base material
+    // (clear coat, sheen, transmission) the models carry, and which submeshes are drawn with the glass because of one.
+    void GatherRenderModels(std::vector<ModelRenderInstance>& outModels, const ProjectMaterialSettings& materials) const;
 
     // Gathers all active lights in the hierarchy and processes their world transforms. The settings decide how their
     // brightness and size are read: with real units on, lumens and lux are turned into scene values at the project's exposure.

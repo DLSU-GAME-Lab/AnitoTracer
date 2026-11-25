@@ -17,7 +17,12 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     float ao = SampleOcclusion(In.UV);
 
     // The tangent frame comes from the screen space derivatives
-    float3 N = ApplyNormalMapFromDerivatives(In, normalize(In.Normal));
+    float3 geoN = normalize(In.Normal);
+    float3 N = ApplyNormalMapFromDerivatives(In, geoN);
+
+    // Highlights too small for a pixel to show would flicker: the roughness covers them
+    roughness = FilterRoughnessByNormal(N, roughness);
+    SurfaceLayers layers = ReadMaterialLayers(geoN);
 
     float3 V = normalize(g_CameraPos.xyz - In.WorldPos);
     float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo.rgb, metallic);
@@ -34,7 +39,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
             continue;
 
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
-        Lo += ShadeRoundLight(N, V, L, tan(g_DirLights[i].Direction.w), radiance, albedo.rgb, metallic, roughness, F0, shadowFactor, float3(1.0, 1.0, 1.0));
+        Lo += ShadeRoundLight(N, V, L, tan(g_DirLights[i].Direction.w), radiance, albedo.rgb, metallic, roughness, F0, shadowFactor, float3(1.0, 1.0, 1.0), layers);
     }
 
     // 3. Point, spot and rectangular lights
@@ -44,7 +49,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
         if (!EvaluateLocalLight(j, In.WorldPos, N, V, light))
             continue;
 
-        Lo += ShadeLocalLight(N, V, light, albedo.rgb, metallic, roughness, F0, shadowFactor, float3(1.0, 1.0, 1.0));
+        Lo += ShadeLocalLight(N, V, light, albedo.rgb, metallic, roughness, F0, shadowFactor, float3(1.0, 1.0, 1.0), layers, j, In.WorldPos);
     }
 
     // --- Emissive Mapping Logic ---

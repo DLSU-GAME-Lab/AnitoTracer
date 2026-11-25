@@ -360,7 +360,7 @@ bool HierarchyManager::GetEditorCameraMatrices(glm::mat4& outViewMatrix, glm::ma
     return false;
 }
 
-static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, std::vector<ModelRenderInstance>& outModels) {
+static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, std::vector<ModelRenderInstance>& outModels, const ProjectMaterialSettings& materials) {
     if (!obj) return;
 
     glm::mat4 currentWorldMatrix = parentMatrix;
@@ -387,11 +387,32 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
             instance.OverrideAlpha = modelComp->GetOverrideAlpha();
             instance.Alpha = glm::clamp(modelComp->GetAlpha(), 0.0f, 1.0f);
 
-            // ADDED: Sort submeshes based on material transparency
+            instance.OverrideClearcoat = modelComp->GetOverrideClearcoat();
+            instance.Clearcoat = glm::clamp(modelComp->GetClearcoat(), 0.0f, 1.0f);
+            instance.ClearcoatRoughness = glm::clamp(modelComp->GetClearcoatRoughness(), 0.0f, 1.0f);
+            instance.OverrideSheen = modelComp->GetOverrideSheen();
+            instance.SheenColor = glm::max(modelComp->GetSheenColor(), glm::vec3(0.0f));
+            instance.SheenRoughness = glm::clamp(modelComp->GetSheenRoughness(), 0.0f, 1.0f);
+            instance.OverrideTransmission = modelComp->GetOverrideTransmission();
+            instance.Transmission = glm::clamp(modelComp->GetTransmission(), 0.0f, 1.0f);
+
+            // With the master switch off, none of the layers is there, whatever the switches below say
+            instance.ClearcoatEnabled = materials.enabled && materials.clearcoat;
+            instance.SheenEnabled = materials.enabled && materials.sheen;
+            instance.TransmissionEnabled = materials.enabled && materials.transmission;
+            instance.SpecularAAStrength = materials.enabled && materials.specular_aa ? glm::max(materials.specular_aa_strength, 0.0f) : 0.0f;
+
+            // ADDED: Sort submeshes based on material transparency. A material that lets light through is kept apart:
+            // the renderers that draw glass draw it with the glass, and the others as the solid it was before.
             for (uint32_t i = 0; i < pModel->SubMeshes.size(); ++i) {
                 uint32_t matIndex = pModel->SubMeshes[i].MaterialIndex;
+                const bool transmissive = instance.TransmissionEnabled
+                    && (instance.OverrideTransmission || pModel->PBRMaterials[matIndex].Transmission > 0.0f);
                 if (instance.OverrideAlpha || pModel->PBRMaterials[matIndex].IsTransparent) {
                     instance.TransparentSubmeshIndices.push_back(i);
+                }
+                else if (transmissive) {
+                    instance.TransmissiveSubmeshIndices.push_back(i);
                 }
                 else {
                     instance.OpaqueSubmeshIndices.push_back(i);
@@ -404,11 +425,11 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
 
     // Recursively process children to maintain hierarchical transforms
     for (const auto& child : obj.GetPtr()->GetChildren()) {
-        GatherModelsRecursive(child.get(), currentWorldMatrix, outModels);
+        GatherModelsRecursive(child.get(), currentWorldMatrix, outModels, materials);
     }
 }
 
-void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const
+void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outModels, const ProjectMaterialSettings& materials) const
 {
     // Clear any leftover data from the previous frame
     outModels.clear();
@@ -418,7 +439,7 @@ void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outM
 
     // Iterate through all root nodes managed by HierarchyManager
     for (const auto& rootNode : m_rootNodes) {
-        GatherModelsRecursive(rootNode.get(), rootMatrix, outModels);
+        GatherModelsRecursive(rootNode.get(), rootMatrix, outModels, materials);
     }
 }
 

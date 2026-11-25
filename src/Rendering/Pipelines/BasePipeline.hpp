@@ -65,6 +65,10 @@ namespace Diligent {
         // Binds the constant buffers this pipeline owns to the variables pSRB declares
         virtual void BindCommonBuffers(IShaderResourceBinding* pSRB);
 
+        // True for a pipeline that draws the glass pass this frame (RenderModel(s) with renderOpaque false). It draws the
+        // submeshes that let light through there; any other draws them with the opaque ones, as plain solids.
+        virtual bool DrawsGlass() const { return false; }
+
         // Draws a model's submeshes binding materials through pSRB instead of m_pSRB (e.g. for an extra pass with its own PSO)
         void RenderModelWithSRB(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque, IShaderResourceBinding* pSRB);
 
@@ -95,6 +99,9 @@ namespace Diligent {
         RefCntAutoPtr<IBuffer> m_pCameraCB;
         RefCntAutoPtr<IBuffer> m_pModelCB;
         RefCntAutoPtr<IBuffer> m_pMaterialCB;
+
+        // Scratch list of the submesh indices RenderModelWithSRB is drawing, kept to reuse its memory
+        std::vector<uint32_t> m_SubmeshesToDraw;
 
         // For motion vectors. World -> clip space without TAA jitter, as uploaded by the last UpdateCameraConstants:
         // the frame being drawn and the one before it (the same matrix on the first frame).

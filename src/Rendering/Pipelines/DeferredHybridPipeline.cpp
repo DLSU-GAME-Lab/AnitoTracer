@@ -118,9 +118,10 @@ void Diligent::DeferredHybridPipeline::CreatePasses()
         m_GBuffer.Configure({
                 { "Deferred Hybrid G-Buffer AlbedoMetallic", TEX_FORMAT_RGBA8_UNORM_SRGB, "g_GBufferAlbedoMetallic" },
                 { "Deferred Hybrid G-Buffer Normals",        TEX_FORMAT_RGBA16_FLOAT,     "g_GBufferNormals" },
-                { "Deferred Hybrid G-Buffer EmissiveAO",     TEX_FORMAT_RGBA16_FLOAT,     "g_GBufferEmissiveAO" },
-                { "Deferred Hybrid G-Buffer Roughness",      TEX_FORMAT_R8_UNORM,         "g_GBufferRoughness" },
+                { "Deferred Hybrid G-Buffer Emissive",       TEX_FORMAT_R11G11B10_FLOAT,  "g_GBufferEmissive" },
+                { "Deferred Hybrid G-Buffer Material",       TEX_FORMAT_RGBA8_UNORM,      "g_GBufferMaterial" },
                 { "Deferred Hybrid G-Buffer Velocity",       TEX_FORMAT_RG16_FLOAT,       "g_GBufferVelocity" },
+                { "Deferred Hybrid G-Buffer Sheen",          TEX_FORMAT_RGBA8_UNORM,      "g_GBufferSheen" },
             },
             { "Deferred Hybrid G-Buffer Depth", TEX_FORMAT_D32_FLOAT, "g_GBufferDepth" },
             /*growOnly*/ true);
@@ -174,8 +175,9 @@ Diligent::PSOBuilder Diligent::DeferredHybridPipeline::CreateSignalPassBuilder(c
         // Mutable: only rebound when the G-buffer is recreated
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferAlbedoMetallic", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferNormals", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
-        .Variable(SHADER_TYPE_PIXEL, "g_GBufferEmissiveAO", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
-        .Variable(SHADER_TYPE_PIXEL, "g_GBufferRoughness", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
+        .Variable(SHADER_TYPE_PIXEL, "g_GBufferEmissive", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
+        .Variable(SHADER_TYPE_PIXEL, "g_GBufferMaterial", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
+        .Variable(SHADER_TYPE_PIXEL, "g_GBufferSheen", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         .Variable(SHADER_TYPE_PIXEL, "g_GBufferDepth", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE)
         // Dynamic: the guide and the signals are other textures from frame to frame
         .Variable(SHADER_TYPE_PIXEL, "g_Guide")

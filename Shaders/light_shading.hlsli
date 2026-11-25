@@ -41,6 +41,37 @@ float3 ShadeRoundLight(float3 N, float3 V, float3 L, float tanAngle, float3 radi
     return ShadeLightSource(N, V, Ls, width, radiance * max(dot(N, L), 0.0), radiance, lightRadiance, albedo, metallic, roughness, F0, shadowFactor, specularScale);
 }
 
+// The same with the layers over the material: its clear coat's highlight and its sheen are added, and what is below them
+// is dimmed by what they take. Costs nothing for a surface without layers.
+float3 ShadeRoundLight(float3 N, float3 V, float3 L, float tanAngle, float3 radiance, float3 albedo, float metallic,
+    float roughness, float3 F0, float shadowFactor, float3 specularScale, SurfaceLayers layers)
+{
+    float3 base = ShadeRoundLight(N, V, L, tanAngle, radiance, albedo, metallic, roughness, F0, shadowFactor, specularScale);
+    if (!HasLayers(layers))
+    {
+        return base;
+    }
+
+    float width = LightHighlightWidth(tanAngle);
+    float3 lightRadiance = radiance / (PI * max(width * width, 0.000001));
+
+    float sheenScale = 1.0;
+    float3 sheen = float3(0.0, 0.0, 0.0);
+    if (HasSheen(layers))
+    {
+        sheen = SheenLight(N, V, L, radiance * max(dot(N, L), 0.0), layers, shadowFactor, sheenScale);
+    }
+
+    float coatScale = 1.0;
+    float3 coat = float3(0.0, 0.0, 0.0);
+    if (HasClearcoat(layers))
+    {
+        float3 Lc = width > 0.0 ? RoundLightHighlightDirection(L, width, reflect(-V, layers.CoatNormal)) : L;
+        coat = ClearcoatLight(V, Lc, width, radiance, lightRadiance, layers, shadowFactor, coatScale);
+    }
+    return (base * sheenScale + sheen) * coatScale + coat;
+}
+
 // What the point, spot or rectangular light j does to a surface point, ready for ShadeLightSource
 struct LocalLightSample
 {
@@ -118,6 +149,40 @@ float3 ShadeLocalLight(float3 N, float3 V, LocalLightSample s, float3 albedo, fl
 {
     return ShadeLightSource(N, V, s.HighlightDirection, s.HighlightWidth, s.DiffuseIrradiance, s.SpecularRadiance, s.LightRadiance,
         albedo, metallic, roughness, F0, shadowFactor, specularScale);
+}
+
+// The same with the layers over the material, see ShadeRoundLight. j and p: the light and the surface point the sample was
+// made for (EvaluateLocalLight), which the coat needs to find where its own highlight comes from.
+float3 ShadeLocalLight(float3 N, float3 V, LocalLightSample s, float3 albedo, float metallic, float roughness, float3 F0,
+    float shadowFactor, float3 specularScale, SurfaceLayers layers, int j, float3 p)
+{
+    float3 base = ShadeLocalLight(N, V, s, albedo, metallic, roughness, F0, shadowFactor, specularScale);
+    if (!HasLayers(layers))
+    {
+        return base;
+    }
+
+    float sheenScale = 1.0;
+    float3 sheen = float3(0.0, 0.0, 0.0);
+    if (HasSheen(layers))
+    {
+        sheen = SheenLight(N, V, s.L, s.DiffuseIrradiance, layers, shadowFactor, sheenScale);
+    }
+
+    float coatScale = 1.0;
+    float3 coat = float3(0.0, 0.0, 0.0);
+    if (HasClearcoat(layers))
+    {
+        // The highlight is where the coat's own mirror direction meets the light's body
+        float3 Lc = s.L;
+        if (s.HighlightWidth > 0.0)
+        {
+            float3 Rc = reflect(-V, layers.CoatNormal);
+            Lc = g_PointLights[j].RectArea > 0.0 ? normalize(RectLightClosestPoint(j, p, Rc) - p) : RoundLightHighlightDirection(s.L, s.HighlightWidth, Rc);
+        }
+        coat = ClearcoatLight(V, Lc, s.HighlightWidth, s.SpecularRadiance, s.LightRadiance, layers, shadowFactor, coatScale);
+    }
+    return (base * sheenScale + sheen) * coatScale + coat;
 }
 
 #endif // LIGHT_SHADING_HLSLI

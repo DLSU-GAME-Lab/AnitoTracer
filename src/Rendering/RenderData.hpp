@@ -14,6 +14,16 @@
 
 namespace Diligent {
 
+    // The layers over a surface's base material, as the shaders get them: what the material has, replaced by the
+    // object's overrides, and left out where the project's Materials settings switch them off.
+    struct MaterialLayers {
+        float Clearcoat = 0.0f;             // 0: no coat
+        float ClearcoatRoughness = 0.0f;
+        glm::vec3 SheenColor{ 0.0f };       // Black: no sheen
+        float SheenRoughness = 0.5f;
+        float Transmission = 0.0f;          // 0: nothing goes through
+    };
+
     struct ModelRenderInstance {
         Model* ModelData = nullptr;
         glm::mat4 WorldTransform{ 1.0f };
@@ -31,9 +41,47 @@ namespace Diligent {
         bool OverrideAlpha = false;
         float Alpha = 1.0f;
 
+        // Layers over the base material, replacing what every submesh's material has
+        bool OverrideClearcoat = false;
+        float Clearcoat = 1.0f;
+        float ClearcoatRoughness = 0.05f;
+        bool OverrideSheen = false;
+        glm::vec3 SheenColor{ 1.0f };
+        float SheenRoughness = 0.5f;
+        // Lets light through every submesh: drawn with the glass (nothing is blended: the surface is as opaque as 1 - Transmission)
+        bool OverrideTransmission = false;
+        float Transmission = 0.8f;
+
+        // What the project's Materials settings allow (HierarchyManager::GatherRenderModels). Switched off, the layer
+        // is left out whatever the material or the override says.
+        bool ClearcoatEnabled = true;
+        bool SheenEnabled = true;
+        bool TransmissionEnabled = true;
+        float SpecularAAStrength = 1.0f;    // 0: specular anti-aliasing off
+
+        // The layers of one of this object's materials, with overrides and the project's switches applied
+        MaterialLayers ResolveLayers(const PBRMaterial& material) const {
+            MaterialLayers layers;
+            if (ClearcoatEnabled) {
+                layers.Clearcoat = OverrideClearcoat ? Clearcoat : material.Clearcoat;
+                layers.ClearcoatRoughness = OverrideClearcoat ? ClearcoatRoughness : material.ClearcoatRoughness;
+            }
+            if (SheenEnabled) {
+                layers.SheenColor = OverrideSheen ? SheenColor : glm::vec3(material.SheenColor.r, material.SheenColor.g, material.SheenColor.b);
+                layers.SheenRoughness = OverrideSheen ? SheenRoughness : material.SheenRoughness;
+            }
+            if (TransmissionEnabled) {
+                layers.Transmission = OverrideTransmission ? Transmission : material.Transmission;
+            }
+            return layers;
+        }
+
 		//Opaque and transparent meshes are separated for proper rendering order
         std::vector<uint32_t> OpaqueSubmeshIndices;
         std::vector<uint32_t> TransparentSubmeshIndices;
+        // Submeshes that are opaque but let light through (see ResolveLayers): drawn with the glass by the renderers that draw
+        // glass (BasePipeline::DrawsGlass), and with the opaque ones by the rest. Never in the opaque list while they are glass.
+        std::vector<uint32_t> TransmissiveSubmeshIndices;
     };
 
     class RenderData {

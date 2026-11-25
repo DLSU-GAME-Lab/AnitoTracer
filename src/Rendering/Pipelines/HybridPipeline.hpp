@@ -9,6 +9,9 @@ namespace Diligent {
         void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
         void UpdateProjectSettings(IDeviceContext* pContext, const ProjectSettings& settings) override;
 
+        // Glass is drawn unless the project's Transparency settings switch it off
+        bool DrawsGlass() const override;
+
         // Sky lighting cubes: irradiance for diffuse light, prefiltered for reflections. nullptr falls back to black.
         void SetSkyLighting(ITextureView* pIrradianceSRV, ITextureView* pSpecularSRV) override;
 
@@ -20,8 +23,9 @@ namespace Diligent {
         // Creates the TLAS and fallback environment map, then the passes that trace rays (RebuildRayPipelines)
         void CreatePasses() override;
 
-        // Draws the blended materials over the lit scene, farthest first (Shaders/glass_ps.hlsl). Call once the scene
-        // is in the target; does nothing without glass in the frame or with glass switched off in the project.
+        // Draws the blended materials, and the opaque ones that let light through (ModelRenderInstance::TransmissiveSubmeshIndices),
+        // over the lit scene, farthest first (Shaders/glass_ps.hlsl). Call once the scene is in the target; does nothing
+        // without glass in the frame or with glass switched off in the project.
         void RenderGlass(IDeviceContext* pContext, const FrameTarget& target);
 
         // Builds m_Glass with the ray tracing variables, like the pass that lights the scene

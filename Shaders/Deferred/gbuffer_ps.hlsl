@@ -30,6 +30,7 @@ void main_ps(in PSInput In, out GBufferOutput Out)
 
     float3 geoN = normalize(In.Normal);
     float3 N = ApplyNormalMap(In, geoN);
+    roughness = FilterRoughnessByNormal(N, roughness);
 
     // Pack data into the G-Buffer
     Out.AlbedoMetallic = float4(albedo.rgb, metallic);

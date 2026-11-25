@@ -175,6 +175,11 @@ void Diligent::HybridPipeline::UpdateProjectSettings(IDeviceContext* /*pContext*
     m_TransparencySettings = settings.transparency;
 }
 
+bool Diligent::HybridPipeline::DrawsGlass() const
+{
+    return m_TransparencySettings.enabled && m_TransparencySettings.glass;
+}
+
 void Diligent::HybridPipeline::FinishFrame(IDeviceContext* pContext, const FrameTarget& target)
 {
     RenderGlass(pContext, target);
@@ -191,7 +196,7 @@ void Diligent::HybridPipeline::RenderGlass(IDeviceContext* pContext, const Frame
     const glm::vec3 cameraPos = glm::vec3(glm::inverse(m_pFrameData->ViewMatrix)[3]);
     std::vector<std::pair<float, const ModelRenderInstance*>> sorted;
     for (const ModelRenderInstance& instance : m_pFrameData->Models) {
-        if (instance.TransparentSubmeshIndices.empty() || !instance.ModelData) continue;
+        if ((instance.TransparentSubmeshIndices.empty() && instance.TransmissiveSubmeshIndices.empty()) || !instance.ModelData) continue;
 
         const glm::vec3 localMiddle = (instance.ModelData->AABBMin + instance.ModelData->AABBMax) * 0.5f;
         const glm::vec3 middle = glm::vec3(instance.WorldTransform * glm::vec4(localMiddle, 1.0f));
@@ -212,7 +217,7 @@ void Diligent::HybridPipeline::StartFrameRender(IDeviceContext* pContext, const 
 {
     m_pFrameData = &renderData;
     BasePipeline::StartFrameRender(pContext, renderData);
-    m_SceneTLAS.Build(pContext, renderData);
+    m_SceneTLAS.Build(pContext, renderData, DrawsGlass());
     // Before the scene buffers are bound: the passes it rebuilds bind them too
     UpdateAlphaRays();
 
