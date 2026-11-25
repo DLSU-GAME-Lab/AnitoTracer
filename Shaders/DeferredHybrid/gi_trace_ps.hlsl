@@ -20,6 +20,7 @@ Texture2D g_GBufferDepth;
 
 // A single very bright sample (a ray that happens to land on a small strong light) would take many frames to average
 // out and would show as a slowly fading blotch. Capping it trades a little lost light for a steady image.
+// Where the object that was hit has an Emissive Light above 1, the limit grows with it (see TraceGIRay).
 static const float GI_MAX_SAMPLE_LUMINANCE = 64.0;
 
 // One ray from a surface point. Returns the radiance it found (rgb) and how open the surroundings are along it (a).
@@ -34,6 +35,7 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
 
     float3 light = float3(0.0, 0.0, 0.0);
     float openness = 1.0;
+    float maxLuminance = GI_MAX_SAMPLE_LUMINANCE;
     SceneHit hit;
     if (TraceSceneRay(origin, dir, g_GIMaxDistance, hit))
     {
@@ -43,8 +45,8 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
         if (hit.Shadeable)
         {
             // Bounce light is soft, so the hit is shaded matte and its textures are read blurry (a wide footprint):
-            // fine texture detail would only add noise
-            uint hitFlags = 0u;
+            // fine texture detail would only add noise. Its glow counts as the light it casts: its object's Emissive Light applies.
+            uint hitFlags = HIT_EMISSIVE_LIGHT;
             if ((g_GIFlags & GI_FLAG_HIT_SHADOWS) != 0u) hitFlags |= HIT_SHADOWS;
 
             // Indirect light at the hit. If the hit was on screen last frame, the GI gathered there is exactly that:
@@ -71,6 +73,10 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
             }
 
             light = ShadeSceneHit(hit, dir, 0.1 * hit.Distance, ShiftNoise(noise, 1), hitFlags, hitIndirect);
+
+            // A glow made brighter on purpose is a brighter sample on purpose: the limit rises with it, or the multiplier
+            // would stop adding once the glow reached the limit
+            maxLuminance *= max(hit.Material.EmissiveLight, 1.0);
         }
     }
     else
@@ -81,9 +87,9 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
 
     light = SanitizeLight(light);
     float luminance = Luminance(light);
-    if (luminance > GI_MAX_SAMPLE_LUMINANCE)
+    if (luminance > maxLuminance)
     {
-        light *= GI_MAX_SAMPLE_LUMINANCE / luminance;
+        light *= maxLuminance / luminance;
     }
     return float4(light, openness);
 }

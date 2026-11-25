@@ -39,6 +39,7 @@ namespace Diligent {
 
                     const glm::vec3 materialEmissive = glm::vec3(mat.EmissiveFactor.r, mat.EmissiveFactor.g, mat.EmissiveFactor.b) * mat.EmissiveStrength;
                     record.Emissive = over.OverrideEmissive ? over.Emissive : materialEmissive;
+                    record.EmissiveLight = over.OverrideEmissiveLight ? over.EmissiveLight : 1.0f;
 
                     record.BaseColorTexture = pool.GetTextureSlot(mat.BaseColor);
                     record.MetallicRoughnessTexture = pool.GetTextureSlot(mat.MetallicRoughness);

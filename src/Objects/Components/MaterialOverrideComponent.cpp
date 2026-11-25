@@ -10,6 +10,8 @@ MaterialOverrides MaterialOverrideComponent::GetOverrides() const {
     overrides.Metallic = m_metallic;
     overrides.OverrideEmissive = m_overrideEmissive;
     overrides.Emissive = m_emissiveColor * m_emissiveStrength;
+    overrides.OverrideEmissiveLight = m_overrideEmissiveLight;
+    overrides.EmissiveLight = std::max(m_emissiveLight, 0.0f);
     overrides.OverrideAlpha = m_overrideAlpha;
     overrides.Alpha = std::clamp(m_alpha, 0.0f, 1.0f);
 
@@ -25,7 +27,7 @@ MaterialOverrides MaterialOverrideComponent::GetOverrides() const {
 }
 
 bool MaterialOverrideComponent::HasAnyOverride() const {
-    return m_overrideRoughness || m_overrideMetallic || m_overrideEmissive || m_overrideAlpha
+    return m_overrideRoughness || m_overrideMetallic || m_overrideEmissive || m_overrideEmissiveLight || m_overrideAlpha
         || m_overrideClearcoat || m_overrideSheen || m_overrideTransmission;
 }
 
@@ -33,6 +35,7 @@ void MaterialOverrideComponent::ClearOverrides() {
     m_overrideRoughness = false;
     m_overrideMetallic = false;
     m_overrideEmissive = false;
+    m_overrideEmissiveLight = false;
     m_overrideAlpha = false;
     m_overrideClearcoat = false;
     m_overrideSheen = false;

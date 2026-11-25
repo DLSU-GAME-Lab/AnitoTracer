@@ -13,6 +13,10 @@ struct MaterialOverrides {
     // Replaces the material's emissive color * strength; the emissive map still applies
     bool OverrideEmissive = false;
     glm::vec3 Emissive{ 1.0f };
+    // How many times brighter the light the surface's glow casts on its surroundings is than the glow itself. Only the rays that
+    // gather indirect light (per-pixel GI) read it: how the surface looks, and what a reflection of it shows, stay as they are.
+    bool OverrideEmissiveLight = false;
+    float EmissiveLight = 1.0f;
     // Draws the surface as glass: it is blended with this alpha, whatever its material says
     bool OverrideAlpha = false;
     float Alpha = 1.0f;
@@ -34,6 +38,7 @@ struct MaterialOverrides {
         if (over.OverrideRoughness) { OverrideRoughness = true; Roughness = over.Roughness; }
         if (over.OverrideMetallic) { OverrideMetallic = true; Metallic = over.Metallic; }
         if (over.OverrideEmissive) { OverrideEmissive = true; Emissive = over.Emissive; }
+        if (over.OverrideEmissiveLight) { OverrideEmissiveLight = true; EmissiveLight = over.EmissiveLight; }
         if (over.OverrideAlpha) { OverrideAlpha = true; Alpha = over.Alpha; }
         if (over.OverrideClearcoat) { OverrideClearcoat = true; Clearcoat = over.Clearcoat; ClearcoatRoughness = over.ClearcoatRoughness; }
         if (over.OverrideSheen) { OverrideSheen = true; SheenColor = over.SheenColor; SheenRoughness = over.SheenRoughness; }
@@ -42,7 +47,7 @@ struct MaterialOverrides {
 
     // True when any property is replaced
     bool Any() const {
-        return OverrideRoughness || OverrideMetallic || OverrideEmissive || OverrideAlpha
+        return OverrideRoughness || OverrideMetallic || OverrideEmissive || OverrideEmissiveLight || OverrideAlpha
             || OverrideClearcoat || OverrideSheen || OverrideTransmission;
     }
 };

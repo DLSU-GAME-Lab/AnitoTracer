@@ -38,6 +38,14 @@ public:
     void SetEmissiveStrength(float strength) { m_emissiveStrength = strength; }
     float GetEmissiveStrength() const { return m_emissiveStrength; }
 
+    // How many times brighter the light the surface's glow casts on its surroundings is than the glow looks (1: as bright).
+    // Only the rays that gather indirect light see it (the Deferred Hybrid renderer's per-pixel GI), so the surface and its
+    // reflections look the same. It scales whatever glow there is: the material's own, or the emissive override above.
+    void SetOverrideEmissiveLight(bool enabled) { m_overrideEmissiveLight = enabled; }
+    bool GetOverrideEmissiveLight() const { return m_overrideEmissiveLight; }
+    void SetEmissiveLight(float multiplier) { m_emissiveLight = multiplier; }
+    float GetEmissiveLight() const { return m_emissiveLight; }
+
     // Draws the surface as glass: it is blended with this alpha (0 clear, 1 solid), whatever its material says
     void SetOverrideAlpha(bool enabled) { m_overrideAlpha = enabled; }
     bool GetOverrideAlpha() const { return m_overrideAlpha; }
@@ -95,6 +103,12 @@ private:
 
     float m_emissiveStrength = 1.0f;
     GBE_SERIALIZE_FIELD_W_NAME(m_emissiveStrength, "Emissive Strength");
+
+    bool m_overrideEmissiveLight = false;
+    GBE_SERIALIZE_FIELD_W_NAME(m_overrideEmissiveLight, "Override Emissive Light");
+
+    float m_emissiveLight = 1.0f;
+    GBE_SERIALIZE_FIELD_W_NAME(m_emissiveLight, "Emissive Light");
 
     bool m_overrideAlpha = false;
     GBE_SERIALIZE_FIELD_W_NAME(m_overrideAlpha, "Override Alpha");

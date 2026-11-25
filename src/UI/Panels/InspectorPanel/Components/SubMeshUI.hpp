@@ -72,6 +72,7 @@ private:
                 inherited.EmissiveColor = modelComponent->GetEmissiveColor();
                 inherited.EmissiveStrength = modelComponent->GetEmissiveStrength();
             }
+            if (modelComponent->GetOverrideEmissiveLight()) inherited.EmissiveLight = modelComponent->GetEmissiveLight();
             if (modelComponent->GetOverrideAlpha()) inherited.Alpha = modelComponent->GetAlpha();
             if (modelComponent->GetOverrideClearcoat()) {
                 inherited.Clearcoat = modelComponent->GetClearcoat();

@@ -15,6 +15,7 @@ namespace MaterialOverrideUI {
         float Metallic = 0.0f;
         glm::vec3 EmissiveColor{ 1.0f };
         float EmissiveStrength = 1.0f;
+        float EmissiveLight = 1.0f;
         float Alpha = 1.0f;
         float Clearcoat = 0.0f;
         float ClearcoatRoughness = 0.0f;
@@ -95,6 +96,33 @@ namespace MaterialOverrideUI {
         ImGui::PopID();
     }
 
+    // Checkbox, then how many times brighter the light the glow casts on its surroundings is than the glow looks. A slider that
+    // is logarithmic, since what is useful runs from 1 to well over 100: a small glow lights little until it is boosted a lot.
+    inline void DrawEmissiveLightOverride(Component* component, const Inherited* inherited)
+    {
+        ImGui::PushID("EmissiveLight");
+
+        bool enabled = component->GetOverrideEmissiveLight();
+        if (ImGui::Checkbox("##Override", &enabled)) {
+            component->SetOverrideEmissiveLight(enabled);
+            if (enabled && inherited) component->SetEmissiveLight(inherited->EmissiveLight);
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Make the light the glow casts on its surroundings stronger or weaker than the glow looks.\nThe surface and its reflections look the same.");
+
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!enabled);
+        // The Inspector is narrow, and a label cut to "Emissive" would pass for the row above: the slider gives way to the whole label
+        float sliderWidth = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Emissive Light").x - ImGui::GetStyle().ItemInnerSpacing.x;
+        ImGui::SetNextItemWidth(sliderWidth > 60.0f ? sliderWidth : 60.0f);
+        float value = (enabled || !inherited) ? component->GetEmissiveLight() : inherited->EmissiveLight;
+        if (ImGui::SliderFloat("Emissive Light", &value, 0.0f, 1000.0f, "%.2fx", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp))
+            component->SetEmissiveLight(value);
+        ImGui::EndDisabled();
+
+        ImGui::PopID();
+    }
+
     // Checkbox, then the sheen color and how wide its rim is, greyed out while it's off
     inline void DrawSheenOverride(Component* component, const Inherited* inherited)
     {
@@ -142,6 +170,9 @@ namespace MaterialOverrideUI {
             &Component::GetOverrideMetallic, &Component::SetOverrideMetallic,
             &Component::GetMetallic, &Component::SetMetallic, inherited ? &inherited->Metallic : nullptr);
         DrawEmissiveOverride(component, inherited);
+        DrawEmissiveLightOverride(component, inherited);
+        if (component->GetOverrideEmissiveLight())
+            DrawHint("The glow's light on nearby surfaces. Only the Deferred Hybrid renderer with Per-pixel GI carries it.");
 
         DrawFloatOverride("Alpha", component,
             &Component::GetOverrideAlpha, &Component::SetOverrideAlpha,

@@ -114,7 +114,11 @@ namespace Diligent {
         // Glass (SCENE_GEOMETRY_BLEND): the share of the light that goes through. 1 for a blended material, which only
         // takes away what its alpha says; the material's transmission where it lets light through.
         float Transmission = 1.0f;
-        float Padding[3] = { 0.0f, 0.0f, 0.0f };
+
+        // How many times brighter the light the surface's glow casts on its surroundings is than the glow looks. Only the rays
+        // that gather indirect light read it (HIT_EMISSIVE_LIGHT in Shaders/rt_scene.hlsli). 1 unless the object or submesh sets it.
+        float EmissiveLight = 1.0f;
+        float Padding[2] = { 0.0f, 0.0f };
     };
     static_assert(sizeof(SceneGeometryRecord) == 80, "SceneGeometryRecord must match Shaders/rt_scene_data.hlsli");
 

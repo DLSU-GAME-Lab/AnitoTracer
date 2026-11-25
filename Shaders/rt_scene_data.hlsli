@@ -40,9 +40,9 @@ struct SceneGeometryRecord
     float AlphaCutoff;              // Cutout materials: pixels with less alpha than this are not there
 
     float Transmission;             // Glass: the share of the light that goes through. 1 for a blended material.
-    float Padding0;                 // Three floats rather than a float3, which a structured buffer would align to 16 bytes
+    float EmissiveLight;            // How many times brighter the light the glow casts on its surroundings is than the glow looks (HIT_EMISSIVE_LIGHT)
+    float Padding0;                 // Single floats rather than a vector, which a structured buffer would align
     float Padding1;
-    float Padding2;
 };
 
 static const uint SCENE_GEOMETRY_IN_POOL = 1u;          // The triangle's vertices can be read; otherwise the hit can't be shaded
