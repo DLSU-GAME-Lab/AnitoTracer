@@ -43,6 +43,16 @@ struct SubMesh {
     Uint32 IndexOffset = 0;
     Uint32 BaseVertex = 0;
     Uint32 MaterialIndex = 0;
+
+    // The name the model file gives this part (the OBJ group, the glTF mesh), or its material's name; empty when it has neither
+    std::string Name;
+
+    // Where the part is, in the model's own space (inverted, min above max, while the part has no vertices)
+    float3 AABBMin = float3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+    float3 AABBMax = float3(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest());
+
+    bool HasBounds() const { return AABBMin.x <= AABBMax.x && AABBMin.y <= AABBMax.y && AABBMin.z <= AABBMax.z; }
+    float3 Center() const { return HasBounds() ? (AABBMin + AABBMax) * 0.5f : float3(0.0f, 0.0f, 0.0f); }
 };
 
 // How a material's alpha channel is used. Mirrors glTF's alphaMode.

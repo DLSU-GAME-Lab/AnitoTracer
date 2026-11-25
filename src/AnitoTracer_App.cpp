@@ -429,6 +429,11 @@ void AnitoTracer_App::Update()
     //===============//EVENTS//===============//
     SceneManager::GetInstance().ProcessPendingSceneChange();
 
+    // Every submesh of a model that has several gets a node in the hierarchy. Editor only: a scene that plays is the scene as saved.
+    if (!AppState::isPlaying) {
+        HierarchyManager::GetInstance().SyncSubMeshNodes();
+    }
+
     ForwardImGuiInputToSystem();
     gbe::InputSystem::Update();
 

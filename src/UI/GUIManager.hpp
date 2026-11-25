@@ -28,6 +28,7 @@
 #include "Panels/InspectorPanel/Components/SpotLightUI.hpp"
 #include "Panels/InspectorPanel/Components/AreaLightUI.hpp"
 #include "Panels/InspectorPanel/Components/ModelUI.hpp"
+#include "Panels/InspectorPanel/Components/SubMeshUI.hpp"
 #include "Panels/InspectorPanel/Components/AudioSourceUI.hpp"
 #include "Panels/InspectorPanel/Components/ParticleSystemUI.hpp"
 

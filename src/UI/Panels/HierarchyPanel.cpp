@@ -431,11 +431,21 @@ namespace Diligent {
 
         // Render the node using the object's memory address as a unique ID
         const bool isPrefabInstance = node.GetPtr()->IsPrefabInstance();
+        // A node that stands for one submesh of its parent's model (HierarchyManager::SyncSubMeshNodes). It belongs to that
+        // object: it can't be deleted, copied or moved out, unless the model changed and it stands for no submesh any more.
+        const SubMeshComponent* subMesh = node.GetPtr()->GetComponent<SubMeshComponent>();
+        const bool isLiveSubMesh = subMesh && !subMesh->IsOrphaned();
         const bool renaming = m_RenameTarget == node;
+        const char* suffix = "";
+        if (!renaming) {
+            if (isPrefabInstance) suffix = " [Prefab]";
+            else if (isLiveSubMesh) suffix = " [Submesh]";
+            else if (subMesh) suffix = " [Submesh: unused]";
+        }
         bool nodeOpen = ImGui::TreeNodeEx(
             (void*)node.GetID(), flags, "%s%s",
             renaming ? "##RenameNode" : node.GetPtr()->GetName().c_str(),
-            (!renaming && isPrefabInstance) ? " [Prefab]" : "");
+            suffix);
         m_VisibleOrder.push_back(node);
         const bool nodeClicked = !renaming && ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen();
 
@@ -526,7 +536,7 @@ namespace Diligent {
                 m_PendingCreateEmpty = true;
             }
 
-            if (ImGui::MenuItem("Copy", "Ctrl+C"))
+            if (ImGui::MenuItem("Copy", "Ctrl+C", false, !isLiveSubMesh))
             {
                 HierarchyManager::GetInstance().CopyObjects(GetSelectedRoots());
             }
@@ -537,7 +547,7 @@ namespace Diligent {
                 PasteAndSelect(node);
             }
 
-            if (ImGui::MenuItem("Create Prefab Asset"))
+            if (ImGui::MenuItem("Create Prefab Asset", nullptr, false, !isLiveSubMesh))
             {
                 PrefabFeature::GetInstance().CreatePrefabAsset(node);
                 SetSelectedObject(node);
@@ -563,7 +573,17 @@ namespace Diligent {
             }
 
             ImGui::Separator();
-            if (ImGui::MenuItem("Delete Object", "Del"))
+            if (isLiveSubMesh)
+            {
+                // The node goes with its object; what can be undone here is what was overridden on it
+                if (ImGui::MenuItem("Reset Submesh Overrides", nullptr, false, node.GetPtr()->GetComponent<SubMeshComponent>()->HasAnyOverride()))
+                {
+                    HierarchyManager::GetInstance().BeginUndoableAction();
+                    node.GetPtr()->GetComponent<SubMeshComponent>()->ClearOverrides();
+                    HierarchyManager::GetInstance().EndUndoableAction();
+                }
+            }
+            if (ImGui::MenuItem("Delete Object", "Del", false, !isLiveSubMesh))
             {
                 if (IsSelected(node))
                 {

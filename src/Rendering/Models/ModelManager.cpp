@@ -443,10 +443,22 @@ void ModelManager::ProcessMeshes(const aiScene* pScene, Model* pModel, std::vect
         submesh.IndexOffset = static_cast<Uint32>(outIndices.size());
         submesh.MaterialIndex = mesh->mMaterialIndex;
 
+        // Its name: the one the file gives the mesh, else its material's
+        submesh.Name = mesh->mName.C_Str();
+        if (submesh.Name.empty() && mesh->mMaterialIndex < pScene->mNumMaterials) {
+            aiString materialName;
+            if (pScene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_NAME, materialName) == AI_SUCCESS) {
+                submesh.Name = materialName.C_Str();
+            }
+        }
+
         // Process Vertices
         for (unsigned int j = 0; j < mesh->mNumVertices; j++) {
             Vertex v{};
             v.pos = float3(mesh->mVertices[j].x, mesh->mVertices[j].y, mesh->mVertices[j].z);
+
+            submesh.AABBMin = float3(std::min(submesh.AABBMin.x, v.pos.x), std::min(submesh.AABBMin.y, v.pos.y), std::min(submesh.AABBMin.z, v.pos.z));
+            submesh.AABBMax = float3(std::max(submesh.AABBMax.x, v.pos.x), std::max(submesh.AABBMax.y, v.pos.y), std::max(submesh.AABBMax.z, v.pos.z));
 
             // Dynamically calculate AABB limits
             pModel->AABBMin.x = std::min(pModel->AABBMin.x, v.pos.x);

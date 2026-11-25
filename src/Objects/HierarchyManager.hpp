@@ -16,6 +16,7 @@
 #include "Components/EditorCamera.hpp"
 #include "Components/GameCamera.hpp"
 #include "Components/ModelComponent.hpp"
+#include "Components/SubMeshComponent.hpp"
 #include "Models/ModelStructs.hpp"
 
 #include "../Rendering/RenderData.hpp"
@@ -156,6 +157,13 @@ public:
 
     // Ensures editor tooling always has a valid editor camera after scene loads.
     void EnsureEditorCameraExists();
+
+    // Keeps a child under every object whose model has more than one submesh, one per submesh (a SubMeshComponent), so
+    // each part shows in the Hierarchy and can be given overrides and components. It makes the missing ones, puts them
+    // in order, keeps each at the middle of its part, and removes the ones that no longer stand for a submesh unless
+    // they hold something (overrides, components, children). Cheap when nothing changed: call it once a frame in the
+    // editor, before anything reads the hierarchy. Does not record undo steps.
+    void SyncSubMeshNodes();
 
     void LoadScene(std::filesystem::path filepath);
     void CreateNewScene();

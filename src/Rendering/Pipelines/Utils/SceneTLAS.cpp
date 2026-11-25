@@ -25,23 +25,26 @@ namespace Diligent {
                     record.Flags |= SCENE_GEOMETRY_IN_POOL;
                 }
 
+                // The object's overrides, with this submesh's laid over them where its node in the hierarchy has some
+                const MaterialOverrides& over = instance.OverridesFor(submeshIdx);
+
                 if (submesh.MaterialIndex < model.PBRMaterials.size()) {
                     const PBRMaterial& mat = model.PBRMaterials[submesh.MaterialIndex];
 
                     record.BaseColor = glm::vec4(mat.BaseColorFactor.r, mat.BaseColorFactor.g, mat.BaseColorFactor.b, mat.BaseColorFactor.a);
-                    record.Roughness = instance.OverrideRoughness ? instance.Roughness : mat.RoughnessFactor;
-                    record.Metallic = instance.OverrideMetallic ? instance.Metallic : mat.MetallicFactor;
-                    if (instance.OverrideRoughness) record.Flags |= SCENE_GEOMETRY_ROUGHNESS_FIXED;
-                    if (instance.OverrideMetallic) record.Flags |= SCENE_GEOMETRY_METALLIC_FIXED;
+                    record.Roughness = over.OverrideRoughness ? over.Roughness : mat.RoughnessFactor;
+                    record.Metallic = over.OverrideMetallic ? over.Metallic : mat.MetallicFactor;
+                    if (over.OverrideRoughness) record.Flags |= SCENE_GEOMETRY_ROUGHNESS_FIXED;
+                    if (over.OverrideMetallic) record.Flags |= SCENE_GEOMETRY_METALLIC_FIXED;
 
                     const glm::vec3 materialEmissive = glm::vec3(mat.EmissiveFactor.r, mat.EmissiveFactor.g, mat.EmissiveFactor.b) * mat.EmissiveStrength;
-                    record.Emissive = instance.OverrideEmissive ? instance.Emissive : materialEmissive;
+                    record.Emissive = over.OverrideEmissive ? over.Emissive : materialEmissive;
 
                     record.BaseColorTexture = pool.GetTextureSlot(mat.BaseColor);
                     record.MetallicRoughnessTexture = pool.GetTextureSlot(mat.MetallicRoughness);
                     record.EmissiveTexture = pool.GetTextureSlot(mat.Emissive);
 
-                    const float transmission = instance.ResolveLayers(mat).Transmission;
+                    const float transmission = instance.ResolveLayers(mat, submeshIdx).Transmission;
                     if (mat.AlphaMode == MaterialAlphaMode::Blend) {
                         record.Flags |= SCENE_GEOMETRY_BLEND;
                         // Glass that also lets light through takes what its alpha says away from what the transmission lets pass
@@ -59,8 +62,8 @@ namespace Diligent {
                 }
 
                 // Glass whatever the material says: rays see it with the override's alpha
-                if (instance.OverrideAlpha) {
-                    record.BaseColor.a = instance.Alpha;
+                if (over.OverrideAlpha) {
+                    record.BaseColor.a = over.Alpha;
                     record.Flags = (record.Flags & ~static_cast<uint32_t>(SCENE_GEOMETRY_ALPHA_MASK)) | SCENE_GEOMETRY_BLEND;
                     record.AlphaCutoff = 0.0f;
                 }
@@ -144,9 +147,9 @@ namespace Diligent {
                 continue;
 
             // Some of its submeshes are glass to rays because light goes through them (only where the renderer draws them
-            // as glass; and the override makes every submesh of the object glass, like the alpha override does)
+            // as glass; and a transmission override makes its submeshes glass, like the alpha override does)
             const bool transmissionGlass = transmissionIsGlass && modelInstance.TransmissionEnabled
-                && (modelInstance.ModelData->HasTransmission || modelInstance.OverrideTransmission);
+                && (modelInstance.ModelData->HasTransmission || modelInstance.AnyOverrideTransmission);
 
             TLASBuildInstanceData tlasInst{};
 
@@ -161,9 +164,10 @@ namespace Diligent {
                 tlasInst.CustomId = static_cast<Uint32>(GeometryRecords.size());
                 AppendGeometryRecords(modelInstance, transmissionIsGlass, GeometryRecords);
             }
-            // A model whose geometry is flagged opaque is solid to rays; an object turned into glass by the alpha or
-            // transmission override isn't, so its triangles are handed to the shader to judge
-            const bool overriddenToGlass = modelInstance.OverrideAlpha || (transmissionIsGlass && modelInstance.TransmissionEnabled && modelInstance.OverrideTransmission);
+            // A model whose geometry is flagged opaque is solid to rays; an object (or a submesh of it) turned into glass by the
+            // alpha or transmission override isn't, so its triangles are handed to the shader to judge
+            const bool overriddenToGlass = modelInstance.AnyOverrideAlpha
+                || (transmissionIsGlass && modelInstance.TransmissionEnabled && modelInstance.AnyOverrideTransmission);
             tlasInst.Flags = overriddenToGlass ? RAYTRACING_INSTANCE_FORCE_NO_OPAQUE : RAYTRACING_INSTANCE_NONE;
             tlasInst.Mask = 0xFF;
 
@@ -178,7 +182,7 @@ namespace Diligent {
 
             Instances.push_back(tlasInst);
             if (!modelInstance.TransparentSubmeshIndices.empty() || (transmissionIsGlass && !modelInstance.TransmissiveSubmeshIndices.empty())) hasGlass = true;
-            if (modelInstance.ModelData->HasAlphaGeometry || modelInstance.OverrideAlpha || transmissionGlass) hasAlphaGeometry = true;
+            if (modelInstance.ModelData->HasAlphaGeometry || modelInstance.AnyOverrideAlpha || transmissionGlass) hasAlphaGeometry = true;
         }
 
         // An empty build would pass a null pInstances; the previous frame's TLAS stays valid instead
