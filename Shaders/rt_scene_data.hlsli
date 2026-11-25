@@ -38,6 +38,11 @@ struct SceneGeometryRecord
     float Metallic;
     uint Flags;                     // SCENE_GEOMETRY_* bits
     float AlphaCutoff;              // Cutout materials: pixels with less alpha than this are not there
+
+    float Transmission;             // Glass: the share of the light that goes through. 1 for a blended material.
+    float EmissiveLight;            // How many times brighter the light the glow casts on its surroundings is than the glow looks (HIT_EMISSIVE_LIGHT)
+    float Padding0;                 // Single floats rather than a vector, which a structured buffer would align
+    float Padding1;
 };
 
 static const uint SCENE_GEOMETRY_IN_POOL = 1u;          // The triangle's vertices can be read; otherwise the hit can't be shaded
@@ -45,6 +50,7 @@ static const uint SCENE_GEOMETRY_ROUGHNESS_FIXED = 2u;  // Roughness is a per-ob
 static const uint SCENE_GEOMETRY_METALLIC_FIXED = 4u;   // Same for metallic
 static const uint SCENE_GEOMETRY_ALPHA_MASK = 8u;       // A cutout: rays test the base color's alpha against AlphaCutoff
 static const uint SCENE_GEOMETRY_BLEND = 16u;           // Glass: the base color's rgb tints what passes through, its alpha says how much
+static const uint SCENE_GEOMETRY_TRANSMISSIVE = 32u;    // With BLEND: an opaque material that lets light through; its alpha means nothing
 
 StructuredBuffer<SceneVertex> g_SceneVertices;
 StructuredBuffer<uint> g_SceneIndices;
@@ -71,11 +77,14 @@ float4 SceneBaseColorAt(SceneGeometryRecord record, uint primitive, float2 bary)
     return color;
 }
 
-// What a pane of glass lets through at that point: its color, as much of it as the glass is opaque
+// What a pane of glass lets through at that point: its color, as much of it as the glass is opaque, and no more light than
+// its transmission lets pass (all of it for plain glass). A material that is opaque but lets light through has an alpha
+// that means nothing: the color tints all of what passes.
 float3 GlassTransmittanceAt(SceneGeometryRecord record, uint primitive, float2 bary)
 {
     float4 color = SceneBaseColorAt(record, primitive, bary);
-    return lerp(float3(1.0, 1.0, 1.0), color.rgb, saturate(color.a));
+    float alpha = (record.Flags & SCENE_GEOMETRY_TRANSMISSIVE) != 0u ? 1.0 : saturate(color.a);
+    return lerp(float3(1.0, 1.0, 1.0), color.rgb, alpha) * record.Transmission;
 }
 
 // Whether a ray stops at a cutout's triangle: it does where the material's alpha reaches its cutoff, and goes

@@ -16,6 +16,7 @@
 #include "Components/EditorCamera.hpp"
 #include "Components/GameCamera.hpp"
 #include "Components/ModelComponent.hpp"
+#include "Components/SubMeshComponent.hpp"
 #include "Models/ModelStructs.hpp"
 
 #include "../Rendering/RenderData.hpp"
@@ -25,6 +26,7 @@
 #include "Components/Lights/AreaLight.hpp"
 
 struct ProjectPhysicalLightSettings;
+struct ProjectMaterialSettings;
 
 #include ANITO_SERIALIZATION_INCLUDES
 #include ANITO_EVENT_INCLUDES
@@ -106,8 +108,9 @@ public:
     bool GetMainCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
     bool GetEditorCameraMatrices(glm::mat4& outViewMatrix, glm::mat4& outProjectionMatrix);
 
-    // Gathers all Models and their evaluated world transforms
-    void GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const;
+    // Gathers all Models and their evaluated world transforms. The settings decide which layers over the base material
+    // (clear coat, sheen, transmission) the models carry, and which submeshes are drawn with the glass because of one.
+    void GatherRenderModels(std::vector<ModelRenderInstance>& outModels, const ProjectMaterialSettings& materials) const;
 
     // Gathers all active lights in the hierarchy and processes their world transforms. The settings decide how their
     // brightness and size are read: with real units on, lumens and lux are turned into scene values at the project's exposure.
@@ -154,6 +157,13 @@ public:
 
     // Ensures editor tooling always has a valid editor camera after scene loads.
     void EnsureEditorCameraExists();
+
+    // Keeps a child under every object whose model has more than one submesh, one per submesh (a SubMeshComponent), so
+    // each part shows in the Hierarchy and can be given overrides and components. It makes the missing ones, puts them
+    // in order, keeps each at the middle of its part, and removes the ones that no longer stand for a submesh unless
+    // they hold something (overrides, components, children). Cheap when nothing changed: call it once a frame in the
+    // editor, before anything reads the hierarchy. Does not record undo steps.
+    void SyncSubMeshNodes();
 
     void LoadScene(std::filesystem::path filepath);
     void CreateNewScene();

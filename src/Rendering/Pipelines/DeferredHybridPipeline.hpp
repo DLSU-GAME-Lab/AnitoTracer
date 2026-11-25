@@ -44,7 +44,7 @@ namespace Diligent {
         void RebuildRayPipelines() override;
 
     private:
-        // Position of the motion vector target among the G-buffer's color attachments (see CreatePasses)
+        // Position of the motion vector target among the G-buffer's color attachments (see CreatePasses and gbuffer_common.hlsli)
         static constexpr size_t kGBufferVelocity = 4;
         // A shadow texture holds four lights, one per channel: MAX_DIR_LIGHTS + MAX_POINT_LIGHTS fit in three
         static constexpr Uint32 kMaxShadowLayers = 3;

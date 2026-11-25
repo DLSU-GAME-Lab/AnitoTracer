@@ -262,6 +262,11 @@ namespace Diligent {
                     "Needs Denoising on for indirect light.");
                 saveAfterEdit();
 
+                if (ImGui::Checkbox("Keep Light in Blur##GI", &giSettings.preserve_light)) saveProjectSettings();
+                tooltip("The blur passes move light between pixels without losing any, so a small bright area (a bulb, a glowing texture) lights its surroundings with all its light.\n"
+                    "Off: the blur as it was before, which lost about half the light of a small bright area. For comparing the two.\n"
+                    "Needs Denoising on for indirect light, and at least one blur pass.");
+
                 ImGui::EndDisabled();
 
                 ImGui::EndDisabled();
@@ -470,6 +475,75 @@ namespace Diligent {
                 if (ImGui::Button("Reset Physical Lights to Defaults"))
                 {
                     lightSettings = ProjectPhysicalLightSettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Materials Section
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Materials", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& materialSettings = projectSettings.materials;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+
+                const PipelineType rendererType = UserSettings::GetInstance().GetRendererType();
+                if (rendererType == DEFERRED)
+                {
+                    ImGui::TextDisabled("This renderer only applies specular anti-aliasing. The layers below show in Hybrid, Deferred Hybrid and Basic Lit.");
+                }
+                else if (rendererType == CROSSHATCH || rendererType == CROSSHATCH_RT || rendererType == ANIME)
+                {
+                    ImGui::TextDisabled("This renderer is stylized: none of the below applies to it.");
+                }
+
+                // The one switch for comparison tests: off is how materials looked before
+                if (ImGui::Checkbox("Advanced Materials", &materialSettings.enabled)) saveProjectSettings();
+                tooltip("Off: every material is a plain metal or dielectric, as before: highlights are as sharp as the normals say,\n"
+                    "there is no clear coat or sheen, and a material that lets light through is solid. For comparing.");
+
+                ImGui::BeginDisabled(!materialSettings.enabled);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Specular Anti-Aliasing", &materialSettings.specular_aa)) saveProjectSettings();
+                tooltip("Roughness grows where the normal changes fast from one pixel to the next (normal-mapped metal, curved\n"
+                    "shiny surfaces), so their highlights stop sparkling as the camera moves. Smooth surfaces are not touched.\n"
+                    "Applies to every renderer that lights with the PBR material model.");
+
+                ImGui::BeginDisabled(!materialSettings.specular_aa);
+                ImGui::Indent();
+                ImGui::PushItemWidth(150.0f);
+                if (ImGui::SliderFloat("Strength##SpecularAA", &materialSettings.specular_aa_strength, 0.0f, 4.0f, "%.2f")) saveProjectSettings();
+                ImGui::PopItemWidth();
+                tooltip("How much roughness is added. 1 filters what the normals' change across a pixel calls for; more is blurrier.");
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                if (ImGui::Checkbox("Clearcoat", &materialSettings.clearcoat)) saveProjectSettings();
+                tooltip("Materials with a clear coat (glTF KHR_materials_clearcoat, or the Clearcoat override of a Model component)\n"
+                    "get a second, smoother highlight over the base layer, like car paint or lacquered wood.\n"
+                    "The coat reflects the sky and the lights, not the other objects.");
+
+                if (ImGui::Checkbox("Sheen", &materialSettings.sheen)) saveProjectSettings();
+                tooltip("Materials with sheen (glTF KHR_materials_sheen, or the Sheen override) get the soft rim of light that\n"
+                    "cloth fibres give at grazing angles.");
+
+                if (ImGui::Checkbox("Glass Transmission", &materialSettings.transmission)) saveProjectSettings();
+                tooltip("Materials that let light through (glTF KHR_materials_transmission, or the Transmission override) are drawn\n"
+                    "as glass: the view through them is refracted and tinted by their base color.\n"
+                    "The Hybrid and Deferred Hybrid renderers draw it, and follow the Transparency settings above.\n"
+                    "Off, or in any other renderer: such a material is solid.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Materials to Defaults"))
+                {
+                    materialSettings = ProjectMaterialSettings{};
                     saveProjectSettings();
                 }
             }

@@ -4,6 +4,7 @@ set(CUR_TARGET_NAME anito_${CUR_TARGET_SUBLIBNAME})
 
 set(${CUR_TARGET_NAME}_src
 	Models/ModelStructs.hpp
+	Models/MaterialOverrides.hpp
 	Models/ModelManager.hpp
 	Models/ModelManager.cpp
 	Models/SceneGeometryPool.hpp

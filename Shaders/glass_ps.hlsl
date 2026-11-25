@@ -16,12 +16,19 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 
     float4 albedo = SampleBaseColor(In.UV);
 
+    // A cutout that lets light through is still cut out (a blended material has no cutoff)
+    if (!PassesAlphaTest(albedo.a))
+    {
+        discard;
+    }
+
     float metallic;
     float roughness;
     SampleMetallicRoughness(In.UV, metallic, roughness);
 
     float3 geoN = normalize(In.Normal);
     float3 N = ApplyNormalMap(In, geoN);
+    roughness = FilterRoughnessByNormal(N, roughness);
 
     HybridSurface surface;
     surface.WorldPos = In.WorldPos;
@@ -33,10 +40,13 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     surface.Roughness = roughness;
     surface.AO = 1.0;
     surface.Emissive = SampleEmissive(In.UV);
+    surface.Layers = ReadMaterialLayers(geoN);
     surface.PixelSpread = pixelSpread;
     // Glass has no G-buffer entry, so it is lit with Sky + AO whichever GI method the scene uses
     surface.UseIndirectLight = false;
     surface.IndirectLight = float4(0.0, 0.0, 0.0, 1.0);
 
-    OutColor = ShadeGlassSurface(surface, saturate(albedo.a), g_MaterialParams.y, In.Pos.xy);
+    // A metal reflects all the light that reaches it: only the dielectric part of a surface lets any through
+    float transmission = g_MaterialParams.z * (1.0 - metallic);
+    OutColor = ShadeGlassSurface(surface, SurfaceOpacity(albedo.a), g_MaterialParams.y, transmission, In.Pos.xy);
 }

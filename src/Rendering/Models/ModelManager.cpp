@@ -287,6 +287,7 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
     bool modelHasAnyPBR = false;
     bool modelHasTransparency = false;
     bool modelHasAlphaGeometry = false;
+    bool modelHasTransmission = false;
 
     for (unsigned int i = 0; i < pScene->mNumMaterials; i++) {
         aiMaterial* material = pScene->mMaterials[i];
@@ -386,6 +387,32 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
             pbrMat.EmissiveStrength = emissiveStrength;
         }
 
+        // Layers over the base material: a clear coat (KHR_materials_clearcoat), cloth fibres (_sheen) and light passing
+        // through (_transmission). The factors only; their maps are not read.
+        float clearcoat = 0.0f;
+        if (material->Get(AI_MATKEY_CLEARCOAT_FACTOR, clearcoat) == AI_SUCCESS) {
+            pbrMat.Clearcoat = std::clamp(clearcoat, 0.0f, 1.0f);
+        }
+        float clearcoatRoughness = 0.0f;
+        if (material->Get(AI_MATKEY_CLEARCOAT_ROUGHNESS_FACTOR, clearcoatRoughness) == AI_SUCCESS) {
+            pbrMat.ClearcoatRoughness = std::clamp(clearcoatRoughness, 0.0f, 1.0f);
+        }
+
+        aiColor4D sheenColor(0.0f, 0.0f, 0.0f, 1.0f);
+        if (material->Get(AI_MATKEY_SHEEN_COLOR_FACTOR, sheenColor) == AI_SUCCESS) {
+            pbrMat.SheenColor = float3(std::max(sheenColor.r, 0.0f), std::max(sheenColor.g, 0.0f), std::max(sheenColor.b, 0.0f));
+        }
+        float sheenRoughness = 0.0f;
+        if (material->Get(AI_MATKEY_SHEEN_ROUGHNESS_FACTOR, sheenRoughness) == AI_SUCCESS) {
+            pbrMat.SheenRoughness = std::clamp(sheenRoughness, 0.0f, 1.0f);
+        }
+
+        float transmission = 0.0f;
+        if (material->Get(AI_MATKEY_TRANSMISSION_FACTOR, transmission) == AI_SUCCESS) {
+            pbrMat.Transmission = std::clamp(transmission, 0.0f, 1.0f);
+        }
+        if (pbrMat.Transmission > 0.0f) modelHasTransmission = true;
+
         // The maps a reflection shows: ray hits look these up in the scene texture array.
         // (Before the default white fallback below, which needs no slot: a hit without a map uses the color factor alone.)
         m_ScenePool.RegisterTexture(pbrMat.BaseColor);
@@ -405,6 +432,7 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
     pModel->HasPBRProperties = modelHasAnyPBR;
     pModel->HasTransparency = modelHasTransparency;
     pModel->HasAlphaGeometry = modelHasAlphaGeometry;
+    pModel->HasTransmission = modelHasTransmission;
 }
 
 void ModelManager::ProcessMeshes(const aiScene* pScene, Model* pModel, std::vector<Vertex>& outVertices, std::vector<Uint32>& outIndices) {
@@ -415,10 +443,22 @@ void ModelManager::ProcessMeshes(const aiScene* pScene, Model* pModel, std::vect
         submesh.IndexOffset = static_cast<Uint32>(outIndices.size());
         submesh.MaterialIndex = mesh->mMaterialIndex;
 
+        // Its name: the one the file gives the mesh, else its material's
+        submesh.Name = mesh->mName.C_Str();
+        if (submesh.Name.empty() && mesh->mMaterialIndex < pScene->mNumMaterials) {
+            aiString materialName;
+            if (pScene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_NAME, materialName) == AI_SUCCESS) {
+                submesh.Name = materialName.C_Str();
+            }
+        }
+
         // Process Vertices
         for (unsigned int j = 0; j < mesh->mNumVertices; j++) {
             Vertex v{};
             v.pos = float3(mesh->mVertices[j].x, mesh->mVertices[j].y, mesh->mVertices[j].z);
+
+            submesh.AABBMin = float3(std::min(submesh.AABBMin.x, v.pos.x), std::min(submesh.AABBMin.y, v.pos.y), std::min(submesh.AABBMin.z, v.pos.z));
+            submesh.AABBMax = float3(std::max(submesh.AABBMax.x, v.pos.x), std::max(submesh.AABBMax.y, v.pos.y), std::max(submesh.AABBMax.z, v.pos.z));
 
             // Dynamically calculate AABB limits
             pModel->AABBMin.x = std::min(pModel->AABBMin.x, v.pos.x);
@@ -604,9 +644,11 @@ void ModelManager::BuildBLAS(Model* pModel) {
         Tri.PrimitiveCount = submesh.IndexCount / 3;
 
         // Flagged opaque, a hit is final without the shader being asked. Cutouts and glass are left for rays to test
-        // (rt_scene.hlsli), which costs more, so only they go without the flag.
+        // (rt_scene.hlsli), which costs more, so only they go without the flag. A material that lets light through is glass
+        // to rays too (while the project has transmission on; with it off the record is plain and the ray hits it as a solid).
         const bool opaque = submesh.MaterialIndex >= pModel->PBRMaterials.size()
-            || pModel->PBRMaterials[submesh.MaterialIndex].AlphaMode == MaterialAlphaMode::Opaque;
+            || (pModel->PBRMaterials[submesh.MaterialIndex].AlphaMode == MaterialAlphaMode::Opaque
+                && pModel->PBRMaterials[submesh.MaterialIndex].Transmission <= 0.0f);
         // A triangle can be reported more than once; for glass that would tint a shadow twice
         Tri.Flags = opaque ? RAYTRACING_GEOMETRY_FLAG_OPAQUE : RAYTRACING_GEOMETRY_FLAG_NO_DUPLICATE_ANY_HIT_INVOCATION;
     }

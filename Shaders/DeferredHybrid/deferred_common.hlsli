@@ -23,8 +23,9 @@
 
 Texture2D g_GBufferAlbedoMetallic;
 Texture2D g_GBufferNormals;
-Texture2D g_GBufferEmissiveAO;
-Texture2D g_GBufferRoughness;
+Texture2D g_GBufferEmissive;
+Texture2D g_GBufferMaterial;
+Texture2D g_GBufferSheen;
 Texture2D g_GBufferDepth;
 
 // Mirrors DeferredHybridConstants in DeferredHybridPipeline.cpp
@@ -80,7 +81,7 @@ bool LoadGBufferSurface(int2 pixel, out HybridSurface surface, out float depth)
 
     float4 albedoMetallic = g_GBufferAlbedoMetallic.Load(texel);
     float4 normals = g_GBufferNormals.Load(texel);
-    float4 emissiveAO = g_GBufferEmissiveAO.Load(texel);
+    float4 material = g_GBufferMaterial.Load(texel);
 
     surface.WorldPos = worldPos;
     surface.N = OctDecode(normals.xy);
@@ -88,9 +89,14 @@ bool LoadGBufferSurface(int2 pixel, out HybridSurface surface, out float depth)
     surface.PositionError = DepthPositionError(clipPos, worldPos, g_InvViewProj);
     surface.Albedo = albedoMetallic.rgb;
     surface.Metallic = albedoMetallic.a;
-    surface.Roughness = g_GBufferRoughness.Load(texel).r;
-    surface.AO = emissiveAO.a;
-    surface.Emissive = emissiveAO.rgb;
+    surface.Roughness = material.r;
+    surface.AO = material.g;
+    surface.Emissive = g_GBufferEmissive.Load(texel).rgb;
+
+    // The clear coat and sheen are only read by the pass that lights (the trace passes don't use them): a texture the
+    // shader never reads costs nothing
+    float4 sheen = g_GBufferSheen.Load(texel);
+    surface.Layers = MakeSurfaceLayers(material.b, material.a, surface.GeoN, sheen.rgb, sheen.a);
     surface.PixelSpread = g_ViewParams.x;
     surface.UseIndirectLight = false;
     surface.IndirectLight = float4(0.0, 0.0, 0.0, 1.0);

@@ -262,6 +262,9 @@ struct ProjectGISettings
     // How the denoiser treats the result (while ProjectDenoiseSettings has it on)
     float history_blend = 0.98f;    // Share of earlier frames kept every frame. Higher is smoother but slower to react.
     int filter_passes = 5;          // Blur passes over the result, 0 to 5. Each doubles the blur's reach.
+    // The blur passes keep all the light they blur (SignalDenoiser::Settings::PreserveLight). Off is the blur as it was before,
+    // which lost light where rays find a small bright area: a small glowing object lit its surroundings with half of its light.
+    bool preserve_light = true;
 
 
 };
@@ -290,6 +293,20 @@ struct ProjectPhysicalLightSettings
     bool highlight_shape = true;    // The size also widens the highlight a glossy surface shows
 };
 
+// What a material can be besides a plain metal or dielectric: a coat of clear lacquer, a layer of cloth fibres and a body
+// that lets light through. Which of them a surface has comes from its material (glTF's KHR_materials_clearcoat, _sheen and
+// _transmission) or from the object's overrides, so a scene without any shows only the specular anti-aliasing.
+// Off shows each as before: no lobe, a transmissive material is an opaque one, and highlights are as sharp as the normals say.
+struct ProjectMaterialSettings
+{
+    bool enabled = true;                // Off: nothing below applies
+    bool specular_aa = true;            // Roughness grows where the normal changes quickly across a pixel, so highlights stop sparkling
+    float specular_aa_strength = 1.0f;  // 1 filters as much as the normals' change says is needed; more is blurrier
+    bool clearcoat = true;              // A second, smooth highlight over the base layer (car paint, lacquered wood)
+    bool sheen = true;                  // A soft rim of light on cloth
+    bool transmission = true;           // Materials that let the view through are drawn as glass (Hybrid and Deferred Hybrid)
+};
+
 // Denoising of the Deferred Hybrid renderer's ray-traced light. Every pixel traces one ray per light, one for its
 // reflection and a few for indirect light. That is far too few on its own, so each result is averaged over frames
 // and blurred along surfaces (our own filters, in the style of SVGF).
@@ -310,6 +327,7 @@ struct ProjectSettings
     ProjectDenoiseSettings denoise;
     ProjectTransparencySettings transparency;
     ProjectPhysicalLightSettings physical_lights;
+    ProjectMaterialSettings materials;
 
     ProjectSkySettings sky;
 

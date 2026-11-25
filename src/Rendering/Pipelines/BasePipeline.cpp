@@ -73,29 +73,52 @@ void BasePipeline::RenderModelWithSRB(IDeviceContext* pContext, const ModelRende
     BindModelVertexBuffers(pContext, *model);
     pContext->SetIndexBuffer(model->pIndexBuffer, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    // Determine which list of submesh indices to iterate over
-    const auto& targetIndices = renderOpaque ? modelData.OpaqueSubmeshIndices : modelData.TransparentSubmeshIndices;
+    // Which submeshes to draw. Those that let light through go with the glass where glass is drawn, and with the opaque
+    // ones where it isn't (they were plain solids before they got that layer).
+    const bool drawsGlass = DrawsGlass();
+    m_SubmeshesToDraw.clear();
+    const auto append = [this](const std::vector<uint32_t>& indices) {
+        m_SubmeshesToDraw.insert(m_SubmeshesToDraw.end(), indices.begin(), indices.end());
+    };
+    if (renderOpaque) {
+        append(modelData.OpaqueSubmeshIndices);
+        if (!drawsGlass) append(modelData.TransmissiveSubmeshIndices);
+    }
+    else {
+        append(modelData.TransparentSubmeshIndices);
+        if (drawsGlass) append(modelData.TransmissiveSubmeshIndices);
+    }
 
-    for (uint32_t submeshIdx : targetIndices) {
+    for (uint32_t submeshIdx : m_SubmeshesToDraw) {
         const auto& submesh = model->SubMeshes[submeshIdx];
 
         if (submesh.MaterialIndex < model->PBRMaterials.size()) {
             const PBRMaterial& mat = model->PBRMaterials[submesh.MaterialIndex];
 
+            // The overrides of the object, with this submesh's laid over them where its node in the hierarchy has some
+            const MaterialOverrides& over = modelData.OverridesFor(submeshIdx);
+
             auto colorFactor = mat.BaseColorFactor;
             PBRMaterialConstants matCBData{};
-            matCBData.BaseColorFactor = glm::vec4(colorFactor.r, colorFactor.g, colorFactor.b, modelData.OverrideAlpha ? modelData.Alpha : colorFactor.a);
-            matCBData.MetallicFactor = modelData.OverrideMetallic ? modelData.Metallic : mat.MetallicFactor;
-            matCBData.RoughnessFactor = modelData.OverrideRoughness ? modelData.Roughness : mat.RoughnessFactor;
-            matCBData.OverrideFlags = static_cast<float>((modelData.OverrideRoughness ? 1 : 0) | (modelData.OverrideMetallic ? 2 : 0));
+            matCBData.BaseColorFactor = glm::vec4(colorFactor.r, colorFactor.g, colorFactor.b, over.OverrideAlpha ? over.Alpha : colorFactor.a);
+            matCBData.MetallicFactor = over.OverrideMetallic ? over.Metallic : mat.MetallicFactor;
+            matCBData.RoughnessFactor = over.OverrideRoughness ? over.Roughness : mat.RoughnessFactor;
+            matCBData.OverrideFlags = static_cast<float>((over.OverrideRoughness ? 1 : 0) | (over.OverrideMetallic ? 2 : 0));
 
             const glm::vec3 materialEmissive = glm::vec3(mat.EmissiveFactor.r, mat.EmissiveFactor.g, mat.EmissiveFactor.b) * mat.EmissiveStrength;
-            matCBData.EmissiveFactor = glm::vec4(modelData.OverrideEmissive ? modelData.Emissive : materialEmissive, 0.0f);
+            matCBData.EmissiveFactor = glm::vec4(over.OverrideEmissive ? over.Emissive : materialEmissive, 0.0f);
 
             // Only mask materials cut pixels out; every other one ignores the alpha channel of its base color map
-            // (An object drawn as glass by the alpha override is blended whole: nothing is cut out of it.)
-            const bool cutsOut = mat.AlphaMode == MaterialAlphaMode::Mask && !modelData.OverrideAlpha;
-            matCBData.MaterialParams = glm::vec4(cutsOut ? mat.AlphaCutoff : 0.0f, mat.IOR, 0.0f, 0.0f);
+            // (A surface drawn as glass by the alpha override is blended whole: nothing is cut out of it.)
+            const bool cutsOut = mat.AlphaMode == MaterialAlphaMode::Mask && !over.OverrideAlpha;
+
+            // Clear coat, sheen and transmission, from the material or the overrides, left out where the project
+            // switches them off. Zero strength: the shader skips the layer.
+            const MaterialLayers layers = modelData.ResolveLayers(mat, submeshIdx);
+            const bool alphaIsOpacity = mat.AlphaMode == MaterialAlphaMode::Blend || over.OverrideAlpha;
+            matCBData.MaterialParams = glm::vec4(cutsOut ? mat.AlphaCutoff : 0.0f, mat.IOR, layers.Transmission, alphaIsOpacity ? 1.0f : 0.0f);
+            matCBData.LayerParams = glm::vec4(layers.Clearcoat, layers.ClearcoatRoughness, layers.SheenRoughness, modelData.SpecularAAStrength);
+            matCBData.SheenColor = glm::vec4(layers.SheenColor, 0.0f);
 
             // Missing maps still need a valid texture bound; the Use*Map flags tell the shader to ignore it
             ITextureView* pSafeFallbackTexture = mat.BaseColor;

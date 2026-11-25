@@ -43,6 +43,16 @@ struct SubMesh {
     Uint32 IndexOffset = 0;
     Uint32 BaseVertex = 0;
     Uint32 MaterialIndex = 0;
+
+    // The name the model file gives this part (the OBJ group, the glTF mesh), or its material's name; empty when it has neither
+    std::string Name;
+
+    // Where the part is, in the model's own space (inverted, min above max, while the part has no vertices)
+    float3 AABBMin = float3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+    float3 AABBMax = float3(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest());
+
+    bool HasBounds() const { return AABBMin.x <= AABBMax.x && AABBMin.y <= AABBMax.y && AABBMin.z <= AABBMax.z; }
+    float3 Center() const { return HasBounds() ? (AABBMin + AABBMax) * 0.5f : float3(0.0f, 0.0f, 0.0f); }
 };
 
 // How a material's alpha channel is used. Mirrors glTF's alphaMode.
@@ -72,6 +82,13 @@ struct PBRMaterial {
     MaterialAlphaMode AlphaMode = MaterialAlphaMode::Opaque;
     float AlphaCutoff = 0.5f;       // Mask: pixels with less alpha than this are cut out
     float IOR = 1.5f;               // Index of refraction, for blended materials drawn as glass
+
+    // Layers over the base material (glTF KHR_materials_clearcoat, _sheen and _transmission). 0 / black: the layer isn't there.
+    float Clearcoat = 0.0f;                         // Strength of the clear lacquer on top
+    float ClearcoatRoughness = 0.0f;                // How blurred its highlight is
+    float3 SheenColor = float3(0.0f, 0.0f, 0.0f);   // Color of the cloth fibres' rim light
+    float SheenRoughness = 0.5f;                    // How wide that rim is
+    float Transmission = 0.0f;                      // Share of the light that goes through the surface, tinted by the base color
 
     // Blend materials are drawn after the opaque geometry (Opaque and Mask ones go with it)
     bool IsTransparent = false;
@@ -114,6 +131,10 @@ struct Model : public IModel {
 
     // If any material is a cutout or glass: rays have to judge its triangles (rt_scene.hlsli) instead of treating them as solid
     bool HasAlphaGeometry = false;
+
+    // If any material lets light through (PBRMaterial::Transmission). Such a material counts as glass for rays and is drawn
+    // with the glass, but only while the project's Materials settings have transmission on: see ModelRenderInstance::ResolveLayers.
+    bool HasTransmission = false;
 
     //For local raytrace obj picking
     glm::vec3 AABBMin = glm::vec3(std::numeric_limits<float>::max());

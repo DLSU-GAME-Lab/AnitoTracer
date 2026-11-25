@@ -32,6 +32,38 @@ void SampleMetallicRoughness(float2 uv, out float metallic, out float roughness)
     roughness = max(roughness, 0.05);
 }
 
+// Specular anti-aliasing: where the shading normal changes quickly from pixel to pixel (a normal map's fine detail, a
+// curved surface far away), the tiny highlights each of its normals makes are too small for a pixel to show, and it
+// flickers between them as the camera moves. A rougher surface averages them: this adds the roughness that does.
+// The normal's change across the pixel (ddx, ddy) gives the variance of the normals the pixel covers, and the GGX lobe
+// widens by it (Tokuyoshi and Kaplanyan, "Improved Geometric Specular Antialiasing", I3D 2019: the screen space form,
+// with the paper's filter variance and its cap on how far a lobe can widen).
+// Strength 0 (the project's switch) leaves the roughness alone. N: the shading normal.
+float FilterRoughnessByNormal(float3 N, float roughness)
+{
+    float strength = g_LayerParams.w;
+    if (strength <= 0.0)
+    {
+        return roughness;
+    }
+
+    float3 dndx = ddx(N);
+    float3 dndy = ddy(N);
+    float variance = 0.15915494 * strength * (dot(dndx, dndx) + dot(dndy, dndy));
+    float widening = min(2.0 * variance, 0.18);
+
+    // Roughness is the square root of the GGX alpha: widen alpha^2 by the pixel's variance, then convert back
+    float alpha = roughness * roughness;
+    return sqrt(sqrt(saturate(alpha * alpha + widening)));
+}
+
+// How opaque a surface is as glass: the base color's alpha for a blended material. A material that is opaque and lets light
+// through (its transmission) is drawn as glass too, and its alpha means nothing: it is 1.
+float SurfaceOpacity(float baseAlpha)
+{
+    return g_MaterialParams.w > 0.5 ? saturate(baseAlpha) : 1.0;
+}
+
 // The material's ambient occlusion map, 1 without one
 float SampleOcclusion(float2 uv)
 {

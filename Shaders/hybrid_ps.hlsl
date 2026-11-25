@@ -34,6 +34,9 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     // Normal mapping
     float3 N = ApplyNormalMap(In, geoN);
 
+    // Highlights too small for a pixel to show would flicker: the roughness covers them
+    roughness = FilterRoughnessByNormal(N, roughness);
+
     // Emissive Sampling
     float3 emissive = SampleEmissive(In.UV);
 
@@ -48,6 +51,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     surface.Roughness = roughness;
     surface.AO = ao;
     surface.Emissive = emissive;
+    surface.Layers = ReadMaterialLayers(geoN);
     surface.PixelSpread = pixelSpread;
     // Per-pixel GI needs a G-buffer, so the forward pass always lights with Sky + AO
     surface.UseIndirectLight = false;

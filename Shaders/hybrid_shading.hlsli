@@ -141,6 +141,7 @@ struct HybridSurface
     float Roughness; // Already clamped to >= 0.05
     float AO;        // Material AO map
     float3 Emissive;
+    SurfaceLayers Layers; // Clear coat and sheen over the base layer (none: NoSurfaceLayers)
     float PixelSpread; // Angle one screen pixel covers, in radians. Tells a reflection ray how wide its footprint is
                        // when it reads a texture (see SampleSceneTexture); 0 always reads the sharpest mip.
 
@@ -375,7 +376,7 @@ float3 ComposeHybridSurfaceNoFog(HybridSurface s, HybridRays rays)
         float shadowFactor = rays.LightVisibility[i];
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
-        Lo += ShadeRoundLight(N, V, L, tan(g_DirLights[i].Direction.w), radiance, s.Albedo, metallic, roughness, F0, shadowFactor, energyCompensation);
+        Lo += ShadeRoundLight(N, V, L, tan(g_DirLights[i].Direction.w), radiance, s.Albedo, metallic, roughness, F0, shadowFactor, energyCompensation, s.Layers);
     }
 
     // 2. Point, spot and rectangular lights
@@ -385,7 +386,7 @@ float3 ComposeHybridSurfaceNoFog(HybridSurface s, HybridRays rays)
         if (!EvaluateLocalLight(j, s.WorldPos, N, V, light))
             continue;
 
-        Lo += ShadeLocalLight(N, V, light, s.Albedo, metallic, roughness, F0, rays.LightVisibility[g_NumDirLights + j], energyCompensation);
+        Lo += ShadeLocalLight(N, V, light, s.Albedo, metallic, roughness, F0, rays.LightVisibility[g_NumDirLights + j], energyCompensation, s.Layers, j, s.WorldPos);
     }
 
     // Light that came through glass has the glass's color
@@ -419,8 +420,39 @@ float3 ComposeHybridSurfaceNoFog(HybridSurface s, HybridRays rays)
     }
     float3 ambientSpecular = envSpecular * specularColor * energyCompensation * specOcclusion * horizon * g_ReflectionIntensity;
 
+    // 5. The layers over the base: a sheen brightens the surface where it is seen at a slant, and a coat reflects the sky in
+    // a sharper highlight. What is below them is dimmed by what they take. (The coat shows the sky only, not the objects
+    // the reflection ray found: the base layer's reflection shows through it.)
+    float3 ambientBase = ambientDiffuse + ambientSpecular;
+    SurfaceLayers layers = s.Layers;
 
-    float3 ambient = (ambientDiffuse + ambientSpecular) * g_AmbientMultiplier;
+    float3 sheenAmbient = float3(0.0, 0.0, 0.0);
+    if (HasSheen(layers))
+    {
+        float sheenAlbedo = SheenAlbedo(NdotV, layers.SheenRoughness);
+        // A wide lobe sees the sky as the average light around the surface
+        sheenAmbient = layers.SheenColor * sheenAlbedo * indirect.Irradiance * indirect.DiffuseOcclusion;
+        ambientBase *= 1.0 - MaxComponent(layers.SheenColor) * sheenAlbedo;
+    }
+
+    float3 coatAmbient = float3(0.0, 0.0, 0.0);
+    float coatScale = 1.0;
+    if (HasClearcoat(layers))
+    {
+        float3 Nc = layers.CoatNormal;
+        float NcdotV = saturate(dot(Nc, V)) + 0.0001;
+        float2 coatBRDF = EnvBRDFApprox(NcdotV, layers.ClearcoatRoughness);
+        float coatReflectance = 0.04 * coatBRDF.x + coatBRDF.y;
+
+        float3 Rc = reflect(-V, Nc);
+        float coatHorizon = saturate(1.0 + dot(Rc, geoN));
+        float3 coatSky = SampleEnvSpecular(Rc, layers.ClearcoatRoughness) * g_SkyLightIntensity;
+        coatAmbient = coatSky * (coatReflectance * layers.Clearcoat) * SpecularOcclusion(NcdotV, indirect.Occlusion, layers.ClearcoatRoughness)
+            * (coatHorizon * coatHorizon) * g_ReflectionIntensity;
+        coatScale = 1.0 - layers.Clearcoat * coatReflectance;
+    }
+
+    float3 ambient = ((ambientBase + sheenAmbient) * coatScale + coatAmbient) * g_AmbientMultiplier;
     return ambient + Lo + s.Emissive;
 }
 
@@ -551,16 +583,20 @@ float3 TraceRefraction(HybridSurface s, float ior, float2 noise)
 }
 #endif
 
-// A pane of glass: a blended material, drawn after the lit scene. s.Albedo is the glass's color, alpha how opaque it is,
-// ior its index of refraction.
+// A pane of glass: a blended material, or an opaque one that lets light through, drawn after the lit scene. s.Albedo is the
+// glass's color, alpha how opaque it is (1 for a material that is opaque), ior its index of refraction, transmission the
+// share of the surface that lets the view through (0 for plain glass, whose alpha says it all).
 // Returns the color premultiplied by coverage, for blending over what is behind (ONE, INV_SRC_ALPHA):
 //   its own reflections, highlights and emission, which no amount of transparency dims (a window still mirrors the sky),
-//   its colour lit like any surface, as much of it as alpha says, and
+//   its colour lit like any surface, as much of it as is opaque (alpha, less what is let through), and
 //   what is behind it, through the glass: refracted and tinted when the scene can be traced from here, else left to the
 //   blend, which shows the same view unbent.
-float4 ShadeGlassSurface(HybridSurface s, float alpha, float ior, float2 pixelPos)
+float4 ShadeGlassSurface(HybridSurface s, float alpha, float ior, float transmission, float2 pixelPos)
 {
     HybridRays rays = TraceHybridRays(s, pixelPos);
+
+    // How much of the surface is there to be lit: what alpha leaves, less what is let through
+    float opacity = alpha * (1.0 - transmission);
 
     // Without a diffuse color, what the shading gives is what the surface reflects
     HybridSurface clear = s;
@@ -568,8 +604,8 @@ float4 ShadeGlassSurface(HybridSurface s, float alpha, float ior, float2 pixelPo
     float3 reflected = ComposeHybridSurfaceNoFog(clear, rays);
     float3 body = max(ComposeHybridSurfaceNoFog(s, rays) - reflected, 0.0);
 
-    float3 color = reflected + alpha * body;
-    float coverage = alpha;
+    float3 color = reflected + opacity * body;
+    float coverage = opacity;
 
 #ifdef RT_SCENE_SHADING
     if ((g_TransparencyFlags & TRANSPARENCY_REFRACTION) != 0u && ior > 1.001)
@@ -579,7 +615,7 @@ float4 ShadeGlassSurface(HybridSurface s, float alpha, float ior, float2 pixelPo
         float3 tint = lerp(float3(1.0, 1.0, 1.0), s.Albedo, alpha);
 
         // The view through the glass replaces what is behind it, so the glass covers the pixel completely
-        color += (1.0 - alpha) * (1.0 - fresnel) * tint * TraceRefraction(s, ior, RayNoise(pixelPos));
+        color += (1.0 - opacity) * (1.0 - fresnel) * tint * TraceRefraction(s, ior, RayNoise(pixelPos));
         coverage = 1.0;
     }
 #endif

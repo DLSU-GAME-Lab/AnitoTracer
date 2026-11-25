@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IComponentUI.hpp"
+#include "MaterialOverrideUI.hpp"
 #include "../../../../Objects/Components/ModelComponent.hpp"
 #include "../../../PropertyDrawers/asset_drawer.hpp"
 #include <imgui.h>
@@ -23,22 +24,12 @@ public:
             return;
         }
 
+        // Replace the material's properties on every submesh of the object
         ImGui::Separator();
-        DrawMaterialOverride("Roughness", modelComponent,
-            &ModelComponent::GetOverrideRoughness, &ModelComponent::SetOverrideRoughness,
-            &ModelComponent::GetRoughness, &ModelComponent::SetRoughness);
-        DrawMaterialOverride("Metallic", modelComponent,
-            &ModelComponent::GetOverrideMetallic, &ModelComponent::SetOverrideMetallic,
-            &ModelComponent::GetMetallic, &ModelComponent::SetMetallic);
-        DrawEmissiveOverride(modelComponent);
-        DrawMaterialOverride("Alpha", modelComponent,
-            &ModelComponent::GetOverrideAlpha, &ModelComponent::SetOverrideAlpha,
-            &ModelComponent::GetAlpha, &ModelComponent::SetAlpha);
-        if (modelComponent->GetOverrideAlpha()) {
-            // Wrapped: this panel is narrow
-            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-            ImGui::TextWrapped("Drawn as glass. Only the Hybrid and Deferred Hybrid renderers draw it.");
-            ImGui::PopStyleColor();
+        MaterialOverrideUI::DrawAll(modelComponent, nullptr);
+
+        if (model->SubMeshes.size() > 1) {
+            MaterialOverrideUI::DrawHint("Each submesh has a node under this object in the Hierarchy, where it can override these on its own.");
         }
 
         ImGui::Separator();
@@ -56,55 +47,5 @@ public:
             model->AABBMin.x, model->AABBMin.y, model->AABBMin.z);
         ImGui::Text("AABB Max: [%.2f, %.2f, %.2f]",
             model->AABBMax.x, model->AABBMax.y, model->AABBMax.z);
-    }
-
-private:
-    // Checkbox to enable the override, plus a 0-1 slider that is greyed out while it's off
-    static void DrawMaterialOverride(const char* label, ModelComponent* component,
-        bool (ModelComponent::*getEnabled)() const, void (ModelComponent::*setEnabled)(bool),
-        float (ModelComponent::*getValue)() const, void (ModelComponent::*setValue)(float))
-    {
-        ImGui::PushID(label);
-
-        bool enabled = (component->*getEnabled)();
-        if (ImGui::Checkbox("##Override", &enabled))
-            (component->*setEnabled)(enabled);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Override the material's %s on every submesh.", label);
-
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!enabled);
-        float value = (component->*getValue)();
-        if (ImGui::SliderFloat(label, &value, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
-            (component->*setValue)(value);
-        ImGui::EndDisabled();
-
-        ImGui::PopID();
-    }
-
-    // Same layout as DrawMaterialOverride: checkbox, then a color and an unbounded strength greyed out while it's off
-    static void DrawEmissiveOverride(ModelComponent* component)
-    {
-        ImGui::PushID("Emissive");
-
-        bool enabled = component->GetOverrideEmissive();
-        if (ImGui::Checkbox("##Override", &enabled))
-            component->SetOverrideEmissive(enabled);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Override the material's emissive color and strength on every submesh.\nEmissive maps still mask the glow.");
-
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!enabled);
-        glm::vec3 color = component->GetEmissiveColor();
-        if (ImGui::ColorEdit3("Emissive", glm::value_ptr(color)))
-            component->SetEmissiveColor(color);
-
-        float strength = component->GetEmissiveStrength();
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x);
-        if (ImGui::DragFloat("Strength", &strength, 0.05f, 0.0f, 100.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
-            component->SetEmissiveStrength(strength);
-        ImGui::EndDisabled();
-
-        ImGui::PopID();
     }
 };

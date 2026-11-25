@@ -22,8 +22,10 @@ namespace Diligent {
         void Initialize(IRenderDevice* pDevice, Uint32 maxInstances = 1000, bool geometryRecords = false);
         bool IsInitialized() const { return m_pTLAS != nullptr; }
 
-        // Builds missing BLASes, then rebuilds the TLAS (and the geometry records) from renderData.Models
-        void Build(IDeviceContext* pContext, const RenderData& renderData);
+        // Builds missing BLASes, then rebuilds the TLAS (and the geometry records) from renderData.Models.
+        // transmissionIsGlass: the renderer draws the submeshes that let light through as glass, so rays see them as glass
+        // too (tinted shadows, refraction past them); otherwise they are solids, as they were drawn.
+        void Build(IDeviceContext* pContext, const RenderData& renderData, bool transmissionIsGlass = false);
 
         ITopLevelAS* Get() const { return m_pTLAS; }
 

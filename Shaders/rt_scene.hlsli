@@ -245,6 +245,9 @@ static const uint HIT_SPECULAR = 2u;        // Highlights and the hit's own refl
 static const uint HIT_AMBIENT_SKY = 4u;     // The sky and the flat ambient color, as if nothing were in the way
 static const uint HIT_AMBIENT_GIVEN = 8u;   // The caller's `ambient` (average radiance arriving), e.g. the GI at the reflecting pixel
 static const uint HIT_AMBIENT_TRACED = 16u; // The sky, only where one more ray finds it: no sky light leaks into closed rooms
+// The hit's own glow is multiplied by its object's Emissive Light: how much light it casts on its surroundings, which is what a
+// ray that gathers indirect light brings back. Without it the glow is as the surface looks, which is what a reflection shows.
+static const uint HIT_EMISSIVE_LIGHT = 32u;
 
 // Light leaving a ray hit back along the ray: the scene's lights, the surface's own glow and, depending on flags
 // (HIT_* above), indirect light. This is what a reflection shows of the object, or what a GI ray brings back from it.
@@ -281,6 +284,10 @@ float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 
     if (material.EmissiveTexture >= 0)
     {
         emissive *= SampleSceneTexture(material.EmissiveTexture, hit.UV, hit.UVPerWorldArea, footprint).rgb;
+    }
+    if ((flags & HIT_EMISSIVE_LIGHT) != 0u)
+    {
+        emissive *= material.EmissiveLight;
     }
 
     float3 N = hit.N;

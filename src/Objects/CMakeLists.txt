@@ -13,8 +13,12 @@ set(${CUR_TARGET_NAME}_src
 	Components/EditorCamera.hpp
 	Components/GameCamera.cpp
 	Components/GameCamera.hpp
+	Components/MaterialOverrideComponent.cpp
+	Components/MaterialOverrideComponent.hpp
 	Components/ModelComponent.cpp
 	Components/ModelComponent.hpp
+	Components/SubMeshComponent.cpp
+	Components/SubMeshComponent.hpp
 	Components/ITeleportable.hpp
 
 	Components/Lights/LightBase.cpp

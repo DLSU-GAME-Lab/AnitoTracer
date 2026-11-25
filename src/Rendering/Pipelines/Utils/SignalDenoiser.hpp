@@ -18,7 +18,8 @@ namespace Diligent {
     //                History is dropped where the guide says last frame showed another surface there, and pulled
     //                toward this frame's rays where the surface is the same but what it shows has changed.
     //   2. Filter    a few blur passes that stop at edges in the guide and adapt to how uncertain the signal still
-    //                is. The first one's output is what the next frame accumulates onto.
+    //                is. The first one's output is what the next frame accumulates onto. A signal of light can ask for
+    //                blur passes that keep all its light (Settings::PreserveLight).
     // These are our own filters in the style of SVGF (Shaders/DeferredHybrid/denoise_*.hlsl).
     //
     // One denoiser serves every signal of a pipeline: each signal keeps its own History, and the pipeline calls
@@ -92,6 +93,12 @@ namespace Diligent {
             float BrightnessSigma = 0.0f;
             float MaxRoughness = 1.0f;      // SIGNAL_REFLECTION: surfaces at least this rough got no ray
             bool VirtualMotion = false;     // SIGNAL_REFLECTION: follow the reflected image when the camera moves
+            // SIGNAL_LIGHT: the blur passes exchange light between pixels instead of averaging them
+            // (denoise_filter_conserve_ps.hlsl), so none of the light they blur is lost. The averaging blur loses light where a
+            // few rays find a small bright area, and its first pass is fed back every frame, so the loss builds up: a small
+            // glowing object lit its surroundings with about half the light it should. Costs a pass to blur the variance once,
+            // and a little more in each blur pass.
+            bool PreserveLight = false;
         };
 
         static constexpr int kMaxFilterPasses = 5;
@@ -112,6 +119,7 @@ namespace Diligent {
             Uint32 Height = 0;
             RefCntAutoPtr<ITexture> pTemporal;  // The temporal pass's result, before the first blur pass
             RefCntAutoPtr<ITexture> pVariance;  // How uncertain that result is, read by every blur pass
+            RefCntAutoPtr<ITexture> pVarianceBlur;  // The same blurred once, read by the blur passes that keep light
             RefCntAutoPtr<ITexture> pPing[2];   // The blur passes between the first and the last
         };
 
@@ -124,6 +132,11 @@ namespace Diligent {
         RefCntAutoPtr<IShaderResourceBinding> m_pTemporalSRB;
         RefCntAutoPtr<IPipelineState> m_pFilterPSO;
         RefCntAutoPtr<IShaderResourceBinding> m_pFilterSRB;
+        // For Settings::PreserveLight. Without them (a build that failed) such a signal gets the plain blur.
+        RefCntAutoPtr<IPipelineState> m_pVariancePSO;
+        RefCntAutoPtr<IShaderResourceBinding> m_pVarianceSRB;
+        RefCntAutoPtr<IPipelineState> m_pFilterConservePSO;
+        RefCntAutoPtr<IShaderResourceBinding> m_pFilterConserveSRB;
         RefCntAutoPtr<IBuffer> m_pConstantsCB;
 
         std::vector<Scratch> m_Scratch;
