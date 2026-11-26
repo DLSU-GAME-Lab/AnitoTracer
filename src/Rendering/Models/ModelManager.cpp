@@ -133,6 +133,161 @@ namespace {
         std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         return extension == ".gltf" || extension == ".glb";
     }
+
+    // A height map is gray. A normal map never is: even where it is flat it is light blue. (Under 1% of colored texels
+    // still counts as gray, for the color noise a JPEG adds.) Only 8-bit RGBA can be judged, which is what PNG, JPEG and
+    // the like are loaded as.
+    bool IsHeightMap(ITextureLoader* pLoader) {
+        const TextureDesc& desc = pLoader->GetTextureDesc();
+        const TextureSubResData& top = pLoader->GetSubresourceData(0, 0);
+        if (!top.pData || desc.Format != Diligent::TEX_FORMAT_RGBA8_UNORM || desc.Type != RESOURCE_DIM_TEX_2D
+            || top.Stride < static_cast<Uint64>(desc.Width) * 4) {
+            return false;
+        }
+
+        const Uint8* rows = static_cast<const Uint8*>(top.pData);
+        Uint64 colored = 0;
+        for (Uint32 y = 0; y < desc.Height; ++y) {
+            const Uint8* row = rows + static_cast<Uint64>(y) * top.Stride;
+            for (Uint32 x = 0; x < desc.Width; ++x) {
+                const Uint8* texel = row + x * 4;
+                if (std::max({ texel[0], texel[1], texel[2] }) - std::min({ texel[0], texel[1], texel[2] }) > 8) ++colored;
+            }
+        }
+        return colored * 100 < static_cast<Uint64>(desc.Width) * desc.Height;
+    }
+
+    float3 DecodeNormal(const Uint8* texel) {
+        return float3(texel[0], texel[1], texel[2]) * (2.0f / 255.0f) - float3(1.0f, 1.0f, 1.0f);
+    }
+
+    void EncodeNormal(const float3& normal, Uint8* texel) {
+        texel[0] = static_cast<Uint8>((normal.x * 0.5f + 0.5f) * 255.0f + 0.5f);
+        texel[1] = static_cast<Uint8>((normal.y * 0.5f + 0.5f) * 255.0f + 0.5f);
+        texel[2] = static_cast<Uint8>((normal.z * 0.5f + 0.5f) * 255.0f + 0.5f);
+        texel[3] = 255;
+    }
+}
+
+ITextureView* ModelManager::LoadBumpTexture(const aiScene* pScene, const std::string& modelPath, aiMaterial* material,
+    const std::string& modelDir, bool& outHasProperty) {
+    aiString texPath;
+    if (material->GetTextureCount(aiTextureType_HEIGHT) == 0 ||
+        material->GetTexture(aiTextureType_HEIGHT, 0, &texPath) != AI_SUCCESS || texPath.length == 0) {
+        return nullptr;
+    }
+    // An image stored inside the model file is taken as the normal map it is meant to be
+    if (pScene->GetEmbeddedTexture(texPath.C_Str())) {
+        return LoadMaterialTexture(pScene, modelPath, material, aiTextureType_HEIGHT, modelDir, outHasProperty, false);
+    }
+    outHasProperty = true;
+
+    float bumpScale = 1.0f; // OBJ's "-bm"
+    material->Get(AI_MATKEY_BUMPSCALING, bumpScale);
+
+    const std::string path = modelDir + texPath.C_Str();
+    const std::string heightKey = path + "|height|" + std::to_string(bumpScale);
+    if (const auto it = m_TextureCache.find(heightKey); it != m_TextureCache.end()) {
+        return it->second;
+    }
+
+    RefCntAutoPtr<ITextureLoader> pLoader;
+    CreateTextureLoaderFromFile(path.c_str(), IMAGE_FILE_FORMAT_UNKNOWN, MakeTextureLoadInfo(false), &pLoader);
+    if (pLoader && IsHeightMap(pLoader)) {
+        return CreateNormalMapFromHeight(pLoader, bumpScale, heightKey, path);
+    }
+
+    // A normal map after all: the same texture LoadTexture(path, false) gives
+    const std::string linearKey = path + "|linear";
+    if (const auto it = m_TextureCache.find(linearKey); it != m_TextureCache.end()) {
+        return it->second;
+    }
+    return FinishTexture(pLoader, linearKey, path);
+}
+
+ITextureView* ModelManager::CreateNormalMapFromHeight(ITextureLoader* pHeight, float bumpScale, std::string cacheKey, const std::string& label) {
+    const TextureDesc& source = pHeight->GetTextureDesc();
+    const TextureSubResData& top = pHeight->GetSubresourceData(0, 0);
+    const int width = static_cast<int>(source.Width);
+    const int height = static_cast<int>(source.Height);
+    const Uint8* rows = static_cast<const Uint8*>(top.pData);
+
+    // Heights from 0 (black) to 1 (white), repeating past the edges as the texture does
+    auto sample = [&](int x, int y) {
+        x = (x + width) % width;
+        y = (y + height) % height;
+        return rows[static_cast<Uint64>(y) * top.Stride + static_cast<Uint64>(x) * 4] / 255.0f;
+    };
+
+    // The file doesn't say how deep its relief is. Black to white is taken as 1/256 of the texture's longer side,
+    // times the material's bump multiplier, which gives slopes in the range hand-made normal maps have.
+    const float strength = std::max(width, height) / 256.0f * bumpScale;
+
+    std::vector<std::vector<Uint8>> levels(1, std::vector<Uint8>(static_cast<size_t>(width) * height * 4));
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            // Sobel: how much the surface rises per texel to the right and down the image
+            const float right = ((sample(x + 1, y - 1) + 2.0f * sample(x + 1, y) + sample(x + 1, y + 1))
+                - (sample(x - 1, y - 1) + 2.0f * sample(x - 1, y) + sample(x - 1, y + 1))) / 8.0f;
+            const float down = ((sample(x - 1, y + 1) + 2.0f * sample(x, y + 1) + sample(x + 1, y + 1))
+                - (sample(x - 1, y - 1) + 2.0f * sample(x, y - 1) + sample(x + 1, y - 1))) / 8.0f;
+            // A normal leans away from where the surface rises. Green points up the image, hence the sign of `down`.
+            const float3 normal = normalize(float3(-right * strength, down * strength, 1.0f));
+            EncodeNormal(normal, &levels[0][(static_cast<size_t>(y) * width + x) * 4]);
+        }
+    }
+
+    // Mips: the average direction of each 2x2 block
+    for (int w = width, h = height; w > 1 || h > 1;) {
+        const int nextW = std::max(w / 2, 1);
+        const int nextH = std::max(h / 2, 1);
+        std::vector<Uint8> next(static_cast<size_t>(nextW) * nextH * 4);
+        const std::vector<Uint8>& previous = levels.back();
+        for (int y = 0; y < nextH; ++y) {
+            for (int x = 0; x < nextW; ++x) {
+                float3 sum(0.0f, 0.0f, 0.0f);
+                for (int j = 0; j < 2; ++j) {
+                    for (int i = 0; i < 2; ++i) {
+                        const int px = std::min(2 * x + i, w - 1);
+                        const int py = std::min(2 * y + j, h - 1);
+                        sum += DecodeNormal(&previous[(static_cast<size_t>(py) * w + px) * 4]);
+                    }
+                }
+                EncodeNormal(normalize(sum), &next[(static_cast<size_t>(y) * nextW + x) * 4]);
+            }
+        }
+        levels.push_back(std::move(next));
+        w = nextW;
+        h = nextH;
+    }
+
+    std::vector<TextureSubResData> subresources;
+    for (size_t level = 0; level < levels.size(); ++level) {
+        subresources.push_back({ levels[level].data(), static_cast<Uint64>(std::max(width >> level, 1)) * 4 });
+    }
+
+    TextureDesc desc{};
+    desc.Name = "Normal map from a height map";
+    desc.Type = RESOURCE_DIM_TEX_2D;
+    desc.Width = source.Width;
+    desc.Height = source.Height;
+    desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM;
+    desc.MipLevels = static_cast<Uint32>(levels.size());
+    desc.Usage = USAGE_IMMUTABLE;
+    desc.BindFlags = BIND_SHADER_RESOURCE;
+    TextureData data(subresources.data(), static_cast<Uint32>(subresources.size()));
+
+    RefCntAutoPtr<ITexture> pTexture;
+    m_pDevice->CreateTexture(desc, &data, &pTexture);
+    if (!pTexture) {
+        std::cerr << "Failed to make a normal map from: " << label << std::endl;
+        return nullptr;
+    }
+    std::cout << "[Info] Height map turned into a normal map: " << label << std::endl;
+
+    RefCntAutoPtr<ITextureView> pSRV(pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+    m_TextureCache.emplace(std::move(cacheKey), pSRV);
+    return pSRV;
 }
 
 bool ModelManager::HasCutoutAlpha(ITextureView* pTexture) const {
@@ -365,7 +520,7 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
         if (!pbrMat.MetallicRoughness) pbrMat.MetallicRoughness = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_DIFFUSE_ROUGHNESS, modelDir, currentMatHasPBR, false);
 
         pbrMat.Normal = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_NORMALS, modelDir, currentMatHasPBR, false);
-        if (!pbrMat.Normal) pbrMat.Normal = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_HEIGHT, modelDir, currentMatHasPBR, false);
+        if (!pbrMat.Normal) pbrMat.Normal = LoadBumpTexture(pScene, modelPath, material, modelDir, currentMatHasPBR);
 
         pbrMat.AO = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_AMBIENT_OCCLUSION, modelDir, currentMatHasPBR, false);
         if (!pbrMat.AO) pbrMat.AO = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_LIGHTMAP, modelDir, currentMatHasPBR, false);
