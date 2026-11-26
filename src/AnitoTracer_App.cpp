@@ -380,7 +380,8 @@ void AnitoTracer_App::Update()
     {
         // Both views render at the resolution picked in the viewport panels / User Settings, independent of the window size
         const RenderResolution& resolution = UserSettings::GetInstance().GetResolution();
-        m_pGameTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        // The game view is shown with the colors a player gets (shownInUI, see RenderTarget::Create)
+        m_pGameTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat, 1, true);
         m_pEditorTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
     }
 

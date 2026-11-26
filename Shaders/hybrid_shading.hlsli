@@ -406,6 +406,14 @@ float3 ComposeHybridSurfaceNoFog(HybridSurface s, HybridRays rays)
     horizon *= horizon;
 
     float3 envSpecular = SampleEnvSpecular(R, roughness) * g_SkyLightIntensity;
+    // With per-pixel GI a rough surface reflects the light gathered around it, not the open sky. The sky is only what it
+    // sees where nothing is in the way, and indoors it would wash the surface out in sky color. Where the sky really is
+    // open the two are about the same. A smooth surface keeps the sky: a sharp reflection can't be had from gathered
+    // light, and with reflections on a ray replaces it below.
+    if (s.UseIndirectLight)
+    {
+        envSpecular = lerp(envSpecular, indirect.Irradiance, smoothstep(0.1, 0.5, roughness));
+    }
     if (UsesReflectionRay(roughness))
     {
         // Rays fade out toward the roughness limit, where one ray says little about such a wide highlight
