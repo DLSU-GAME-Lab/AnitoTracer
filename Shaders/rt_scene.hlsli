@@ -16,49 +16,7 @@
 // able to pick a texture from an array per pixel. Included by hybrid_shading.hlsli, after the sky lighting functions it uses.
 // Requires light_struct.hlsli, pbr_defs.hlsli and rt_shadows.hlsli.
 
-// SceneGeometryPool::kMaxTextures. The pipeline passes the real value; this default is for compiling the file on its own.
-#ifndef SCENE_TEXTURE_COUNT
-#define SCENE_TEXTURE_COUNT 512
-#endif
-
-// Mirrors SceneGeometryPool::PoolVertex. Object space.
-struct SceneVertex
-{
-    float3 Position;
-    float U;
-    float3 Normal;
-    float V;
-};
-
-// Mirrors SceneGeometryRecord in PipelineDefs.hpp
-struct SceneGeometryRecord
-{
-    uint FirstIndex;                // Of the submesh, in g_SceneIndices
-    uint BaseVertex;                // Of the model, in g_SceneVertices; added to every index
-    int BaseColorTexture;           // Slots in g_SceneTextures, -1: no map
-    int MetallicRoughnessTexture;
-
-    float4 BaseColor;
-
-    float3 Emissive;                // Color * strength
-    int EmissiveTexture;
-
-    float Roughness;
-    float Metallic;
-    uint Flags;                     // SCENE_GEOMETRY_* bits
-    float Padding;
-};
-
-static const uint SCENE_GEOMETRY_IN_POOL = 1u;          // The triangle's vertices can be read; otherwise the hit can't be shaded
-static const uint SCENE_GEOMETRY_ROUGHNESS_FIXED = 2u;  // Roughness is a per-object override: ignore the texture's channel
-static const uint SCENE_GEOMETRY_METALLIC_FIXED = 4u;   // Same for metallic
-
-StructuredBuffer<SceneVertex> g_SceneVertices;
-StructuredBuffer<uint> g_SceneIndices;
-StructuredBuffer<SceneGeometryRecord> g_SceneGeometry;
-
-Texture2D g_SceneTextures[SCENE_TEXTURE_COUNT];
-SamplerState g_SceneTextures_sampler;
+#include "rt_scene_data.hlsli"
 
 // The surface point a ray landed on
 struct SceneHit
@@ -70,14 +28,26 @@ struct SceneHit
     float2 UV;
     float UVPerWorldArea;   // The triangle's area in UV space over its area in the world: how densely its texture covers it
     bool Shadeable;         // False when the triangle's data isn't available. Only Distance and Position are meaningful then.
+    bool BackFacing;        // The ray arrived on the side the surface's normal points away from: from inside a closed object
     SceneGeometryRecord Material;
 };
 
+// How a ray treats glass (blended materials)
+static const uint GLASS_IGNORE = 0u;    // Goes straight through: glass isn't seen
+static const uint GLASS_SOLID = 1u;     // A surface like any other: the ray stops there
+static const uint GLASS_TINT = 2u;      // Goes through, and what the ray finds beyond is lit by the glass's color (see `tint`)
+
+// Panes of glass a GLASS_TINT ray keeps track of
+static const uint MAX_TRACKED_PANES = 4u;
+
 // Finds the closest surface along a ray. Returns false when the ray leaves the scene without hitting anything.
-// Every surface counts as solid: cut-out and transparent materials block the ray like the rest.
-bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out SceneHit hit)
+// Cutout materials are solid where their alpha reaches the cutoff and see-through elsewhere. Glass is handled as
+// glassMode says; in GLASS_TINT mode `tint` is the color of the panes the ray crossed before the hit (white without any),
+// which whatever the ray brings back has to be multiplied by.
+bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, uint glassMode, out float3 tint, out SceneHit hit)
 {
     hit = (SceneHit) 0;
+    tint = float3(1.0, 1.0, 1.0);
 
     RayDesc ray;
     ray.Origin = origin;
@@ -85,13 +55,77 @@ bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out Scene
     ray.TMin = 0.001;
     ray.TMax = maxDistance;
 
+    bool found;
+
+#ifdef RT_ALPHA_TEST
+    // Without the project's switch every triangle is solid, as before cutouts and glass
+    RayQuery < RAY_FLAG_NONE > q;
+    q.TraceRayInline(g_TLAS, (g_TransparencyFlags & TRANSPARENCY_TEST_RAYS) != 0u ? RAY_FLAG_NONE : RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
+
+    // The panes the ray went through. Triangles are met in no particular order, and one beyond the final hit
+    // mustn't tint anything, so they are only applied once the hit is known.
+    float paneDistance[MAX_TRACKED_PANES];
+    float3 paneTint[MAX_TRACKED_PANES];
+    uint paneCount = 0u;
+
+    while (q.Proceed())
+    {
+        // Triangles flagged opaque are final without being asked; these are cutouts and glass
+        if (q.CandidateType() != CANDIDATE_NON_OPAQUE_TRIANGLE)
+        {
+            continue;
+        }
+
+        SceneGeometryRecord candidate = g_SceneGeometry[q.CandidateInstanceID() + q.CandidateGeometryIndex()];
+        uint primitive = q.CandidatePrimitiveIndex();
+        float2 bary = q.CandidateTriangleBarycentrics();
+
+        if ((candidate.Flags & SCENE_GEOMETRY_BLEND) != 0u)
+        {
+            if ((g_TransparencyFlags & TRANSPARENCY_GLASS) == 0u || glassMode == GLASS_IGNORE)
+            {
+                continue;
+            }
+            if (glassMode == GLASS_SOLID)
+            {
+                q.CommitNonOpaqueTriangleHit();
+            }
+            else if (paneCount < MAX_TRACKED_PANES)
+            {
+                paneDistance[paneCount] = q.CandidateTriangleRayT();
+                paneTint[paneCount] = GlassTransmittanceAt(candidate, primitive, bary);
+                ++paneCount;
+            }
+            continue;
+        }
+
+        if (SceneCutoutBlocks(candidate, primitive, bary))
+        {
+            q.CommitNonOpaqueTriangleHit();
+        }
+    }
+
+    found = q.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+    float endDistance = found ? q.CommittedRayT() : maxDistance;
+    for (uint pane = 0u; pane < paneCount; ++pane)
+    {
+        if (paneDistance[pane] < endDistance)
+        {
+            tint *= paneTint[pane];
+        }
+    }
+
+#else
+    // The scene has no cutouts or glass: every triangle is solid, and the ray takes the fastest path there is
     RayQuery < RAY_FLAG_FORCE_OPAQUE > q;
     q.TraceRayInline(g_TLAS, RAY_FLAG_NONE, 0xFF, ray);
     while (q.Proceed())
     {
     }
+    found = q.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+#endif
 
-    if (q.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
+    if (!found)
     {
         return false;
     }
@@ -143,6 +177,8 @@ bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out Scene
     float3 worldNormal = mul(objectNormal, worldToObject);
     float normalLength = length(worldNormal);
     hit.N = normalLength > 1e-6 ? worldNormal / normalLength : hit.GeoN;
+    // The surface faces away from the ray: it came from inside a closed object, such as the far side of a glass ball
+    hit.BackFacing = dot(hit.N, direction) > 0.0;
 
     // Surfaces are two-sided for rays: use the side the ray arrived on
     if (dot(hit.GeoN, direction) > 0.0)
@@ -155,6 +191,14 @@ bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out Scene
     }
 
     return true;
+}
+
+
+// Same, with glass left out of the picture: rays go through it (reflections and indirect light don't show glass)
+bool TraceSceneRay(float3 origin, float3 direction, float maxDistance, out SceneHit hit)
+{
+    float3 tint;
+    return TraceSceneRay(origin, direction, maxDistance, GLASS_IGNORE, tint, hit);
 }
 
 // Samples a material texture at a ray hit.
@@ -201,6 +245,9 @@ static const uint HIT_SPECULAR = 2u;        // Highlights and the hit's own refl
 static const uint HIT_AMBIENT_SKY = 4u;     // The sky and the flat ambient color, as if nothing were in the way
 static const uint HIT_AMBIENT_GIVEN = 8u;   // The caller's `ambient` (average radiance arriving), e.g. the GI at the reflecting pixel
 static const uint HIT_AMBIENT_TRACED = 16u; // The sky, only where one more ray finds it: no sky light leaks into closed rooms
+// The hit's own glow is multiplied by its object's Emissive Light: how much light it casts on its surroundings, which is what a
+// ray that gathers indirect light brings back. Without it the glow is as the surface looks, which is what a reflection shows.
+static const uint HIT_EMISSIVE_LIGHT = 32u;
 
 // Light leaving a ray hit back along the ray: the scene's lights, the surface's own glow and, depending on flags
 // (HIT_* above), indirect light. This is what a reflection shows of the object, or what a GI ray brings back from it.
@@ -238,6 +285,10 @@ float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 
     {
         emissive *= SampleSceneTexture(material.EmissiveTexture, hit.UV, hit.UVPerWorldArea, footprint).rgb;
     }
+    if ((flags & HIT_EMISSIVE_LIGHT) != 0u)
+    {
+        emissive *= material.EmissiveLight;
+    }
 
     float3 N = hit.N;
     float3 V = -rayDirection;
@@ -252,35 +303,27 @@ float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 
         if (dot(N, L) <= 0.0 || dot(hit.GeoN, L) <= 0.0)
             continue;
 
-        float shadowFactor = traceShadows ? TraceHitShadow(hit, L, 1000.0, tan(SUN_ANGULAR_RADIUS), ShiftNoise(noise, i)) : 1.0;
+        float spread = tan(g_DirLights[i].Direction.w);
+        float shadowFactor = traceShadows ? TraceHitShadow(hit, L, 1000.0, spread, ShiftNoise(noise, i)) : 1.0;
         float3 radiance = g_DirLights[i].Color.rgb * g_DirLights[i].Color.a;
 
         Lo += specular
-            ? ComputeLightRadiance(N, V, L, radiance, albedo, metallic, roughness, F0, shadowFactor)
+            ? ShadeRoundLight(N, V, L, spread, radiance, albedo, metallic, roughness, F0, shadowFactor, float3(1.0, 1.0, 1.0))
             : albedo / PI * radiance * dot(N, L) * shadowFactor;
     }
 
-    // 2. Point lights
+    // 2. Point, spot and rectangular lights
     for (int j = 0; j < g_NumPointLights; ++j)
     {
-        float3 lightVec = g_PointLights[j].Position.xyz - hit.Position;
-        float dist = length(lightVec);
-        if (dist >= g_PointLights[j].Range || dist <= 0.0001)
+        LocalLightSample light;
+        if (!EvaluateLocalLight(j, hit.Position, N, V, light) || dot(hit.GeoN, light.L) <= 0.0)
             continue;
 
-        float3 L = lightVec / dist;
-        if (dot(N, L) <= 0.0 || dot(hit.GeoN, L) <= 0.0)
-            continue;
-
-        float shadowFactor = traceShadows ? TraceHitShadow(hit, L, dist - 0.01, POINT_LIGHT_RADIUS / dist, ShiftNoise(noise, 4 + j)) : 1.0;
-
-        float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
-        attenuation *= attenuation;
-        float3 radiance = g_PointLights[j].Color.rgb * g_PointLights[j].Color.a * attenuation;
+        float shadowFactor = traceShadows ? TraceHitShadow(hit, light.L, light.Distance - 0.01, light.SourceRadius / light.Distance, ShiftNoise(noise, 4 + j)) : 1.0;
 
         Lo += specular
-            ? ComputeLightRadiance(N, V, L, radiance, albedo, metallic, roughness, F0, shadowFactor)
-            : albedo / PI * radiance * dot(N, L) * shadowFactor;
+            ? ShadeLocalLight(N, V, light, albedo, metallic, roughness, F0, shadowFactor, float3(1.0, 1.0, 1.0))
+            : albedo / PI * light.DiffuseIrradiance * shadowFactor;
     }
 
     // 3. Indirect light arriving at the hit, as the average radiance over the hemisphere above it
@@ -303,8 +346,7 @@ float3 ShadeSceneHit(SceneHit hit, float3 rayDirection, float coneWidth, float2 
         BuildBasis(N, t, b);
         float2 skyNoise = ShiftNoise(noise, 15); // Apart from the lights' shadow rays, which use shifts 0 to 11
         float2 d = VogelDisk(0, 1, skyNoise.x * 2.0 * PI, skyNoise.y);
-        float3 skyDir
- = normalize(t * d.x + b * d.y + N * sqrt(saturate(1.0 - dot(d, d))));
+        float3 skyDir = normalize(CosineHemisphereDirection(N, t, b, d));
         if (dot(skyDir, hit.GeoN) > 0.0 && TraceShadowRay(hit.Position, hit.GeoN, hit.Distance * 0.0005, skyDir, 1000.0) > 0.5)
         {
             // A blurred mip, so one ray doesn't have to find a small bright sun on its own

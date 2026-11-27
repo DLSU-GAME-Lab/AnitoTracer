@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BasePipeline.hpp"
+#include "Utils/DynamicVertexBuffer.hpp"
 #include <vector>
 
 namespace Diligent {
@@ -17,10 +18,7 @@ namespace Diligent {
         void RenderLines(IDeviceContext* pContext, const std::vector<DebugLineVertex>& lines);
 
     private:
-        RefCntAutoPtr<IBuffer> m_pVertexBuffer;
-        Uint32 m_VertexBufferCapacity = 0;
-
-        void EnsureVertexBufferCapacity(IRenderDevice* pDevice, Uint32 requiredVertexCount);
+        DynamicVertexBuffer m_Vertices{ "Debug Line Vertex Buffer", sizeof(DebugLineVertex), 4096, static_cast<Uint32>(kMaxDebugLineVertices) };
     };
 
 }

@@ -3,15 +3,14 @@
 
 void Diligent::DebugLinePipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain)
 {
-    m_pVertexBuffer.Release();
-    m_VertexBufferCapacity = 0;
+    m_Vertices.Release();
 
     SetDevice(pDevice, pSwapChain);
     CreateCameraConstantBuffer();
 
     // Depth-test against existing geometry so lines occlude correctly
     // but don't write depth so overlapping debug lines don't look weird
-    m_pPSO = PSOBuilder("Debug Line PSO")
+    BuildMainPass(PSOBuilder("Debug Line PSO")
         .Shaders("debug_line.hlsl", "debug_line.hlsl")
         .RenderTargets({ GetColorFormat() }, GetDepthFormat())
         .SampleCount(PipelineUtils::GetMSAASampleCount())
@@ -19,32 +18,7 @@ void Diligent::DebugLinePipeline::InitializePipeline(IRenderDevice* pDevice, ISw
         .Cull(CULL_MODE_NONE)
         .Depth(true, false)
         .InputLayout(VertexLayouts::GetDebugLineLayout())
-        .Variable(SHADER_TYPE_VERTEX, "CameraConstants")
-        .Build(pDevice);
-    m_pSRB = PipelineUtils::CreateSRB(m_pPSO);
-    BindCommonBuffers(m_pSRB);
-}
-
-void Diligent::DebugLinePipeline::EnsureVertexBufferCapacity(IRenderDevice* pDevice, Uint32 requiredVertexCount)
-{
-    if (m_pVertexBuffer && requiredVertexCount <= m_VertexBufferCapacity) {
-        return;
-    }
-
-    // Grow with headroom
-    Uint32 newCapacity = std::max<Uint32>(requiredVertexCount, m_VertexBufferCapacity == 0 ? 4096 : m_VertexBufferCapacity * 2);
-    newCapacity = std::min<Uint32>(newCapacity, static_cast<Uint32>(kMaxDebugLineVertices));
-
-    BufferDesc VBDesc;
-    VBDesc.Name = "Debug Line Vertex Buffer";
-    VBDesc.Usage = USAGE_DYNAMIC;
-    VBDesc.BindFlags = BIND_VERTEX_BUFFER;
-    VBDesc.CPUAccessFlags = CPU_ACCESS_WRITE;
-    VBDesc.Size = newCapacity * sizeof(DebugLineVertex);
-
-    m_pVertexBuffer.Release();
-    pDevice->CreateBuffer(VBDesc, nullptr, &m_pVertexBuffer);
-    m_VertexBufferCapacity = newCapacity;
+        .Variable(SHADER_TYPE_VERTEX, "CameraConstants"));
 }
 
 void Diligent::DebugLinePipeline::RenderLines(IDeviceContext* pContext, const std::vector<DebugLineVertex>& lines)
@@ -53,21 +27,11 @@ void Diligent::DebugLinePipeline::RenderLines(IDeviceContext* pContext, const st
         return;
     }
 
-    if (lines.size() > kMaxDebugLineVertices) return;
-
-    EnsureVertexBufferCapacity(m_pDevice, static_cast<Uint32>(lines.size()));
-
-    {
-        MapHelper<DebugLineVertex> VBData(pContext, m_pVertexBuffer, MAP_WRITE, MAP_FLAG_DISCARD);
-        DebugLineVertex* pDst = VBData;
-        if (!pDst) return;
-        memcpy(pDst, lines.data(), lines.size() * sizeof(DebugLineVertex));
-    }
+    // Nothing is drawn when there are more lines than the buffer may hold
+    if (!m_Vertices.Upload(m_pDevice, pContext, lines.data(), static_cast<Uint32>(lines.size()))) return;
 
     pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    IBuffer* pBuffs[] = { m_pVertexBuffer };
-    pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
+    m_Vertices.Bind(pContext);
 
     DrawAttribs DrawAttrs;
     DrawAttrs.NumVertices = static_cast<Uint32>(lines.size());

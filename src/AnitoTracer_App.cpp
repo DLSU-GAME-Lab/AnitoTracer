@@ -380,7 +380,8 @@ void AnitoTracer_App::Update()
     {
         // Both views render at the resolution picked in the viewport panels / User Settings, independent of the window size
         const RenderResolution& resolution = UserSettings::GetInstance().GetResolution();
-        m_pGameTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
+        // The game view is shown with the colors a player gets (shownInUI, see RenderTarget::Create)
+        m_pGameTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat, 1, true);
         m_pEditorTarget->Create(m_pDevice, resolution.Width, resolution.Height, SCDesc.ColorBufferFormat, SCDesc.DepthBufferFormat);
     }
 
@@ -429,6 +430,11 @@ void AnitoTracer_App::Update()
     //===============//EVENTS//===============//
     SceneManager::GetInstance().ProcessPendingSceneChange();
 
+    // Every submesh of a model that has several gets a node in the hierarchy. Editor only: a scene that plays is the scene as saved.
+    if (!AppState::isPlaying) {
+        HierarchyManager::GetInstance().SyncSubMeshNodes();
+    }
+
     ForwardImGuiInputToSystem();
     gbe::InputSystem::Update();
 
@@ -462,8 +468,8 @@ void AnitoTracer_App::Render()
 
     RenderData renderData;
     HierarchyManager::GetInstance().GetMainCameraMatrices(renderData.ViewMatrix, renderData.ProjectionMatrix);
-    HierarchyManager::GetInstance().GatherRenderModels(renderData.Models);
-    HierarchyManager::GetInstance().GatherLightData(renderData.Lights);
+    HierarchyManager::GetInstance().GatherRenderModels(renderData.Models, ProjectLoader::GetProjectSettings().materials);
+    HierarchyManager::GetInstance().GatherLightData(renderData.Lights, ProjectLoader::GetProjectSettings().physical_lights);
     GatherParticleBatches(renderData.Particles);
 
     const auto& SCDesc = m_pSwapChain->GetDesc();

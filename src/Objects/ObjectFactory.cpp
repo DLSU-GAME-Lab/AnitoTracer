@@ -73,6 +73,18 @@ HierarchyObject::Ref ObjectFactory::CreatePointLightObject(const std::string& na
     return newObject;
 }
 
+HierarchyObject::Ref ObjectFactory::CreateSpotLightObject(const std::string& name) {
+    HierarchyObject::Ref newObject = CreateRootObjectWithTransform(name);
+    HierarchyManager::GetInstance().AddComponentToObject(newObject, std::make_unique<SpotLight>(newObject));
+    return newObject;
+}
+
+HierarchyObject::Ref ObjectFactory::CreateAreaLightObject(const std::string& name) {
+    HierarchyObject::Ref newObject = CreateRootObjectWithTransform(name);
+    HierarchyManager::GetInstance().AddComponentToObject(newObject, std::make_unique<AreaLight>(newObject));
+    return newObject;
+}
+
 HierarchyObject::Ref ObjectFactory::CreateSpherePrimitive(const std::string& name) {
     return CreateModelObject(name, "Assets/Primitives/sphere.obj");
 }

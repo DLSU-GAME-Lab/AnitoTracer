@@ -1,6 +1,7 @@
 #include "UserSettingsPanel.hpp"
 #include "../../UserSettings.hpp"
 #include "../../Asset/ProjectLoader.hpp"
+#include "../../Common/LightUnits.hpp"
 #include "RendererManager.hpp"
 #include "imgui.h"
 #include <filesystem>
@@ -261,6 +262,11 @@ namespace Diligent {
                     "Needs Denoising on for indirect light.");
                 saveAfterEdit();
 
+                if (ImGui::Checkbox("Keep Light in Blur##GI", &giSettings.preserve_light)) saveProjectSettings();
+                tooltip("The blur passes move light between pixels without losing any, so a small bright area (a bulb, a glowing texture) lights its surroundings with all its light.\n"
+                    "Off: the blur as it was before, which lost about half the light of a small bright area. For comparing the two.\n"
+                    "Needs Denoising on for indirect light, and at least one blur pass.");
+
                 ImGui::EndDisabled();
 
                 ImGui::EndDisabled();
@@ -333,6 +339,214 @@ namespace Diligent {
                 }
             }
 
+            // ------------------------------------------------------------------
+            // Transparency Section (Hybrid and Deferred Hybrid renderers)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Transparency", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& transparencySettings = projectSettings.transparency;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+
+                const bool rayTracingSupported = ::RendererManager::GetInstance().IsRayTracingSupported();
+                // Telling a cutout's gaps from its solid parts, and what glass lets through, means reading the scene's
+                // materials from a ray: the same device support as shading the objects a reflection shows
+                const bool sceneRaysSupported = ::RendererManager::GetInstance().IsReflectionShadingSupported();
+                const PipelineType rendererType = UserSettings::GetInstance().GetRendererType();
+                const bool rayTracedRenderer = rendererType == HYBRID || rendererType == DEFERRED_HYBRID;
+
+                if (!rayTracingSupported)
+                {
+                    ImGui::TextDisabled("This device has no hardware ray tracing.");
+                }
+                else if (!sceneRaysSupported)
+                {
+                    ImGui::TextDisabled("This device can't read materials from a ray: cutouts and glass are solid to rays.");
+                }
+                else if (!rayTracedRenderer)
+                {
+                    ImGui::TextDisabled("Only the Hybrid and Deferred Hybrid renderers draw glass and trace cutouts.");
+                }
+
+                ImGui::BeginDisabled(!rayTracingSupported);
+
+                // The one switch for comparison tests: off is how the renderers behaved before
+                if (ImGui::Checkbox("Cutouts and Glass", &transparencySettings.enabled)) saveProjectSettings();
+                tooltip("Cutout materials (fences, leaves) cast shadows shaped like their texture and show in reflections with their holes.\n"
+                    "Blended materials are drawn as glass: tinted, refracting, reflecting the scene and casting a tinted shadow.\n"
+                    "Off: every triangle blocks every ray, and blended materials are not drawn. For comparing.");
+
+                ImGui::BeginDisabled(!transparencySettings.enabled);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Cutouts in Rays##Transparency", &transparencySettings.cutout_rays)) saveProjectSettings();
+                tooltip("Shadows, reflections and bounced light see the holes in cutout materials.\n"
+                    "Off: a cutout's whole card is solid to rays, though it is still drawn with its holes.");
+
+                if (ImGui::Checkbox("Draw Glass##Transparency", &transparencySettings.glass)) saveProjectSettings();
+                tooltip("Draw blended materials over the scene, farthest first.\n"
+                    "Off: they are not drawn, and rays go through them.");
+
+                ImGui::BeginDisabled(!transparencySettings.glass);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Tinted Shadows##Transparency", &transparencySettings.tinted_shadows)) saveProjectSettings();
+                tooltip("Light that passes through glass takes its color, as much as the glass is opaque.\n"
+                    "Deferred Hybrid carries the color for the first four lights; any others only lose brightness.\n"
+                    "Off: glass casts a solid shadow.");
+
+                if (ImGui::Checkbox("Refraction##Transparency", &transparencySettings.refraction)) saveProjectSettings();
+                tooltip("Glass bends what is behind it, using the material's index of refraction, and tints it.\n"
+                    "A closed shape (a ball, a slab) bends the view in and out again; a single sheet shows it unbent.\n"
+                    "Off: plain alpha blending, which shows what is behind the glass where it is.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Transparency to Defaults"))
+                {
+                    transparencySettings = ProjectTransparencySettings{};
+                    saveProjectSettings();
+                }
+            }
+
+
+            // ------------------------------------------------------------------
+            // Physical Lights Section
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Physical Lights", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& lightSettings = projectSettings.physical_lights;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+
+                // The one switch for comparison tests: off is how lights behaved before
+                if (ImGui::Checkbox("Physical Lights", &lightSettings.enabled)) saveProjectSettings();
+                tooltip("Off: every light behaves as it did before: falloff of (1 - distance / range)^2, fixed sizes, a point-like highlight\n"
+                    "and the plain Intensity number. For comparing.");
+
+                ImGui::BeginDisabled(!lightSettings.enabled);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Inverse-Square Falloff", &lightSettings.inverse_square)) saveProjectSettings();
+                tooltip("Point and spot lights get twice as far, a quarter as bright, and fade smoothly to nothing at their range.\n"
+                    "Off: the old falloff of (1 - distance / range)^2. This changes the brightness of every scene.");
+
+                if (ImGui::Checkbox("Real Units", &lightSettings.real_units)) saveProjectSettings();
+                tooltip("Light brightness is set in lumens (point, spot and area lights) and lux (directional lights), the way real lamps are rated.\n"
+                    "The lights are seen at the exposure below. Off: the plain Intensity of each light. Lights keep both numbers, so switching loses nothing.\n"
+                    "The sky and emissive materials are not in real units: they are not affected by the exposure.");
+
+                ImGui::BeginDisabled(!lightSettings.real_units);
+                ImGui::Indent();
+                ImGui::PushItemWidth(150.0f);
+                if (ImGui::SliderFloat("Exposure (EV100)", &lightSettings.ev100, 0.0f, 20.0f, "%.1f")) saveProjectSettings();
+                ImGui::PopItemWidth();
+                tooltip("The camera's exposure value at ISO 100. Higher is darker: each step halves the light.\n"
+                    "About 15 for a sunny day, 12 for overcast, 8 for a bright room, 6 for a lit room, 3 at night.\n"
+                    "The exposure of the display (HDR & Tone Mapping) is applied on top.");
+                const float sunScene = 100000.0f * LightUnits::ExposureScale(lightSettings.ev100);
+                const float bulbScene = LightUnits::CandelaToLux(LightUnits::LumensToCandela(800.0f), 2.0f) * LightUnits::ExposureScale(lightSettings.ev100);
+                ImGui::TextDisabled("At this exposure: 100,000 lx sun = %.2f, 800 lm bulb at 2 m = %.4f", sunScene, bulbScene);
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                if (ImGui::Checkbox("Light Size##PhysicalLights", &lightSettings.light_size)) saveProjectSettings();
+                tooltip("Each light has a size of its own (Radius, Angular Radius): a larger light casts softer shadows.\n"
+                    "Off: every light has the old fixed size.");
+
+                if (ImGui::Checkbox("Highlight Shape", &lightSettings.highlight_shape)) saveProjectSettings();
+                tooltip("A light's size also widens the highlight it makes on glossy surfaces: a large lamp gives a large highlight.\n"
+                    "Off: every light makes a point-like highlight.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Physical Lights to Defaults"))
+                {
+                    lightSettings = ProjectPhysicalLightSettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Materials Section
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Materials", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& materialSettings = projectSettings.materials;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", text);
+                };
+
+                const PipelineType rendererType = UserSettings::GetInstance().GetRendererType();
+                if (rendererType == DEFERRED)
+                {
+                    ImGui::TextDisabled("This renderer only applies specular anti-aliasing. The layers below show in Hybrid, Deferred Hybrid and Basic Lit.");
+                }
+                else if (rendererType == CROSSHATCH || rendererType == CROSSHATCH_RT || rendererType == ANIME)
+                {
+                    ImGui::TextDisabled("This renderer is stylized: none of the below applies to it.");
+                }
+
+                // The one switch for comparison tests: off is how materials looked before
+                if (ImGui::Checkbox("Advanced Materials", &materialSettings.enabled)) saveProjectSettings();
+                tooltip("Off: every material is a plain metal or dielectric, as before: highlights are as sharp as the normals say,\n"
+                    "there is no clear coat or sheen, and a material that lets light through is solid. For comparing.");
+
+                ImGui::BeginDisabled(!materialSettings.enabled);
+                ImGui::Indent();
+
+                if (ImGui::Checkbox("Specular Anti-Aliasing", &materialSettings.specular_aa)) saveProjectSettings();
+                tooltip("Roughness grows where the normal changes fast from one pixel to the next (normal-mapped metal, curved\n"
+                    "shiny surfaces), so their highlights stop sparkling as the camera moves. Smooth surfaces are not touched.\n"
+                    "Applies to every renderer that lights with the PBR material model.");
+
+                ImGui::BeginDisabled(!materialSettings.specular_aa);
+                ImGui::Indent();
+                ImGui::PushItemWidth(150.0f);
+                if (ImGui::SliderFloat("Strength##SpecularAA", &materialSettings.specular_aa_strength, 0.0f, 4.0f, "%.2f")) saveProjectSettings();
+                ImGui::PopItemWidth();
+                tooltip("How much roughness is added. 1 filters what the normals' change across a pixel calls for; more is blurrier.");
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                if (ImGui::Checkbox("Clearcoat", &materialSettings.clearcoat)) saveProjectSettings();
+                tooltip("Materials with a clear coat (glTF KHR_materials_clearcoat, or the Clearcoat override of a Model component)\n"
+                    "get a second, smoother highlight over the base layer, like car paint or lacquered wood.\n"
+                    "The coat reflects the sky and the lights, not the other objects.");
+
+                if (ImGui::Checkbox("Sheen", &materialSettings.sheen)) saveProjectSettings();
+                tooltip("Materials with sheen (glTF KHR_materials_sheen, or the Sheen override) get the soft rim of light that\n"
+                    "cloth fibres give at grazing angles.");
+
+                if (ImGui::Checkbox("Glass Transmission", &materialSettings.transmission)) saveProjectSettings();
+                tooltip("Materials that let light through (glTF KHR_materials_transmission, or the Transmission override) are drawn\n"
+                    "as glass: the view through them is refracted and tinted by their base color.\n"
+                    "The Hybrid and Deferred Hybrid renderers draw it, and follow the Transparency settings above.\n"
+                    "Off, or in any other renderer: such a material is solid.");
+
+                ImGui::Unindent();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Materials to Defaults"))
+                {
+                    materialSettings = ProjectMaterialSettings{};
+                    saveProjectSettings();
+                }
+            }
 
             // ------------------------------------------------------------------
             // Skybox Section
@@ -558,7 +772,7 @@ namespace Diligent {
                     "Off: clipped at white, as it was before HDR.\n"
                     "AgX: film-like. Bright, saturated light fades toward white; softer contrast overall.\n"
                     "Khronos PBR Neutral: shows colors as authored and only rolls off the highlights.\n"
-                    "The CrossHatch renderers are never tone mapped.");
+                    "The CrossHatch and Anime renderers are never tone mapped.");
 
                 ImGui::DragFloat("Exposure##HDR", &hdrSettings.exposure, 0.01f, -10.0f, 10.0f, "%.2f EV");
                 tooltip("Scene brightness in stops, applied before the tone mapper. +1 doubles the light, -1 halves it.");
@@ -970,6 +1184,118 @@ namespace Diligent {
                 if (ImGui::Button("Reset Cross Hatching to Defaults"))
                 {
                     chSettings = ProjectCrossHatchSettings{};
+                    saveProjectSettings();
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // Anime Shading Section (Anime renderer only)
+            // ------------------------------------------------------------------
+            if (ImGui::CollapsingHeader("Anime Shading"))
+            {
+                auto& animeSettings = projectSettings.anime;
+                auto tooltip = [](const char* text) {
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", text);
+                };
+                auto saveAfterEdit = [&] {
+                    if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+                };
+
+                ImGui::TextDisabled("Used by the Anime renderer (Rendering menu), in the Game view.");
+
+                ImGui::PushItemWidth(150.0f);
+
+                ImGui::TextDisabled("Tones");
+
+                ImGui::ColorEdit3("Base Color##Anime", animeSettings.base_color.data());
+                tooltip("Tint of the lit tone. It multiplies the material's color and texture.");
+                saveAfterEdit();
+
+                ImGui::ColorEdit3("Shadow Color##Anime", animeSettings.shadow_color.data());
+                tooltip("Tint of the shadow tone.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Shadow Factor##Anime", &animeSettings.shadow_factor, 0.0f, 1.0f, "%.2f");
+                tooltip("Darkens the shadow tone. 0 shows the shadow color as is, 1 turns the shadows black.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Step##Anime", &animeSettings.step, 0.0f, 1.0f, "%.2f");
+                tooltip("How much a surface has to face the light to be in the lit tone. Higher = more of it is in shadow.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Light Falloff##Anime", &animeSettings.light_falloff, 0.0f, 1.0f, "%.2f");
+                tooltip("0: two flat tones, like a cel.\n1: the lit tone fades into the shadow tone with the angle to the light, like diffuse shading.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Use Smooth Normal##Anime", &animeSettings.use_smooth_normal)) saveProjectSettings();
+                tooltip("Cuts the tones with normals averaged over neighboring faces: a cleaner shadow edge on low-poly or hard-edged meshes.");
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Specular");
+
+                if (ImGui::Checkbox("Enable Specular##Anime", &animeSettings.specular_enabled)) saveProjectSettings();
+                tooltip("Highlights in the lit tone (Cook-Torrance). Their size follows the material's roughness and metallic,\nwhich the Model component can override per object.");
+
+                ImGui::BeginDisabled(!animeSettings.specular_enabled);
+                ImGui::SliderFloat("Strength##AnimeSpecular", &animeSettings.specular_strength, 0.0f, 4.0f, "%.2f");
+                saveAfterEdit();
+                ImGui::EndDisabled();
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Texture Blur");
+
+                ImGui::SliderFloat("Base Color##AnimeBlur", &animeSettings.base_color_blur, 0.0f, 8.0f, "%.1f");
+                tooltip("Smooths the base color texture by reading it from a lower mip level. 0 = sharp.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Normal Map##AnimeBlur", &animeSettings.normal_map_blur, 0.0f, 8.0f, "%.1f");
+                tooltip("The same for the normal map, which calms the highlights.");
+                saveAfterEdit();
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Inner Edges");
+
+                ImGui::ColorEdit3("Edge Color##Anime", animeSettings.inner_edge_color.data());
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Inner Step##Anime", &animeSettings.inner_step, 0.0f, 1.0f, "%.2f");
+                tooltip("Ink where a surface faces the camera less than this: a rim line inside the silhouette. 0 = off.");
+                saveAfterEdit();
+
+                ImGui::SliderFloat("Curve Step##Anime", &animeSettings.curve_step, 0.0f, 1.0f, "%.2f");
+                tooltip("Ink where the mesh bends more than this (creases, folds). Lower = more lines. 1 = off.");
+                saveAfterEdit();
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("Outline");
+
+                if (ImGui::Checkbox("Enable Outline##Anime", &animeSettings.outline_enabled)) saveProjectSettings();
+                tooltip("Ink outline around each object's silhouette (inverted hull).");
+
+                ImGui::BeginDisabled(!animeSettings.outline_enabled);
+                ImGui::ColorEdit3("Color##AnimeOutline", animeSettings.outline_color.data());
+                saveAfterEdit();
+
+                ImGui::DragFloat("Thickness##AnimeOutline", &animeSettings.outline_thickness, 0.0005f, 0.0f, 1.0f, "%.4f");
+                tooltip(animeSettings.outline_constant_screen_width
+                    ? "Outline thickness as a fraction of the distance to the camera."
+                    : "Outline thickness in world units.");
+                saveAfterEdit();
+
+                if (ImGui::Checkbox("Constant Screen Width##Anime", &animeSettings.outline_constant_screen_width)) saveProjectSettings();
+                tooltip("Keeps the outline the same thickness on screen at any distance.");
+
+                if (ImGui::Checkbox("Smooth Normals##AnimeOutline", &animeSettings.outline_smooth_normals)) saveProjectSettings();
+                tooltip("Grows the outline along normals averaged over neighboring faces, which don't open gaps at hard edges.");
+                ImGui::EndDisabled();
+
+                ImGui::PopItemWidth();
+
+                ImGui::Spacing();
+
+                if (ImGui::Button("Reset Anime Shading to Defaults"))
+                {
+                    animeSettings = ProjectAnimeSettings{};
                     saveProjectSettings();
                 }
             }

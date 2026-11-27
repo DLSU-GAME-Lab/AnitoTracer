@@ -2,6 +2,7 @@
 #include "../light_struct.hlsli"
 #include "../pbr_defs.hlsli"
 #include "../fog.hlsli"
+#include "../Common/screen_common.hlsli"
 
 // G-Buffer Inputs
 Texture2D g_GBufferAlbedo;
@@ -11,12 +12,6 @@ Texture2D g_GBufferDepth;
 Texture2D g_GBufferEmissive;
 
 SamplerState g_GBuffer_sampler;
-
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
 
 
 void main_ps(in FullScreenPSInput In, out float4 OutColor : SV_TARGET, out float OutDepth : SV_DEPTH)

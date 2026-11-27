@@ -1,12 +1,13 @@
 #pragma once
 
-#include <iostream>
-#include <unordered_map>
-#include <filesystem>
-#include <string>
-#include <vector>
 #include <algorithm>
-#include <iterator>
+#include <cctype>
+#include <filesystem>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 #include "IAsset.hpp"
 #include "GUID.hpp"
 
@@ -15,23 +16,32 @@ namespace gbe {
     class AssetDatabase {
     private:
         static std::vector<std::filesystem::path>& GetDirectories() {
-            static std::vector<std::filesystem::path> instance;
-            return instance;
+            static std::vector<std::filesystem::path> directories;
+            return directories;
+        }
+
+        static std::filesystem::path& ProjectDirectory() {
+            static std::filesystem::path directory;
+            return directory;
+        }
+
+        static std::unordered_set<GUID>& ProjectAssets() {
+            static std::unordered_set<GUID> assets;
+            return assets;
+        }
+
+        static bool& LoadingProject() {
+            static bool loading = false;
+            return loading;
         }
 
         static std::string PathToKey(const std::filesystem::path& path) {
-            // 1. Attempt to localize the path relative to registered include directories
-            auto localized = LocalizePath(path);
-            const auto& target_path = localized.empty() ? path : localized;
-
-            // 2. Lexically normalize separators and relative components (a/b/../c -> a/c)
-            // 3. Convert to generic format (always uses '/' regardless of OS)
-            auto generic_path = target_path.lexically_normal().generic_u8string();
-
-            // 4. Force lowercase for case-insensitive matching
-            std::string key(generic_path.begin(), generic_path.end());
+            auto generic = std::filesystem::absolute(path).lexically_normal().generic_u8string();
+            std::string key(generic.begin(), generic.end());
+#ifdef _WIN32
             std::transform(key.begin(), key.end(), key.begin(),
                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+#endif
             return key;
         }
 
@@ -46,145 +56,143 @@ namespace gbe {
             return instance;
         }
 
-        /**
-         * @brief Registers a search/include directory for path localization.
-         */
         static void RegisterDirectory(const std::filesystem::path& dir) {
-            GetDirectories().push_back(std::filesystem::absolute(dir).lexically_normal());
-        }
-
-        /**
-         * @brief Localizes an absolute path relative to the closest registered directory.
-         * @return Relative path from the closest directory, or an empty path if not inside any.
-         */
-        static std::filesystem::path LocalizePath(const std::filesystem::path& abs_path) {
-            namespace fs = std::filesystem;
-            fs::path norm_target = abs_path.lexically_normal();
-
-            fs::path best_relative;
-            std::ptrdiff_t max_depth = -1;
-
-            for (const auto& dir : GetDirectories()) {
-                fs::path norm_dir = dir.lexically_normal();
-                fs::path rel = fs::relative(norm_target, norm_dir);
-
-                // Reject if empty or starts with ".." (outside of the registered directory)
-                if (rel.empty() || rel.begin() == rel.end() || *rel.begin() == "..") {
-                    continue;
-                }
-
-                // Check depth of this directory (higher depth = deeper/closer match)
-                std::ptrdiff_t depth = std::distance(norm_dir.begin(), norm_dir.end());
-                if (depth > max_depth) {
-                    max_depth = depth;
-                    best_relative = std::move(rel);
-                }
+            const auto normalized = std::filesystem::absolute(dir).lexically_normal();
+            const auto key = PathToKey(normalized);
+            auto& dirs = GetDirectories();
+            if (std::none_of(dirs.begin(), dirs.end(), [&](const auto& existing) {
+                return PathToKey(existing) == key;
+            })) {
+                dirs.push_back(normalized);
             }
-
-            return best_relative;
         }
 
-        // Fast O(1) global GUID lookup
+        static void BeginProjectLoad(const std::filesystem::path& dir) {
+            const auto previousAssets = ProjectAssets();
+            for (const auto& guid : previousAssets) {
+                UnregisterAsset(guid);
+            }
+            ProjectDirectory() = std::filesystem::absolute(dir).lexically_normal();
+            LoadingProject() = true;
+        }
+
+        static void BeginProjectRescan() { LoadingProject() = true; }
+
+        static void EndProjectLoad() { LoadingProject() = false; }
+
+        static std::filesystem::path LocalizePath(const std::filesystem::path& path) {
+            namespace fs = std::filesystem;
+            if (!path.is_absolute()) return path.lexically_normal();
+
+            const auto target = path.lexically_normal();
+            fs::path best;
+            std::size_t bestDepth = 0;
+            auto consider = [&](const fs::path& dir) {
+                if (dir.empty()) return;
+                const auto rel = target.lexically_relative(dir);
+                if (rel.empty() || *rel.begin() == "..") return;
+                const auto depth = static_cast<std::size_t>(std::distance(dir.begin(), dir.end()));
+                if (best.empty() || depth > bestDepth) {
+                    best = rel;
+                    bestDepth = depth;
+                }
+            };
+            consider(ProjectDirectory());
+            for (const auto& dir : GetDirectories()) consider(dir);
+            return best;
+        }
+
         static IAsset* GetAssetByGUID(const GUID& guid) {
             if (guid == GUID::Empty()) return nullptr;
-
-            auto& guidMap = GetGuidMap();
-            auto it = guidMap.find(guid);
-            return (it != guidMap.end()) ? it->second : nullptr;
+            const auto it = GetGuidMap().find(guid);
+            return it == GetGuidMap().end() ? nullptr : it->second;
         }
 
-        // Fast O(1) path lookup (handles both full and localized paths)
         static IAsset* GetAssetByPath(const std::filesystem::path& path) {
-            auto& pathMap = GetPathMap();
-            auto path_lookup = PathToKey(path);
-            auto it = pathMap.find(path_lookup);
-            if (it != pathMap.end()) {
-                return GetAssetByGUID(it->second);
+            if (path.empty()) return nullptr;
+            auto find = [&](const std::filesystem::path& candidate) -> IAsset* {
+                const auto it = GetPathMap().find(PathToKey(candidate));
+                return it == GetPathMap().end() ? nullptr : GetAssetByGUID(it->second);
+            };
+            if (path.is_absolute()) return find(path);
+            if (!ProjectDirectory().empty()) {
+                if (auto* asset = find(ProjectDirectory() / path)) return asset;
             }
-            //Temp fix- TODO can you check why
-            //This fails when path_lookup = i:/dev/anitotracerrebuild/anitotracer/assets/sponza/sponza.obj
-            //And pathMap has key / value sponza/sponza.obj, so it should be there
-            //Another note- using JP paths so the ani file stores the path as Assets\\Sponza\\sponza.obj not sure if this is the one at fault
-
-            //Delete this later pls- will definitely positively cause problems xD;;;
-            // Fallback: if path is absolute and we didn't find it directly,
-            // try matching against the tail of the path (handles cases where
-            // the asset was stored with a relative path)
-            if (path.is_absolute()) {
-                // Collect path components from the relative portion
-                auto rel_path = path.relative_path();
-                std::vector<std::filesystem::path> components;
-                for (const auto& comp : rel_path) {
-                    components.push_back(comp);
-                }
-
-                // Try different suffix lengths (2 to 4 components from the end)
-                for (size_t len = std::min(size_t(2), components.size()); 
-                     len <= std::min(size_t(4), components.size()); ++len) {
-                    std::filesystem::path suffix;
-                    size_t start = components.size() - len;
-                    for (size_t i = start; i < components.size(); ++i) {
-                        suffix /= components[i];
-                    }
-                    auto suffix_key = PathToKey(suffix);
-                    auto it2 = pathMap.find(suffix_key);
-                    if (it2 != pathMap.end()) {
-                        return GetAssetByGUID(it2->second);
-                    }
-                }
+            if (auto* asset = find(path)) return asset;
+            for (const auto& dir : GetDirectories()) {
+                if (auto* asset = find(dir / path)) return asset;
             }
-
             return nullptr;
         }
 
-        /**
-         * @brief Registers an asset with automatic GUID collision handling.
-         * @return The final, collision-free GUID assigned to the asset.
-         */
+        // A conflicting GUID is never changed automatically: scenes may already refer to it.
         static GUID RegisterAsset(IAsset* asset, GUID requestedGuid) {
-            if (!asset) return GUID::Empty();
-
+            if (!asset || asset->GetPath().empty() || requestedGuid == GUID::Empty()) {
+                std::cerr << "[AssetDatabase] Cannot register an asset without a path and GUID.\n";
+                return GUID::Empty();
+            }
             auto& guidMap = GetGuidMap();
             auto& pathMap = GetPathMap();
-
-            GUID finalGuid = requestedGuid;
-
-            // --- Collision Handling ---
-            if (finalGuid == GUID::Empty() || guidMap.find(finalGuid) != guidMap.end()) {
-                if (finalGuid != GUID::Empty()) {
-                    std::cerr << "[AssetDatabase Warning] GUID Collision detected ("
-                        << finalGuid.ToString() << ") at path: " << asset->GetPath() << "\n";
-                }
-
-                // Re-key: Regenerate until collision is resolved
-                do {
-                    finalGuid = GUID::Generate();
-                } while (guidMap.find(finalGuid) != guidMap.end());
-
-                std::cout << "[AssetDatabase Info] Re-keyed asset to new GUID: "
-                    << finalGuid.ToString() << "\n";
+            const auto key = PathToKey(asset->GetPath());
+            const auto guidIt = guidMap.find(requestedGuid);
+            const auto pathIt = pathMap.find(key);
+            if ((guidIt != guidMap.end() && guidIt->second != asset) ||
+                (pathIt != pathMap.end() && pathIt->second != requestedGuid)) {
+                std::cerr << "[AssetDatabase] Conflicting GUID or path for " << asset->GetPath()
+                    << " (GUID " << requestedGuid << "); metadata was not changed.\n";
+                return GUID::Empty();
             }
-
-            asset->SetGUID(finalGuid);
-            guidMap[finalGuid] = asset;
-            pathMap[PathToKey(asset->GetPath())] = finalGuid;
-
-            return finalGuid;
+            const auto oldGuid = asset->GetGUID();
+            if (oldGuid != requestedGuid) {
+                auto old = guidMap.find(oldGuid);
+                if (old != guidMap.end() && old->second == asset) {
+                    guidMap.erase(old);
+                    ProjectAssets().erase(oldGuid);
+                }
+            }
+            const bool newlyRegistered = guidIt == guidMap.end();
+            asset->SetGUID(requestedGuid);
+            guidMap[requestedGuid] = asset;
+            pathMap[key] = requestedGuid;
+            if (LoadingProject() && newlyRegistered) ProjectAssets().insert(requestedGuid);
+            return requestedGuid;
         }
 
         static void UnregisterAsset(const GUID& guid) {
             auto& guidMap = GetGuidMap();
             auto it = guidMap.find(guid);
-            if (it != guidMap.end()) {
-                GetPathMap().erase(PathToKey(it->second->GetPath()));
-                guidMap.erase(it);
+            if (it == guidMap.end()) return;
+            auto& paths = GetPathMap();
+            const auto pathIt = paths.find(PathToKey(it->second->GetPath()));
+            if (pathIt != paths.end() && pathIt->second == guid) paths.erase(pathIt);
+            guidMap.erase(it);
+            ProjectAssets().erase(guid);
+        }
+
+        static void OnAssetMoved(const std::filesystem::path& oldPath, const std::filesystem::path& newPath) {
+            auto* asset = GetAssetByPath(oldPath);
+            if (!asset) {
+                std::cerr << "[AssetDatabase] Cannot move unregistered asset: " << oldPath << '\n';
+                return;
             }
+            const auto newKey = PathToKey(newPath);
+            const auto existing = GetPathMap().find(newKey);
+            if (existing != GetPathMap().end() && existing->second != asset->GetGUID()) {
+                std::cerr << "[AssetDatabase] Cannot move asset to occupied path: " << newPath << '\n';
+                return;
+            }
+            GetPathMap().erase(PathToKey(asset->GetPath()));
+            asset->SetPath(std::filesystem::absolute(newPath).lexically_normal());
+            GetPathMap()[newKey] = asset->GetGUID();
         }
 
         static void Clear() {
             GetGuidMap().clear();
             GetPathMap().clear();
             GetDirectories().clear();
+            ProjectAssets().clear();
+            ProjectDirectory().clear();
+            LoadingProject() = false;
         }
     };
 

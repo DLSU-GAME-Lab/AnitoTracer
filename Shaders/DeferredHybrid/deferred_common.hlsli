@@ -18,11 +18,14 @@
 // Requires light_struct.hlsli, pbr_defs.hlsli, fog.hlsli and hybrid_shading.hlsli to be included first.
 
 #include "gbuffer_common.hlsli"
+#include "../Common/math_common.hlsli"
+#include "../Common/screen_common.hlsli"
 
 Texture2D g_GBufferAlbedoMetallic;
 Texture2D g_GBufferNormals;
-Texture2D g_GBufferEmissiveAO;
-Texture2D g_GBufferRoughness;
+Texture2D g_GBufferEmissive;
+Texture2D g_GBufferMaterial;
+Texture2D g_GBufferSheen;
 Texture2D g_GBufferDepth;
 
 // Mirrors DeferredHybridConstants in DeferredHybridPipeline.cpp
@@ -38,12 +41,15 @@ cbuffer DeferredHybridConstants
     uint g_SignalFrame;     // Counts up every frame: moves the rays of the signals a denoiser averages
     uint g_DenoiseFlags;    // DENOISE_* bits: the signals that go through a denoiser this frame
     uint g_ShadowLayer;     // shadow_trace_ps: which four light slots this draw covers (slots 4 * layer onward)
-    uint g_DeferredPadding;
+    uint g_GlassFlags;      // GLASS_* bits below
 };
 
 static const uint DENOISE_SHADOWS = 1u;
 static const uint DENOISE_INDIRECT = 2u;
 static const uint DENOISE_REFLECTIONS = 4u;
+
+// Bits of g_GlassFlags
+static const uint GLASS_TINT_SHADOWS = 1u;  // The shadow pass wrote the color glass tints the direct light with (g_GlassTint)
 
 // The guide: xy = octahedral geometric normal, z = distance from the camera, w = roughness (0: sky, nothing drawn).
 // Same size as the view.
@@ -52,18 +58,6 @@ Texture2D g_Guide;
 // rgb + a, at 1 / g_GIParams.y of the view's size. Per-pixel GI: indirect light arriving, and how open the
 // surroundings are. Sky + AO: average direction of the occlusion rays that got away, and the share that did.
 Texture2D g_IndirectSignal;
-
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
-
-// A value that broke somewhere (a NaN, an infinity, a negative) would spread through every frame after it
-float3 SanitizeLight(float3 light)
-{
-    return (any(isnan(light)) || any(isinf(light))) ? float3(0.0, 0.0, 0.0) : max(light, 0.0);
-}
 
 // The surface a pixel shows, rebuilt from the G-buffer. Returns false for the sky (nothing was drawn there).
 // The indirect light fields are left for ApplyIndirectSignal.
@@ -79,31 +73,30 @@ bool LoadGBufferSurface(int2 pixel, out HybridSurface surface, out float depth)
         return false;
     }
 
-    // World position from depth
+    // World position from depth, and how far off it can be (see DepthPositionError): the ray origins are pushed
+    // out by that much on top of the shadow bias
     float2 uv = (float2(pixel) + 0.5) * g_ViewportSize.zw;
-    float4 clipPos = float4(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y, depth, 1.0);
-    float4 worldPos = mul(clipPos, g_InvViewProj);
-    worldPos.xyz /= worldPos.w;
-
-    // D32 depth loses precision with distance, so the rebuilt position can sit below the real surface by more
-    // than the shadow bias (tenths of a unit a few hundred units out). Two depth steps, mapped back to world
-    // units, is how far it can be off here; the ray origins are pushed out by that much on top of the bias.
-    float depthStep = asfloat(asuint(depth) + 2) - depth;
-    float4 worldPosNext = mul(float4(clipPos.xy, depth + depthStep, 1.0), g_InvViewProj);
+    float4 clipPos = UVToClip(uv, depth);
+    float3 worldPos = ClipToWorld(clipPos, g_InvViewProj);
 
     float4 albedoMetallic = g_GBufferAlbedoMetallic.Load(texel);
     float4 normals = g_GBufferNormals.Load(texel);
-    float4 emissiveAO = g_GBufferEmissiveAO.Load(texel);
+    float4 material = g_GBufferMaterial.Load(texel);
 
-    surface.WorldPos = worldPos.xyz;
+    surface.WorldPos = worldPos;
     surface.N = OctDecode(normals.xy);
     surface.GeoN = OctDecode(normals.zw);
-    surface.PositionError = length(worldPosNext.xyz / worldPosNext.w - worldPos.xyz);
+    surface.PositionError = DepthPositionError(clipPos, worldPos, g_InvViewProj);
     surface.Albedo = albedoMetallic.rgb;
     surface.Metallic = albedoMetallic.a;
-    surface.Roughness = g_GBufferRoughness.Load(texel).r;
-    surface.AO = emissiveAO.a;
-    surface.Emissive = emissiveAO.rgb;
+    surface.Roughness = material.r;
+    surface.AO = material.g;
+    surface.Emissive = g_GBufferEmissive.Load(texel).rgb;
+
+    // The clear coat and sheen are only read by the pass that lights (the trace passes don't use them): a texture the
+    // shader never reads costs nothing
+    float4 sheen = g_GBufferSheen.Load(texel);
+    surface.Layers = MakeSurfaceLayers(material.b, material.a, surface.GeoN, sheen.rgb, sheen.a);
     surface.PixelSpread = g_ViewParams.x;
     surface.UseIndirectLight = false;
     surface.IndirectLight = float4(0.0, 0.0, 0.0, 1.0);

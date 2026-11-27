@@ -9,7 +9,7 @@ namespace Diligent::FileOpeners
     Opener CreateModelFileOpener(StatusReporter reportStatus)
     {
         return [reportStatus = std::move(reportStatus)](const std::filesystem::path& path) {
-            if (!HasExtension(path, ".obj"))
+            if (!HasExtension(path, ".obj") && !HasExtension(path, ".gltf") && !HasExtension(path, ".glb"))
                 return;
 
             const auto modelPath = NormalizePath(path);

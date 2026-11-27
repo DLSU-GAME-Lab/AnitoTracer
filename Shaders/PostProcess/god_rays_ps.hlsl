@@ -4,7 +4,9 @@
 // blocks the shafts without needing the depth buffer.
 // Reads and writes the HDR scene color, before the display pass.
 
-#include "hdr_common.hlsli"
+#include "../Common/hdr_common.hlsli"
+#include "../Common/sampling_common.hlsli"
+#include "../Common/screen_common.hlsli"
 
 Texture2D g_SceneColor;
 SamplerState g_SceneColor_sampler;
@@ -26,19 +28,11 @@ cbuffer GodRaysConstants
     float g_Padding;
 };
 
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
-
-static const float3 LUMA_WEIGHTS = float3(0.2126, 0.7152, 0.0722);
-
 // How much a sample at this UV emits: bright pixels close to the sun
 float3 SampleOccluder(float2 uv)
 {
     float3 color = SanitizeHDR(g_SceneColor.SampleLevel(g_SceneColor_sampler, uv, 0).rgb);
-    float luma = dot(color, LUMA_WEIGHTS);
+    float luma = Luminance(color);
     float bright = saturate((luma - g_Threshold) / g_Knee);
 
     // Scene color has no upper limit: without a cap, a few very bright pixels (the sun's disk, a strong emissive)
@@ -49,12 +43,6 @@ float3 SampleOccluder(float2 uv)
     float sunMask = 1.0 - smoothstep(0.0, g_SunRadius, length(toSun));
 
     return color * bright * sunMask;
-}
-
-// Interleaved gradient noise, used to jitter the march start and trade banding for fine grain
-float InterleavedGradientNoise(float2 pixel)
-{
-    return frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
 }
 
 float4 main_ps(in FullScreenPSInput In) : SV_TARGET

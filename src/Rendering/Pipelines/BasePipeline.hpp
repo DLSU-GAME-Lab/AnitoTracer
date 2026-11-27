@@ -23,6 +23,7 @@
 #include "Data/PipelineDefs.hpp"
 #include "Utils/PipelineUtils.hpp"
 #include "Utils/PSOBuilder.hpp"
+#include "Utils/PipelinePass.hpp"
 #include "../RenderData.hpp"
 #include "../../Asset/ProjectSettings.hpp"
 
@@ -64,11 +65,26 @@ namespace Diligent {
         // Binds the constant buffers this pipeline owns to the variables pSRB declares
         virtual void BindCommonBuffers(IShaderResourceBinding* pSRB);
 
+        // True for a pipeline that draws the glass pass this frame (RenderModel(s) with renderOpaque false). It draws the
+        // submeshes that let light through there; any other draws them with the opaque ones, as plain solids.
+        virtual bool DrawsGlass() const { return false; }
+
         // Draws a model's submeshes binding materials through pSRB instead of m_pSRB (e.g. for an extra pass with its own PSO)
         void RenderModelWithSRB(IDeviceContext* pContext, const ModelRenderInstance& modelData, bool renderOpaque, IShaderResourceBinding* pSRB);
 
+        // Binds the vertex buffers a model is drawn from: the standard vertices in slot 0. A pipeline whose input layout
+        // reads more vertex data (e.g. AnimePipeline's second stream) overrides this to bind it too.
+        virtual void BindModelVertexBuffers(IDeviceContext* pContext, const Model& model);
+
         // PSO for drawing models with the standard vertex layout, constants and material textures, into the scene formats below
         PSOBuilder CreateModelPSOBuilder(const char* name, const char* psFile, const char* vsFile = "main_vs.hlsl");
+
+        // Builds the PSO, makes its SRB and binds the buffers this pipeline owns (BindCommonBuffers)
+        PipelinePass BuildPass(PSOBuilder& builder);
+        PipelinePass BuildPass(PSOBuilder&& builder) { return BuildPass(builder); }
+        // The same, into m_pPSO / m_pSRB: the pass StartFrameRender sets and RenderModel draws models with
+        void BuildMainPass(PSOBuilder& builder);
+        void BuildMainPass(PSOBuilder&& builder) { BuildMainPass(builder); }
 
         virtual std::vector<ShaderResourceVariableDesc> GetStandardShaderVariables();
         virtual std::vector<ImmutableSamplerDesc> GetStandardImmutableSamplers();
@@ -83,6 +99,9 @@ namespace Diligent {
         RefCntAutoPtr<IBuffer> m_pCameraCB;
         RefCntAutoPtr<IBuffer> m_pModelCB;
         RefCntAutoPtr<IBuffer> m_pMaterialCB;
+
+        // Scratch list of the submesh indices RenderModelWithSRB is drawing, kept to reuse its memory
+        std::vector<uint32_t> m_SubmeshesToDraw;
 
         // For motion vectors. World -> clip space without TAA jitter, as uploaded by the last UpdateCameraConstants:
         // the frame being drawn and the one before it (the same matrix on the first frame).

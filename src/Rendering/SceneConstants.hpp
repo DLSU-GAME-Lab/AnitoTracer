@@ -13,7 +13,7 @@ namespace Diligent {
     // noiseFrame is RenderData::NoiseFrame, which moves the ray-traced shadow and AO sample patterns every frame under TAA.
     // The sky's intensity and rotation are folded in, so sky lighting follows the skybox.
     ShadowSettings BuildShadowSettings(const ProjectLightingSettings& lighting, const ProjectSkySettings& sky,
-        const ProjectReflectionSettings& reflections, uint32_t noiseFrame = 0);
+        const ProjectReflectionSettings& reflections, const ProjectTransparencySettings& transparency, uint32_t noiseFrame = 0);
 
 
     // Layout expected by Shaders/Skybox/Skybox_ps.hlsl
@@ -21,5 +21,8 @@ namespace Diligent {
 
     // Layout expected by Shaders/CrossHatch/crosshatch_common.hlsli. CameraPos is left for the pipeline to fill.
     CrossHatchConstants BuildCrossHatchConstants(const ProjectCrossHatchSettings& settings);
+
+    // Layout expected by Shaders/Anime/anime_common.hlsli. CameraPos is left for the pipeline to fill.
+    AnimeConstants BuildAnimeConstants(const ProjectAnimeSettings& settings);
 
 }

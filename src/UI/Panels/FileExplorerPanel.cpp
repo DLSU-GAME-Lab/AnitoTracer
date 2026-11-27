@@ -32,6 +32,32 @@ namespace Diligent
         m_RootDirectory = FileOpeners::NormalizePath(root); m_CurrentDirectory = m_RootDirectory; m_Selection.clear();
     }
 
+    void FileExplorerPanel::RescanAssets()
+    {
+        SyncProjectRoot();
+        std::error_code error;
+        if (!std::filesystem::is_directory(m_CurrentDirectory, error))
+        {
+            m_Status = "Cannot rescan folder: " + (error ? error.message() : std::string("folder not found"));
+            std::cerr << "[FileExplorer] " << m_Status << ": " << m_CurrentDirectory << '\n';
+            return;
+        }
+
+        try
+        {
+            if (ProjectLoader::GetCurrentProjectDir().empty())
+                AssetPipeline::IncludeFolder(m_CurrentDirectory);
+            else
+                AssetPipeline::RescanProjectFolder(m_CurrentDirectory);
+            m_Status = "Asset scan finished; check the log for import errors.";
+        }
+        catch (const std::filesystem::filesystem_error& e)
+        {
+            m_Status = "Asset scan failed; check the log.";
+            std::cerr << "[FileExplorer] Asset scan failed: " << e.what() << '\n';
+        }
+    }
+
     bool FileExplorerPanel::IsInsideRoot(const std::filesystem::path& path) const
     {
         const auto root = FileOpeners::NormalizePath(m_RootDirectory);

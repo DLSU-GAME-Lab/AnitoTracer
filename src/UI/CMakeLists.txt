@@ -15,6 +15,9 @@ set(${CUR_TARGET_NAME}_src
 	Panels/InspectorPanel/Components/CameraUI.hpp
 	Panels/InspectorPanel/Components/DirectionalLightUI.hpp
 	Panels/InspectorPanel/Components/PointLightUI.hpp
+	Panels/InspectorPanel/Components/SpotLightUI.hpp
+	Panels/InspectorPanel/Components/AreaLightUI.hpp
+	Panels/InspectorPanel/Components/LightUIUtils.hpp
 
 	Panels/HierarchyPanel.cpp
 	Panels/HierarchyPanel.hpp
@@ -66,6 +69,8 @@ set(${CUR_TARGET_NAME}_src
 
 	GUIManager.cpp
 	GUIManager.hpp
+	DockLayoutScaler.cpp
+	DockLayoutScaler.hpp
 
 	ObjectPicker.hpp
 	ObjectPicker.cpp
@@ -114,6 +119,16 @@ target_link_libraries(${CUR_TARGET_NAME}
 #ADDITIONAL STUFF
 
 if(BUILD_TESTING)
+	add_executable(dock_layout_scaler_tests
+		tests/DockLayoutScalerTests.cpp
+		DockLayoutScaler.cpp
+	)
+	target_include_directories(dock_layout_scaler_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+	target_compile_definitions(dock_layout_scaler_tests PRIVATE
+		ANITO_DEFAULT_LAYOUT="${PROJECT_SOURCE_DIR}/Assets/Default Layouts/Default.ini")
+	target_link_libraries(dock_layout_scaler_tests PRIVATE Diligent-Imgui)
+	add_test(NAME dock_layout_scaler_tests COMMAND dock_layout_scaler_tests)
+
 	add_executable(script_editor_tests
 		Panels/ScriptEditor/tests/ScriptEditorTests.cpp
 		Panels/ScriptEditor/CaretNavigator.cpp

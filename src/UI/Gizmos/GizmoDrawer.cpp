@@ -1,10 +1,20 @@
 #include "GizmoDrawer.hpp"
 #include "../../Objects/Components/ITeleportable.hpp"
 #include "../../Objects/Components/Physics/PhysicsBase.hpp"
+#include "../../Objects/Components/SubMeshComponent.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
 
 namespace Diligent {
+
+    namespace {
+        // The node of a submesh stands at the middle of its part and doesn't move: there is nothing to manipulate
+        bool IsFixedSubMeshNode(HierarchyObject* object)
+        {
+            const SubMeshComponent* part = object ? object->GetComponent<SubMeshComponent>() : nullptr;
+            return part && !part->IsOrphaned();
+        }
+    }
 
     void GizmoDrawer::Draw(CameraComponent* pActiveCamera, HierarchyObject::Ref selectedObj, float x, float y, float width, float height)
     {
@@ -17,7 +27,7 @@ namespace Diligent {
         }
 
         auto* transformComp = selectedObj.GetPtr()->GetComponent<Transform>();
-        if (!transformComp) {
+        if (!transformComp || IsFixedSubMeshNode(selectedObj.GetPtr())) {
             if (m_WasUsingGizmo) {
                 HierarchyManager::GetInstance().EndUndoableAction();
                 m_WasUsingGizmo = false;
@@ -113,7 +123,7 @@ namespace Diligent {
             {
                 HierarchyObject* obj = root.GetPtr();
                 Transform* t = obj ? obj->GetTransform() : nullptr;
-                if (!t) continue;
+                if (!t || IsFixedSubMeshNode(obj)) continue;
                 m_GroupMembers.push_back({ root, t->GetPosition(), t->GetRotation(), t->GetLocalScale() });
                 centroid += t->GetPosition();
             }

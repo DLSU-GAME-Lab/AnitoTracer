@@ -3,6 +3,7 @@
 #include "common_struct.hlsli"
 #include "light_struct.hlsli"
 #include "pbr_defs.hlsli"
+#include "material_sampling.hlsli"
 #include "fog.hlsli"
 #include "hybrid_shading.hlsli"
 
@@ -10,52 +11,31 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 {
     // Angle between this pixel's view ray and its neighbours', for the mip of textures seen in reflections.
     // Taken before any discard: a derivative needs all four pixels of the 2x2 block to still be running.
-    float3 viewRay = normalize(In.WorldPos - g_CameraPos.xyz);
-    float pixelSpread = max(length(ddx(viewRay)), length(ddy(viewRay)));
+    float pixelSpread = ViewRaySpread(In.WorldPos, g_CameraPos.xyz);
 
     // 1. Material Sampling
-    float4 albedo = g_BaseColorFactor;
-    if (g_UseBaseColorMap > 0.5)
-    {
-        albedo *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV);
-    }
+    float4 albedo = SampleBaseColor(In.UV);
 
-    // Alpha testing for discarded fragments
-    if (albedo.a < 0.5)
+    // Cutout materials discard the pixels below their alpha cutoff
+    if (!PassesAlphaTest(albedo.a))
     {
         discard;
     }
 
-    float metallic = g_MetallicFactor;
-    float roughness = g_RoughnessFactor;
-    if (g_UseMetallicRoughnessMap > 0.5)
-    {
-        float4 mrSample = g_MetallicRoughnessMap.Sample(g_MetallicRoughnessMap_sampler, In.UV);
-        ApplyMetallicRoughnessMap(mrSample, metallic, roughness);
-    }
-    roughness = max(roughness, 0.05);
+    float metallic;
+    float roughness;
+    SampleMetallicRoughness(In.UV, metallic, roughness);
 
-    float ao = 1.0;
-    if (g_UseAOMap > 0.5)
-    {
-        ao = g_AOMap.Sample(g_AOMap_sampler, In.UV).r;
-    }
+    float ao = SampleOcclusion(In.UV);
 
     // Unperturbed geometric normal used strictly for ray origin offsets!
     float3 geoN = normalize(In.Normal);
 
-    float3 N = geoN;
-    float3 T = normalize(In.Tangent);
-    float3 B = normalize(In.Bitangent);
-
-    float3x3 TBN = float3x3(T, B, N);
-
     // Normal mapping
-    if (g_UseNormalMap > 0.5)
-    {
-        float3 tangentNormal = g_NormalMap.Sample(g_NormalMap_sampler, In.UV).xyz * 2.0 - 1.0;
-        N = normalize(mul(tangentNormal, TBN));
-    }
+    float3 N = ApplyNormalMap(In, geoN);
+
+    // Highlights too small for a pixel to show would flicker: the roughness covers them
+    roughness = FilterRoughnessByNormal(N, roughness);
 
     // Emissive Sampling
     float3 emissive = SampleEmissive(In.UV);
@@ -71,6 +51,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
     surface.Roughness = roughness;
     surface.AO = ao;
     surface.Emissive = emissive;
+    surface.Layers = ReadMaterialLayers(geoN);
     surface.PixelSpread = pixelSpread;
     // Per-pixel GI needs a G-buffer, so the forward pass always lights with Sky + AO
     surface.UseIndirectLight = false;
@@ -78,5 +59,5 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 
 
 
-    OutColor = float4(ShadeHybridSurface(surface, In.Pos.xy), albedo.a);
+    OutColor = float4(ShadeHybridSurface(surface, In.Pos.xy), 1.0);
 }

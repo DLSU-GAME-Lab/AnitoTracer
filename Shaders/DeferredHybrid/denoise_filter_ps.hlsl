@@ -33,7 +33,7 @@ float4 main_ps(in FullScreenPSInput In) : SV_TARGET
     // How far a tap's value may be from the centre's and still count
     bool compareValues = g_DnBrightnessSigma > 0.0;
     float4 tolerance = float4(1.0, 1.0, 1.0, 1.0);
-    float centreBrightness = DnBrightness(centre);
+    float centreBrightness = Luminance(centre.rgb);
     if (compareValues)
     {
         // The variance is itself a noisy estimate; a small blur over it keeps single pixels from standing out
@@ -143,7 +143,7 @@ float4 main_ps(in FullScreenPSInput In) : SV_TARGET
                 }
                 else
                 {
-                    weights *= exp(-abs(DnBrightness(value) - centreBrightness) / tolerance.x);
+                    weights *= exp(-abs(Luminance(value.rgb) - centreBrightness) / tolerance.x);
                 }
             }
 

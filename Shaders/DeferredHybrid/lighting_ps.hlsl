@@ -17,6 +17,9 @@ Texture2D g_ShadowSignal2;
 // rgb: light arriving along the reflection, a: distance to its source. Only read where UsesReflectionRay.
 Texture2D g_ReflectionSignal;
 
+// rgb: the color glass in the way gives the direct light. Only read with GLASS_TINT_SHADOWS.
+Texture2D g_GlassTint;
+
 struct LightingOutput
 {
     float4 Color : SV_TARGET;
@@ -50,6 +53,12 @@ void main_ps(in FullScreenPSInput In, out LightingOutput Out)
         rays.LightVisibility[channel] = saturate(shadows0[channel]);
         rays.LightVisibility[4 + channel] = saturate(shadows1[channel]);
         rays.LightVisibility[8 + channel] = saturate(shadows2[channel]);
+    }
+
+    rays.DirectTint = float3(1.0, 1.0, 1.0);
+    if ((g_GlassFlags & GLASS_TINT_SHADOWS) != 0u)
+    {
+        rays.DirectTint = clamp(SanitizeLight(g_GlassTint.Load(texel).rgb), 0.0, 4.0);
     }
 
     rays.Reflection = float3(0.0, 0.0, 0.0);

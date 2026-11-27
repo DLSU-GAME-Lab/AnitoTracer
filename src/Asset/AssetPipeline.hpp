@@ -23,4 +23,6 @@ class AssetPipeline {
 
 public:
 	static void IncludeFolder(std::filesystem::path folderpath);
+	static void IncludeProjectFolder(std::filesystem::path folderpath);
+	static void RescanProjectFolder(std::filesystem::path folderpath);
 };
