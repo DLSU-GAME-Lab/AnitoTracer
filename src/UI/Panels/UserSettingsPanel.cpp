@@ -1410,6 +1410,55 @@ namespace Diligent {
                         projectSettings.audio.sfx_volume);
                 }
                 if (ImGui::IsItemDeactivatedAfterEdit()) saveProjectSettings();
+
+                std::vector<AudioZoneComponent*> audioZones;
+                HierarchyManager::GetInstance().CollectAudioZoneComponents(audioZones);
+                bool audioZonesShown = false;
+                if (!audioZones.empty()) {
+                    audioZonesShown = true;
+                    for (AudioZoneComponent* audioZone : audioZones) {
+                        if (!audioZone->AreWireframesShown()) {
+                            audioZonesShown = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (ImGui::Checkbox("Show All BGM Zone Wireframes", &audioZonesShown)) 
+                {
+                    for (AudioZoneComponent* audioZone : audioZones) {
+                        audioZone->SetWireframes(audioZonesShown);
+                    }
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Turns on or off the wireframe of every BGM zone in the scene. Each zone also has its own Show Wireframes toggle. Inner sphere = music start; Outer sphere = music stop");
+                }
+
+                std::vector<AudioReverbComponent*> reverbZones;
+                HierarchyManager::GetInstance().CollectAudioReverbComponents(reverbZones);
+                bool reverbZonesShown = false;
+                if (!reverbZones.empty()) {
+                    reverbZonesShown = true;
+                    for (AudioReverbComponent* reverbZone : reverbZones) {
+                        if (!reverbZone->AreWireframesShown()) {
+                            reverbZonesShown = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (ImGui::Checkbox("Show All SFX Reverb Zone Wireframes", &reverbZonesShown)) 
+                {
+                    for (AudioReverbComponent* reverbZone : reverbZones) {
+                        reverbZone->SetWireframes(reverbZonesShown);
+                    }
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Turns on or off the wireframe of every SFX Reverb zone in the scene. Each zone also has its own Show Wireframes toggle. Inner sphere = full reverb; Outer sphere = reverb fades out to zero");
+                }
+
             }
 
             if (ImGui::CollapsingHeader("Debug Settings", ImGuiTreeNodeFlags_DefaultOpen))

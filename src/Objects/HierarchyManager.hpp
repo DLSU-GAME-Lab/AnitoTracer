@@ -28,6 +28,9 @@
 struct ProjectPhysicalLightSettings;
 struct ProjectMaterialSettings;
 
+#include "Components/Audio/AudioZoneComponent.hpp"
+#include "Components/Audio/AudioReverbComponent.hpp"
+
 #include ANITO_SERIALIZATION_INCLUDES
 #include ANITO_EVENT_INCLUDES
 
@@ -117,6 +120,11 @@ public:
     void GatherLightData(Diligent::LightConstants& outLights, const ProjectPhysicalLightSettings& settings) const;
 
     bool GetMainCameraPosition(glm::vec3& outPosition) const;
+
+    void GatherAudioZoneDebugLines(std::vector<DebugLineVertex>& outAudioZone) const;
+    void CollectAudioZoneComponents(std::vector<AudioZoneComponent*>& audioZones) const;
+    void GatherAudioReverbDebugLines(std::vector<DebugLineVertex>& outAudioReverb) const;
+    void CollectAudioReverbComponents(std::vector<AudioReverbComponent*>& reverbZones) const;
 
     // ========================================================================
     // Event Dispatching Methods
