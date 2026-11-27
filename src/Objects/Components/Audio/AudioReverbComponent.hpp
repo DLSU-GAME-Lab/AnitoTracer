@@ -29,7 +29,13 @@ public:
     void OnUpdate(float deltaTime) override;
     void AppendDebugLines(std::vector<DebugLineVertex>& out) const;
 
+    void SetWireframes(bool wireframes) { m_wireframes = wireframes; }
+    bool AreWireframesShown() const { return m_wireframes; }
+
 private:
+    bool m_wireframes = true;
+    GBE_SERIALIZE_FIELD_W_NAME(m_wireframes, "Show Wireframes");
+
     float m_reverbRadius = 1.0f;
     GBE_SERIALIZE_FIELD_W_NAME_CB(m_reverbRadius, "Radius", [this](float) { m_reverbRadius = std::clamp(m_reverbRadius, 0.0f, 1000.0f); });
 

@@ -82,6 +82,8 @@ void AudioReverbComponent::AddSphere(std::vector<DebugLineVertex>& out, const gl
 }
 
 void AudioReverbComponent::AppendDebugLines(std::vector<DebugLineVertex>& out) const {
+    if (!m_wireframes) return;
+
     // Get Transform from component's owner
     HierarchyObject* owner = GetOwner().GetPtr();
     if (!owner) return;

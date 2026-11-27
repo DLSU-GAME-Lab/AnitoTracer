@@ -114,7 +114,9 @@ public:
     bool GetMainCameraPosition(glm::vec3& outPosition) const;
 
     void GatherAudioZoneDebugLines(std::vector<DebugLineVertex>& outAudioZone) const;
+    void CollectAudioZoneComponents(std::vector<AudioZoneComponent*>& audioZones) const;
     void GatherAudioReverbDebugLines(std::vector<DebugLineVertex>& outAudioReverb) const;
+    void CollectAudioReverbComponents(std::vector<AudioReverbComponent*>& reverbZones) const;
 
     // ========================================================================
     // Event Dispatching Methods

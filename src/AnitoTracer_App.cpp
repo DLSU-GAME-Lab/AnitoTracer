@@ -495,13 +495,9 @@ void AnitoTracer_App::Render()
                 editorRenderData.DebugLines = PhysicsEngine::GetInstance().Get().GetDebugLines();
             }
 
-            if (ProjectLoader::GetProjectSettings().audio.show_audio_zone_wireframes) {
-                HierarchyManager::GetInstance().GatherAudioZoneDebugLines(editorRenderData.DebugLines);
-            }
+            HierarchyManager::GetInstance().GatherAudioZoneDebugLines(editorRenderData.DebugLines);
 
-            if (ProjectLoader::GetProjectSettings().audio.show_audio_reverb_wireframes) {
-                HierarchyManager::GetInstance().GatherAudioReverbDebugLines(editorRenderData.DebugLines);
-            }
+            HierarchyManager::GetInstance().GatherAudioReverbDebugLines(editorRenderData.DebugLines);
         
             RendererManager::GetInstance().RenderEditorView(m_pEditorTarget, editorRenderData);
         }

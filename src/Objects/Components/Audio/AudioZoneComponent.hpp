@@ -31,12 +31,18 @@ public:
     void OnUpdate(float deltaTime) override;
     void AppendDebugLines(std::vector<DebugLineVertex>& out) const;
 
+    void SetWireframes(bool wireframes) { m_wireframes = wireframes; }
+    bool AreWireframesShown() const { return m_wireframes; }
+
 private:
     // Audio file to play inside zone
     gbe::AssetRef<AudioClip> m_audioClip = nullptr;
     GBE_SERIALIZE_FIELD_W_NAME(m_audioClip, "Audio Clip");
     
     uint64_t m_activeKey = 0;
+
+    bool m_wireframes = true;
+    GBE_SERIALIZE_FIELD_W_NAME(m_wireframes, "Show Wireframes");
 
     // Audio volume
     float m_audioVolume = 100.0f;

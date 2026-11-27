@@ -433,7 +433,23 @@ void HierarchyManager::GatherAudioZoneDebugLines(std::vector<DebugLineVertex>& o
         GatherAudioZoneRecursive(rootNode.get(), outAudioZone);
 }
 
-// add gatheraudiozonerecursive and gatheraudiozonedebuglines here
+static void CollectAudioZonesRecursive(HierarchyObject::Ref obj, std::vector<AudioZoneComponent*>& audioZones) {
+    if (!obj) return;
+
+    if(AudioZoneComponent* audioZone = obj.GetPtr()->GetComponent<AudioZoneComponent>()) 
+        audioZones.push_back(audioZone);
+    
+    for (const auto& child : obj.GetPtr()->GetChildren())
+        CollectAudioZonesRecursive(child.get(), audioZones);
+}
+
+void HierarchyManager::CollectAudioZoneComponents(std::vector<AudioZoneComponent*>& audioZones) const {
+    audioZones.clear();
+
+    for (const auto& rootNode: m_rootNodes) 
+        CollectAudioZonesRecursive(rootNode.get(), audioZones);
+}
+
 static void GatherAudioReverbRecursive(HierarchyObject::Ref obj, std::vector<DebugLineVertex>& outAudioReverb) {
     if (!obj) return;
 
@@ -447,6 +463,23 @@ static void GatherAudioReverbRecursive(HierarchyObject::Ref obj, std::vector<Deb
 void HierarchyManager::GatherAudioReverbDebugLines(std::vector<DebugLineVertex>& outAudioReverb) const {
     for (const auto& rootNode: m_rootNodes) 
         GatherAudioReverbRecursive(rootNode.get(), outAudioReverb);
+}
+
+static void CollectAudioReverbRecursive(HierarchyObject::Ref obj, std::vector<AudioReverbComponent*>& reverbZones) {
+    if (!obj) return;
+
+    if(AudioReverbComponent* reverbZone = obj.GetPtr()->GetComponent<AudioReverbComponent>()) 
+        reverbZones.push_back(reverbZone);
+    
+    for (const auto& child : obj.GetPtr()->GetChildren())
+        CollectAudioReverbRecursive(child.get(), reverbZones);
+}
+
+void HierarchyManager::CollectAudioReverbComponents(std::vector<AudioReverbComponent*>& reverbZones) const {
+    reverbZones.clear();
+
+    for (const auto& rootNode: m_rootNodes) 
+        CollectAudioReverbRecursive(rootNode.get(), reverbZones);
 }
 
 static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, Diligent::LightConstants& outLights) {

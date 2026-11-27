@@ -74,6 +74,8 @@ void AudioZoneComponent::AddSphere(std::vector<DebugLineVertex>& out, const glm:
 }
 
 void AudioZoneComponent::AppendDebugLines(std::vector<DebugLineVertex>& out) const {
+    if (!m_wireframes) return; 
+
     // Get Transform from component's owner
     HierarchyObject* owner = GetOwner().GetPtr();
     if (!owner) return;
