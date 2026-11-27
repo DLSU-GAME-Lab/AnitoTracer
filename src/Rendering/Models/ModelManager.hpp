@@ -65,6 +65,15 @@ private:
     // Creates the texture a loader prepared, notes whether it has gaps (HasCutoutAlpha) and caches it under cacheKey
     ITextureView* FinishTexture(ITextureLoader* pLoader, std::string cacheKey, const std::string& label);
 
+    // A material's bump texture (OBJ's map_bump / bump, in assimp's "height" slot). Some models put a normal map there,
+    // others a height map. A normal map is loaded like any other; a height map, told apart by being gray, is turned into
+    // the normal map the shaders read.
+    ITextureView* LoadBumpTexture(const aiScene* pScene, const std::string& modelPath, aiMaterial* material,
+        const std::string& modelDir, bool& outHasProperty);
+
+    // The normal map of the height map a loader has read (RGBA8, gray). bumpScale: the material's bump multiplier.
+    ITextureView* CreateNormalMapFromHeight(ITextureLoader* pHeight, float bumpScale, std::string cacheKey, const std::string& label);
+
     // --- Refactored Pipeline Stages ---
 
     /// <summary>
