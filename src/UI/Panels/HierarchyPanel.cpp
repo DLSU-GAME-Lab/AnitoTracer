@@ -80,10 +80,10 @@ namespace Diligent {
 
             if (m_PendingLightType != 0) {
                 const auto parent = m_PendingLightParent;
-                const bool directional = m_PendingLightType == 2;
+                const int lightType = m_PendingLightType;
                 m_PendingLightParent = nullptr;
                 m_PendingLightType = 0;
-                CreateLightObject(directional, parent);
+                CreateLightObject(lightType, parent);
             }
 
             if (!m_PendingPrimitiveName.empty()) {
@@ -286,17 +286,29 @@ namespace Diligent {
             m_PendingLightType = 2;
             m_PendingLightParent = parent;
         }
+        if (ImGui::MenuItem("Add Spot Light")) {
+            m_PendingLightType = 3;
+            m_PendingLightParent = parent;
+        }
+        if (ImGui::MenuItem("Add Area Light")) {
+            m_PendingLightType = 4;
+            m_PendingLightParent = parent;
+        }
         ImGui::EndMenu();
     }
 
-    void HierarchyPanel::CreateLightObject(bool directional, HierarchyObject::Ref parent)
+    void HierarchyPanel::CreateLightObject(int lightType, HierarchyObject::Ref parent)
     {
         auto& hierarchy = HierarchyManager::GetInstance();
         hierarchy.BeginUndoableAction();
         auto& factory = ObjectFactory::GetInstance();
-        const auto created = directional
-            ? factory.CreateDirectionalLightObject("Directional Light")
-            : factory.CreatePointLightObject("Point Light");
+        HierarchyObject::Ref created;
+        switch (lightType) {
+        case 2:  created = factory.CreateDirectionalLightObject("Directional Light"); break;
+        case 3:  created = factory.CreateSpotLightObject("Spot Light"); break;
+        case 4:  created = factory.CreateAreaLightObject("Area Light"); break;
+        default: created = factory.CreatePointLightObject("Point Light"); break;
+        }
         const bool parented = !parent || hierarchy.ReparentObject(created, parent);
 
         if (parented) {
@@ -419,11 +431,21 @@ namespace Diligent {
 
         // Render the node using the object's memory address as a unique ID
         const bool isPrefabInstance = node.GetPtr()->IsPrefabInstance();
+        // A node that stands for one submesh of its parent's model (HierarchyManager::SyncSubMeshNodes). It belongs to that
+        // object: it can't be deleted, copied or moved out, unless the model changed and it stands for no submesh any more.
+        const SubMeshComponent* subMesh = node.GetPtr()->GetComponent<SubMeshComponent>();
+        const bool isLiveSubMesh = subMesh && !subMesh->IsOrphaned();
         const bool renaming = m_RenameTarget == node;
+        const char* suffix = "";
+        if (!renaming) {
+            if (isPrefabInstance) suffix = " [Prefab]";
+            else if (isLiveSubMesh) suffix = " [Submesh]";
+            else if (subMesh) suffix = " [Submesh: unused]";
+        }
         bool nodeOpen = ImGui::TreeNodeEx(
             (void*)node.GetID(), flags, "%s%s",
             renaming ? "##RenameNode" : node.GetPtr()->GetName().c_str(),
-            (!renaming && isPrefabInstance) ? " [Prefab]" : "");
+            suffix);
         m_VisibleOrder.push_back(node);
         const bool nodeClicked = !renaming && ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen();
 
@@ -514,7 +536,7 @@ namespace Diligent {
                 m_PendingCreateEmpty = true;
             }
 
-            if (ImGui::MenuItem("Copy", "Ctrl+C"))
+            if (ImGui::MenuItem("Copy", "Ctrl+C", false, !isLiveSubMesh))
             {
                 HierarchyManager::GetInstance().CopyObjects(GetSelectedRoots());
             }
@@ -525,7 +547,7 @@ namespace Diligent {
                 PasteAndSelect(node);
             }
 
-            if (ImGui::MenuItem("Create Prefab Asset"))
+            if (ImGui::MenuItem("Create Prefab Asset", nullptr, false, !isLiveSubMesh))
             {
                 PrefabFeature::GetInstance().CreatePrefabAsset(node);
                 SetSelectedObject(node);
@@ -551,7 +573,17 @@ namespace Diligent {
             }
 
             ImGui::Separator();
-            if (ImGui::MenuItem("Delete Object", "Del"))
+            if (isLiveSubMesh)
+            {
+                // The node goes with its object; what can be undone here is what was overridden on it
+                if (ImGui::MenuItem("Reset Submesh Overrides", nullptr, false, node.GetPtr()->GetComponent<SubMeshComponent>()->HasAnyOverride()))
+                {
+                    HierarchyManager::GetInstance().BeginUndoableAction();
+                    node.GetPtr()->GetComponent<SubMeshComponent>()->ClearOverrides();
+                    HierarchyManager::GetInstance().EndUndoableAction();
+                }
+            }
+            if (ImGui::MenuItem("Delete Object", "Del", false, !isLiveSubMesh))
             {
                 if (IsSelected(node))
                 {

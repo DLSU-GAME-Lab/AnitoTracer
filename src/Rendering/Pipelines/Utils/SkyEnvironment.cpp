@@ -342,9 +342,7 @@ namespace Diligent {
         const Uint32 size = MipSize(pTarget->GetDesc().Width, mip);
         PipelineUtils::SetViewport(pContext, size, size, size, size);
 
-        pContext->SetPipelineState(pass.pPSO);
-        pContext->CommitShaderResources(pass.pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        PipelineUtils::DrawFullscreenTriangle(pContext);
+        PipelineUtils::DrawFullscreenPass(pContext, pass.pPSO, pass.pSRB);
     }
 
     bool SkyEnvironment::BuildSolidColor(const glm::vec3& color)

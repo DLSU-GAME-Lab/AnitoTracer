@@ -3,67 +3,51 @@
 // the lighting pass (lighting_ps.hlsl) traces once per visible pixel.
 #include "../common_struct.hlsli"
 #include "../pbr_defs.hlsli"
+#include "../material_sampling.hlsli"
 #include "gbuffer_common.hlsli"
 
 struct GBufferOutput
 {
     float4 AlbedoMetallic : SV_TARGET0;
     float4 Normals : SV_TARGET1;
-    float4 EmissiveAO : SV_TARGET2;
-    float Roughness : SV_TARGET3;
+    float3 Emissive : SV_TARGET2;
+    float4 Material : SV_TARGET3;
     float2 Velocity : SV_TARGET4;
+    float4 Sheen : SV_TARGET5;
 };
 
 void main_ps(in PSInput In, out GBufferOutput Out)
 {
     // Material sampling, identical to hybrid_ps.hlsl
-    float4 albedo = g_BaseColorFactor;
-    if (g_UseBaseColorMap > 0.5)
-    {
-        albedo *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV);
-    }
+    float4 albedo = SampleBaseColor(In.UV);
 
-    if (albedo.a < 0.5)
+    if (!PassesAlphaTest(albedo.a))
     {
         discard;
     }
 
-    float metallic = g_MetallicFactor;
-    float roughness = g_RoughnessFactor;
-    if (g_UseMetallicRoughnessMap > 0.5)
-    {
-        float4 mrSample = g_MetallicRoughnessMap.Sample(g_MetallicRoughnessMap_sampler, In.UV);
-        ApplyMetallicRoughnessMap(mrSample, metallic, roughness);
-    }
-    roughness = max(roughness, 0.05);
+    float metallic;
+    float roughness;
+    SampleMetallicRoughness(In.UV, metallic, roughness);
 
-    float ao = 1.0;
-    if (g_UseAOMap > 0.5)
-    {
-        ao = g_AOMap.Sample(g_AOMap_sampler, In.UV).r;
-    }
+    float ao = SampleOcclusion(In.UV);
 
     // The geometric normal is kept alongside the shading normal: rays are offset along it to avoid self-shadowing
     float3 geoN = normalize(In.Normal);
 
-    float3 N = geoN;
-    float3 T = normalize(In.Tangent);
-    float3 B = normalize(In.Bitangent);
+    float3 N = ApplyNormalMap(In, geoN);
 
-    float3x3 TBN = float3x3(T, B, N);
-
-    if (g_UseNormalMap > 0.5)
-    {
-        float3 tangentNormal = g_NormalMap.Sample(g_NormalMap_sampler, In.UV).xyz * 2.0 - 1.0;
-        N = normalize(mul(tangentNormal, TBN));
-    }
+    // Highlights too small for a pixel to show would flicker: the roughness covers them
+    roughness = FilterRoughnessByNormal(N, roughness);
 
     float3 emissive = SampleEmissive(In.UV);
+    SurfaceLayers layers = ReadMaterialLayers(geoN);
 
     Out.AlbedoMetallic = float4(albedo.rgb, metallic);
     Out.Normals = float4(OctEncode(N), OctEncode(geoN));
-    Out.EmissiveAO = float4(emissive, ao);
-    Out.Roughness = roughness;
+    Out.Emissive = emissive;
+    Out.Material = float4(roughness, ao, layers.Clearcoat, layers.ClearcoatRoughness);
+    Out.Sheen = float4(saturate(layers.SheenColor), layers.SheenRoughness);
 
     // Motion vector, from where the vertex shader put this point this frame and last frame
     float2 velocity = float2(4.0, 4.0); // Was behind the camera: points far off screen, so nothing is reused

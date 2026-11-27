@@ -7,14 +7,18 @@ namespace Diligent {
     // Base for the pipelines that light and draw the scene (the renderers in the Rendering menu, see ScenePipelineRegistry).
     // RendererManager draws the skybox into the target, then calls Render once per view.
     //
-    // A new pipeline implements InitializePipeline (building m_pPSO / m_pSRB, usually with CreateModelPSOBuilder) and
-    // overrides only the hooks it needs:
+    // A new pipeline implements CreatePasses (building its passes, usually with CreateModelPSOBuilder and BuildMainPass /
+    // BuildPass) and overrides only the hooks it needs:
     //   PrepareFrame      - size per-view resources to the target (e.g. a G-buffer)
     //   StartFrameRender  - per-frame uploads and binding its own targets (e.g. clear and bind a G-buffer)
     //   RenderModels      - extra geometry passes (e.g. a depth prepass)
     //   FinishFrame       - passes after geometry that write into the target (e.g. deferred lighting)
     class ScenePipeline : public BasePipeline {
     public:
+        // Sets up what every scene pipeline uses (the device and the common constant buffers), then builds its passes
+        // with CreatePasses. Called again when the pipeline must be rebuilt (pipeline switch, MSAA toggle).
+        void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) final;
+
         // Draws the scene's opaque models into target
         void Render(IDeviceContext* pContext, const RenderData& renderData, const FrameTarget& target,
             const ProjectSettings& settings, const FogConstants& fog);
@@ -49,6 +53,9 @@ namespace Diligent {
         virtual bool OutputsDisplayColor() const { return false; }
 
     protected:
+        // Builds the pipeline's PSOs, SRBs and the resources only it uses. The common constant buffers exist by now.
+        virtual void CreatePasses() = 0;
+
         virtual void PrepareFrame(const FrameTarget& target) {}
         virtual void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) {}
 

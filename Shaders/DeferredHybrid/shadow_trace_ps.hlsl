@@ -12,28 +12,54 @@
 #include "../hybrid_shading.hlsli"
 #include "deferred_common.hlsli"
 
-float4 main_ps(in FullScreenPSInput In) : SV_TARGET
+struct ShadowOutput
 {
-    float4 visibility = float4(1.0, 1.0, 1.0, 1.0);
+    float4 Visibility : SV_TARGET0;
+#ifdef GLASS_TINT_OUTPUT
+    // rgb: the color glass gives this pixel's direct light, white where none is in the way
+    float4 Tint : SV_TARGET1;
+#endif
+};
+
+void main_ps(in FullScreenPSInput In, out ShadowOutput Out)
+{
+    Out.Visibility = float4(1.0, 1.0, 1.0, 1.0);
+#ifdef GLASS_TINT_OUTPUT
+    Out.Tint = float4(1.0, 1.0, 1.0, 1.0);
+#endif
 
     HybridSurface surface;
     float depth;
     if (!LoadGBufferSurface(int2(In.Pos.xy), surface, depth))
     {
-        return visibility;
+        return;
     }
 
     float2 noise = SignalNoise(In.Pos.xy, DENOISE_SHADOWS);
 
     int firstSlot = int(g_ShadowLayer) * 4;
     int slotCount = LightSlotCount();
+    float3 tintSum = float3(0.0, 0.0, 0.0);
+    float tintWeight = 0.0;
     for (int channel = 0; channel < 4; ++channel)
     {
         int slot = firstSlot + channel;
         if (slot < slotCount)
         {
-            visibility[channel] = TraceLightSlot(surface, slot, noise, 1);
+            // A light's visibility includes the brightness glass takes from it; the glass's color is kept apart
+            float3 chroma;
+            Out.Visibility[channel] = TraceLightSlot(surface, slot, noise, 1, chroma);
+
+            float weight = LightTintWeight(surface, slot) * Out.Visibility[channel];
+            tintSum += chroma * weight;
+            tintWeight += weight;
         }
     }
-    return visibility;
+
+#ifdef GLASS_TINT_OUTPUT
+    if (tintWeight > 0.00001)
+    {
+        Out.Tint = float4(tintSum / tintWeight, 1.0);
+    }
+#endif
 }

@@ -20,6 +20,7 @@ Texture2D g_GBufferDepth;
 
 // A single very bright sample (a ray that happens to land on a small strong light) would take many frames to average
 // out and would show as a slowly fading blotch. Capping it trades a little lost light for a steady image.
+// Where the object that was hit has an Emissive Light above 1, the limit grows with it (see TraceGIRay).
 static const float GI_MAX_SAMPLE_LUMINANCE = 64.0;
 
 // One ray from a surface point. Returns the radiance it found (rgb) and how open the surroundings are along it (a).
@@ -29,17 +30,12 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
     float3 t, b;
     BuildBasis(N, t, b);
     float2 d = VogelDisk(0, 1, noise.x * 2.0 * PI, noise.y);
-    float3 dir = normalize(t * d.x + b * d.y + N * sqrt(saturate(1.0 - dot(d, d))));
-
-    // Normal maps can tilt the direction below the real surface; mirror it back above
-    float below = dot(dir, geoN);
-    if (below < 0.0)
-    {
-        dir -= 2.0 * below * geoN;
-    }
+    // Normal maps can tilt the direction below the real surface; it is mirrored back above
+    float3 dir = KeepAboveSurface(normalize(CosineHemisphereDirection(N, t, b, d)), geoN);
 
     float3 light = float3(0.0, 0.0, 0.0);
     float openness = 1.0;
+    float maxLuminance = GI_MAX_SAMPLE_LUMINANCE;
     SceneHit hit;
     if (TraceSceneRay(origin, dir, g_GIMaxDistance, hit))
     {
@@ -49,8 +45,8 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
         if (hit.Shadeable)
         {
             // Bounce light is soft, so the hit is shaded matte and its textures are read blurry (a wide footprint):
-            // fine texture detail would only add noise
-            uint hitFlags = 0u;
+            // fine texture detail would only add noise. Its glow counts as the light it casts: its object's Emissive Light applies.
+            uint hitFlags = HIT_EMISSIVE_LIGHT;
             if ((g_GIFlags & GI_FLAG_HIT_SHADOWS) != 0u) hitFlags |= HIT_SHADOWS;
 
             // Indirect light at the hit. If the hit was on screen last frame, the GI gathered there is exactly that:
@@ -60,10 +56,10 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
             bool hasHitIndirect = false;
             if ((g_GIFlags & GI_FLAG_MORE_BOUNCES) != 0u)
             {
-                GILastFrame last = GIFindLastFrame(hit.Position, hit.GeoN);
+                BilinearTaps last = GIFindLastFrame(hit.Position, hit.GeoN);
                 if (last.WeightSum > 0.01)
                 {
-                    hitIndirect = GISanitize(GILoadLastFrame(last).rgb);
+                    hitIndirect = SanitizeLight(GILoadLastFrame(last).rgb);
                     hasHitIndirect = true;
                 }
             }
@@ -77,6 +73,10 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
             }
 
             light = ShadeSceneHit(hit, dir, 0.1 * hit.Distance, ShiftNoise(noise, 1), hitFlags, hitIndirect);
+
+            // A glow made brighter on purpose is a brighter sample on purpose: the limit rises with it, or the multiplier
+            // would stop adding once the glow reached the limit
+            maxLuminance *= max(hit.Material.EmissiveLight, 1.0);
         }
     }
     else
@@ -85,11 +85,11 @@ float4 TraceGIRay(float3 origin, float3 N, float3 geoN, float2 noise)
         light = SampleEnvSpecular(dir, 0.5) * g_SkyLightIntensity;
     }
 
-    light = GISanitize(light);
-    float luminance = dot(light, float3(0.2126, 0.7152, 0.0722));
-    if (luminance > GI_MAX_SAMPLE_LUMINANCE)
+    light = SanitizeLight(light);
+    float luminance = Luminance(light);
+    if (luminance > maxLuminance)
     {
-        light *= GI_MAX_SAMPLE_LUMINANCE / luminance;
+        light *= maxLuminance / luminance;
     }
     return float4(light, openness);
 }
@@ -110,21 +110,17 @@ float4 main_ps(in FullScreenPSInput In) : SV_TARGET
     // The rays below are averaged over frames, so effects that need that (soft shadows at the hits) may rely on it
     s_RaysDenoised = (g_GIFlags & GI_FLAG_DENOISED) != 0u;
 
-    // World position from depth, and how far off it can be (see LoadGBufferSurface in deferred_common.hlsli)
+    // World position from depth, and how far off it can be (see DepthPositionError)
     float2 uv = (float2(viewPixel) + 0.5) * g_GIViewportSize.zw;
-    float4 clipPos = float4(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y, depth, 1.0);
-    float4 worldPos = mul(clipPos, g_GIInvViewProj);
-    worldPos.xyz /= worldPos.w;
-
-    float depthStep = asfloat(asuint(depth) + 2) - depth;
-    float4 worldPosNext = mul(float4(clipPos.xy, depth + depthStep, 1.0), g_GIInvViewProj);
-    float positionError = length(worldPosNext.xyz / worldPosNext.w - worldPos.xyz);
+    float4 clipPos = UVToClip(uv, depth);
+    float3 worldPos = ClipToWorld(clipPos, g_GIInvViewProj);
+    float positionError = DepthPositionError(clipPos, worldPos, g_GIInvViewProj);
 
     float4 normals = g_GBufferNormals.Load(int3(viewPixel, 0));
     float3 N = OctDecode(normals.xy);
     float3 geoN = OctDecode(normals.zw);
 
-    float3 origin = worldPos.xyz + geoN * (g_ShadowBias + positionError);
+    float3 origin = worldPos + geoN * (g_ShadowBias + positionError);
 
     // Unlike RayNoise, the pixel's random numbers don't wait for TAA: g_GIFrame moves them (see HashNoise)
     uint rayCount = max(g_GIRayCount, 1u);

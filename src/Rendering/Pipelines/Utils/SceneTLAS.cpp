@@ -9,7 +9,7 @@ namespace Diligent {
     namespace {
         // One record per geometry of the model's BLAS, in the BLAS's order, with the instance's overrides applied
         // the same way BasePipeline::RenderModelWithSRB applies them when the model is drawn
-        void AppendGeometryRecords(const ModelRenderInstance& instance, std::vector<SceneGeometryRecord>& records)
+        void AppendGeometryRecords(const ModelRenderInstance& instance, bool transmissionIsGlass, std::vector<SceneGeometryRecord>& records)
         {
             const Model& model = *instance.ModelData;
             const SceneGeometryPool& pool = ModelManager::GetInstance().GetSceneGeometryPool();
@@ -25,21 +25,48 @@ namespace Diligent {
                     record.Flags |= SCENE_GEOMETRY_IN_POOL;
                 }
 
+                // The object's overrides, with this submesh's laid over them where its node in the hierarchy has some
+                const MaterialOverrides& over = instance.OverridesFor(submeshIdx);
+
                 if (submesh.MaterialIndex < model.PBRMaterials.size()) {
                     const PBRMaterial& mat = model.PBRMaterials[submesh.MaterialIndex];
 
                     record.BaseColor = glm::vec4(mat.BaseColorFactor.r, mat.BaseColorFactor.g, mat.BaseColorFactor.b, mat.BaseColorFactor.a);
-                    record.Roughness = instance.OverrideRoughness ? instance.Roughness : mat.RoughnessFactor;
-                    record.Metallic = instance.OverrideMetallic ? instance.Metallic : mat.MetallicFactor;
-                    if (instance.OverrideRoughness) record.Flags |= SCENE_GEOMETRY_ROUGHNESS_FIXED;
-                    if (instance.OverrideMetallic) record.Flags |= SCENE_GEOMETRY_METALLIC_FIXED;
+                    record.Roughness = over.OverrideRoughness ? over.Roughness : mat.RoughnessFactor;
+                    record.Metallic = over.OverrideMetallic ? over.Metallic : mat.MetallicFactor;
+                    if (over.OverrideRoughness) record.Flags |= SCENE_GEOMETRY_ROUGHNESS_FIXED;
+                    if (over.OverrideMetallic) record.Flags |= SCENE_GEOMETRY_METALLIC_FIXED;
 
                     const glm::vec3 materialEmissive = glm::vec3(mat.EmissiveFactor.r, mat.EmissiveFactor.g, mat.EmissiveFactor.b) * mat.EmissiveStrength;
-                    record.Emissive = instance.OverrideEmissive ? instance.Emissive : materialEmissive;
+                    record.Emissive = over.OverrideEmissive ? over.Emissive : materialEmissive;
+                    record.EmissiveLight = over.OverrideEmissiveLight ? over.EmissiveLight : 1.0f;
 
                     record.BaseColorTexture = pool.GetTextureSlot(mat.BaseColor);
                     record.MetallicRoughnessTexture = pool.GetTextureSlot(mat.MetallicRoughness);
                     record.EmissiveTexture = pool.GetTextureSlot(mat.Emissive);
+
+                    const float transmission = instance.ResolveLayers(mat, submeshIdx).Transmission;
+                    if (mat.AlphaMode == MaterialAlphaMode::Blend) {
+                        record.Flags |= SCENE_GEOMETRY_BLEND;
+                        // Glass that also lets light through takes what its alpha says away from what the transmission lets pass
+                        if (transmission > 0.0f) record.Transmission = transmission;
+                    }
+                    else if (transmissionIsGlass && transmission > 0.0f) {
+                        // Opaque, but light goes through it: glass of the base color, whose alpha means nothing here
+                        record.Flags |= SCENE_GEOMETRY_BLEND | SCENE_GEOMETRY_TRANSMISSIVE;
+                        record.Transmission = transmission;
+                    }
+                    else if (mat.AlphaMode == MaterialAlphaMode::Mask) {
+                        record.Flags |= SCENE_GEOMETRY_ALPHA_MASK;
+                        record.AlphaCutoff = mat.AlphaCutoff;
+                    }
+                }
+
+                // Glass whatever the material says: rays see it with the override's alpha
+                if (over.OverrideAlpha) {
+                    record.BaseColor.a = over.Alpha;
+                    record.Flags = (record.Flags & ~static_cast<uint32_t>(SCENE_GEOMETRY_ALPHA_MASK)) | SCENE_GEOMETRY_BLEND;
+                    record.AlphaCutoff = 0.0f;
                 }
 
                 records.push_back(record);
@@ -91,7 +118,7 @@ namespace Diligent {
         m_pDevice->CreateBuffer(InstBuffDesc, nullptr, &m_pInstanceBuffer);
     }
 
-    void SceneTLAS::Build(IDeviceContext* pContext, const RenderData& renderData)
+    void SceneTLAS::Build(IDeviceContext* pContext, const RenderData& renderData, bool transmissionIsGlass)
     {
         if (!m_pTLAS) return;
 
@@ -105,6 +132,9 @@ namespace Diligent {
         std::vector<SceneGeometryRecord> GeometryRecords;
         if (m_WriteGeometryRecords) GeometryRecords.reserve(renderData.Models.size());
 
+        bool hasGlass = false;
+        bool hasAlphaGeometry = false;
+
         for (size_t i = 0; i < renderData.Models.size(); ++i) {
             const auto& modelInstance = renderData.Models[i];
 
@@ -113,8 +143,14 @@ namespace Diligent {
                 ModelManager::GetInstance().BuildBLAS(modelInstance.ModelData);
             }
 
-            if (!modelInstance.ModelData->pBLAS || modelInstance.OpaqueSubmeshIndices.empty())
+            if (!modelInstance.ModelData->pBLAS || (modelInstance.OpaqueSubmeshIndices.empty() && modelInstance.TransparentSubmeshIndices.empty()
+                && modelInstance.TransmissiveSubmeshIndices.empty()))
                 continue;
+
+            // Some of its submeshes are glass to rays because light goes through them (only where the renderer draws them
+            // as glass; and a transmission override makes its submeshes glass, like the alpha override does)
+            const bool transmissionGlass = transmissionIsGlass && modelInstance.TransmissionEnabled
+                && (modelInstance.ModelData->HasTransmission || modelInstance.AnyOverrideTransmission);
 
             TLASBuildInstanceData tlasInst{};
 
@@ -127,9 +163,13 @@ namespace Diligent {
                 // The shader reads a hit's record at InstanceID + GeometryIndex.
                 // (A custom ID has 24 bits: room for 16 million records, far beyond what the TLAS's instance limit allows.)
                 tlasInst.CustomId = static_cast<Uint32>(GeometryRecords.size());
-                AppendGeometryRecords(modelInstance, GeometryRecords);
+                AppendGeometryRecords(modelInstance, transmissionIsGlass, GeometryRecords);
             }
-            tlasInst.Flags = RAYTRACING_INSTANCE_NONE;
+            // A model whose geometry is flagged opaque is solid to rays; an object (or a submesh of it) turned into glass by the
+            // alpha or transmission override isn't, so its triangles are handed to the shader to judge
+            const bool overriddenToGlass = modelInstance.AnyOverrideAlpha
+                || (transmissionIsGlass && modelInstance.TransmissionEnabled && modelInstance.AnyOverrideTransmission);
+            tlasInst.Flags = overriddenToGlass ? RAYTRACING_INSTANCE_FORCE_NO_OPAQUE : RAYTRACING_INSTANCE_NONE;
             tlasInst.Mask = 0xFF;
 
             // 3x4 row-major transform from the column-major world matrix
@@ -142,10 +182,14 @@ namespace Diligent {
             }
 
             Instances.push_back(tlasInst);
+            if (!modelInstance.TransparentSubmeshIndices.empty() || (transmissionIsGlass && !modelInstance.TransmissiveSubmeshIndices.empty())) hasGlass = true;
+            if (modelInstance.ModelData->HasAlphaGeometry || modelInstance.AnyOverrideAlpha || transmissionGlass) hasAlphaGeometry = true;
         }
 
         // An empty build would pass a null pInstances; the previous frame's TLAS stays valid instead
         if (Instances.empty()) return;
+        m_HasGlass = hasGlass;
+        m_HasAlphaGeometry = hasAlphaGeometry;
 
         // Rebuilt together with the TLAS, since the instances' custom IDs point into it
         if (m_WriteGeometryRecords) {

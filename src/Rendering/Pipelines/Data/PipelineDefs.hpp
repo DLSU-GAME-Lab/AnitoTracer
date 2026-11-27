@@ -15,19 +15,35 @@ namespace Diligent {
     static constexpr uint32_t MAX_POINT_LIGHTS = 8;
 
     // Saved in UserSettings, so new values go at the end
-    enum PipelineType { BASIC_LIT, HYBRID, DEFERRED, DEFERRED_HYBRID, CROSSHATCH, CROSSHATCH_RT };
+    enum PipelineType { BASIC_LIT, HYBRID, DEFERRED, DEFERRED_HYBRID, CROSSHATCH, CROSSHATCH_RT, ANIME };
 
+    // Intensities are in scene units: what the light adds to a surface facing it at 1 m (a directional light: anywhere).
+    // With real units on, HierarchyManager has already turned lumens and lux into that, at the project's exposure.
     struct DirectionalLightData {
-        glm::vec4 Direction{ 0.0f, -1.0f, 0.0f, 0.0f }; // xyz: dir, w: unused
-        glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };      // rgb: color, a: intensity
+        glm::vec4 Direction{ 0.0f, -1.0f, 0.0f, 0.01f }; // xyz: dir, w: angular radius of the light's disk in radians
+        glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };       // rgb: color, a: intensity
     };
 
+    // Point, spot and rectangular lights share the slots and this layout. A point light has SpotScale 0 and SpotOffset 1,
+    // which makes its cone factor 1 everywhere; a rectangular light has a RectArea above 0.
+    // Every row is 16 bytes, so the HLSL layout (Shaders/light_struct.hlsli) is the same.
     struct PointLightData {
-        glm::vec4 Position{ 0.0f, 0.0f, 0.0f, 1.0f };   // xyz: pos, w: unused
-        glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };      // rgb: color, a: intensity
+        glm::vec4 Position{ 0.0f, 0.0f, 0.0f, 0.1f };       // xyz: pos, w: radius of the light's body in world units
+        glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };          // rgb: color, a: intensity. A rectangular light: radiance of its surface.
+        glm::vec4 SpotDirection{ 0.0f, -1.0f, 0.0f, 0.0f }; // xyz: where a spot light points, or the side a rectangular light shines on
         float Range = 10.0f;
-        glm::vec3 Padding{ 0.0f };
-        glm::vec4 ExtraPadding{ 0.0f };  // Additional padding for HLSL std140 alignment (8 lights × 16 bytes = 128 byte difference)
+        float SpotScale = 0.0f;                             // 1 / (cos inner - cos outer); the cone factor is saturate(cos * scale + offset)^2
+        float SpotOffset = 1.0f;                            // -cos outer * scale
+        float RectArea = 0.0f;                              // m2. 0 for point and spot lights.
+        glm::vec4 AxisX{ 0.0f };                            // Rectangular light: half of its width, as a world vector from the center to an edge
+        glm::vec4 AxisY{ 0.0f };                            // And half of its height
+    };
+    static_assert(sizeof(PointLightData) == 96, "PointLightData must match Shaders/light_struct.hlsli");
+
+    // Bits of LightConstants::Flags. Mirror the LIGHT_FLAG_* constants in Shaders/light_struct.hlsli
+    enum LightFlags : uint32_t {
+        LIGHT_FLAG_INVERSE_SQUARE = 1u << 0,    // Point lights fall off as 1 / distance^2 (with a smooth cut at their range)
+        LIGHT_FLAG_HIGHLIGHT_SHAPE = 1u << 1,   // A light's size widens the highlight it makes on glossy surfaces
     };
 
     struct LightConstants {
@@ -35,7 +51,8 @@ namespace Diligent {
         PointLightData PointLights[MAX_POINT_LIGHTS];
         int NumDirLights = 0;
         int NumPointLights = 0;
-        glm::vec2 Padding{ 0.0f };
+        uint32_t Flags = 0;                  // LIGHT_FLAG_* bits
+        float Padding = 0.0f;
         glm::vec4 CameraPos{ 0.0f };
     };
 
@@ -52,9 +69,19 @@ namespace Diligent {
 
         float ReflectionMaxDistance = 100.0f; // Hybrid only: how far a reflection ray looks for geometry
         uint32_t ReflectionFlags = 0;         // Hybrid only: REFLECTION_* bits below
-        glm::vec2 Padding{ 0.0f };
+        uint32_t TransparencyFlags = 0;       // TRANSPARENCY_* bits below. 0 treats every triangle as solid.
+        float Padding = 0.0f;
     };
     static_assert(sizeof(ShadowSettings) % 16 == 0, "ShadowSettings must be 16-byte aligned for HLSL");
+
+    // Bits of ShadowSettings::TransparencyFlags. Mirror the TRANSPARENCY_* constants in Shaders/rt_shadows.hlsli
+    enum TransparencyFlags : uint32_t {
+        TRANSPARENCY_TEST_RAYS = 1u << 0,       // Rays test cutout and blended geometry; without it every triangle is solid
+        TRANSPARENCY_CUTOUT = 1u << 1,          // Cutouts only block rays where their alpha reaches the cutoff
+        TRANSPARENCY_GLASS = 1u << 2,           // Blended materials count: they are drawn, and rays see them. Without it rays ignore them.
+        TRANSPARENCY_TINTED_SHADOWS = 1u << 3,  // Shadow rays cross glass and pick up its color; without it glass blocks them
+        TRANSPARENCY_REFRACTION = 1u << 4,      // Glass bends what is behind it
+    };
 
     // Bits of ShadowSettings::ReflectionFlags. Mirror the REFLECTION_* constants in Shaders/hybrid_shading.hlsli
     enum ReflectionFlags : uint32_t {
@@ -82,15 +109,27 @@ namespace Diligent {
         float Roughness = 1.0f;
         float Metallic = 0.0f;
         uint32_t Flags = 0;                     // SCENE_GEOMETRY_* bits below
-        float Padding = 0.0f;
+        float AlphaCutoff = 0.0f;               // Mask materials: pixels with less alpha than this are not there
+
+        // Glass (SCENE_GEOMETRY_BLEND): the share of the light that goes through. 1 for a blended material, which only
+        // takes away what its alpha says; the material's transmission where it lets light through.
+        float Transmission = 1.0f;
+
+        // How many times brighter the light the surface's glow casts on its surroundings is than the glow looks. Only the rays
+        // that gather indirect light read it (HIT_EMISSIVE_LIGHT in Shaders/rt_scene.hlsli). 1 unless the object or submesh sets it.
+        float EmissiveLight = 1.0f;
+        float Padding[2] = { 0.0f, 0.0f };
     };
-    static_assert(sizeof(SceneGeometryRecord) == 64, "SceneGeometryRecord must match Shaders/rt_scene.hlsli");
+    static_assert(sizeof(SceneGeometryRecord) == 80, "SceneGeometryRecord must match Shaders/rt_scene_data.hlsli");
 
     // Bits of SceneGeometryRecord::Flags. Mirror the SCENE_GEOMETRY_* constants in Shaders/rt_scene.hlsli
     enum SceneGeometryFlags : uint32_t {
         SCENE_GEOMETRY_IN_POOL = 1u << 0,           // FirstIndex / BaseVertex are valid; otherwise the hit can't be shaded
         SCENE_GEOMETRY_ROUGHNESS_FIXED = 1u << 1,   // Roughness is a per-object override: ignore the texture's channel
         SCENE_GEOMETRY_METALLIC_FIXED = 1u << 2,    // Same for metallic
+        SCENE_GEOMETRY_ALPHA_MASK = 1u << 3,        // A cutout: rays test the base color's alpha against AlphaCutoff
+        SCENE_GEOMETRY_BLEND = 1u << 4,             // Glass: the base color's rgb tints what passes through, its alpha says how much
+        SCENE_GEOMETRY_TRANSMISSIVE = 1u << 5,      // With BLEND: an opaque material that lets light through. Its alpha means nothing: the color tints all of it.
     };
 
     // Mirrors cbuffer SkyboxConstants in Shaders/Skybox/Skybox_ps.hlsl
@@ -236,6 +275,37 @@ namespace Diligent {
     };
     static_assert(sizeof(CrossHatchConstants) % 16 == 0, "CrossHatchConstants must be 16-byte aligned for HLSL");
 
+    // Mirrors cbuffer AnimeConstants in Shaders/Anime/anime_common.hlsli
+    struct AnimeConstants
+    {
+        glm::vec4 BaseColor{ 1.0f };                            // rgb: tint of the lit tone
+        glm::vec4 ShadowColor{ 1.0f };                          // rgb: tint of the shadow tone
+        glm::vec4 InnerEdgeColor{ 0.0f, 0.0f, 0.0f, 1.0f };
+        glm::vec4 OutlineColor{ 0.0f, 0.0f, 0.0f, 1.0f };
+        glm::vec4 CameraPos{ 0.0f };                            // For the outline pass
+
+        float Step = 0.1f;
+        float InnerStep = 0.0f;
+        float CurveStep = 0.5f;
+        float ShadowFactor = 0.25f;
+
+        float LightFalloff = 0.0f;
+        float SpecularStrength = 1.0f;
+        float BaseColorBlur = 0.0f;                             // Mip levels
+        float NormalMapBlur = 0.0f;
+
+        float OutlineWidth = 0.02f;
+        float OutlineScaleWithDistance = 0.0f;
+        float OutlineSmoothNormals = 1.0f;
+        float Padding0 = 0.0f;
+
+        int UseSmoothNormal = 0;
+        int SpecularEnabled = 1;
+        int Padding1 = 0;
+        int Padding2 = 0;
+    };
+    static_assert(sizeof(AnimeConstants) % 16 == 0, "AnimeConstants must be 16-byte aligned for HLSL");
+
     struct alignas(16) PBRMaterialConstants {
         glm::vec4 BaseColorFactor{ 1.0f, 1.0f, 1.0f, 1.0f };
         float MetallicFactor{ 1.0f };
@@ -249,6 +319,15 @@ namespace Diligent {
         float OverrideFlags{ 0.0f }; // Bit 1: roughness overridden, bit 2: metallic overridden (skip the texture channel)
 
         glm::vec4 EmissiveFactor{ 0.0f }; // rgb: emissive color * strength (HDR), multiplied with the emissive map
+
+        // x: alpha cutoff (0: the material is not a cutout, nothing is discarded), y: index of refraction,
+        // z: transmission (0: the surface lets nothing through),
+        // w: 1 when the base color's alpha is the surface's opacity (glass), 0 when it means nothing (an opaque material drawn as glass)
+        glm::vec4 MaterialParams{ 0.0f, 1.5f, 0.0f, 1.0f };
+
+        // x: clear coat strength (0: no coat), y: its roughness, z: sheen roughness, w: specular anti-aliasing strength (0: off)
+        glm::vec4 LayerParams{ 0.0f };
+        glm::vec4 SheenColor{ 0.0f };       // rgb: sheen color (black: no sheen)
     };
 
     // Mirrors cbuffer CameraConstants in Shaders/common_struct.hlsli. Shaders that only declare View and Proj read the start of it.

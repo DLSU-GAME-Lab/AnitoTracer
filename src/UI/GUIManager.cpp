@@ -203,7 +203,10 @@ void Diligent::GUIManager::InitializeComponentDrawers()
     InspectorRegistry::GetInstance().RegisterUI<GameCamera, CameraUI>();
     InspectorRegistry::GetInstance().RegisterUI<DirectionalLight, DirectionalLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<PointLight, PointLightUI>();
+    InspectorRegistry::GetInstance().RegisterUI<SpotLight, SpotLightUI>();
+    InspectorRegistry::GetInstance().RegisterUI<AreaLight, AreaLightUI>();
     InspectorRegistry::GetInstance().RegisterUI<ModelComponent, ModelUI>();
+    InspectorRegistry::GetInstance().RegisterUI<SubMeshComponent, SubMeshUI>();
     InspectorRegistry::GetInstance().RegisterUI<Collider, ColliderUI>();
     InspectorRegistry::GetInstance().RegisterUI<AudioSourceComponent, AudioSourceUI>();
     InspectorRegistry::GetInstance().RegisterUI<ScriptComponent, ScriptComponentUI>();

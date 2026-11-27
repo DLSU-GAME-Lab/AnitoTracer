@@ -14,8 +14,11 @@ namespace Diligent {
     public:
         explicit RenderTarget(const std::string& name) : m_Name(name) {}
 
-        // (Re)creates the textures only when the size, formats or sample count changed, so it is cheap to call every frame
-        void Create(IRenderDevice* pDevice, uint32_t width, uint32_t height, TEXTURE_FORMAT colorFmt, TEXTURE_FORMAT depthFmt, uint8_t sampleCount = 1);
+        // (Re)creates the textures only when the size, formats or sample count changed, so it is cheap to call every frame.
+        // shownInUI: GetSRV() is for ImGui. ImGui's shader takes what it samples to be sRGB encoded and decodes it itself,
+        // so for an sRGB color target GetSRV() then hands out the stored values: an sRGB view would already have decoded
+        // them, and the picture would come out far too dark. Drawing into the target is the same either way.
+        void Create(IRenderDevice* pDevice, uint32_t width, uint32_t height, TEXTURE_FORMAT colorFmt, TEXTURE_FORMAT depthFmt, uint8_t sampleCount = 1, bool shownInUI = false);
         void Release();
 
         bool IsValid() const { return m_pRTV && m_pDSV; }
@@ -39,6 +42,7 @@ namespace Diligent {
         TEXTURE_FORMAT m_ColorFormat = TEX_FORMAT_UNKNOWN;
         TEXTURE_FORMAT m_DepthFormat = TEX_FORMAT_UNKNOWN;
         uint8_t m_SampleCount = 1;
+        bool m_ShownInUI = false;
 
         RefCntAutoPtr<ITexture> m_pColorTexture;
         RefCntAutoPtr<ITexture> m_pDepthTexture;

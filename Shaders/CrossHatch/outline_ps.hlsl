@@ -14,7 +14,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
         alpha *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV).a;
     }
 
-    if (alpha < 0.5)
+    if (!PassesAlphaTest(alpha))
     {
         discard;
     }

@@ -1,8 +1,15 @@
 #include "HierarchyManager.hpp"
 #include "HierarchyManager.hpp"
 
+#include <algorithm>
+#include <limits>
+#include <string>
+#include <vector>
+
 #include "../AppConfig.hpp"
 #include "../AppState.hpp"
+#include "../Common/LightUnits.hpp"
+#include "../Asset/ProjectSettings.hpp"
 #include "ObjectFactory.hpp"
 #include "HierarchyFeatures/PrefabFeature.hpp"
 
@@ -20,6 +27,130 @@ namespace {
         UndoScope() { HierarchyManager::GetInstance().BeginUndoableAction(); }
         ~UndoScope() { HierarchyManager::GetInstance().EndUndoableAction(); }
     };
+
+    // A node that stands for a submesh of its parent's model. It belongs to that object: it is made, kept and removed by
+    // SyncSubMeshNodes, so it can't be deleted, copied or moved elsewhere on its own, unless it no longer stands for any
+    // submesh (the model changed), when it is an ordinary object again.
+    bool IsLiveSubMeshNode(const HierarchyObject* object) {
+        if (!object) return false;
+        const SubMeshComponent* part = object->GetComponent<SubMeshComponent>();
+        return part && !part->IsOrphaned();
+    }
+
+    // What the node for submesh `index` is called until it is renamed
+    std::string SubMeshNodeName(const SubMesh& submesh, size_t index) {
+        return submesh.Name.empty() ? "Submesh " + std::to_string(index) : submesh.Name;
+    }
+
+    // Settles the submesh nodes among the children of `object` with the model it holds now (see SyncSubMeshNodes)
+    void SyncSubMeshChildrenOf(HierarchyObject* object) {
+        ModelComponent* modelComponent = object->GetComponent<ModelComponent>();
+
+        // A model with several submeshes gets a node for each. When the model is set but can't be had right now (loading,
+        // being reloaded) nothing is known, and nothing is changed: its nodes may hold work.
+        const Model* model = nullptr;
+        size_t wanted = 0;
+        if (modelComponent && modelComponent->HasModel()) {
+            model = modelComponent->GetModel().Get();
+            if (!model) return;
+            if (model->SubMeshes.size() > 1) wanted = model->SubMeshes.size();
+        }
+
+        auto& children = object->MutableChildren();
+
+        // Which child stands for which submesh. A child with an index that doesn't exist, or one that is already taken, is stale.
+        std::vector<HierarchyObject*> nodeAt(wanted, nullptr);
+        std::vector<const HierarchyObject*> stale;
+        for (const auto& child : children) {
+            const SubMeshComponent* part = child ? child->GetComponent<SubMeshComponent>() : nullptr;
+            if (!part) continue;
+
+            const int index = part->GetSubMeshIndex();
+            if (index >= 0 && static_cast<size_t>(index) < wanted && !nodeAt[static_cast<size_t>(index)]) {
+                nodeAt[static_cast<size_t>(index)] = child.get();
+            }
+            else {
+                stale.push_back(child.get());
+            }
+        }
+
+        // A stale node is removed, unless it holds something (overrides, components, children): that is left for the user to decide
+        if (!stale.empty()) {
+            children.erase(std::remove_if(children.begin(), children.end(), [&](const std::unique_ptr<HierarchyObject>& child) {
+                if (std::find(stale.begin(), stale.end(), child.get()) == stale.end()) return false;
+                return child->GetComponent<SubMeshComponent>()->IsPristine();
+            }), children.end());
+        }
+
+        // The missing nodes
+        for (size_t i = 0; i < wanted; ++i) {
+            if (nodeAt[i]) continue;
+
+            const SubMesh& submesh = model->SubMeshes[i];
+            auto node = std::make_unique<HierarchyObject>(SubMeshNodeName(submesh, i));
+            node->SetParent(object->getRef());
+            node->AddComponent(std::make_unique<Transform>());
+            node->AddComponent(std::make_unique<SubMeshComponent>(static_cast<int>(i), submesh.Name));
+            nodeAt[i] = node.get();
+            children.push_back(std::move(node));
+        }
+
+        // The nodes of the submeshes come first, in the order of the submeshes, then the object's other children
+        const auto rank = [&](const std::unique_ptr<HierarchyObject>& child) {
+            const SubMeshComponent* part = child ? child->GetComponent<SubMeshComponent>() : nullptr;
+            if (!part) return std::numeric_limits<size_t>::max();
+            const int index = part->GetSubMeshIndex();
+            const bool live = index >= 0 && static_cast<size_t>(index) < wanted && nodeAt[static_cast<size_t>(index)] == child.get();
+            return live ? static_cast<size_t>(index) : std::numeric_limits<size_t>::max();
+        };
+        const auto before = [&](const std::unique_ptr<HierarchyObject>& a, const std::unique_ptr<HierarchyObject>& b) { return rank(a) < rank(b); };
+        if (!std::is_sorted(children.begin(), children.end(), before)) {
+            std::stable_sort(children.begin(), children.end(), before);
+        }
+
+        // What each node is called by the model, and where it stands: at the middle of its part, as it is in the model, not turned
+        // or scaled. What is attached to the node (a light, a particle system) then stays with the part. The geometry is not
+        // moved by it: it is baked into the model.
+        for (size_t i = 0; i < wanted; ++i) {
+            HierarchyObject* node = nodeAt[i];
+            const SubMesh& submesh = model->SubMeshes[i];
+
+            if (SubMeshComponent* part = node->GetComponent<SubMeshComponent>()) {
+                if (part->GetSubMeshName() != submesh.Name) {
+                    part->SetSubMesh(static_cast<int>(i), submesh.Name);
+                }
+            }
+
+            Transform* transform = node->GetTransform();
+            if (!transform) {
+                node->AddComponent(std::make_unique<Transform>());
+                transform = node->GetTransform();
+            }
+            const float3 center = submesh.Center();
+            const glm::vec3 pivot(center.x, center.y, center.z);
+            if (transform->GetLocalPosition() != pivot) transform->SetPosition(pivot);
+            if (transform->GetEulerAnglesDegrees() != glm::vec3(0.0f)) transform->SetEulerAnglesDegrees(glm::vec3(0.0f));
+            if (transform->GetLocalScale() != glm::vec3(1.0f)) transform->SetScale(glm::vec3(1.0f));
+        }
+    }
+
+    void SyncSubMeshNodesOf(HierarchyObject* object) {
+        if (!object) return;
+
+        SyncSubMeshChildrenOf(object);
+
+        // Indexed, since settling the nodes may have changed the vector (the new nodes have nothing to settle)
+        auto& children = object->MutableChildren();
+        for (size_t i = 0; i < children.size(); ++i) {
+            SyncSubMeshNodesOf(children[i].get());
+        }
+    }
+}
+
+void HierarchyManager::SyncSubMeshNodes() {
+    for (size_t i = 0; i < m_rootNodes.size(); ++i) {
+        SyncSubMeshNodesOf(m_rootNodes[i].get());
+    }
 }
 
 // Play mode is discarded on stop (scene reload), so no undo bookkeeping while playing.
@@ -88,6 +219,9 @@ std::unique_ptr<HierarchyObject> HierarchyManager::RemoveRootObject(HierarchyObj
 void HierarchyManager::QueueObjectDeletion(HierarchyObject::Ref object) {
     if (!object) return;
 
+    // A submesh node goes with its object, never on its own: it would only be made again
+    if (IsLiveSubMeshNode(object.GetPtr())) return;
+
     const auto objectId = object.GetID();
     for (const auto queuedId : m_deferredDeletionIds) {
         if (queuedId == objectId) return;
@@ -97,6 +231,11 @@ void HierarchyManager::QueueObjectDeletion(HierarchyObject::Ref object) {
 }
 
 bool HierarchyManager::ReparentObject(HierarchyObject::Ref object, HierarchyObject::Ref parent) {
+    // A submesh node belongs to its object: it stays where it is (a node that stands for no submesh any more can be moved)
+    if (HierarchyObject* node = object.GetPtr(); IsLiveSubMeshNode(node)) {
+        return node->GetParent() == parent;
+    }
+
     UndoScope undoScope;
 
     HierarchyObject* objectPtr = object.GetPtr();
@@ -152,6 +291,9 @@ bool HierarchyManager::CopyObjects(const std::vector<HierarchyObject::Ref>& obje
     for (const auto& object : objects) {
         HierarchyObject* objectPtr = object.GetPtr();
         if (!objectPtr) continue;
+
+        // A submesh node is copied with its object, not on its own: a copy elsewhere would stand for nothing
+        if (IsLiveSubMeshNode(objectPtr)) continue;
 
         gbe::SerializedData data = objectPtr->Serialize();
         for (auto it = data.serialized_variables.begin();
@@ -358,7 +500,7 @@ bool HierarchyManager::GetEditorCameraMatrices(glm::mat4& outViewMatrix, glm::ma
     return false;
 }
 
-static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, std::vector<ModelRenderInstance>& outModels) {
+static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, std::vector<ModelRenderInstance>& outModels, const ProjectMaterialSettings& materials) {
     if (!obj) return;
 
     glm::mat4 currentWorldMatrix = parentMatrix;
@@ -376,18 +518,47 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
             instance.ModelData = pModel;
             instance.WorldTransform = currentWorldMatrix;
             instance.OwnerID = obj.GetID();
-            instance.OverrideRoughness = modelComp->GetOverrideRoughness();
-            instance.Roughness = modelComp->GetRoughness();
-            instance.OverrideMetallic = modelComp->GetOverrideMetallic();
-            instance.Metallic = modelComp->GetMetallic();
-            instance.OverrideEmissive = modelComp->GetOverrideEmissive();
-            instance.Emissive = modelComp->GetEmissiveColor() * modelComp->GetEmissiveStrength();
+            instance.Overrides = modelComp->GetOverrides();
 
-            // ADDED: Sort submeshes based on material transparency
+            // A submesh with a node of its own (SubMeshComponent) can override material properties too: its overrides are
+            // laid over the object's. (A model with one submesh has no nodes: one that is left stands for nothing.)
+            for (const auto& child : obj.GetPtr()->GetChildren()) {
+                const SubMeshComponent* part = pModel->SubMeshes.size() > 1 && child ? child->GetComponent<SubMeshComponent>() : nullptr;
+                if (!part || !part->HasAnyOverride()) continue;
+
+                const int index = part->GetSubMeshIndex();
+                if (index < 0 || static_cast<size_t>(index) >= pModel->SubMeshes.size()) continue;
+
+                if (instance.SubMeshOverrides.empty()) {
+                    instance.SubMeshOverrides.assign(pModel->SubMeshes.size(), instance.Overrides);
+                }
+                instance.SubMeshOverrides[static_cast<size_t>(index)].Apply(part->GetOverrides());
+            }
+            instance.AnyOverrideAlpha = instance.Overrides.OverrideAlpha;
+            instance.AnyOverrideTransmission = instance.Overrides.OverrideTransmission;
+            for (const MaterialOverrides& submeshOverrides : instance.SubMeshOverrides) {
+                instance.AnyOverrideAlpha = instance.AnyOverrideAlpha || submeshOverrides.OverrideAlpha;
+                instance.AnyOverrideTransmission = instance.AnyOverrideTransmission || submeshOverrides.OverrideTransmission;
+            }
+
+            // With the master switch off, none of the layers is there, whatever the switches below say
+            instance.ClearcoatEnabled = materials.enabled && materials.clearcoat;
+            instance.SheenEnabled = materials.enabled && materials.sheen;
+            instance.TransmissionEnabled = materials.enabled && materials.transmission;
+            instance.SpecularAAStrength = materials.enabled && materials.specular_aa ? glm::max(materials.specular_aa_strength, 0.0f) : 0.0f;
+
+            // ADDED: Sort submeshes based on material transparency. A material that lets light through is kept apart:
+            // the renderers that draw glass draw it with the glass, and the others as the solid it was before.
             for (uint32_t i = 0; i < pModel->SubMeshes.size(); ++i) {
                 uint32_t matIndex = pModel->SubMeshes[i].MaterialIndex;
-                if (pModel->PBRMaterials[matIndex].IsTransparent) {
+                const MaterialOverrides& over = instance.OverridesFor(i);
+                const bool transmissive = instance.TransmissionEnabled
+                    && (over.OverrideTransmission || pModel->PBRMaterials[matIndex].Transmission > 0.0f);
+                if (over.OverrideAlpha || pModel->PBRMaterials[matIndex].IsTransparent) {
                     instance.TransparentSubmeshIndices.push_back(i);
+                }
+                else if (transmissive) {
+                    instance.TransmissiveSubmeshIndices.push_back(i);
                 }
                 else {
                     instance.OpaqueSubmeshIndices.push_back(i);
@@ -400,11 +571,11 @@ static void GatherModelsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
 
     // Recursively process children to maintain hierarchical transforms
     for (const auto& child : obj.GetPtr()->GetChildren()) {
-        GatherModelsRecursive(child.get(), currentWorldMatrix, outModels);
+        GatherModelsRecursive(child.get(), currentWorldMatrix, outModels, materials);
     }
 }
 
-void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outModels) const
+void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outModels, const ProjectMaterialSettings& materials) const
 {
     // Clear any leftover data from the previous frame
     outModels.clear();
@@ -414,11 +585,39 @@ void HierarchyManager::GatherRenderModels(std::vector<ModelRenderInstance>& outM
 
     // Iterate through all root nodes managed by HierarchyManager
     for (const auto& rootNode : m_rootNodes) {
-        GatherModelsRecursive(rootNode.get(), rootMatrix, outModels);
+        GatherModelsRecursive(rootNode.get(), rootMatrix, outModels, materials);
     }
 }
 
-static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, Diligent::LightConstants& outLights) {
+namespace {
+    // What GatherLightsRecursive needs from ProjectPhysicalLightSettings
+    struct LightGatherSettings {
+        bool realUnits = false;
+        float exposure = 1.0f;      // Scene value of one lux (or cd/m2) at the project's exposure
+        bool lightSize = false;
+    };
+
+    // The sizes every light had before lights had one of their own
+    constexpr float kFixedPointLightRadius = 0.1f;      // World units
+    constexpr float kFixedSunAngularRadius = 0.01f;     // Radians
+
+    glm::vec3 SafeNormalize(const glm::vec3& v, const glm::vec3& fallback) {
+        const float lengthSquared = glm::dot(v, v);
+        return lengthSquared > 1e-12f ? v * glm::inversesqrt(lengthSquared) : fallback;
+    }
+
+    // The slot a point, spot or rectangular light fills in: everything they share, at the light's position
+    Diligent::PointLightData& NextLocalLight(Diligent::LightConstants& lights, const glm::mat4& world, float radius, const glm::vec3& color, float intensity, float range) {
+        Diligent::PointLightData& slot = lights.PointLights[lights.NumPointLights++];
+        slot = Diligent::PointLightData{};
+        slot.Position = glm::vec4(glm::vec3(world[3]), radius);
+        slot.Color = glm::vec4(color, intensity);
+        slot.Range = range;
+        return slot;
+    }
+}
+
+static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& parentMatrix, Diligent::LightConstants& outLights, const LightGatherSettings& settings) {
     if (!obj) return;
 
     glm::mat4 currentWorldMatrix = parentMatrix;
@@ -435,42 +634,83 @@ static void GatherLightsRecursive(HierarchyObject::Ref obj, const glm::mat4& par
             glm::vec3 worldDir = dirLight->GetDirection();
 
             Diligent::DirectionalLightData& lightData = outLights.DirLights[outLights.NumDirLights];
-            lightData.Direction = glm::vec4(worldDir, 0.0f);
+            const float angularRadius = settings.lightSize ? glm::radians(glm::max(dirLight->GetAngularRadius(), 0.0f)) : kFixedSunAngularRadius;
+            lightData.Direction = glm::vec4(worldDir, angularRadius);
 
-            // Pack color and intensity using Getters from LightBase
-            lightData.Color = glm::vec4(dirLight->GetColor(), dirLight->GetIntensity());
+            // Pack color and intensity using Getters from LightBase. Real units: lux, seen at the project's exposure.
+            const float intensity = settings.realUnits ? dirLight->GetLux() * settings.exposure : dirLight->GetIntensity();
+            lightData.Color = glm::vec4(dirLight->GetColor(), intensity);
 
             outLights.NumDirLights++;
         }
     }
 
-    // Process Point Lights (Assuming you make a PointLight class inheriting LightBase next!)
+    // Point, spot and rectangular lights share the point light slots.
+    // Real units: a point or spot light's lumens become candela (all around), seen at the project's exposure.
     if (PointLight* pointLight = obj.GetPtr()->GetComponent<PointLight>()) {
         if (outLights.NumPointLights < Diligent::MAX_POINT_LIGHTS) {
-            // Extract the absolute world position from the 4th column of the world matrix
-            glm::vec3 worldPos = glm::vec3(currentWorldMatrix[3]);
+            const float radius = settings.lightSize ? glm::max(pointLight->GetRadius(), 0.0f) : kFixedPointLightRadius;
+            const float intensity = settings.realUnits ? LightUnits::LumensToCandela(pointLight->GetLumens()) * settings.exposure : pointLight->GetIntensity();
+            NextLocalLight(outLights, currentWorldMatrix, radius, pointLight->GetColor(), intensity, pointLight->GetRange());
+        }
+    }
 
-            Diligent::PointLightData& lightData = outLights.PointLights[outLights.NumPointLights];
-            lightData.Position = glm::vec4(worldPos, 1.0f);
+    if (SpotLight* spotLight = obj.GetPtr()->GetComponent<SpotLight>()) {
+        if (outLights.NumPointLights < Diligent::MAX_POINT_LIGHTS) {
+            const float radius = settings.lightSize ? glm::max(spotLight->GetRadius(), 0.0f) : kFixedPointLightRadius;
+            const float intensity = settings.realUnits ? LightUnits::LumensToCandela(spotLight->GetLumens()) * settings.exposure : spotLight->GetIntensity();
+            Diligent::PointLightData& lightData = NextLocalLight(outLights, currentWorldMatrix, radius, spotLight->GetColor(), intensity, spotLight->GetRange());
 
-            // Reusing LightBase getters
-            lightData.Color = glm::vec4(pointLight->GetColor(), pointLight->GetIntensity());
-            lightData.Range = pointLight->GetRange();
+            // The cone points along the object's -Y axis, like a directional light
+            lightData.SpotDirection = glm::vec4(SafeNormalize(glm::vec3(currentWorldMatrix * glm::vec4(0.0f, -1.0f, 0.0f, 0.0f)), glm::vec3(0.0f, -1.0f, 0.0f)), 0.0f);
 
-            outLights.NumPointLights++;
+            const float outerAngle = glm::clamp(spotLight->GetOuterAngle(), 1.0f, 89.0f);
+            const float innerAngle = glm::clamp(spotLight->GetInnerAngle(), 0.0f, outerAngle);
+            const float cosOuter = glm::cos(glm::radians(outerAngle));
+            const float cosInner = glm::cos(glm::radians(innerAngle));
+            lightData.SpotScale = 1.0f / glm::max(cosInner - cosOuter, 0.0001f);
+            lightData.SpotOffset = -cosOuter * lightData.SpotScale;
+        }
+    }
+
+    // A rectangular light turns lumens into the radiance of its panel: all of them leave through its front
+    if (AreaLight* areaLight = obj.GetPtr()->GetComponent<AreaLight>()) {
+        if (outLights.NumPointLights < Diligent::MAX_POINT_LIGHTS) {
+            const float width = glm::max(areaLight->GetWidth(), 0.001f);
+            const float height = glm::max(areaLight->GetHeight(), 0.001f);
+            const float radiance = settings.realUnits ? LightUnits::LumensToRadiance(areaLight->GetLumens(), width * height) * settings.exposure : areaLight->GetIntensity();
+            Diligent::PointLightData& lightData = NextLocalLight(outLights, currentWorldMatrix, 0.0f, areaLight->GetColor(), radiance, areaLight->GetRange());
+
+            // The panel lies in the object's X and Z plane, so its width follows X and its height follows Z, whatever the object's scale
+            const glm::vec3 axisX = SafeNormalize(glm::vec3(currentWorldMatrix[0]), glm::vec3(1.0f, 0.0f, 0.0f));
+            const glm::vec3 axisZ = SafeNormalize(glm::vec3(currentWorldMatrix[2]), glm::vec3(0.0f, 0.0f, 1.0f));
+            lightData.AxisX = glm::vec4(axisX * (width * 0.5f), 0.0f);
+            lightData.AxisY = glm::vec4(axisZ * (height * 0.5f), 0.0f);
+            lightData.SpotDirection = glm::vec4(SafeNormalize(glm::cross(axisX, axisZ), glm::vec3(0.0f, -1.0f, 0.0f)), 0.0f);
+            lightData.RectArea = width * height;
         }
     }
     
     // Recursively process children
     for (const auto& child : obj.GetPtr()->GetChildren()) {
-        GatherLightsRecursive(child.get(), currentWorldMatrix, outLights);
+        GatherLightsRecursive(child.get(), currentWorldMatrix, outLights, settings);
     }
 }
 
-void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) const {
+void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights, const ProjectPhysicalLightSettings& physical) const {
     // Reset light counts for the current frame
     outLights.NumDirLights = 0;
     outLights.NumPointLights = 0;
+
+    // With the master switch off every light is read as it was before lights had falloff, sizes and units of their own
+    LightGatherSettings settings;
+    settings.realUnits = physical.enabled && physical.real_units;
+    settings.exposure = LightUnits::ExposureScale(physical.ev100);
+    settings.lightSize = physical.enabled && physical.light_size;
+
+    outLights.Flags = 0;
+    if (physical.enabled && physical.inverse_square) outLights.Flags |= Diligent::LIGHT_FLAG_INVERSE_SQUARE;
+    if (physical.enabled && physical.highlight_shape) outLights.Flags |= Diligent::LIGHT_FLAG_HIGHLIGHT_SHAPE;
 
     // Pass the camera position to the light constants for specular calculations
     glm::vec3 cameraPos;
@@ -482,7 +722,7 @@ void HierarchyManager::GatherLightData(Diligent::LightConstants& outLights) cons
 
     // Iterate through all root nodes managed by HierarchyManager
     for (const auto& rootNode : m_rootNodes) {
-        GatherLightsRecursive(rootNode.get(), rootMatrix, outLights);
+        GatherLightsRecursive(rootNode.get(), rootMatrix, outLights, settings);
     }
 }
 

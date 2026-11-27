@@ -80,7 +80,7 @@ struct ProjectFogSettings
 // HDR output. The scene is rendered in floating point, so lights and emissive surfaces can be brighter than white.
 // The display pass at the end of the frame applies the exposure and a tone curve to fit that range onto the screen.
 // Applies to the game view and release builds, and to the editor view when apply_to_editor_view is set.
-// Stylized renderers (CrossHatch) are never tone mapped; their colors are already final.
+// Stylized renderers (CrossHatch, Anime) are never tone mapped; their colors are already final.
 struct ProjectHDRSettings
 {
     int tone_mapper = 2;             // 0: off (clamp at white), 1: AgX, 2: Khronos PBR Neutral
@@ -184,6 +184,38 @@ struct ProjectCrossHatchSettings
     bool outline_from_origin = false;          // Extrude away from the object's origin instead of along normals (hard-surface meshes)
 };
 
+// Style of the Anime renderer (ported from Weeb_Big2). Colors are linear RGB, like the other settings.
+struct ProjectAnimeSettings
+{
+    // Two tones: the lit tone where a surface faces the light by more than `step`, the shadow tone elsewhere
+    std::array<float, 3> base_color{1.0f, 1.0f, 1.0f};          // Tints the lit tone (multiplies the material's color)
+    std::array<float, 3> shadow_color{0.6f, 0.55f, 0.78f};      // Tints the shadow tone
+    float shadow_factor = 0.25f;     // Darkens the shadow tone: 0 = the shadow color as is, 1 = black
+    float step = 0.1f;               // N.L a surface needs to be in the lit tone
+    float light_falloff = 0.0f;      // 0 = two flat tones, 1 = the lit tone fades into the shadow tone with N.L
+    bool use_smooth_normal = false;  // Cut the tones with normals averaged over neighboring faces
+
+    // Highlights (Cook-Torrance, sized by the material's roughness and metallic)
+    bool specular_enabled = true;
+    float specular_strength = 1.0f;
+
+    // Texture blur, in mip levels: smooths texture detail, which reads as noise in a cel look. 0 = sharp.
+    float base_color_blur = 0.0f;
+    float normal_map_blur = 0.0f;
+
+    // Inner edges: ink inside the silhouette
+    std::array<float, 3> inner_edge_color{0.0f, 0.0f, 0.0f};
+    float inner_step = 0.0f;         // Ink where a surface faces the camera less than this (0 = off)
+    float curve_step = 0.5f;         // Ink where the mesh bends more than this (1 = off)
+
+    // Inverted hull outline
+    bool outline_enabled = true;
+    std::array<float, 3> outline_color{0.0f, 0.0f, 0.0f};
+    float outline_thickness = 0.02f;
+    bool outline_constant_screen_width = false;  // Thickness scales with distance, so it is a fraction of the distance instead of world units
+    bool outline_smooth_normals = true;          // Extrude along the smooth normals, which don't open gaps at hard edges
+};
+
 struct ProjectDebugSettings
 {
     bool show_physics_collider_wireframes = false;
@@ -230,8 +262,49 @@ struct ProjectGISettings
     // How the denoiser treats the result (while ProjectDenoiseSettings has it on)
     float history_blend = 0.98f;    // Share of earlier frames kept every frame. Higher is smoother but slower to react.
     int filter_passes = 5;          // Blur passes over the result, 0 to 5. Each doubles the blur's reach.
+    // The blur passes keep all the light they blur (SignalDenoiser::Settings::PreserveLight). Off is the blur as it was before,
+    // which lost light where rays find a small bright area: a small glowing object lit its surroundings with half of its light.
+    bool preserve_light = true;
 
 
+};
+
+// Cutout materials (fences, leaves) and blended ones (glass) in the ray-traced renderers.
+// Off shows what they did before: every triangle blocks every ray, and blended surfaces are not drawn.
+struct ProjectTransparencySettings
+{
+    bool enabled = true;            // Off: nothing below applies
+    bool cutout_rays = true;        // Shadows, reflections and light bouncing around see the holes in cutout materials
+    bool glass = true;              // Blended materials are drawn, as glass
+    bool tinted_shadows = true;     // Light passes through glass, tinted by its color. Off: glass casts a solid shadow.
+    bool refraction = true;         // Glass bends what is behind it. Off: plain alpha blending.
+};
+
+// How lights fall off, how big they are and what their brightness is measured in.
+// The two switches that change every scene's brightness (inverse_square, real_units) are off by default, so a saved
+// scene looks the same until a project asks for them. The rest only matters where a light has a size to show.
+struct ProjectPhysicalLightSettings
+{
+    bool enabled = true;            // Off: lights behave as before this feature, whatever the switches below say
+    bool inverse_square = false;    // Point and spot lights fall off as 1 / distance^2, smoothly cut to 0 at their range. Off: (1 - distance / range)^2.
+    bool real_units = false;        // Brightness is set in lumens (point, spot and rectangular lights) and lux (directional lights), seen at ev100
+    float ev100 = 15.0f;            // Exposure value (ISO 100) that real-unit lights are seen at: 15 is a sunny day, 6 to 8 a lit room
+    bool light_size = true;         // Every light has a size of its own, and its shadows soften with it. Off: the old fixed sizes.
+    bool highlight_shape = true;    // The size also widens the highlight a glossy surface shows
+};
+
+// What a material can be besides a plain metal or dielectric: a coat of clear lacquer, a layer of cloth fibres and a body
+// that lets light through. Which of them a surface has comes from its material (glTF's KHR_materials_clearcoat, _sheen and
+// _transmission) or from the object's overrides, so a scene without any shows only the specular anti-aliasing.
+// Off shows each as before: no lobe, a transmissive material is an opaque one, and highlights are as sharp as the normals say.
+struct ProjectMaterialSettings
+{
+    bool enabled = true;                // Off: nothing below applies
+    bool specular_aa = true;            // Roughness grows where the normal changes quickly across a pixel, so highlights stop sparkling
+    float specular_aa_strength = 1.0f;  // 1 filters as much as the normals' change says is needed; more is blurrier
+    bool clearcoat = true;              // A second, smooth highlight over the base layer (car paint, lacquered wood)
+    bool sheen = true;                  // A soft rim of light on cloth
+    bool transmission = true;           // Materials that let the view through are drawn as glass (Hybrid and Deferred Hybrid)
 };
 
 // Denoising of the Deferred Hybrid renderer's ray-traced light. Every pixel traces one ray per light, one for its
@@ -252,6 +325,9 @@ struct ProjectSettings
     ProjectReflectionSettings reflections;
     ProjectGISettings gi;
     ProjectDenoiseSettings denoise;
+    ProjectTransparencySettings transparency;
+    ProjectPhysicalLightSettings physical_lights;
+    ProjectMaterialSettings materials;
 
     ProjectSkySettings sky;
 
@@ -260,6 +336,7 @@ struct ProjectSettings
     ProjectColorCorrectionSettings color_correction;
     ProjectGodRaysSettings god_rays;
     ProjectCrossHatchSettings crosshatch;
+    ProjectAnimeSettings anime;
     ProjectDebugSettings debug;
     ProjectPhysicsSettings physics;
     ProjectAudioSettings audio;

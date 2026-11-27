@@ -15,8 +15,13 @@ set(${CUR_TARGET_NAME}_src
 	Components/Camera/GameCamera.cpp
 	Components/Camera/GameCamera.hpp
 
+	Components/MaterialOverrideComponent.cpp
+	Components/MaterialOverrideComponent.hpp
+
 	Components/ModelComponent.cpp
 	Components/ModelComponent.hpp
+	Components/SubMeshComponent.cpp
+	Components/SubMeshComponent.hpp
 	Components/ITeleportable.hpp
 
 	Components/Lights/LightBase.cpp
@@ -25,6 +30,8 @@ set(${CUR_TARGET_NAME}_src
 	Components/Lights/DirectionLight.hpp
 	Components/Lights/PointLight.cpp
 	Components/Lights/PointLight.hpp
+	Components/Lights/SpotLight.hpp
+	Components/Lights/AreaLight.hpp
 
 	Components/Physics/PhysicsBase.hpp
 	Components/Physics/PhysicsBase.cpp
