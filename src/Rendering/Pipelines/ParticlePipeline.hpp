@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BasePipeline.hpp"
+#include "Utils/DynamicVertexBuffer.hpp"
 #include "../ParticleRenderData.hpp"
 #include <vector>
 
@@ -22,20 +23,16 @@ namespace Diligent {
             glm::vec4 Grid;
         };
 
-        struct BlendState {
-            RefCntAutoPtr<IPipelineState> PSO;
-            RefCntAutoPtr<IShaderResourceBinding> SRB;
-        };
+        static constexpr Uint32 kMaxInstances = 1u << 20;
 
-        void CreateBlendState(IRenderDevice* pDevice, BlendState& state, ParticleBlendMode mode);
-        void EnsureInstanceBufferCapacity(Uint32 requiredInstances);
+        // The pass that draws batches with this blend mode
+        PipelinePass CreateBlendPass(ParticleBlendMode mode);
 
-        BlendState m_Alpha;
-        BlendState m_Additive;
+        PipelinePass m_Alpha;
+        PipelinePass m_Additive;
 
         RefCntAutoPtr<IBuffer> m_pParticleCB;
-        RefCntAutoPtr<IBuffer> m_pInstanceBuffer;
-        Uint32 m_InstanceCapacity = 0;
+        DynamicVertexBuffer m_Instances{ "Particle Instance Buffer", sizeof(ParticleInstance), 1024, kMaxInstances };
         RefCntAutoPtr<ITextureView> m_pWhiteSRV;
 
         std::vector<ParticleInstance> m_SortScratch;

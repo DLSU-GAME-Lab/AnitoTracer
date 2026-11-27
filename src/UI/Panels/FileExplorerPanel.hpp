@@ -20,6 +20,7 @@ namespace Diligent
         void RegisterOpener(Opener opener);
         void SetRoot(const std::filesystem::path& root);
         const std::filesystem::path& GetCurrentDirectory() const { return m_CurrentDirectory; }
+        void RescanAssets();
 
     private:
         struct Action { std::function<bool()> undo; std::function<bool()> redo; };

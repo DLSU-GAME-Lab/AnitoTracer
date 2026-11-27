@@ -5,6 +5,7 @@
 #include "../common_struct.hlsli"
 #include "../light_struct.hlsli"
 #include "../pbr_defs.hlsli"
+#include "../material_sampling.hlsli"
 #include "../fog.hlsli"
 #include "crosshatch_common.hlsli"
 
@@ -104,33 +105,19 @@ float ShadowHatchInk(float3 worldPos, float3 N, float keyShadow)
 void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 {
     // 1. Material
-    float4 albedo = g_BaseColorFactor;
-    if (g_UseBaseColorMap > 0.5)
-    {
-        albedo *= g_BaseColorMap.Sample(g_BaseColorMap_sampler, In.UV);
-    }
+    float4 albedo = SampleBaseColor(In.UV);
 
     // Alpha testing for foliage and cutouts
-    if (albedo.a < 0.5)
+    if (!PassesAlphaTest(albedo.a))
     {
         discard;
     }
 
-    float ao = 1.0;
-    if (g_UseAOMap > 0.5)
-    {
-        ao = g_AOMap.Sample(g_AOMap_sampler, In.UV).r;
-    }
+    float ao = SampleOcclusion(In.UV);
 
     // Unperturbed normal for ray offsets and inner edge detection, so normal maps don't turn into ink noise
     float3 geoN = normalize(In.Normal);
-    float3 N = geoN;
-    if (g_UseNormalMap > 0.5)
-    {
-        float3x3 TBN = float3x3(normalize(In.Tangent), normalize(In.Bitangent), geoN);
-        float3 tangentNormal = g_NormalMap.Sample(g_NormalMap_sampler, In.UV).xyz * 2.0 - 1.0;
-        N = normalize(mul(tangentNormal, TBN));
-    }
+    float3 N = ApplyNormalMap(In, geoN);
 
     float3 emissive = float3(0.0, 0.0, 0.0);
     if (g_UseEmissiveMap > 0.5)
@@ -157,7 +144,7 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 #ifdef CROSSHATCH_RAYTRACED_SHADOWS
         if (NdotL > 0.0)
         {
-            shadow = TraceDirectionalShadow(In.WorldPos, geoN, 0.0, L, ShiftNoise(noise, i));
+            shadow = TraceDirectionalShadow(In.WorldPos, geoN, 0.0, L, tan(g_DirLights[i].Direction.w), ShiftNoise(noise, i));
         }
 #endif
         if (i == 0)
@@ -172,22 +159,20 @@ void main_ps(in PSInput In, out float4 OutColor : SV_TARGET)
 
     for (int j = 0; j < g_NumPointLights; ++j)
     {
-        float3 lightVec = g_PointLights[j].Position.xyz - In.WorldPos;
-        float dist = length(lightVec);
-        if (dist >= g_PointLights[j].Range)
+        // Spot lights and panels count as points here: this style has no use for their finer shading
+        float3 L;
+        float dist;
+        float attenuation = LocalLightAttenuation(j, In.WorldPos, L, dist);
+        if (attenuation <= 0.0)
             continue;
 
-        float3 L = lightVec / dist;
         float NdotL = max(dot(N, L), 0.0);
-
-        float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
-        attenuation *= attenuation;
 
         float shadow = 1.0;
 #ifdef CROSSHATCH_RAYTRACED_SHADOWS
         if (NdotL > 0.0)
         {
-            shadow = TracePointShadow(In.WorldPos, geoN, 0.0, g_PointLights[j].Position.xyz, L, ShiftNoise(noise, 4 + j));
+            shadow = TracePointShadow(In.WorldPos, geoN, 0.0, g_PointLights[j].Position.xyz, g_PointLights[j].Position.w, L, ShiftNoise(noise, 4 + j));
         }
 #endif
         if (j == 0 && g_NumDirLights == 0)

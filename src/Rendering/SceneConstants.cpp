@@ -42,7 +42,7 @@ namespace Diligent {
     }
 
     ShadowSettings BuildShadowSettings(const ProjectLightingSettings& lighting, const ProjectSkySettings& sky,
-        const ProjectReflectionSettings& reflections, uint32_t noiseFrame)
+        const ProjectReflectionSettings& reflections, const ProjectTransparencySettings& transparency, uint32_t noiseFrame)
     {
         const SkyboxConstants skybox = BuildSkyboxConstants(sky);
 
@@ -65,6 +65,17 @@ namespace Diligent {
             if (reflections.shade_hits) shadow.ReflectionFlags |= REFLECTION_SHADE_HITS;
             if (reflections.hit_shadows) shadow.ReflectionFlags |= REFLECTION_HIT_SHADOWS;
             if (reflections.glossy) shadow.ReflectionFlags |= REFLECTION_GLOSSY;
+        }
+
+        // Without the master switch every triangle is solid to every ray, as it was before cutouts and glass
+        if (transparency.enabled) {
+            shadow.TransparencyFlags |= TRANSPARENCY_TEST_RAYS;
+            if (transparency.cutout_rays) shadow.TransparencyFlags |= TRANSPARENCY_CUTOUT;
+            if (transparency.glass) {
+                shadow.TransparencyFlags |= TRANSPARENCY_GLASS;
+                if (transparency.tinted_shadows) shadow.TransparencyFlags |= TRANSPARENCY_TINTED_SHADOWS;
+                if (transparency.refraction) shadow.TransparencyFlags |= TRANSPARENCY_REFRACTION;
+            }
         }
         return shadow;
 
@@ -114,6 +125,33 @@ namespace Diligent {
 
         c.HatchMode = glm::clamp(settings.mode, 0, 2);
         c.InnerEdges = settings.inner_edges ? 1 : 0;
+        c.SpecularEnabled = settings.specular_enabled ? 1 : 0;
+        return c;
+    }
+
+    AnimeConstants BuildAnimeConstants(const ProjectAnimeSettings& settings)
+    {
+        AnimeConstants c;
+        c.BaseColor = glm::vec4(settings.base_color[0], settings.base_color[1], settings.base_color[2], 1.0f);
+        c.ShadowColor = glm::vec4(settings.shadow_color[0], settings.shadow_color[1], settings.shadow_color[2], 1.0f);
+        c.InnerEdgeColor = glm::vec4(settings.inner_edge_color[0], settings.inner_edge_color[1], settings.inner_edge_color[2], 1.0f);
+        c.OutlineColor = glm::vec4(settings.outline_color[0], settings.outline_color[1], settings.outline_color[2], 1.0f);
+
+        c.Step = glm::clamp(settings.step, 0.0f, 1.0f);
+        c.InnerStep = glm::clamp(settings.inner_step, 0.0f, 1.0f);
+        c.CurveStep = glm::clamp(settings.curve_step, 0.0f, 1.0f);
+        c.ShadowFactor = glm::clamp(settings.shadow_factor, 0.0f, 1.0f);
+
+        c.LightFalloff = glm::clamp(settings.light_falloff, 0.0f, 1.0f);
+        c.SpecularStrength = glm::max(settings.specular_strength, 0.0f);
+        c.BaseColorBlur = glm::clamp(settings.base_color_blur, 0.0f, 12.0f);
+        c.NormalMapBlur = glm::clamp(settings.normal_map_blur, 0.0f, 12.0f);
+
+        c.OutlineWidth = glm::max(settings.outline_thickness, 0.0f);
+        c.OutlineScaleWithDistance = settings.outline_constant_screen_width ? 1.0f : 0.0f;
+        c.OutlineSmoothNormals = settings.outline_smooth_normals ? 1.0f : 0.0f;
+
+        c.UseSmoothNormal = settings.use_smooth_normal ? 1 : 0;
         c.SpecularEnabled = settings.specular_enabled ? 1 : 0;
         return c;
     }

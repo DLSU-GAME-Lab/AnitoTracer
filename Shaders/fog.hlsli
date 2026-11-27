@@ -4,6 +4,8 @@
 // Linear + volumetric fog shared by every lit pass and the skybox.
 // Requires light_struct.hlsli (LightConstants) to be included first.
 
+#include "Common/sampling_common.hlsli"
+
 cbuffer FogConstants
 {
     float4 g_LinearFogColor;     // rgb: color, a: max opacity
@@ -32,12 +34,6 @@ static const int FOG_MAX_SAMPLES = 128;
 // ------------------------------------------------------------------
 // Noise helpers
 // ------------------------------------------------------------------
-
-// Per-pixel dither used to offset ray-march samples and hide banding
-float InterleavedGradientNoise(float2 pixelPos)
-{
-    return frac(52.9829189 * frac(dot(pixelPos, float2(0.06711056, 0.00583715))));
-}
 
 float FogHash(float3 p)
 {
@@ -119,15 +115,14 @@ float3 FogInScatteredLight(float3 p, float3 rayDir, bool includePointLights)
     {
         for (int j = 0; j < g_NumPointLights; ++j)
         {
-            float3 lightVec = g_PointLights[j].Position.xyz - p;
-            float dist = length(lightVec);
-            if (dist < g_PointLights[j].Range)
+            // Same falloff and cone as the surface shaders so fog halos match lit areas
+            float3 L;
+            float dist;
+            float attenuation = LocalLightAttenuation(j, p, L, dist);
+            if (attenuation > 0.0)
             {
-                // Same falloff as the surface shaders so fog halos match lit areas
-                float attenuation = max(1.0 - (dist / g_PointLights[j].Range), 0.0);
-                attenuation *= attenuation;
                 float3 radiance = g_PointLights[j].Color.rgb * g_PointLights[j].Color.a * attenuation;
-                light += radiance * FogPhase(dot(rayDir, lightVec / max(dist, 0.0001)), g_FogAnisotropy);
+                light += radiance * FogPhase(dot(rayDir, L), g_FogAnisotropy);
             }
         }
     }

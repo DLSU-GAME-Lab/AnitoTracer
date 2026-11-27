@@ -3,16 +3,11 @@
 
 #include <algorithm>
 
-namespace {
-    constexpr Diligent::Uint32 kMaxParticleInstances = 1u << 20;
-}
-
 void Diligent::ParticlePipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain)
 {
     m_Alpha = {};
     m_Additive = {};
-    m_pInstanceBuffer.Release();
-    m_InstanceCapacity = 0;
+    m_Instances.Release();
 
     SetDevice(pDevice, pSwapChain);
     CreateCameraConstantBuffer();
@@ -24,23 +19,14 @@ void Diligent::ParticlePipeline::InitializePipeline(IRenderDevice* pDevice, ISwa
         }
     }
 
-    CreateBlendState(pDevice, m_Alpha, ParticleBlendMode::Alpha);
-    CreateBlendState(pDevice, m_Additive, ParticleBlendMode::Additive);
+    m_Alpha = CreateBlendPass(ParticleBlendMode::Alpha);
+    m_Additive = CreateBlendPass(ParticleBlendMode::Additive);
 }
 
-void Diligent::ParticlePipeline::CreateBlendState(IRenderDevice* pDevice, BlendState& state, ParticleBlendMode mode)
+Diligent::PipelinePass Diligent::ParticlePipeline::CreateBlendPass(ParticleBlendMode mode)
 {
     const bool additive = (mode == ParticleBlendMode::Additive);
-
-    RenderTargetBlendDesc blend;
-    blend.BlendEnable = True;
-    blend.SrcBlend = BLEND_FACTOR_SRC_ALPHA;
-    blend.DestBlend = additive ? BLEND_FACTOR_ONE : BLEND_FACTOR_INV_SRC_ALPHA;
-    blend.BlendOp = BLEND_OPERATION_ADD;
-    blend.SrcBlendAlpha = BLEND_FACTOR_ZERO;
-    blend.DestBlendAlpha = BLEND_FACTOR_ONE;
-    blend.BlendOpAlpha = BLEND_OPERATION_ADD;
-    blend.RenderTargetWriteMask = COLOR_MASK_ALL;
+    const RenderTargetBlendDesc blend = PipelineUtils::ColorBlend(BLEND_FACTOR_SRC_ALPHA, additive ? BLEND_FACTOR_ONE : BLEND_FACTOR_INV_SRC_ALPHA);
 
     // One per-instance vertex buffer in slot 0; the quad corners are generated from SV_VertexID.
     std::vector<LayoutElement> layout = {
@@ -49,7 +35,7 @@ void Diligent::ParticlePipeline::CreateBlendState(IRenderDevice* pDevice, BlendS
         LayoutElement{2, 0, 4, VT_FLOAT32, False, INPUT_ELEMENT_FREQUENCY_PER_INSTANCE}  // color
     };
 
-    state.PSO = PSOBuilder(additive ? "Particle Additive PSO" : "Particle Alpha PSO")
+    PipelinePass pass = BuildPass(PSOBuilder(additive ? "Particle Additive PSO" : "Particle Alpha PSO")
         .Shaders("particle.hlsl", "particle.hlsl")
         .RenderTargets({ GetColorFormat() }, GetDepthFormat())
         .SampleCount(PipelineUtils::GetMSAASampleCount())
@@ -61,33 +47,10 @@ void Diligent::ParticlePipeline::CreateBlendState(IRenderDevice* pDevice, BlendS
         .Variable(SHADER_TYPE_VERTEX, "CameraConstants")
         .Variable(SHADER_TYPE_VERTEX, "ParticleConstants")
         .Variable(SHADER_TYPE_PIXEL, "g_Texture")
-        .Sampler(SHADER_TYPE_PIXEL, "g_Texture_sampler", PipelineUtils::LinearClampSampler())
-        .Build(pDevice);
-    state.SRB = PipelineUtils::CreateSRB(state.PSO);
+        .Sampler(SHADER_TYPE_PIXEL, "g_Texture_sampler", PipelineUtils::LinearClampSampler()));
 
-    BindCommonBuffers(state.SRB);
-    PipelineUtils::BindVariable(state.SRB, SHADER_TYPE_VERTEX, "ParticleConstants", m_pParticleCB);
-}
-
-void Diligent::ParticlePipeline::EnsureInstanceBufferCapacity(Uint32 requiredInstances)
-{
-    if (m_pInstanceBuffer && requiredInstances <= m_InstanceCapacity) {
-        return;
-    }
-
-    Uint32 newCapacity = std::max<Uint32>(requiredInstances, m_InstanceCapacity == 0 ? 1024 : m_InstanceCapacity * 2);
-    newCapacity = std::min<Uint32>(newCapacity, kMaxParticleInstances);
-
-    BufferDesc desc;
-    desc.Name = "Particle Instance Buffer";
-    desc.Usage = USAGE_DYNAMIC;
-    desc.BindFlags = BIND_VERTEX_BUFFER;
-    desc.CPUAccessFlags = CPU_ACCESS_WRITE;
-    desc.Size = static_cast<Uint64>(newCapacity) * sizeof(ParticleInstance);
-
-    m_pInstanceBuffer.Release();
-    m_pDevice->CreateBuffer(desc, nullptr, &m_pInstanceBuffer);
-    m_InstanceCapacity = newCapacity;
+    PipelineUtils::BindVariable(pass.pSRB, SHADER_TYPE_VERTEX, "ParticleConstants", m_pParticleCB);
+    return pass;
 }
 
 void Diligent::ParticlePipeline::RenderParticles(IDeviceContext* pContext, const RenderData& renderData)
@@ -107,11 +70,11 @@ void Diligent::ParticlePipeline::RenderParticles(IDeviceContext* pContext, const
     for (const ParticleBatch& batch : renderData.Particles) {
         if (batch.Instances.empty()) continue;
 
-        BlendState& state = (batch.Blend == ParticleBlendMode::Additive) ? m_Additive : m_Alpha;
-        if (!state.PSO || !state.SRB) continue;
+        const PipelinePass& pass = (batch.Blend == ParticleBlendMode::Additive) ? m_Additive : m_Alpha;
+        if (!pass) continue;
 
         const ParticleInstance* pSrc = batch.Instances.data();
-        Uint32 count = static_cast<Uint32>(std::min<size_t>(batch.Instances.size(), kMaxParticleInstances));
+        Uint32 count = static_cast<Uint32>(std::min<size_t>(batch.Instances.size(), kMaxInstances));
 
         // Alpha blending is order dependent; additive is commutative so it needs no sort
         if (batch.Blend == ParticleBlendMode::Alpha && count > 1) {
@@ -123,15 +86,7 @@ void Diligent::ParticlePipeline::RenderParticles(IDeviceContext* pContext, const
             pSrc = m_SortScratch.data();
         }
 
-        EnsureInstanceBufferCapacity(count);
-        if (!m_pInstanceBuffer) continue;
-
-        {
-            MapHelper<ParticleInstance> VBData(pContext, m_pInstanceBuffer, MAP_WRITE, MAP_FLAG_DISCARD);
-            ParticleInstance* pDst = VBData;
-            if (!pDst) continue;
-            memcpy(pDst, pSrc, count * sizeof(ParticleInstance));
-        }
+        if (!m_Instances.Upload(m_pDevice, pContext, pSrc, count)) continue;
 
         ParticleConstants particleConstants;
         particleConstants.CameraRight = glm::vec4(camRight, 0.0f);
@@ -141,13 +96,11 @@ void Diligent::ParticlePipeline::RenderParticles(IDeviceContext* pContext, const
         PipelineUtils::WriteCB(pContext, m_pParticleCB, particleConstants);
 
         ITextureView* pTexture = batch.Texture ? batch.Texture : m_pWhiteSRV.RawPtr();
-        PipelineUtils::BindVariable(state.SRB, SHADER_TYPE_PIXEL, "g_Texture", pTexture);
+        PipelineUtils::BindVariable(pass.pSRB, SHADER_TYPE_PIXEL, "g_Texture", pTexture);
 
-        pContext->SetPipelineState(state.PSO);
-        pContext->CommitShaderResources(state.SRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        IBuffer* pBuffs[] = { m_pInstanceBuffer };
-        pContext->SetVertexBuffers(0, 1, pBuffs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, SET_VERTEX_BUFFERS_FLAG_RESET);
+        pContext->SetPipelineState(pass.pPSO);
+        pContext->CommitShaderResources(pass.pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_Instances.Bind(pContext);
 
         DrawAttribs drawAttrs;
         drawAttrs.NumVertices = 4;

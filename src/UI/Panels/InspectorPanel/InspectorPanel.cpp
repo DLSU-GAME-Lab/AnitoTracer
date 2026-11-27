@@ -87,7 +87,17 @@ void Diligent::InspectorPanel::Draw()
             ImGui::Separator();
             ImGui::Spacing();
 
-            if (selected.GetPtr()->IsPrefabInstance())
+            // A node that stands for one submesh of its parent's model: made and kept by the Hierarchy, so what makes the
+            // object a prefab, or takes away what makes it a submesh, is not offered
+            const SubMeshComponent* subMeshComponent = selected.GetPtr()->GetComponent<SubMeshComponent>();
+            const bool liveSubMesh = subMeshComponent && !subMeshComponent->IsOrphaned();
+
+            if (liveSubMesh)
+            {
+                HierarchyObject* parent = selected.GetPtr()->GetParent().GetPtr();
+                ImGui::TextDisabled("Submesh of %s", parent ? parent->GetName().c_str() : "its object");
+            }
+            else if (selected.GetPtr()->IsPrefabInstance())
             {
                 ImGui::TextWrapped("Prefab: %s", selected.GetPtr()->GetPrefabAssetPath().c_str());
 
@@ -130,10 +140,14 @@ void Diligent::InspectorPanel::Draw()
 
                     bool removeComponent = false;
                     if (ImGui::BeginPopupContextItem("ComponentContextMenu", ImGuiPopupFlags_MouseButtonRight)) {
-                        if (ImGui::MenuItem("Copy Component")) {
+                        // A Submesh component stands for a submesh of the object it sits under: a copy elsewhere would stand for nothing
+                        if (ImGui::MenuItem("Copy Component", nullptr, false, dynamic_cast<SubMeshComponent*>(component.get()) == nullptr)) {
                             HierarchyManager::GetInstance().CopyComponent(component.get());
                         }
-                        if (ImGui::MenuItem("Remove Component")) {
+                        // The Transform and the Submesh component are what makes a node a submesh's
+                        const bool partOfSubMeshNode = liveSubMesh
+                            && (dynamic_cast<Transform*>(component.get()) || dynamic_cast<SubMeshComponent*>(component.get()));
+                        if (ImGui::MenuItem("Remove Component", nullptr, false, !partOfSubMeshNode)) {
                             removeComponent = true;
                         }
                         ImGui::EndPopup();
@@ -187,6 +201,7 @@ void Diligent::InspectorPanel::Draw()
 
                 for (const auto& entry : gbe::TypeRegistry::GetEntries()) {
                     if (entry.name == typeid(ScriptComponent).name()) continue; // Listed per script below
+                    if (entry.name == typeid(SubMeshComponent).name()) continue; // Made by the Hierarchy, for the submeshes of a model
 
                     std::string label = entry.name;
                     if (label.rfind("class ", 0) == 0) label.erase(0, 6);

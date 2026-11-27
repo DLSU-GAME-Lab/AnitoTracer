@@ -4,6 +4,7 @@
 #include "../HybridPipeline.hpp"
 #include "../DeferredHybridPipeline.hpp"
 #include "../CrossHatchPipeline.hpp"
+#include "../AnimePipeline.hpp"
 
 #include <utility>
 
@@ -36,6 +37,7 @@ namespace Diligent {
             { PipelineType::DEFERRED_HYBRID, "Deferred Hybrid Pipeline (RayTraced)",   true,  true,  &Make<DeferredHybridPipeline> },
             { PipelineType::CROSSHATCH,      "CrossHatch Pipeline",                    false, true,  &Make<CrossHatchPipeline> },
             { PipelineType::CROSSHATCH_RT,   "CrossHatch Pipeline (RayTraced Shadows)", true,  true,  &MakeCrossHatchRT },
+            { PipelineType::ANIME,           "Anime Pipeline",                         false, true,  &Make<AnimePipeline> },
         };
         return pipelines;
     }

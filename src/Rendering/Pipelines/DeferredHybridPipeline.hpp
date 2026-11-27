@@ -4,6 +4,8 @@
 #include "Utils/DiffuseGIPass.hpp"
 #include "Utils/SignalDenoiser.hpp"
 
+#include <initializer_list>
+
 namespace Diligent {
     // Deferred version of the Hybrid pipeline:
     //   1. Depth prepass       - resolves visibility so the G-buffer is written once per pixel
@@ -19,7 +21,6 @@ namespace Diligent {
     // The signals keep one view's history: this pipeline draws one view per frame.
     class DeferredHybridPipeline : public HybridPipeline {
     public:
-        void InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain) override;
         void StartFrameRender(IDeviceContext* pContext, const RenderData& renderData) override;
         void RenderModels(IDeviceContext* pContext, const RenderData& renderData, bool renderOpaque = true) override;
         void UpdateLights(IDeviceContext* pContext, const LightConstants& lights) override;
@@ -33,18 +34,24 @@ namespace Diligent {
         static bool SupportsPerPixelGI() { return SupportsSceneRayShading(); }
 
     protected:
+        void CreatePasses() override;
         // Sizes the G-buffer to fit the target
         void PrepareFrame(const FrameTarget& target) override;
         // Guide, trace and denoise passes, then the lighting pass: writes color and depth into the target
         void FinishFrame(IDeviceContext* pContext, const FrameTarget& target) override;
 
         std::vector<IShaderResourceBinding*> GetRayTracingSRBs() override;
+        void RebuildRayPipelines() override;
 
     private:
-        // Position of the motion vector target among the G-buffer's color attachments (see InitializePipeline)
+        // Position of the motion vector target among the G-buffer's color attachments (see CreatePasses and gbuffer_common.hlsli)
         static constexpr size_t kGBufferVelocity = 4;
         // A shadow texture holds four lights, one per channel: MAX_DIR_LIGHTS + MAX_POINT_LIGHTS fit in three
         static constexpr Uint32 kMaxShadowLayers = 3;
+
+        // What one FinishFrame works from (which signals are denoised, the constants every pass reads, the guide) and
+        // what its passes produce for the lighting pass. Defined in the .cpp.
+        struct SignalFrame;
 
         void InitializeDepthPrepassPSO();
         void InitializeGBufferPSO();
@@ -53,34 +60,39 @@ namespace Diligent {
         void InitializeLightingPSO();
 
         // A fullscreen pass that reads the G-buffer and may trace rays: everything such a pass can use is declared,
-        // and the shader keeps what it needs. Add the render targets and build.
+        // and the shader keeps what it needs. Add the render targets and build it with BuildSignalPass.
         PSOBuilder CreateSignalPassBuilder(const char* name, const char* psFile);
-        // Binds what CreateSignalPassBuilder declared that doesn't change from frame to frame
-        void BindSignalPassResources(IShaderResourceBinding* pSRB);
+        // BuildPass, plus what CreateSignalPassBuilder declared that doesn't change from frame to frame
+        PipelinePass BuildSignalPass(PSOBuilder& builder);
+        PipelinePass BuildSignalPass(PSOBuilder&& builder) { return BuildSignalPass(builder); }
         // The SRBs of every pass that samples the G-buffer
         std::vector<IShaderResourceBinding*> GetGBufferSRBs();
 
         // (Re)creates the view sized textures of the guide and trace passes; drops every history when it does
         void PrepareSignalTargets(Uint32 width, Uint32 height);
         void ResetSignalHistory();
-        void DrawSignalPass(IDeviceContext* pContext, IPipelineState* pPSO, IShaderResourceBinding* pSRB, ITexture* pTarget);
+        // Draws a signal pass into one or two targets, which are as large as the pass's output
+        void DrawSignalPass(IDeviceContext* pContext, const PipelinePass& pass, std::initializer_list<ITexture*> targets);
 
         void SetGBufferViewport(IDeviceContext* pContext);
 
-        RefCntAutoPtr<IPipelineState> m_pDepthPrepassPSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pDepthPrepassSRB;
+        // The steps of FinishFrame, in the order they run. Each leaves what it found in the SignalFrame.
+        void BeginSignalFrame(IDeviceContext* pContext, SignalFrame& frame);                                // Constants and guide
+        void TraceShadows(IDeviceContext* pContext, SignalFrame& frame);                                    // Shadows and glass tint
+        void TraceIndirect(IDeviceContext* pContext, SignalFrame& frame);                                   // Per-pixel GI or ambient occlusion
+        void TraceReflections(IDeviceContext* pContext, SignalFrame& frame);
+        void ComposeLighting(IDeviceContext* pContext, const FrameTarget& target, const SignalFrame& frame);
 
-        RefCntAutoPtr<IPipelineState> m_pGuidePSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pGuideSRB;
-        RefCntAutoPtr<IPipelineState> m_pShadowTracePSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pShadowTraceSRB;
-        RefCntAutoPtr<IPipelineState> m_pAOTracePSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pAOTraceSRB;
-        RefCntAutoPtr<IPipelineState> m_pReflectionTracePSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pReflectionTraceSRB;
+        PipelinePass m_DepthPrepass;
 
-        RefCntAutoPtr<IPipelineState> m_pLightingPSO;
-        RefCntAutoPtr<IShaderResourceBinding> m_pLightingSRB;
+        PipelinePass m_Guide;
+        PipelinePass m_ShadowTrace;
+        // The first shadow layer's pass when glass is in the scene: also writes the color glass tints the light with
+        PipelinePass m_ShadowTraceTint;
+        PipelinePass m_AOTrace;
+        PipelinePass m_ReflectionTrace;
+
+        PipelinePass m_Lighting;
         RefCntAutoPtr<IBuffer> m_pDeferredCB;
 
         // Layout documented in Shaders/DeferredHybrid/gbuffer_common.hlsli. Only grows, so one set serves every
@@ -95,6 +107,7 @@ namespace Diligent {
         RefCntAutoPtr<ITexture> m_pShadowRays[kMaxShadowLayers]; // Created when the scene has lights for them
         RefCntAutoPtr<ITexture> m_pAORays;      // Created when Sky + AO is in use, at the view's size or half of it
         RefCntAutoPtr<ITexture> m_pReflectionRays;
+        RefCntAutoPtr<ITexture> m_pGlassTintRays;
         Uint32 m_SignalWidth = 0;
         Uint32 m_SignalHeight = 0;
 
@@ -106,6 +119,7 @@ namespace Diligent {
         SignalDenoiser::History m_ShadowHistory[kMaxShadowLayers];
         SignalDenoiser::History m_IndirectHistory;
         SignalDenoiser::History m_ReflectionHistory;
+        SignalDenoiser::History m_TintHistory;
 
         // Bound in place of signals that aren't traced: no shadow (white), no reflection (black)
         RefCntAutoPtr<ITexture> m_pWhiteTexture;

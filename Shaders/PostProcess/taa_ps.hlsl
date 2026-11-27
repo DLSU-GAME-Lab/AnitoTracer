@@ -5,7 +5,8 @@
 // ghost, and the two are blended.
 // Writes the anti-aliased image for the next stage (target 0) and the new history (target 1). Colors are the HDR scene color (linear).
 
-#include "hdr_common.hlsli"
+#include "../Common/hdr_common.hlsli"
+#include "../Common/screen_common.hlsli"
 
 Texture2D g_CurrentColor;   // This frame, same size as the view
 Texture2D g_HistoryColor;   // Accumulated result of last frame, same size as the view
@@ -26,12 +27,6 @@ cbuffer TemporalAAConstants
     float g_HasDepth;
     float g_HasVelocity;
     float3 g_TAAPadding;
-};
-
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
 };
 
 struct TAAOutput
@@ -62,12 +57,6 @@ float LoadDepth(int2 pixel)
     if (g_HasDepth == 0.0)
         return 1.0;
     return g_SceneDepth.Load(int3(clamp(pixel, int2(0, 0), int2(g_ViewportSize.xy) - 1), 0)).r;
-}
-
-float2 ClipToUV(float4 clip)
-{
-    float2 ndc = clip.xy / clip.w;
-    return float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
 }
 
 float3 SampleHistory(float2 uv)
@@ -174,12 +163,10 @@ TAAOutput main_ps(in FullScreenPSInput In)
         // without jitter. Using the difference rather than the previous position directly removes the jitter, so a still
         // camera reads the history in place. Only right for things that stand still (and the sky, which has no motion vector).
         float2 depthUV = (float2(pixel + closestOffset) + 0.5) * g_ViewportSize.zw;
-        float4 clipPos = float4(depthUV.x * 2.0 - 1.0, 1.0 - 2.0 * depthUV.y, closestDepth, 1.0);
-        float4 worldPos = mul(clipPos, g_InvViewProj);
-        worldPos /= worldPos.w;
+        float3 worldPos = ClipToWorld(UVToClip(depthUV, closestDepth), g_InvViewProj);
 
-        float4 currClip = mul(float4(worldPos.xyz, 1.0), g_ViewProj);
-        float4 prevClip = mul(float4(worldPos.xyz, 1.0), g_PrevViewProj);
+        float4 currClip = mul(float4(worldPos, 1.0), g_ViewProj);
+        float4 prevClip = mul(float4(worldPos, 1.0), g_PrevViewProj);
         historyUV = uv + (ClipToUV(prevClip) - ClipToUV(currClip));
         reprojected = prevClip.w > 0.0 && currClip.w > 0.0;
     }

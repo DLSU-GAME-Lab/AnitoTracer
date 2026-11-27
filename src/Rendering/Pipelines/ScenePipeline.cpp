@@ -3,6 +3,13 @@
 
 namespace Diligent {
 
+    void ScenePipeline::InitializePipeline(IRenderDevice* pDevice, ISwapChain* pSwapChain)
+    {
+        SetDevice(pDevice, pSwapChain);
+        CreateCommonConstantBuffers();
+        CreatePasses();
+    }
+
     void ScenePipeline::Render(IDeviceContext* pContext, const RenderData& renderData, const FrameTarget& target,
         const ProjectSettings& settings, const FogConstants& fog)
     {
@@ -26,7 +33,7 @@ namespace Diligent {
 
     void ScenePipeline::UpdateShadowSettings(IDeviceContext* pContext, const ProjectSettings& settings, uint32_t noiseFrame)
     {
-        PipelineUtils::WriteCB(pContext, m_pShadowCB, BuildShadowSettings(settings.lighting, settings.sky, settings.reflections, noiseFrame));
+        PipelineUtils::WriteCB(pContext, m_pShadowCB, BuildShadowSettings(settings.lighting, settings.sky, settings.reflections, settings.transparency, noiseFrame));
 
     }
 

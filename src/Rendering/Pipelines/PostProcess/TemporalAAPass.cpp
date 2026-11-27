@@ -64,21 +64,11 @@ namespace Diligent {
         m_Height = height;
         m_HistoryValid = false;
 
-        TextureDesc TexDesc;
-        TexDesc.Type = RESOURCE_DIM_TEX_2D;
-        TexDesc.Width = width;
-        TexDesc.Height = height;
-        TexDesc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
-
-        TexDesc.Name = "Temporal AA Input";
-        TexDesc.Format = m_Format;
-        m_pDevice->CreateTexture(TexDesc, nullptr, &m_pInput);
+        m_pInput = PipelineUtils::CreateRenderTarget(m_pDevice, "Temporal AA Input", m_Format, width, height);
 
         const char* historyNames[] = { "Temporal AA History 0", "Temporal AA History 1" };
-        TexDesc.Format = kHistoryFormat;
         for (Uint32 i = 0; i < 2; ++i) {
-            TexDesc.Name = historyNames[i];
-            m_pDevice->CreateTexture(TexDesc, nullptr, &m_pHistory[i]);
+            m_pHistory[i] = PipelineUtils::CreateRenderTarget(m_pDevice, historyNames[i], kHistoryFormat, width, height);
         }
     }
 
@@ -137,9 +127,7 @@ namespace Diligent {
         pContext->SetRenderTargets(2, pRTVs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         PipelineUtils::SetViewport(pContext, m_Width, m_Height, m_Width, m_Height);
 
-        pContext->SetPipelineState(m_pPSO);
-        pContext->CommitShaderResources(m_pSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        PipelineUtils::DrawFullscreenTriangle(pContext);
+        PipelineUtils::DrawFullscreenPass(pContext, m_pPSO, m_pSRB);
 
         m_HistoryIndex = writeIndex;
         m_HistoryValid = true;

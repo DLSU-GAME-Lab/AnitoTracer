@@ -7,7 +7,9 @@
 // The grading steps only run for views with effects, and the tone curve only for views that are tone mapped
 // (see Diligent::PostProcessView); what is left then is a clamp to the display range.
 
-#include "hdr_common.hlsli"
+#include "../Common/hdr_common.hlsli"
+#include "../Common/sampling_common.hlsli"
+#include "../Common/screen_common.hlsli"
 #include "../external/DiligentFX/tonemap.hlsli"
 
 Texture2D g_SceneColor;
@@ -37,12 +39,6 @@ cbuffer ColorCorrectionConstants
     float g_Padding;
 };
 
-struct FullScreenPSInput
-{
-    float4 Pos : SV_POSITION;
-    float2 UV : TEXCOORD0;
-};
-
 static const float MID_GREY = 0.18;
 
 // Rotates the color around the grey axis (Rodrigues rotation about (1,1,1)/sqrt(3))
@@ -65,12 +61,6 @@ float3 ToneMap(float3 color)
         return ToneMapPBRNeutral(color, g_NeutralCompressionStart, g_NeutralDesaturation);
     }
     return color; // Off: clipped at white at the end
-}
-
-// Per-pixel value in 0..1 (interleaved gradient noise)
-float DitherNoise(float2 pixel)
-{
-    return frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
 }
 
 float4 main_ps(in FullScreenPSInput In) : SV_TARGET
@@ -109,7 +99,7 @@ float4 main_ps(in FullScreenPSInput In) : SV_TARGET
     // gradients (sky, fog) for grain too fine to see. Applied in the encoded space, where the steps are even.
     if (g_DitherStrength > 0.0)
     {
-        float noise = (DitherNoise(In.Pos.xy) - 0.5) * g_DitherStrength / 255.0;
+        float noise = (InterleavedGradientNoise(In.Pos.xy) - 0.5) * g_DitherStrength / 255.0;
         color = SRGBToLinear(saturate(LinearToSRGB(color) + noise));
     }
 

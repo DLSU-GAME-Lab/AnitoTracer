@@ -1,4 +1,5 @@
 #include "ModelManager.hpp"
+#include "AnimeMeshData.hpp"
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
@@ -34,6 +35,18 @@ void ModelManager::LoadDefaultWhite() {
     m_pDefaultTextureView = pDefaultTex->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
 }
 
+namespace {
+    // Only color data (base color, emissive) is gamma decoded. Normal, metallic-roughness and AO maps are linear:
+    // reading them as sRGB would distort them, most visibly the "flat" middle of a normal map.
+    TextureLoadInfo MakeTextureLoadInfo(bool isSRGB) {
+        TextureLoadInfo loadInfo{};
+        loadInfo.IsSRGB = isSRGB;
+        loadInfo.GenerateMips = true;
+        loadInfo.Format = isSRGB ? Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB : Diligent::TEX_FORMAT_RGBA8_UNORM;
+        return loadInfo;
+    }
+}
+
 ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB) {
     // Check cache first (cache key includes sRGB-ness to avoid returning a
     // texture loaded with the wrong gamma interpretation)
@@ -43,30 +56,242 @@ ITextureView* ModelManager::LoadTexture(const std::string& filepath, bool isSRGB
         return it->second;
     }
 
-    // Load texture using Diligent's utility
-    RefCntAutoPtr<ITexture> pTexture;
-    TextureLoadInfo loadInfo{};
-    loadInfo.IsSRGB = isSRGB; // Only true for color data (BaseColor/Emissive).
-    // Normal/Metallic-Roughness/AO maps store linear data and must NOT be gamma decoded.
-    loadInfo.GenerateMips = true;
-    loadInfo.Format = isSRGB ? Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB : Diligent::TEX_FORMAT_RGBA8_UNORM;
-
     std::filesystem::path modelFilePath(filepath);
     std::string fullPath = modelFilePath.string();
 
-    CreateTextureFromFile(fullPath.c_str(), loadInfo, m_pDevice, &pTexture);
+    RefCntAutoPtr<ITextureLoader> pLoader;
+    CreateTextureLoaderFromFile(fullPath.c_str(), IMAGE_FILE_FORMAT_UNKNOWN, MakeTextureLoadInfo(isSRGB), &pLoader);
+    return FinishTexture(pLoader, std::move(cacheKey), fullPath);
+}
+
+ITextureView* ModelManager::LoadEmbeddedTexture(const aiTexture* pEmbedded, const std::string& name, bool isSRGB) {
+    std::string cacheKey = name + (isSRGB ? "|srgb" : "|linear");
+    auto it = m_TextureCache.find(cacheKey);
+    if (it != m_TextureCache.end()) {
+        return it->second;
+    }
+
+    if (!pEmbedded || !pEmbedded->pcData) {
+        return nullptr;
+    }
+
+    // glTF and GLB keep their images as PNG or JPEG data: mHeight is 0 and mWidth is the size in bytes
+    if (pEmbedded->mHeight != 0) {
+        std::cerr << "Embedded texture is not a compressed image, skipped: " << name << std::endl;
+        return nullptr;
+    }
+
+    RefCntAutoPtr<ITextureLoader> pLoader;
+    CreateTextureLoaderFromMemory(static_cast<const void*>(pEmbedded->pcData), pEmbedded->mWidth, /*MakeCopy*/ true,
+        MakeTextureLoadInfo(isSRGB), &pLoader);
+    return FinishTexture(pLoader, std::move(cacheKey), name);
+}
+
+ITextureView* ModelManager::FinishTexture(ITextureLoader* pLoader, std::string cacheKey, const std::string& label) {
+    RefCntAutoPtr<ITexture> pTexture;
+    if (pLoader) {
+        pLoader->CreateTexture(m_pDevice, &pTexture);
+    }
 
     if (!pTexture) {
-        std::cerr << "Failed to load texture: " << fullPath << std::endl;
+        std::cerr << "Failed to load texture: " << label << std::endl;
         return nullptr;
     }
 
     RefCntAutoPtr<ITextureView> pSRV(pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
 
+    // Does the picture have gaps? A few stray see-through texels (an antialiased edge) don't count; a fence's or
+    // a leaf card's surroundings do. Only the top mip is looked at. Only plain 8-bit RGBA can be read this way: the
+    // loader forced RGBA8 on PNG, JPEG and the like, but a DDS keeps its own format (compressed, one channel, ...),
+    // and reading that as RGBA8 runs off the end of its data. The CrossHatch noise textures are such DDS files.
+    {
+        const TextureDesc& desc = pLoader->GetTextureDesc();
+        const TextureSubResData& top = pLoader->GetSubresourceData(0, 0);
+        const bool isRGBA8 = desc.Format == TEX_FORMAT_RGBA8_UNORM || desc.Format == TEX_FORMAT_RGBA8_UNORM_SRGB;
+        if (top.pData && isRGBA8 && desc.Type == RESOURCE_DIM_TEX_2D && top.Stride >= static_cast<Uint64>(desc.Width) * 4) {
+            const Uint8* rows = static_cast<const Uint8*>(top.pData);
+            Uint64 clear = 0;
+            for (Uint32 y = 0; y < desc.Height; ++y) {
+                const Uint8* row = rows + static_cast<Uint64>(y) * top.Stride;
+                for (Uint32 x = 0; x < desc.Width; ++x) {
+                    if (row[x * 4 + 3] < 128) ++clear;
+                }
+            }
+            if (clear * 500 > static_cast<Uint64>(desc.Width) * desc.Height) m_CutoutTextures.insert(pSRV.RawPtr());
+        }
+    }
+
     // Optimized cache insertion using emplace and moving the key string
     m_TextureCache.emplace(std::move(cacheKey), pSRV);
 
     return pSRV;
+}
+
+namespace {
+    bool IsGltfPath(const std::string& path) {
+        std::string extension = std::filesystem::path(path).extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return extension == ".gltf" || extension == ".glb";
+    }
+
+    // A height map is gray. A normal map never is: even where it is flat it is light blue. (Under 1% of colored texels
+    // still counts as gray, for the color noise a JPEG adds.) Only 8-bit RGBA can be judged, which is what PNG, JPEG and
+    // the like are loaded as.
+    bool IsHeightMap(ITextureLoader* pLoader) {
+        const TextureDesc& desc = pLoader->GetTextureDesc();
+        const TextureSubResData& top = pLoader->GetSubresourceData(0, 0);
+        if (!top.pData || desc.Format != Diligent::TEX_FORMAT_RGBA8_UNORM || desc.Type != RESOURCE_DIM_TEX_2D
+            || top.Stride < static_cast<Uint64>(desc.Width) * 4) {
+            return false;
+        }
+
+        const Uint8* rows = static_cast<const Uint8*>(top.pData);
+        Uint64 colored = 0;
+        for (Uint32 y = 0; y < desc.Height; ++y) {
+            const Uint8* row = rows + static_cast<Uint64>(y) * top.Stride;
+            for (Uint32 x = 0; x < desc.Width; ++x) {
+                const Uint8* texel = row + x * 4;
+                if (std::max({ texel[0], texel[1], texel[2] }) - std::min({ texel[0], texel[1], texel[2] }) > 8) ++colored;
+            }
+        }
+        return colored * 100 < static_cast<Uint64>(desc.Width) * desc.Height;
+    }
+
+    float3 DecodeNormal(const Uint8* texel) {
+        return float3(texel[0], texel[1], texel[2]) * (2.0f / 255.0f) - float3(1.0f, 1.0f, 1.0f);
+    }
+
+    void EncodeNormal(const float3& normal, Uint8* texel) {
+        texel[0] = static_cast<Uint8>((normal.x * 0.5f + 0.5f) * 255.0f + 0.5f);
+        texel[1] = static_cast<Uint8>((normal.y * 0.5f + 0.5f) * 255.0f + 0.5f);
+        texel[2] = static_cast<Uint8>((normal.z * 0.5f + 0.5f) * 255.0f + 0.5f);
+        texel[3] = 255;
+    }
+}
+
+ITextureView* ModelManager::LoadBumpTexture(const aiScene* pScene, const std::string& modelPath, aiMaterial* material,
+    const std::string& modelDir, bool& outHasProperty) {
+    aiString texPath;
+    if (material->GetTextureCount(aiTextureType_HEIGHT) == 0 ||
+        material->GetTexture(aiTextureType_HEIGHT, 0, &texPath) != AI_SUCCESS || texPath.length == 0) {
+        return nullptr;
+    }
+    // An image stored inside the model file is taken as the normal map it is meant to be
+    if (pScene->GetEmbeddedTexture(texPath.C_Str())) {
+        return LoadMaterialTexture(pScene, modelPath, material, aiTextureType_HEIGHT, modelDir, outHasProperty, false);
+    }
+    outHasProperty = true;
+
+    float bumpScale = 1.0f; // OBJ's "-bm"
+    material->Get(AI_MATKEY_BUMPSCALING, bumpScale);
+
+    const std::string path = modelDir + texPath.C_Str();
+    const std::string heightKey = path + "|height|" + std::to_string(bumpScale);
+    if (const auto it = m_TextureCache.find(heightKey); it != m_TextureCache.end()) {
+        return it->second;
+    }
+
+    RefCntAutoPtr<ITextureLoader> pLoader;
+    CreateTextureLoaderFromFile(path.c_str(), IMAGE_FILE_FORMAT_UNKNOWN, MakeTextureLoadInfo(false), &pLoader);
+    if (pLoader && IsHeightMap(pLoader)) {
+        return CreateNormalMapFromHeight(pLoader, bumpScale, heightKey, path);
+    }
+
+    // A normal map after all: the same texture LoadTexture(path, false) gives
+    const std::string linearKey = path + "|linear";
+    if (const auto it = m_TextureCache.find(linearKey); it != m_TextureCache.end()) {
+        return it->second;
+    }
+    return FinishTexture(pLoader, linearKey, path);
+}
+
+ITextureView* ModelManager::CreateNormalMapFromHeight(ITextureLoader* pHeight, float bumpScale, std::string cacheKey, const std::string& label) {
+    const TextureDesc& source = pHeight->GetTextureDesc();
+    const TextureSubResData& top = pHeight->GetSubresourceData(0, 0);
+    const int width = static_cast<int>(source.Width);
+    const int height = static_cast<int>(source.Height);
+    const Uint8* rows = static_cast<const Uint8*>(top.pData);
+
+    // Heights from 0 (black) to 1 (white), repeating past the edges as the texture does
+    auto sample = [&](int x, int y) {
+        x = (x + width) % width;
+        y = (y + height) % height;
+        return rows[static_cast<Uint64>(y) * top.Stride + static_cast<Uint64>(x) * 4] / 255.0f;
+    };
+
+    // The file doesn't say how deep its relief is. Black to white is taken as 1/256 of the texture's longer side,
+    // times the material's bump multiplier, which gives slopes in the range hand-made normal maps have.
+    const float strength = std::max(width, height) / 256.0f * bumpScale;
+
+    std::vector<std::vector<Uint8>> levels(1, std::vector<Uint8>(static_cast<size_t>(width) * height * 4));
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            // Sobel: how much the surface rises per texel to the right and down the image
+            const float right = ((sample(x + 1, y - 1) + 2.0f * sample(x + 1, y) + sample(x + 1, y + 1))
+                - (sample(x - 1, y - 1) + 2.0f * sample(x - 1, y) + sample(x - 1, y + 1))) / 8.0f;
+            const float down = ((sample(x - 1, y + 1) + 2.0f * sample(x, y + 1) + sample(x + 1, y + 1))
+                - (sample(x - 1, y - 1) + 2.0f * sample(x, y - 1) + sample(x + 1, y - 1))) / 8.0f;
+            // A normal leans away from where the surface rises. Green points up the image, hence the sign of `down`.
+            const float3 normal = normalize(float3(-right * strength, down * strength, 1.0f));
+            EncodeNormal(normal, &levels[0][(static_cast<size_t>(y) * width + x) * 4]);
+        }
+    }
+
+    // Mips: the average direction of each 2x2 block
+    for (int w = width, h = height; w > 1 || h > 1;) {
+        const int nextW = std::max(w / 2, 1);
+        const int nextH = std::max(h / 2, 1);
+        std::vector<Uint8> next(static_cast<size_t>(nextW) * nextH * 4);
+        const std::vector<Uint8>& previous = levels.back();
+        for (int y = 0; y < nextH; ++y) {
+            for (int x = 0; x < nextW; ++x) {
+                float3 sum(0.0f, 0.0f, 0.0f);
+                for (int j = 0; j < 2; ++j) {
+                    for (int i = 0; i < 2; ++i) {
+                        const int px = std::min(2 * x + i, w - 1);
+                        const int py = std::min(2 * y + j, h - 1);
+                        sum += DecodeNormal(&previous[(static_cast<size_t>(py) * w + px) * 4]);
+                    }
+                }
+                EncodeNormal(normalize(sum), &next[(static_cast<size_t>(y) * nextW + x) * 4]);
+            }
+        }
+        levels.push_back(std::move(next));
+        w = nextW;
+        h = nextH;
+    }
+
+    std::vector<TextureSubResData> subresources;
+    for (size_t level = 0; level < levels.size(); ++level) {
+        subresources.push_back({ levels[level].data(), static_cast<Uint64>(std::max(width >> level, 1)) * 4 });
+    }
+
+    TextureDesc desc{};
+    desc.Name = "Normal map from a height map";
+    desc.Type = RESOURCE_DIM_TEX_2D;
+    desc.Width = source.Width;
+    desc.Height = source.Height;
+    desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM;
+    desc.MipLevels = static_cast<Uint32>(levels.size());
+    desc.Usage = USAGE_IMMUTABLE;
+    desc.BindFlags = BIND_SHADER_RESOURCE;
+    TextureData data(subresources.data(), static_cast<Uint32>(subresources.size()));
+
+    RefCntAutoPtr<ITexture> pTexture;
+    m_pDevice->CreateTexture(desc, &data, &pTexture);
+    if (!pTexture) {
+        std::cerr << "Failed to make a normal map from: " << label << std::endl;
+        return nullptr;
+    }
+    std::cout << "[Info] Height map turned into a normal map: " << label << std::endl;
+
+    RefCntAutoPtr<ITextureView> pSRV(pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+    m_TextureCache.emplace(std::move(cacheKey), pSRV);
+    return pSRV;
+}
+
+bool ModelManager::HasCutoutAlpha(ITextureView* pTexture) const {
+    return pTexture && m_CutoutTextures.count(pTexture) != 0;
 }
 
 ITextureView* ModelManager::LoadCubemap(const std::string& filepath, bool isSRGB)
@@ -121,11 +346,18 @@ ITextureView* ModelManager::LoadCubemap(const std::string& filepath, bool isSRGB
     return pSRV;
 }
 
-ITextureView* ModelManager::LoadMaterialTexture(aiMaterial* material, aiTextureType type, const std::string& modelDir, bool& outHasProperty, bool isSRGB) {
+ITextureView* ModelManager::LoadMaterialTexture(const aiScene* pScene, const std::string& modelPath, aiMaterial* material, aiTextureType type,
+    const std::string& modelDir, bool& outHasProperty, bool isSRGB) {
     aiString texPath;
     if (material->GetTextureCount(type) > 0) {
         if (material->GetTexture(type, 0, &texPath) == AI_SUCCESS && texPath.length > 0) {
             outHasProperty = true;
+
+            // An image inside the model file (GLB, or a glTF with the image as a data URI) is named "*0", "*1", ...
+            if (const aiTexture* pEmbedded = pScene->GetEmbeddedTexture(texPath.C_Str())) {
+                return LoadEmbeddedTexture(pEmbedded, modelPath + "|" + texPath.C_Str(), isSRGB);
+            }
+
             std::string finalTexPath = modelDir + texPath.C_Str();
             return LoadTexture(finalTexPath, isSRGB);
         }
@@ -150,10 +382,16 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
 
     Assimp::Importer importer;
     // Optimize for Vulkan/Modern APIs: Triangulate, Gen Normals, Flip UVs (Diligent uses Top-Left UVs)
-    const aiScene* pScene = importer.ReadFile(fullPath,
-        aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace |
-        aiProcess_MakeLeftHanded | aiProcess_FlipUVs | aiProcess_FlipWindingOrder |
-        aiProcess_JoinIdenticalVertices);
+    unsigned int importFlags = aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace |
+        aiProcess_MakeLeftHanded | aiProcess_FlipWindingOrder | aiProcess_JoinIdenticalVertices;
+    // (assimp turns glTF's UVs to start at the bottom left like the other formats' before this flips them)
+    importFlags |= aiProcess_FlipUVs;
+    if (IsGltfPath(fullPath)) {
+        // glTF puts each mesh's place in the scene on its nodes (many models are stored turned or scaled), and a model here
+        // is one flat list of meshes, so the nodes' transforms are baked into the vertices
+        importFlags |= aiProcess_PreTransformVertices;
+    }
+    const aiScene* pScene = importer.ReadFile(fullPath, importFlags);
 
     if (!pScene || pScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !pScene->mRootNode) {
         std::cerr << "Assimp error: " << importer.GetErrorString() << std::endl;
@@ -170,7 +408,7 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     }
 
     // --- Pipeline Stages ---
-    ProcessMaterials(pScene, pModel.get(), modelDir);
+    ProcessMaterials(pScene, pModel.get(), modelDir, fullPath);
     ProcessMeshes(pScene, pModel.get(), vertices, indices);
     CreateHardwareBuffers(pModel.get(), vertices, indices);
 
@@ -195,13 +433,16 @@ Model* ModelManager::LoadModel(const std::string& filepath) {
     return rawPtr;
 }
 
-void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const std::string& modelDir) {
+void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const std::string& modelDir, const std::string& modelPath) {
+    const bool isGltf = IsGltfPath(modelPath);
     pModel->Materials.resize(pScene->mNumMaterials);
     pModel->MaterialColors.resize(pScene->mNumMaterials, float4(1.0f, 1.0f, 1.0f, 1.0f));
     pModel->PBRMaterials.resize(pScene->mNumMaterials);
 
     bool modelHasAnyPBR = false;
     bool modelHasTransparency = false;
+    bool modelHasAlphaGeometry = false;
+    bool modelHasTransmission = false;
 
     for (unsigned int i = 0; i < pScene->mNumMaterials; i++) {
         aiMaterial* material = pScene->mMaterials[i];
@@ -212,16 +453,15 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
         if (material->Get(AI_MATKEY_BASE_COLOR, color) == AI_SUCCESS ||
             material->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS) {
             pbrMat.BaseColorFactor = float4(color.r, color.g, color.b, color.a);
-            if (color.a < 1.0f) pbrMat.IsTransparent = true;
         }
 
+        // OBJ and FBX give the opacity as a number of its own (d, Tr)
         float opacity = 1.0f;
-        if (material->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS) {
-            if (opacity < 1.0f) pbrMat.IsTransparent = true;
-        }
+        const bool hasOpacity = material->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS;
 
-        if (pbrMat.IsTransparent) {
-            modelHasTransparency = true;
+        float refractiveIndex = 1.5f;
+        if (material->Get(AI_MATKEY_REFRACTI, refractiveIndex) == AI_SUCCESS) {
+            pbrMat.IOR = std::clamp(refractiveIndex, 1.0f, 3.0f);
         }
 
         // Metallic / Roughness Factors
@@ -232,25 +472,60 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
         }
 
         float roughness = 1.0f;
-        if (material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS) {
+        const bool hasRoughness = material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS;
+        if (hasRoughness) {
             pbrMat.RoughnessFactor = roughness;
             currentMatHasPBR = true;
         }
 
         // Texture extraction with standardized fallbacks
-        pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_BASE_COLOR, modelDir, currentMatHasPBR, true);
-        if (!pbrMat.BaseColor) pbrMat.BaseColor = LoadMaterialTexture(material, aiTextureType_DIFFUSE, modelDir, currentMatHasPBR, true);
+        pbrMat.BaseColor = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_BASE_COLOR, modelDir, currentMatHasPBR, true);
+        if (!pbrMat.BaseColor) pbrMat.BaseColor = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_DIFFUSE, modelDir, currentMatHasPBR, true);
 
-        pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_METALNESS, modelDir, currentMatHasPBR, false);
-        if (!pbrMat.MetallicRoughness) pbrMat.MetallicRoughness = LoadMaterialTexture(material, aiTextureType_DIFFUSE_ROUGHNESS, modelDir, currentMatHasPBR, false);
+        // Alpha mode. glTF names it. OBJ and FBX don't, so it is worked out from the opacity and the base color map:
+        // a see-through factor means glass, a map with gaps means a cutout, and anything else is opaque.
+        aiString alphaModeName;
+        if (material->Get(AI_MATKEY_GLTF_ALPHAMODE, alphaModeName) == AI_SUCCESS) {
+            const std::string mode = alphaModeName.C_Str();
+            if (mode == "MASK") {
+                pbrMat.AlphaMode = MaterialAlphaMode::Mask;
+                float cutoff = 0.5f;
+                material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, cutoff);
+                pbrMat.AlphaCutoff = std::clamp(cutoff, 0.01f, 1.0f);
+            }
+            else if (mode == "BLEND") {
+                pbrMat.AlphaMode = MaterialAlphaMode::Blend;
+            }
+        }
+        else if (!isGltf && (pbrMat.BaseColorFactor.a < 1.0f || (hasOpacity && opacity < 1.0f))) {
+            pbrMat.AlphaMode = MaterialAlphaMode::Blend;
+            // The opacity is a number of its own, apart from the color's alpha (which these formats leave at 1)
+            if (hasOpacity) pbrMat.BaseColorFactor.a *= opacity;
+        }
+        else if (!isGltf && HasCutoutAlpha(pbrMat.BaseColor)) {
+            pbrMat.AlphaMode = MaterialAlphaMode::Mask;
+            pbrMat.AlphaCutoff = 0.5f;
+        }
+        pbrMat.IsTransparent = pbrMat.AlphaMode == MaterialAlphaMode::Blend;
+        if (pbrMat.AlphaMode != MaterialAlphaMode::Opaque) modelHasAlphaGeometry = true;
+        if (pbrMat.IsTransparent) {
+            modelHasTransparency = true;
+            // Glass is smooth; formats without a roughness would otherwise leave it at the rough default
+            if (!hasRoughness) pbrMat.RoughnessFactor = 0.05f;
+        }
 
-        pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_NORMALS, modelDir, currentMatHasPBR, false);
-        if (!pbrMat.Normal) pbrMat.Normal = LoadMaterialTexture(material, aiTextureType_HEIGHT, modelDir, currentMatHasPBR, false);
+        // glTF packs roughness (green) and metallic (blue) into one image, which has a slot of its own
+        pbrMat.MetallicRoughness = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_GLTF_METALLIC_ROUGHNESS, modelDir, currentMatHasPBR, false);
+        if (!pbrMat.MetallicRoughness) pbrMat.MetallicRoughness = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_METALNESS, modelDir, currentMatHasPBR, false);
+        if (!pbrMat.MetallicRoughness) pbrMat.MetallicRoughness = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_DIFFUSE_ROUGHNESS, modelDir, currentMatHasPBR, false);
 
-        pbrMat.AO = LoadMaterialTexture(material, aiTextureType_AMBIENT_OCCLUSION, modelDir, currentMatHasPBR, false);
-        if (!pbrMat.AO) pbrMat.AO = LoadMaterialTexture(material, aiTextureType_LIGHTMAP, modelDir, currentMatHasPBR, false);
+        pbrMat.Normal = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_NORMALS, modelDir, currentMatHasPBR, false);
+        if (!pbrMat.Normal) pbrMat.Normal = LoadBumpTexture(pScene, modelPath, material, modelDir, currentMatHasPBR);
 
-        pbrMat.Emissive = LoadMaterialTexture(material, aiTextureType_EMISSIVE, modelDir, currentMatHasPBR, true);
+        pbrMat.AO = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_AMBIENT_OCCLUSION, modelDir, currentMatHasPBR, false);
+        if (!pbrMat.AO) pbrMat.AO = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_LIGHTMAP, modelDir, currentMatHasPBR, false);
+
+        pbrMat.Emissive = LoadMaterialTexture(pScene, modelPath, material, aiTextureType_EMISSIVE, modelDir, currentMatHasPBR, true);
 
         // Emissive color (glTF emissiveFactor, OBJ Ke) and strength (KHR_materials_emissive_strength)
         aiColor3D emissiveColor(0.0f, 0.0f, 0.0f);
@@ -266,6 +541,32 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
         if (material->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissiveStrength) == AI_SUCCESS) {
             pbrMat.EmissiveStrength = emissiveStrength;
         }
+
+        // Layers over the base material: a clear coat (KHR_materials_clearcoat), cloth fibres (_sheen) and light passing
+        // through (_transmission). The factors only; their maps are not read.
+        float clearcoat = 0.0f;
+        if (material->Get(AI_MATKEY_CLEARCOAT_FACTOR, clearcoat) == AI_SUCCESS) {
+            pbrMat.Clearcoat = std::clamp(clearcoat, 0.0f, 1.0f);
+        }
+        float clearcoatRoughness = 0.0f;
+        if (material->Get(AI_MATKEY_CLEARCOAT_ROUGHNESS_FACTOR, clearcoatRoughness) == AI_SUCCESS) {
+            pbrMat.ClearcoatRoughness = std::clamp(clearcoatRoughness, 0.0f, 1.0f);
+        }
+
+        aiColor4D sheenColor(0.0f, 0.0f, 0.0f, 1.0f);
+        if (material->Get(AI_MATKEY_SHEEN_COLOR_FACTOR, sheenColor) == AI_SUCCESS) {
+            pbrMat.SheenColor = float3(std::max(sheenColor.r, 0.0f), std::max(sheenColor.g, 0.0f), std::max(sheenColor.b, 0.0f));
+        }
+        float sheenRoughness = 0.0f;
+        if (material->Get(AI_MATKEY_SHEEN_ROUGHNESS_FACTOR, sheenRoughness) == AI_SUCCESS) {
+            pbrMat.SheenRoughness = std::clamp(sheenRoughness, 0.0f, 1.0f);
+        }
+
+        float transmission = 0.0f;
+        if (material->Get(AI_MATKEY_TRANSMISSION_FACTOR, transmission) == AI_SUCCESS) {
+            pbrMat.Transmission = std::clamp(transmission, 0.0f, 1.0f);
+        }
+        if (pbrMat.Transmission > 0.0f) modelHasTransmission = true;
 
         // The maps a reflection shows: ray hits look these up in the scene texture array.
         // (Before the default white fallback below, which needs no slot: a hit without a map uses the color factor alone.)
@@ -285,6 +586,8 @@ void ModelManager::ProcessMaterials(const aiScene* pScene, Model* pModel, const 
 
     pModel->HasPBRProperties = modelHasAnyPBR;
     pModel->HasTransparency = modelHasTransparency;
+    pModel->HasAlphaGeometry = modelHasAlphaGeometry;
+    pModel->HasTransmission = modelHasTransmission;
 }
 
 void ModelManager::ProcessMeshes(const aiScene* pScene, Model* pModel, std::vector<Vertex>& outVertices, std::vector<Uint32>& outIndices) {
@@ -295,10 +598,22 @@ void ModelManager::ProcessMeshes(const aiScene* pScene, Model* pModel, std::vect
         submesh.IndexOffset = static_cast<Uint32>(outIndices.size());
         submesh.MaterialIndex = mesh->mMaterialIndex;
 
+        // Its name: the one the file gives the mesh, else its material's
+        submesh.Name = mesh->mName.C_Str();
+        if (submesh.Name.empty() && mesh->mMaterialIndex < pScene->mNumMaterials) {
+            aiString materialName;
+            if (pScene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_NAME, materialName) == AI_SUCCESS) {
+                submesh.Name = materialName.C_Str();
+            }
+        }
+
         // Process Vertices
         for (unsigned int j = 0; j < mesh->mNumVertices; j++) {
             Vertex v{};
             v.pos = float3(mesh->mVertices[j].x, mesh->mVertices[j].y, mesh->mVertices[j].z);
+
+            submesh.AABBMin = float3(std::min(submesh.AABBMin.x, v.pos.x), std::min(submesh.AABBMin.y, v.pos.y), std::min(submesh.AABBMin.z, v.pos.z));
+            submesh.AABBMax = float3(std::max(submesh.AABBMax.x, v.pos.x), std::max(submesh.AABBMax.y, v.pos.y), std::max(submesh.AABBMax.z, v.pos.z));
 
             // Dynamically calculate AABB limits
             pModel->AABBMin.x = std::min(pModel->AABBMin.x, v.pos.x);
@@ -374,6 +689,22 @@ void ModelManager::CreateHardwareBuffers(Model* pModel, const std::vector<Vertex
     IBData.pData = indices.data();
     IBData.DataSize = IndBuffDesc.Size;
     m_pDevice->CreateBuffer(IndBuffDesc, &IBData, &pModel->pIndexBuffer);
+
+    // Smooth normals and curvature for the Anime renderer's second vertex stream
+    if (!vertices.empty()) {
+        const std::vector<AnimeVertexData> animeData = BuildAnimeVertexData(vertices, indices);
+
+        BufferDesc AnimeBuffDesc{};
+        AnimeBuffDesc.Name = "Model Anime Vertex Buffer";
+        AnimeBuffDesc.Usage = USAGE_IMMUTABLE;
+        AnimeBuffDesc.BindFlags = BIND_VERTEX_BUFFER;
+        AnimeBuffDesc.Size = animeData.size() * sizeof(AnimeVertexData);
+
+        BufferData AnimeBuffData{};
+        AnimeBuffData.pData = animeData.data();
+        AnimeBuffData.DataSize = AnimeBuffDesc.Size;
+        m_pDevice->CreateBuffer(AnimeBuffDesc, &AnimeBuffData, &pModel->pAnimeVertexBuffer);
+    }
 
     // A copy for ray hits, which can land on any model and so can't use per-model buffers
     m_ScenePool.AddModel(*pModel, vertices, indices);
@@ -466,6 +797,15 @@ void ModelManager::BuildBLAS(Model* pModel) {
         // Indices already count from the model's first vertex, so only the start in the index buffer differs
         Tri.IndexOffset = static_cast<Uint64>(submesh.IndexOffset) * sizeof(Uint32);
         Tri.PrimitiveCount = submesh.IndexCount / 3;
+
+        // Flagged opaque, a hit is final without the shader being asked. Cutouts and glass are left for rays to test
+        // (rt_scene.hlsli), which costs more, so only they go without the flag. A material that lets light through is glass
+        // to rays too (while the project has transmission on; with it off the record is plain and the ray hits it as a solid).
+        const bool opaque = submesh.MaterialIndex >= pModel->PBRMaterials.size()
+            || (pModel->PBRMaterials[submesh.MaterialIndex].AlphaMode == MaterialAlphaMode::Opaque
+                && pModel->PBRMaterials[submesh.MaterialIndex].Transmission <= 0.0f);
+        // A triangle can be reported more than once; for glass that would tint a shadow twice
+        Tri.Flags = opaque ? RAYTRACING_GEOMETRY_FLAG_OPAQUE : RAYTRACING_GEOMETRY_FLAG_NO_DUPLICATE_ANY_HIT_INVOCATION;
     }
 
     BuildBLASAttribs BuildAttribs{};

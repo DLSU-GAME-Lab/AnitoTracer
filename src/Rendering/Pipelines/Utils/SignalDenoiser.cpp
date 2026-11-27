@@ -40,21 +40,11 @@ namespace Diligent {
 
         RefCntAutoPtr<ITexture> CreateTarget(IRenderDevice* pDevice, const char* name, Uint32 width, Uint32 height)
         {
-            TextureDesc Desc;
-            Desc.Name = name;
-            Desc.Type = RESOURCE_DIM_TEX_2D;
-            Desc.Width = width;
-            Desc.Height = height;
-            Desc.Format = SignalDenoiser::kSignalFormat;
-            Desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
-
-            RefCntAutoPtr<ITexture> pTexture;
-            pDevice->CreateTexture(Desc, nullptr, &pTexture);
-            return pTexture;
+            return PipelineUtils::CreateRenderTarget(pDevice, name, SignalDenoiser::kSignalFormat, width, height);
         }
 
-        ITextureView* SRV(ITexture* pTexture) { return pTexture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE); }
-        ITextureView* RTV(ITexture* pTexture) { return pTexture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET); }
+        using PipelineUtils::SRV;
+        using PipelineUtils::RTV;
     }
 
     ITextureView* SignalDenoiser::History::GetResultSRV() const
@@ -97,6 +87,30 @@ namespace Diligent {
             .Build(pDevice);
         m_pFilterSRB = PipelineUtils::CreateSRB(m_pFilterPSO);
         PipelineUtils::BindVariable(m_pFilterSRB, SHADER_TYPE_PIXEL, "DenoiseConstants", m_pConstantsCB);
+
+        // 3. For a signal whose blur must keep its light (Settings::PreserveLight): the variance blurred once, and a blur
+        //    pass that exchanges light between pixels instead of averaging them
+        m_pVariancePSO = PSOBuilder("Signal Denoiser Variance PSO")
+            .Shaders("Deferred/fullscreen_vs.hlsl", "DeferredHybrid/denoise_variance_ps.hlsl")
+            .RenderTargets({ kSignalFormat }, TEX_FORMAT_UNKNOWN)
+            .Cull(CULL_MODE_NONE)
+            .Variable(SHADER_TYPE_PIXEL, "g_DnVariance")
+            .Variable(SHADER_TYPE_PIXEL, "DenoiseConstants")
+            .Build(pDevice);
+        m_pVarianceSRB = PipelineUtils::CreateSRB(m_pVariancePSO);
+        PipelineUtils::BindVariable(m_pVarianceSRB, SHADER_TYPE_PIXEL, "DenoiseConstants", m_pConstantsCB);
+
+        m_pFilterConservePSO = PSOBuilder("Signal Denoiser Light-Keeping Filter PSO")
+            .Shaders("Deferred/fullscreen_vs.hlsl", "DeferredHybrid/denoise_filter_conserve_ps.hlsl")
+            .RenderTargets({ kSignalFormat }, TEX_FORMAT_UNKNOWN)
+            .Cull(CULL_MODE_NONE)
+            .Variable(SHADER_TYPE_PIXEL, "g_DnSource")
+            .Variable(SHADER_TYPE_PIXEL, "g_DnGuide")
+            .Variable(SHADER_TYPE_PIXEL, "g_DnVariance")
+            .Variable(SHADER_TYPE_PIXEL, "DenoiseConstants")
+            .Build(pDevice);
+        m_pFilterConserveSRB = PipelineUtils::CreateSRB(m_pFilterConservePSO);
+        PipelineUtils::BindVariable(m_pFilterConserveSRB, SHADER_TYPE_PIXEL, "DenoiseConstants", m_pConstantsCB);
     }
 
     bool SignalDenoiser::PrepareHistory(History& history, Uint32 width, Uint32 height)
@@ -134,9 +148,10 @@ namespace Diligent {
         scratch.Height = height;
         scratch.pTemporal = CreateTarget(m_pDevice, "Denoiser Scratch Temporal", width, height);
         scratch.pVariance = CreateTarget(m_pDevice, "Denoiser Scratch Variance", width, height);
+        scratch.pVarianceBlur = CreateTarget(m_pDevice, "Denoiser Scratch Variance Blurred", width, height);
         scratch.pPing[0] = CreateTarget(m_pDevice, "Denoiser Scratch Blur 0", width, height);
         scratch.pPing[1] = CreateTarget(m_pDevice, "Denoiser Scratch Blur 1", width, height);
-        if (!scratch.pTemporal || !scratch.pVariance || !scratch.pPing[0] || !scratch.pPing[1]) return nullptr;
+        if (!scratch.pTemporal || !scratch.pVariance || !scratch.pVarianceBlur || !scratch.pPing[0] || !scratch.pPing[1]) return nullptr;
 
         m_Scratch.push_back(scratch);
         return &m_Scratch.back();
@@ -201,13 +216,27 @@ namespace Diligent {
 
             ITextureView* pRTVs[] = { RTV(pTemporalTarget), RTV(history.m_pMoments[current]), RTV(pScratch->pVariance) };
             pContext->SetRenderTargets(3, pRTVs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-            pContext->SetPipelineState(m_pTemporalPSO);
-            pContext->CommitShaderResources(m_pTemporalSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-            PipelineUtils::DrawFullscreenTriangle(pContext);
+            PipelineUtils::DrawFullscreenPass(pContext, m_pTemporalPSO, m_pTemporalSRB);
         }
 
         // 2. Filter. The first pass produces next frame's history; the wider ones after it only shape what is shown,
         //    and the last of them writes the texture this signal keeps as its result.
+        //    A signal of light that must keep its light has its variance blurred once first, and its passes exchange light
+        //    between pixels (denoise_filter_conserve_ps.hlsl) where the others average.
+        const bool preserveLight = settings.PreserveLight && settings.SignalKind == SIGNAL_LIGHT && passes > 0
+            && m_pVariancePSO && m_pFilterConservePSO;
+        ITextureView* pVarianceSRV = SRV(pScratch->pVariance);
+        if (preserveLight) {
+            PipelineUtils::BindVariable(m_pVarianceSRB, SHADER_TYPE_PIXEL, "g_DnVariance", SRV(pScratch->pVariance));
+
+            ITextureView* pVarianceRTV = RTV(pScratch->pVarianceBlur);
+            pContext->SetRenderTargets(1, &pVarianceRTV, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            PipelineUtils::DrawFullscreenPass(pContext, m_pVariancePSO, m_pVarianceSRB);
+            pVarianceSRV = SRV(pScratch->pVarianceBlur);
+        }
+        IPipelineState* pFilterPSO = preserveLight ? m_pFilterConservePSO.RawPtr() : m_pFilterPSO.RawPtr();
+        IShaderResourceBinding* pFilterSRB = preserveLight ? m_pFilterConserveSRB.RawPtr() : m_pFilterSRB.RawPtr();
+
         ITexture* pResult = pTemporalTarget;
         for (int pass = 0; pass < passes; ++pass) {
             ITexture* pDestination = pass == 0 ? history.m_pSignal[current].RawPtr()
@@ -219,15 +248,13 @@ namespace Diligent {
             constants.UncertaintyScale = std::pow(0.5f, static_cast<float>(pass));
             PipelineUtils::WriteCB(pContext, m_pConstantsCB, constants);
 
-            PipelineUtils::BindVariable(m_pFilterSRB, SHADER_TYPE_PIXEL, "g_DnSource", SRV(pResult));
-            PipelineUtils::BindVariable(m_pFilterSRB, SHADER_TYPE_PIXEL, "g_DnGuide", frame.pGuide);
-            PipelineUtils::BindVariable(m_pFilterSRB, SHADER_TYPE_PIXEL, "g_DnVariance", SRV(pScratch->pVariance));
+            PipelineUtils::BindVariable(pFilterSRB, SHADER_TYPE_PIXEL, "g_DnSource", SRV(pResult));
+            PipelineUtils::BindVariable(pFilterSRB, SHADER_TYPE_PIXEL, "g_DnGuide", frame.pGuide);
+            PipelineUtils::BindVariable(pFilterSRB, SHADER_TYPE_PIXEL, "g_DnVariance", pVarianceSRV);
 
             ITextureView* pRTV = RTV(pDestination);
             pContext->SetRenderTargets(1, &pRTV, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-            pContext->SetPipelineState(m_pFilterPSO);
-            pContext->CommitShaderResources(m_pFilterSRB, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-            PipelineUtils::DrawFullscreenTriangle(pContext);
+            PipelineUtils::DrawFullscreenPass(pContext, pFilterPSO, pFilterSRB);
 
             pResult = pDestination;
         }
